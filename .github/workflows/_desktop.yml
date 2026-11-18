@@ -35,9 +35,9 @@ on:
         required: true
         type: string
       build-number:
-        description: 'The build number: the run number of the calling workflow'
+        description: 'The build number: the run number of the calling workflow (github.run_number arrives as a string)'
         required: true
-        type: number
+        type: string
 
 env:
   DOTNET_VERSION: '10.0.x'
