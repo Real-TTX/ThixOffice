@@ -50,11 +50,24 @@ public sealed class AppDefinitionTests
     {
         using var data = new TestData();
 
-        // A local build: CI sets Channel, BuildNumber and BuildDate (Directory.Build.props).
-        Assert.Equal("local", AppInfo.Channel);
-        Assert.True(AppInfo.IsLocalBuild);
-        Assert.Equal(0, AppInfo.BuildNumber);
-        Assert.Matches(@"^local-\d{8}$", AppInfo.Version);
+        // Locally a local build; CI sets Channel, BuildNumber and BuildDate (Directory.Build.props). Each channel has its form.
+        switch (AppInfo.Channel)
+        {
+            case "local":
+                Assert.True(AppInfo.IsLocalBuild);
+                Assert.Equal(0, AppInfo.BuildNumber);
+                Assert.Matches(@"^local-\d{8}$", AppInfo.Version);
+                break;
+            case "nightly":
+                Assert.False(AppInfo.IsLocalBuild);
+                Assert.Matches($@"^nightly-{AppInfo.BuildNumber}-\d{{8}}$", AppInfo.Version);
+                break;
+            default:
+                Assert.Equal("release", AppInfo.Channel);
+                Assert.Matches($@"^\d+\.\d+\.{AppInfo.BuildNumber}-\d{{8}}$", AppInfo.Version);
+                break;
+        }
+
         Assert.Equal("Real-TTX/ThixOffice", AppInfo.Repository);
         Assert.Equal("thixoffice", AppInfo.BuiltAppId);
         Assert.Equal("ThixTest", AppInfo.ProductName);

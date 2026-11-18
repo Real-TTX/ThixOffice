@@ -78,10 +78,19 @@ public sealed class UpdateTests
     public async Task A_local_build_never_updates_and_a_policy_stops_the_check()
     {
         using var data = new TestData();
-        Assert.False(UpdateService.CanUpdate);
-        var result = await UpdateService.CheckAsync();
-        Assert.False(result.IsUpdateAvailable);
-        Assert.StartsWith("Lokaler Build", result.Message);
+        Infrastructure.AppInfo.Pin("local-20261118", "local"); // CI builds the tests as nightly or release
+        try
+        {
+            Assert.False(UpdateService.CanUpdate);
+            var result = await UpdateService.CheckAsync();
+            Assert.False(result.IsUpdateAvailable);
+            Assert.StartsWith("Lokaler Build", result.Message);
+        }
+        finally
+        {
+            Infrastructure.AppInfo.Pin(null);
+        }
+
 
         data.Policies.Add(AccessPolicy.DisableUpdates);
         await Assert.ThrowsAsync<BusinessException>(() => UpdateService.CheckAsync());
