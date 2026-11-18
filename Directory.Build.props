@@ -1,0 +1,86 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Deterministic>true</Deterministic>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Company>Matthias Schmoldt</Company>
+    <Authors>Matthias Schmoldt</Authors>
+    <Copyright>© Matthias Schmoldt</Copyright>
+    <SatelliteResourceLanguages>de;en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <!--
+    Which app of the suite a project belongs to: by its name (ThixWrite, ThixWrite.Core, ThixWrite.Tests -> ThixWrite).
+    The shared projects (ThixOffice.Core, ThixOffice.Desktop and their tests) are "ThixOffice"; at run time they read the
+    version of the app that started them (AppInfo.Initialize with the app's assembly), never their own.
+  -->
+  <PropertyGroup>
+    <ThixApp Condition="'$(ThixApp)' == '' and $(MSBuildProjectName.StartsWith('ThixWrite'))">ThixWrite</ThixApp>
+    <ThixApp Condition="'$(ThixApp)' == '' and $(MSBuildProjectName.StartsWith('ThixCalc'))">ThixCalc</ThixApp>
+    <ThixApp Condition="'$(ThixApp)' == '' and $(MSBuildProjectName.StartsWith('ThixShow'))">ThixShow</ThixApp>
+    <ThixApp Condition="'$(ThixApp)' == ''">ThixOffice</ThixApp>
+    <ThixAppId>$(ThixApp.ToLowerInvariant())</ThixAppId>
+    <Product>$(ThixApp)</Product>
+  </PropertyGroup>
+
+  <!--
+    Versioning (single source of truth: Major/Minor PER APP below; CI reads them with sed, keep one element per line).
+    CI sets Channel / BuildNumber / BuildDate; the build number is the run number of the app's own workflow
+    (thixwrite.yml ...), so every app counts on its own:
+      release : <major>.<minor>.<build>-<date>   e.g. 0.1.42-20261118   (branch main)
+      nightly : nightly-<build>-<date>          e.g. nightly-43-20261118 (branch dev)
+      local   : local-<date>                    e.g. local-20261118      (every local build)
+    The update check compares the build number of the own channel.
+  -->
+  <PropertyGroup>
+    <ThixWriteMajor>0</ThixWriteMajor>
+    <ThixWriteMinor>1</ThixWriteMinor>
+    <ThixCalcMajor>0</ThixCalcMajor>
+    <ThixCalcMinor>1</ThixCalcMinor>
+    <ThixShowMajor>0</ThixShowMajor>
+    <ThixShowMinor>1</ThixShowMinor>
+    <ThixOfficeMajor>0</ThixOfficeMajor>
+    <ThixOfficeMinor>1</ThixOfficeMinor>
+
+    <AppMajor Condition="'$(ThixApp)' == 'ThixWrite'">$(ThixWriteMajor)</AppMajor>
+    <AppMinor Condition="'$(ThixApp)' == 'ThixWrite'">$(ThixWriteMinor)</AppMinor>
+    <AppMajor Condition="'$(ThixApp)' == 'ThixCalc'">$(ThixCalcMajor)</AppMajor>
+    <AppMinor Condition="'$(ThixApp)' == 'ThixCalc'">$(ThixCalcMinor)</AppMinor>
+    <AppMajor Condition="'$(ThixApp)' == 'ThixShow'">$(ThixShowMajor)</AppMajor>
+    <AppMinor Condition="'$(ThixApp)' == 'ThixShow'">$(ThixShowMinor)</AppMinor>
+    <AppMajor Condition="'$(AppMajor)' == ''">$(ThixOfficeMajor)</AppMajor>
+    <AppMinor Condition="'$(AppMinor)' == ''">$(ThixOfficeMinor)</AppMinor>
+
+    <BuildNumber Condition="'$(BuildNumber)' == ''">0</BuildNumber>
+    <Channel Condition="'$(Channel)' == ''">local</Channel>
+    <BuildDate Condition="'$(BuildDate)' == ''">$([System.DateTime]::UtcNow.ToString('yyyyMMdd'))</BuildDate>
+
+    <Version>$(AppMajor).$(AppMinor).$(BuildNumber)</Version>
+    <AssemblyVersion>$(AppMajor).$(AppMinor).0.0</AssemblyVersion>
+    <FileVersion>$(AppMajor).$(AppMinor).$(BuildNumber).0</FileVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Channel)' == 'release'">
+    <InformationalVersion>$(AppMajor).$(AppMinor).$(BuildNumber)-$(BuildDate)</InformationalVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Channel)' == 'nightly'">
+    <InformationalVersion>nightly-$(BuildNumber)-$(BuildDate)</InformationalVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Channel)' == 'local'">
+    <InformationalVersion>local-$(BuildDate)</InformationalVersion>
+  </PropertyGroup>
+
+  <!-- The running app reads these from its own assembly (AppInfo.Initialize): update check, about page, setup. -->
+  <ItemGroup>
+    <AssemblyMetadata Include="ThixOfficeAppId" Value="$(ThixAppId)" />
+    <AssemblyMetadata Include="ThixOfficeChannel" Value="$(Channel)" />
+    <AssemblyMetadata Include="ThixOfficeBuildNumber" Value="$(BuildNumber)" />
+    <AssemblyMetadata Include="ThixOfficeRepository" Value="Real-TTX/ThixOffice" />
+  </ItemGroup>
+
+</Project>

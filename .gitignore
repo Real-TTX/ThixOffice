@@ -1,0 +1,32 @@
+# Build output
+**/bin/
+**/obj/
+publish/
+publish-*/
+artifacts/
+TestResults/
+*.log
+
+# IDE / OS
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+Thumbs.db
+.DS_Store
+
+# Node (icon rendering)
+node_modules/
+
+# Secrets
+*.pfx
+*.pem
+*.key
+
+# Claude Code local state
+.claude/settings.local.json
+.claude/worktrees/
+
+# Screenshots of the headless UI tests and snapshots (curated ones live in docs/images)
+screenshots/
