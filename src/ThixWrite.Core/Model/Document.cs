@@ -63,6 +63,9 @@ public sealed class Document
     /// <summary>Raised after every change (the editing engine's steps, undo and redo).</summary>
     public event EventHandler<DocumentChange>? Changed;
 
+    /// <summary>Identifies this document object (the clipboard knows whether a fragment comes from the same document).</summary>
+    public Guid Id { get; } = Guid.NewGuid();
+
     public IReadOnlyList<Block> Blocks => _blocks;
 
     public StyleSheet Styles { get; private set; }
