@@ -42,7 +42,9 @@ internal static class ContentEdits
                 result.Add(parts[index]);
             }
 
-            result.Add(new Paragraph(lastPart.Inlines.Concat(tail), last.Properties, last.MarkProperties, last.SectionBreak));
+            // Into an empty place (nothing of the target paragraph is left) the last part keeps its own formatting.
+            var lastBasis = headIsEmpty && tail.Count == 0 ? lastPart : last;
+            result.Add(new Paragraph(lastPart.Inlines.Concat(tail), lastBasis.Properties, lastBasis.MarkProperties, last.SectionBreak));
             lastLength = lastPart.Length;
         }
 
@@ -61,9 +63,10 @@ internal static class ContentEdits
     public static BlocksStep SplitParagraph(Document document, DocumentRange range)
     {
         var (from, to) = Normalize(document, range);
-        var current = document.Blocks[from.Block] as Paragraph ?? (Paragraph)document.Blocks[to.Block];
+        var last = (Paragraph)document.Blocks[to.Block];
+        var current = document.Blocks[from.Block] as Paragraph ?? last;
         var first = Paragraph.Empty(current.Properties, current.MarkProperties);
-        return Replace(document, new DocumentRange(from, to), [first, Paragraph.Empty()]);
+        return Replace(document, new DocumentRange(from, to), [first, Paragraph.Empty(last.Properties, last.MarkProperties)]);
     }
 
     /// <summary>Changes the character formatting of the text in <paramref name="range"/> (and the marks of paragraphs fully in it).</summary>

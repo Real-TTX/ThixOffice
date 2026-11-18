@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 namespace ThixWrite.Core.Model;
 
 /// <summary>The theme a document refers to: heading and body fonts and the colour scheme (minimal; the XML is kept by the package).</summary>
-public sealed record Theme(string MajorFont, string MinorFont, ImmutableDictionary<string, string> Colors)
+public sealed record Theme(string MajorFont, string MinorFont, ImmutableDictionary<string, string> Palette)
 {
     /// <summary>The Office theme (Calibri Light / Calibri).</summary>
     public static readonly Theme Office = new(BuiltInStyles.HeadingFont, BuiltInStyles.BodyFont, new Dictionary<string, string>
@@ -37,7 +37,7 @@ public sealed record Theme(string MajorFont, string MinorFont, ImmutableDictiona
             "followedHyperlink" => "folHlink",
             _ => themeColor,
         };
-        return Colors.TryGetValue(key, out var value) ? value : null;
+        return Palette.TryGetValue(key, out var value) ? value : null;
     }
 }
 

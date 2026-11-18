@@ -151,10 +151,10 @@ public sealed class PdfExportTests : IDisposable
             withGlyphs ? run.Positions : []);
         return new PageDisplayList(index, 595.3, 841.9,
         [
-            new RectangleItem(70, 70, 200, 40, RgbColor.Parse("FFFF00")),
+            new RectangleItem(70, 70, 200, 40, RgbColor.FromHex("FFFF00")),
             text,
             new LineItem(72, 105, 200, 105, RgbColor.Black, 1),
-            new LineItem(72, 110, 200, 110, RgbColor.Parse("FF0000"), 1, LineStyle.Wavy),
+            new LineItem(72, 110, 200, 110, RgbColor.FromHex("FF0000"), 1, LineStyle.Wavy),
             new LineItem(72, 115, 200, 115, RgbColor.Black, 1, LineStyle.Dotted),
         ]);
     }

@@ -122,7 +122,7 @@ internal static class DocxStyles
         return new Theme(
             string.IsNullOrEmpty(major) ? Theme.Office.MajorFont : major,
             string.IsNullOrEmpty(minor) ? Theme.Office.MinorFont : minor,
-            colors.Count == 0 ? Theme.Office.Colors : colors.ToImmutable());
+            colors.Count == 0 ? Theme.Office.Palette : colors.ToImmutable());
     }
 
     public static DocumentSettings ReadSettings(W.Settings? settings)

@@ -124,8 +124,8 @@ internal static class ParagraphLayouter
     {
         var resolver = context.Resolver;
         var styleId = resolver.Document.Styles.DefaultParagraphStyle?.Id ?? "";
-        var grey = new CharacterProperties { Color = TextColor.FromRgb("595959") };
-        var caption = new CharacterProperties { Color = TextColor.FromRgb("7F7F7F"), Italic = true, FontSize = 8 };
+        var grey = new CharacterProperties { Color = TextColor.FromHex("595959") };
+        var caption = new CharacterProperties { Color = TextColor.FromHex("7F7F7F"), Italic = true, FontSize = 8 };
         var lines = new List<LineLayout>();
         var texts = new List<(string Text, CharacterProperties Properties)> { (CaptionOf(block.Kind), caption) };
         texts.AddRange(block.Lines.Select(line => (line, grey)));

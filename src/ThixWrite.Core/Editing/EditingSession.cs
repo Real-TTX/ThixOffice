@@ -351,7 +351,7 @@ public sealed class EditingSession
 
     /// <summary>A text colour "RRGGBB", or null for automatic.</summary>
     public void SetTextColor(string? color) =>
-        FormatCharacters("Schriftfarbe", (_, props) => props with { Color = color is null ? null : TextColor.FromRgb(color) });
+        FormatCharacters("Schriftfarbe", (_, props) => props with { Color = color is null ? null : TextColor.FromHex(color) });
 
     public void SetHighlight(HighlightColor highlight) =>
         FormatCharacters("Texthervorhebungsfarbe", (_, props) => props with { Highlight = highlight == HighlightColor.None ? null : highlight });

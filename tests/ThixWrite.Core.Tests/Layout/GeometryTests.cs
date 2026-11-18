@@ -150,7 +150,7 @@ public class GeometryTests
         var document = Create([
             new Paragraph([
                 new TextRun("Hallo ", new CharacterProperties { Highlight = HighlightColor.Yellow }),
-                new TextRun("Welt", new CharacterProperties { Underline = UnderlineStyle.Double, Color = TextColor.FromRgb("FF0000") }),
+                new TextRun("Welt", new CharacterProperties { Underline = UnderlineStyle.Double, Color = TextColor.FromHex("FF0000") }),
             ]),
             new Paragraph("Zweite Zeile"),
         ]);

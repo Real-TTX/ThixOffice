@@ -28,7 +28,7 @@ public static class DisplayListBuilder
     }
 
     /// <summary>The colour of a resolved format ("auto" is black).</summary>
-    public static RgbColor ColorOf(EffectiveCharacterFormat format) => format.IsAutoColor ? RgbColor.Black : RgbColor.Parse(format.Color);
+    public static RgbColor ColorOf(EffectiveCharacterFormat format) => format.IsAutoColor ? RgbColor.Black : RgbColor.FromHex(format.Color);
 
     /// <summary>The colour of a highlight.</summary>
     public static RgbColor ColorOf(HighlightColor highlight) => highlight switch

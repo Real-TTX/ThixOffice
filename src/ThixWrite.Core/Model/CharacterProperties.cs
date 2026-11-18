@@ -63,7 +63,7 @@ public sealed record TextColor(string Value, string? ThemeColor = null, string? 
 
     public bool IsAuto => string.Equals(Value, "auto", StringComparison.OrdinalIgnoreCase);
 
-    public static TextColor FromRgb(string hex) => new(hex.TrimStart('#').ToUpperInvariant());
+    public static TextColor FromHex(string hex) => new(hex.TrimStart('#').ToUpperInvariant());
 }
 
 /// <summary>Which theme font a run uses instead of a named family.</summary>

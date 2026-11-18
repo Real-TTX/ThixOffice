@@ -210,6 +210,6 @@ public class DocxFixtureTests
         var written = Write(document);
         using var package = WordprocessingDocument.Open(new MemoryStream(written), false);
         Assert.NotNull(package.MainDocumentPart!.ThemePart);
-        Assert.Equal(document.Theme, Read(written).Theme with { Colors = document.Theme.Colors });
+        Assert.Equal(document.Theme, Read(written).Theme with { Palette = document.Theme.Palette });
     }
 }

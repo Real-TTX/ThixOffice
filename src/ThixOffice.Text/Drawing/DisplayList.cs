@@ -2,13 +2,13 @@ using System.Globalization;
 
 namespace ThixOffice.Text.Drawing;
 
-/// <summary>A colour with alpha; <see cref="Parse"/> reads "RRGGBB" / "#RRGGBB".</summary>
+/// <summary>A colour with alpha; <see cref="FromHex"/> reads "RRGGBB" / "#RRGGBB".</summary>
 public readonly record struct RgbColor(byte R, byte G, byte B, byte A = 255)
 {
     public static readonly RgbColor Black = new(0, 0, 0);
     public static readonly RgbColor White = new(255, 255, 255);
 
-    public static RgbColor Parse(string hex)
+    public static RgbColor FromHex(string hex)
     {
         var value = hex.TrimStart('#');
         if (value.Length != 6 || !uint.TryParse(value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var rgb))

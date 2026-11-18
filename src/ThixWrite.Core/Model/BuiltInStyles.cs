@@ -162,7 +162,7 @@ public static class BuiltInStyles
                 Next = Normal,
                 QuickFormat = true,
                 UiPriority = 11,
-                Character = new CharacterProperties { Color = TextColor.FromRgb("5A5A5A") },
+                Character = new CharacterProperties { Color = TextColor.FromHex("5A5A5A") },
             },
             Quote => new Style
             {
@@ -179,7 +179,7 @@ public static class BuiltInStyles
                     IndentRight = 43.2,
                     Alignment = ParagraphAlignment.Center,
                 },
-                Character = new CharacterProperties { Italic = true, Color = TextColor.FromRgb("404040") },
+                Character = new CharacterProperties { Italic = true, Color = TextColor.FromHex("404040") },
             },
             IntenseQuote => new Style
             {
@@ -197,7 +197,7 @@ public static class BuiltInStyles
                     IndentRight = 43.2,
                     Alignment = ParagraphAlignment.Center,
                 },
-                Character = new CharacterProperties { Italic = true, Color = TextColor.FromRgb("4472C4") },
+                Character = new CharacterProperties { Italic = true, Color = TextColor.FromHex("4472C4") },
             },
             ListParagraph => new Style
             {
@@ -254,7 +254,7 @@ public static class BuiltInStyles
                 BasedOn = DefaultParagraphFont,
                 UiPriority = 99,
                 UnhideWhenUsed = true,
-                Character = new CharacterProperties { Color = TextColor.FromRgb("0563C1"), Underline = UnderlineStyle.Single },
+                Character = new CharacterProperties { Color = TextColor.FromHex("0563C1"), Underline = UnderlineStyle.Single },
             },
             _ => null,
         };
@@ -293,7 +293,7 @@ public static class BuiltInStyles
             {
                 FontFamily = HeadingFont,
                 FontSize = size,
-                Color = TextColor.FromRgb(color),
+                Color = TextColor.FromHex(color),
                 Italic = level == 4 ? true : null,
             },
         };
