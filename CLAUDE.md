@@ -14,11 +14,11 @@ like "Was möchten Sie tun?"); code, comments and identifiers English.
 
 **Phase 0 (done): the foundation.** The shared core and desktop, the ThixWrite skeleton with a PLACEHOLDER editor ("Editor folgt",
 a plain text box on `.txt`, so that new / open / save / recent / recovery / unsaved prompt / file activation are real), the
-logos of all three apps, CI. **Next:** MatRibbon, MatBackstage and MatStatusBar come as MatDesktop 0.3.0 from MatDesign (a
-colleague builds them) and drop into the slots below; then phase 1a, ThixWrite's native editor and docx. Do not build a ribbon
-of your own and do not grow the placeholders.
+logos of all three apps, CI, and MatDesktop 0.3.0's MatRibbon, MatBackstage, MatStatusBar and MatQuickAccess in the window.
+**Next:** phase 1a, ThixWrite's native editor and docx (it registers the commands `WriteCommandIds` names; the ribbon shows
+them in their places). Do not build ribbon controls of your own and do not grow the placeholder editor.
 
-Stack: **.NET 10** (`global.json` 10.0.100, latestMinor), C#, **Avalonia 11.3.22** with **MatDesktop 0.2.0** (a copy), xunit +
+Stack: **.NET 10** (`global.json` 10.0.100, latestMinor), C#, **Avalonia 11.3.22** with **MatDesktop 0.3.0** (a copy), xunit +
 Avalonia.Headless. Reference apps (sibling folders): ThixCalendar (structure, setup, OTA), ThixNote (document app: file types,
 update on exit), ThixClip (`--snapshot`), ThixFred (CI that publishes Windows even when macOS fails). Never use, reference or
 copy anything from MatOffice.
@@ -36,9 +36,10 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
                            AppSettings, RecentDocument(+Item, Order), BusinessException(message, field)
   Documents/               OfficeDocument: the UI-free base of every document model (FilePath, FileType, Title, IsDirty, IsPristine,
                            IsRecovered, Undo/Redo, protected Read/Write(Stream), Changed)
-  Commands/                OfficeCommand (Id, Label, Icon, Shortcut "Ctrl+S", Description, Keywords, CanExecute, IsChecked,
-                           IsSearchable, ExecuteAsync), OfficeCommandRegistry (Add, Find, this[id], ExecuteAsync, Search, Invalidate,
-                           StateChanged), CommonCommandIds, RibbonLayout / RibbonTab / RibbonGroup / RibbonItem (+ RibbonItemSize)
+  Commands/                OfficeCommand (Id, Label, Icon, Shortcut "Ctrl+S", MacShortcut, CurrentShortcut, Description, Keywords,
+                           CanExecute, IsChecked, IsSearchable, ExecuteAsync), OfficeValueCommand : OfficeCommand (Kind Text|Number|
+                           Color|Choice, Value, Options, ApplyAsync(value): font, size, colour, style), OfficeCommandRegistry (Add,
+                           Find, this[id], ExecuteAsync, ApplyAsync, Search, Invalidate, StateChanged), CommonCommandIds
   Business/                SettingsService, RecentDocuments, DocumentFiles (atomic save, .bak, lock detection, recovery files),
                            DocumentService (Open, Save, SaveAs, TargetPath, recovery), AccessPolicy (LockConfiguration, DisableUpdates,
                            DisableCloud, DisableFileAssociations), InstallService (Windows self-installing exe), UninstallEntry (what
@@ -51,29 +52,32 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
   Platform/Windows/        ShellLink (.lnk through generated COM)
   MatCloud/                COPY of the MatCloud contract (never edited here); cloud sign-in comes in a later phase
 src/ThixOffice.Desktop     shared Avalonia UI
-  MatDesktop/              COPY of MatDesign's desktop toolkit 0.2.0 (never edited here)
-  OfficeApplication        base Application of every app: Definition, CreateDocument, CreateEditor, AddCommands, Ribbon,
+  MatDesktop/              COPY of MatDesign's desktop toolkit 0.3.0 (never edited here)
+  OfficeApplication        base Application of every app: Definition, CreateDocument, CreateEditor, AddCommands, CreateRibbon(window),
                            FillSampleDocument; start-up (self test, Windows setup modes, single instance forwarding files, recovery,
                            crash reports, theme), NewDocumentWindow, ShowWindow, OpenFilesAsync/OpenFileAsync, HandleActivation,
-                           ExitApplication (installs a downloaded update), InstallUpdateNowAsync; FileDialogs (swappable)
+                           ExitApplication / OnExit (installs a downloaded update); the last window ends the app on Windows, not on
+                           macOS (LastWindowEndsApp; ⌘Q ends it, the Dock icon opens a new document); FileDialogs (swappable)
   OfficeProgram            Main helper: Run<TApp>(args, definition); BuildAvaloniaApp<TApp>()
   OfficeSelfTest, OfficeSnapshot, OfficeSetup (MatSetupWindow), UpdateCoordinator, UiWatchdog, Ui (helpers)
-  Shell/                   OfficeWindow (MatWindow per document: title bar with logo, word mark, quick access, document name + unsaved
-                           dot, CommandSearchBox; ribbon slot; message bar; editor; status bar slot; backstage over it all; keyboard;
-                           unsaved prompt; recovery timer), OfficeEditor (the app's part), ShellParts.cs (IOfficeRibbon,
-                           IOfficeBackstage + BackstageItem/BackstageContent, IOfficeStatusBar, OfficeShellParts factories),
-                           TemporaryCommandBar / TemporaryBackstage / TemporaryStatusBar (PLACEHOLDERS), CommandSearchBox,
+  Shell/                   OfficeWindow (MatWindow per document: title bar with logo, word mark, MatQuickAccess, document name +
+                           unsaved dot, CommandSearchBox; MatRibbon; message bar; editor; status bar; backstage over it all;
+                           keyboard; unsaved prompt; recovery timer), OfficeRibbonBinding + OfficeRibbonItems (see below),
+                           OfficeBackstage (MatBackstage with the pages by id; BackstageItem/BackstageContent), OfficeStatusBar
+                           (MatStatusBar: texts by id + zoom), OfficeEditor (the app's part; Zoom 10–500 %), CommandSearchBox,
                            IFileDialogs + SystemFileDialogs
   Pages/                   NewPage, OpenPage (Durchsuchen + Zuletzt verwendet: search, sort, pin, show, remove), SaveAsPage,
                            SettingsPage (Allgemein | Speichern | Updates | Erweitert), AboutPage
   Dialogs/                 QuestionDialog (+ SaveChangesDialog: Speichern, Abbrechen, gap, Nicht speichern), ProblemReportDialog
   Controls/                ActionBar, IconLabel, InfoBar, FormErrors (from the reference apps)
 src/ThixWrite.Core         ThixWriteApp.Definition; Documents/TextDocument (PHASE 0 ONLY: plain text, typing undo)
-src/ThixWrite              App (OfficeApplication), Program, Editor/PlaceholderEditor (PHASE 0 ONLY), Editor/WriteRibbon (layout +
-                           "Datum und Uhrzeit"), Assets (rendered by tools/render-icons.js)
+src/ThixWrite              App (OfficeApplication), Program, Editor/PlaceholderEditor (PHASE 0 ONLY), Editor/WriteRibbon
+                           (WriteCommandIds; the ribbon Start | Einfügen | Layout | Ansicht as a MatRibbonDefinition; "Datum und
+                           Uhrzeit"), Assets (rendered by tools/render-icons.js)
 tests/ThixOffice.Core.Tests     definition, version, settings, policies, recent list, atomic save, recovery, install / file types /
                                 autostart in an in-memory registry (+ the whole setup on Windows), updates, commands, MatCloud copy
-tests/ThixOffice.Desktop.Tests  headless with a small TestOfficeApp: shell, search, backstage, keyboard, unsaved prompt, slots,
+tests/ThixOffice.Desktop.Tests  headless with a small TestOfficeApp: shell, search, backstage, keyboard, unsaved prompt, ribbon
+                                binding, quick access, zoom,
                                 settings + lock, no literal colours, MatDesktop copy
 tests/ThixWrite.Tests           the real ThixWrite headless: new/type/save, open/replace/bring to front, recent list, prompts,
                                 recovery, second start, refusal of docx, commands, snapshots, no literal colours
@@ -84,21 +88,32 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 .github/workflows/         _desktop.yml (reusable: version → windows → macos → publish), thixwrite.yml (caller)
 ```
 
-## The slots for MatRibbon, MatBackstage, MatStatusBar (MatDesktop 0.3.0)
+## The ribbon, the backstage, the status bar
 
-Every document window takes its three parts from `OfficeShellParts.CreateRibbon / CreateBackstage / CreateStatusBar` (today the
-`Temporary*` placeholders). When the copy of MatDesktop 0.3.0 is in, write one small adapter per part and set the factory once
-(in `OfficeApplication.Initialize`); windows, pages, commands and tests stay.
-
-- `IOfficeRibbon`: `View`, `SelectedTabId`, `IsCollapsed`, `event FileTabInvoked` (opens the backstage), `event CollapsedChanged`,
-  `Bind(RibbonLayout layout, OfficeCommandRegistry commands)`. The layout is data (`OfficeApplication.Ribbon`); every item names a
-  command id; the ribbon runs `OfficeWindow.RunCommandAsync(source, command)` and follows `OfficeCommandRegistry.StateChanged`
-  for `IsEnabled` / `Checked`.
-- `IOfficeBackstage`: `View`, `IsOpen`, `CurrentPageId`, `CurrentPage`, `event OpenChanged`, `Configure(BackstageContent)`,
-  `Open(pageId)`, `Close()`. `BackstageContent(Items, Settings, About, Version, Channel)`; `BackstageItem(Id, Label, Icon,
-  CreatePage | Run, Shortcut)`. Page ids: `OfficeWindow.NewPageId` … `AboutPageId`; About opens from the version at the foot.
-- `IOfficeStatusBar`: `View`, `SetItem(id, text, StatusBarSide)`, `RemoveItem(id)`, `TextOf(id)`; the editor writes it
-  (`OfficeEditor.UpdateStatus`).
+- **Ribbon = MatDesktop's `MatRibbonDefinition`, bound to the commands by id.** `OfficeApplication.CreateRibbon(window)` returns a
+  NEW definition per window (its items carry the window's state). Item id = command id; build items with `OfficeRibbonItems`
+  (`Button(id, size)`, `Toggle(id, groupName, size)`, `ComboBox(id, width, isEditable, options)`, `Number(id, min, max, …)`,
+  `ColorPicker(id, palette)`, `Gallery(id, entries)`) or with Mat items whose id is a command id; do not give a bound item a
+  callback of its own. `OfficeRibbonBinding.Bind(definition, commands, ribbon, extraItems)` (the window does it): fills label /
+  icon / shortcut (`Ui.ShortcutText` of `CurrentShortcut`) / tooltip (`Description`) from the command; LEAVES OUT items whose
+  command the window does not have and that have no callback, then empty rows, stacks, groups and tabs (`MissingCommandIds`);
+  routes `MatRibbonDefinition.Invoked` to `OfficeWindow.RunCommandAsync` (value items – combo, number, colour, gallery – to
+  `OfficeValueCommand.ApplyAsync(value)`, numbers invariant); on `OfficeCommandRegistry.StateChanged` and after each use it pushes
+  `IsEnabled`, toggle `IsChecked` (= `Checked`) and the values into the items; `Reveal(id)` puts the keyboard into an item (the
+  search does that for a value command). Contextual tabs: the app calls `RibbonDefinition.ShowContext/HideContext`.
+  The definition stays in the app project (not in `<App>.Core`): `MatRibbonModel.cs` is System-only but lives in
+  ThixOffice.Desktop's MatDesktop copy and uses `MatText`; Core cannot reference it without a second copy of MatDesktop types.
+- **Quick access**: `MatQuickAccess` with three items bound like the ribbon's (Speichern, Rückgängig, Wiederholen; icons save /
+  undo / redo).
+- **Keys**: the window handles every command shortcut first (tunnel handler registered before the ribbon attaches; `Ctrl` = ⌘ on
+  macOS, `MacShortcut` where the Mac differs: Wiederholen ⇧⌘Z, Speichern unter ⇧⌘S, Menüband ⌥⌘R); the ribbon handles only
+  Alt / F10, the key tips and its arrow keys (not while the backstage is open). Undo/redo in a ribbon field stay the field's.
+- **Backstage**: `OfficeBackstage` (MatBackstage below the title bar): `Open(pageId)`, `Close()`, `IsOpen`, `CurrentPageId`,
+  `CurrentPage`, `OpenChanged`; pages are made anew each time they show. Page ids `OfficeWindow.NewPageId` … `AboutPageId`; Info
+  has no entry, the version at the foot opens it.
+- **Status bar**: `OfficeStatusBar` (MatStatusBar): `SetItem(id, text, side)`, `RemoveItem`, `TextOf`; its zoom and
+  `OfficeEditor.Zoom` (10–500 %, `OnZoomChanged`, `ZoomChanged`) follow each other; commands `view.zoomIn/zoomOut/zoom100`.
+- The ribbon's collapsed state is remembered (`AppSettings.IsRibbonCollapsed`, `MatRibbon.CollapsedChanged`).
 
 ## Build / run / test
 
@@ -114,10 +129,10 @@ Every document window takes its three parts from `OfficeShellParts.CreateRibbon 
   `ThixWrite.exe --self-test <report>` checks the published program (settings, documents, recovery, manifest, contract, DPAPI,
   COM, document icon, every window); CI runs it.
 - Icons: `cd tools && npm install && node render-icons.js` (`--preview <png>` draws every app at 16–256 px on light and dark – look).
-- **MatDesktop** (`src/ThixOffice.Desktop/MatDesktop/`) is a COPY from MatDesign (branch `feature/desktop-and-services`,
+- **MatDesktop** (`src/ThixOffice.Desktop/MatDesktop/`) is a COPY from MatDesign (0.3.0 from branch `feature/ribbon`,
   `src/MatDesktop`, version in `matdesktop.version`): never edit it here; copy again with `node tools/matdesktop-copy.js
   <path>/ThixOffice/src/ThixOffice.Desktop` in MatDesign. `RulesTests.The_copy_of_MatDesktop_is_unchanged` holds it. Icons the
-  sprite lacks go into MatDesign's sprite first (today: undo/redo are `restore` and `restore` mirrored).
+  sprite lacks go into MatDesign's sprite first.
 - **MatCloud contract** (`src/ThixOffice.Core/MatCloud/`) is a COPY: `node ../MatCloud/tools/contract-copy.js src/ThixOffice.Core`;
   `CopyTests` holds it. ThixCloud sign-in (app ids write/calc/show) comes in a later phase.
 

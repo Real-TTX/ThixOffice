@@ -106,6 +106,10 @@ kommt aus `ThixOffice.Core` und `ThixOffice.Desktop`.
    **Unten links die Versionsnummer → About.**
 4. **Arbeitsfläche** mit dem Editor, darunter die **Statusleiste** (Seite/Wörter bzw. Summe/Anzahl, Zoom).
 
+Das letzte Dokumentfenster schließen beendet die App unter Windows (wie Word); unter macOS bleibt sie wie jede Mac-App
+im Dock und in der Menüleiste, ein Klick aufs Dock-Symbol öffnet ein neues Dokument, ⌘Q beendet sie (entschieden 2026-11-18).
+Die Kurzbefehle folgen dem System: Strg+S/Z/Y/N/O/W, F12, Strg+F1 unter Windows; ⌘S/Z, ⇧⌘Z, ⌘N/O/W, ⇧⌘S, ⌥⌘R unter macOS.
+
 Die bisherigen Thix-Apps haben eine linke Navigation statt eines Menübands. Für Dokument-Apps
 ersetzt das Menüband die Navigation; Listen-Seiten (z. B. Drive-Dialog, Zuletzt) folgen weiter
 den UI-Richtlinien (Toolbar oben, Aktionen unten links, Löschen abgesetzt).

@@ -16,8 +16,9 @@ Der Plan steht in [docs/PLAN.md](docs/PLAN.md).
 
 ## ThixWrite – Stand Phase 0
 
-Das Fenster mit Titelleiste (Logo, Schnellzugriff, Dokumentname, Befehlssuche), Menüband (vorläufig), Statusleiste und
-„Datei“ (Neu, Öffnen mit „Zuletzt verwendet“, Speichern unter, Einstellungen, Info) ist fertig. Der Textverarbeitungs-Editor
+Das Fenster mit Titelleiste (Logo, Schnellzugriff, Dokumentname, Befehlssuche), Menüband (Start, Einfügen, Ansicht – es
+füllt sich mit dem Editor; Strg+F1 reduziert es, Alt zeigt die Tastaturtipps), Statusleiste mit Zoom und „Datei“ (Neu,
+Öffnen mit „Zuletzt verwendet“, Speichern, Speichern unter, Schließen, Einstellungen, Info) ist fertig. Der Textverarbeitungs-Editor
 selbst entsteht in der nächsten Phase; bis dahin bearbeitet ThixWrite einfache Textdateien (.txt), damit Neu, Öffnen,
 Speichern, „Zuletzt verwendet“, die Wiederherstellung nach einem Absturz und die Frage „Änderungen speichern?“ schon echt
 funktionieren. Word-Dateien (.docx) öffnet ThixWrite erst, wenn es sie lesen kann – vorher werden sie weder angeboten noch
