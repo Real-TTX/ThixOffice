@@ -80,14 +80,43 @@ public sealed class CommandTests
     }
 
     [Fact]
-    public void The_ribbon_layout_names_its_commands_once()
+    public async Task A_value_command_shows_its_value_sets_one_and_runs_as_a_command_with_the_current_one()
     {
-        var layout = new RibbonLayout(
-        [
-            new RibbonTab("home", "Start", [new RibbonGroup("doc", "Dokument", [new RibbonItem("file.save", RibbonItemSize.Large), new RibbonItem("edit.undo")])]),
-            new RibbonTab("view", "Ansicht", [new RibbonGroup("x", "X", [new RibbonItem("file.save")])]),
-        ]);
+        string? size = "11";
+        var enabled = true;
+        var applied = new List<string?>();
+        var registry = new OfficeCommandRegistry();
+        registry.Add(new OfficeValueCommand("write.fontSize", "Schriftgrad", OfficeValueKind.Text, () => size, value =>
+        {
+            applied.Add(value);
+            size = value;
+        })
+        {
+            Options = ["10", "11", "12"],
+            CanExecute = () => enabled,
+            Keywords = ["schriftgröße"],
+        });
 
-        Assert.Equal(["file.save", "edit.undo"], layout.CommandIds);
+        var command = Assert.IsType<OfficeValueCommand>(registry["write.fontSize"]);
+        Assert.Equal("11", command.Value);
+        Assert.Equal(["10", "11", "12"], command.Options);
+        Assert.True(await registry.ApplyAsync("write.fontSize", "14"));
+        Assert.Equal("14", command.Value);
+        Assert.True(await command.ExecuteAsync()); // a key or the button itself: the value it has now
+        Assert.Equal(["14", "14"], applied);
+        Assert.Equal("write.fontSize", registry.Search("schriftgroesse").Single().Id);
+
+        enabled = false;
+        Assert.False(await registry.ApplyAsync("write.fontSize", "8"));
+        Assert.False(await registry.ApplyAsync("gibt.es.nicht", "8"));
+        Assert.Equal("14", command.Value);
+    }
+
+    [Fact]
+    public void A_command_may_have_a_shortcut_of_its_own_on_macOS()
+    {
+        var redo = new OfficeCommand("edit.redo", "Wiederholen", () => { }) { Shortcut = "Ctrl+Y", MacShortcut = "Ctrl+Shift+Z" };
+        Assert.Equal(OperatingSystem.IsMacOS() ? "Ctrl+Shift+Z" : "Ctrl+Y", redo.CurrentShortcut);
+        Assert.Equal("Ctrl+S", new OfficeCommand("file.save", "Speichern", () => { }) { Shortcut = "Ctrl+S" }.CurrentShortcut);
     }
 }

@@ -3,9 +3,10 @@ namespace ThixOffice.Core.Commands;
 /// <summary>
 /// One thing the user can do in a document window ("Speichern", "Rückgängig", later "Fett"), UI-free: the search box of
 /// the title bar, the ribbon, the quick-access buttons and the keyboard all run the same command. The ribbon (MatRibbon,
-/// MatDesktop 0.3.0) and the web apps bind to it by <see cref="Id"/>; nothing here knows Avalonia.
+/// MatDesktop 0.3.0) and the web apps bind to it by <see cref="Id"/>; nothing here knows Avalonia. A command that sets a
+/// value (a font, a size, a colour, a style) is an <see cref="OfficeValueCommand"/>.
 /// </summary>
-public sealed class OfficeCommand
+public class OfficeCommand
 {
     private readonly Func<Task> _execute;
 
@@ -43,6 +44,15 @@ public sealed class OfficeCommand
     /// system (⌘ on macOS); the desktop names it "Strg+S" / "⌘S" in tooltips and binds it as a key gesture.
     /// </summary>
     public string? Shortcut { get; init; }
+
+    /// <summary>
+    /// The shortcut on macOS where the Mac convention differs (same neutral form, "Ctrl" is ⌘): <c>Ctrl+Shift+Z</c> for
+    /// Wiederholen, <c>Ctrl+Shift+S</c> for Speichern unter; null takes <see cref="Shortcut"/>.
+    /// </summary>
+    public string? MacShortcut { get; init; }
+
+    /// <summary>The shortcut in force on this system (<see cref="MacShortcut"/> on macOS when it is set).</summary>
+    public string? CurrentShortcut => OperatingSystem.IsMacOS() ? MacShortcut ?? Shortcut : Shortcut;
 
     /// <summary>A sentence for the search result and the tooltip ("Speichert das Dokument unter seinem Namen.").</summary>
     public string? Description { get; init; }

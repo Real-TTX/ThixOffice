@@ -35,11 +35,14 @@ public sealed class OfficeCommandRegistry
     /// <summary>The command with this id, or null.</summary>
     public OfficeCommand? Find(string id) => _byId.GetValueOrDefault(id);
 
-    /// <summary>The command with this id (the ribbon layout names only registered ones).</summary>
+    /// <summary>The command with this id; throws when there is none.</summary>
     public OfficeCommand this[string id] => Find(id) ?? throw new KeyNotFoundException($"No command {id} is registered.");
 
     /// <summary>Runs the command when it exists and is enabled.</summary>
     public Task<bool> ExecuteAsync(string id) => Find(id) is { } command ? command.ExecuteAsync() : Task.FromResult(false);
+
+    /// <summary>Sets a value through the <see cref="OfficeValueCommand"/> with this id when it exists and is enabled.</summary>
+    public Task<bool> ApplyAsync(string id, string? value) => Find(id) is OfficeValueCommand command ? command.ApplyAsync(value) : Task.FromResult(false);
 
     /// <summary>Enabled and checked states may have changed.</summary>
     public void Invalidate() => StateChanged?.Invoke(this, EventArgs.Empty);
@@ -151,6 +154,9 @@ public static class CommonCommandIds
     public const string Undo = "edit.undo";
     public const string Redo = "edit.redo";
     public const string ToggleRibbon = "view.toggleRibbon";
+    public const string ZoomIn = "view.zoomIn";
+    public const string ZoomOut = "view.zoomOut";
+    public const string Zoom100 = "view.zoom100";
     public const string Settings = "app.settings";
     public const string About = "app.about";
     public const string CheckForUpdates = "app.checkForUpdates";
