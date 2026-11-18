@@ -62,7 +62,7 @@ public static class DocxWriter
             stylesPart.Styles = new W.Styles();
         }
 
-        var styles = stylesPart.Styles;
+        var styles = stylesPart.Styles ?? (stylesPart.Styles = new W.Styles());
         XmlFragments.DeclareBasicNamespaces(styles);
         DocxStyles.WriteStyles(document.Styles, styles);
         XmlFragments.RemoveRedundantDeclarations(styles);
@@ -91,7 +91,7 @@ public static class DocxWriter
             part.Numbering = new W.Numbering();
         }
 
-        var numbering = part.Numbering;
+        var numbering = part.Numbering ?? (part.Numbering = new W.Numbering());
         XmlFragments.DeclareBasicNamespaces(numbering);
         DocxStyles.WriteNumbering(document.Numbering, numbering);
         XmlFragments.RemoveRedundantDeclarations(numbering);

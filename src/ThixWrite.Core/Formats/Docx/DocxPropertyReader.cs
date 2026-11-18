@@ -64,6 +64,9 @@ internal static class DocxPropertyReader
                 case W.VerticalTextAlignment when ParseVerticalPosition(DocxValues.AttributeValue(child, "val")) is { } position:
                     result = result with { VerticalPosition = position };
                     break;
+                case W.FontSize or W.Highlight or W.VerticalTextAlignment:
+                    // A modelled property with an invalid value: dropped (writing it back would make the file invalid).
+                    break;
                 default:
                     unknown.Add(child);
                     break;
@@ -124,6 +127,9 @@ internal static class DocxPropertyReader
                     break;
                 case W.SectionProperties or W.ParagraphMarkRunProperties:
                     // Read by the paragraph reader (section break, paragraph mark).
+                    break;
+                case W.Justification or W.OutlineLevel:
+                    // A modelled property with an invalid value: dropped (writing it back would make the file invalid).
                     break;
                 default:
                     unknown.Add(child);
@@ -209,7 +215,7 @@ internal static class DocxPropertyReader
         var (family, theme) = InterpretFonts(fonts);
         var canonical = DocxPropertyWriter.CreateFonts(family, theme);
         var isCanonical = canonical is not null && SameAttributes(canonical, fonts);
-        return result with { FontFamily = family, FontTheme = theme, FontsXml = isCanonical ? null : fonts.OuterXml };
+        return result with { FontFamily = family, FontTheme = theme, FontsXml = isCanonical ? null : XmlFragments.Canonical(fonts) };
     }
 
     private static bool SameAttributes(OpenXmlElement first, OpenXmlElement second)

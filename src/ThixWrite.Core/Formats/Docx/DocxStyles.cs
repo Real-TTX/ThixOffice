@@ -21,7 +21,7 @@ internal static class DocxStyles
         var characterDefaults = DocxPropertyReader.ReadCharacter(defaults?.RunPropertiesDefault?.RunPropertiesBaseStyle);
         var paragraphDefaults = DocxPropertyReader.ReadParagraph(defaults?.ParagraphPropertiesDefault?.ParagraphPropertiesBaseStyle);
         var list = styles.Elements<W.Style>().Select(ReadStyle).OfType<Style>().ToList();
-        return new StyleSheet(list, paragraphDefaults, characterDefaults, styles.LatentStyles?.OuterXml);
+        return new StyleSheet(list, paragraphDefaults, characterDefaults, styles.LatentStyles is { } latent ? XmlFragments.Canonical(latent) : null);
     }
 
     public static W.Styles WriteStyles(StyleSheet sheet, W.Styles target)
@@ -192,6 +192,8 @@ internal static class DocxStyles
                 case W.UIPriority when DocxValues.ParseInteger(value) is { } priority:
                     style = style with { UiPriority = (int)priority };
                     break;
+                case W.UIPriority:
+                    break;
                 case W.SemiHidden:
                     style = style with { SemiHidden = DocxValues.ParseOnOff(child) };
                     break;
@@ -324,7 +326,7 @@ internal static class DocxStyles
                     level = level with { Start = (int)start };
                     break;
                 case W.NumberingFormat:
-                    level = ReadFormat(level, value, child);
+                    level = ReadFormat(level, value);
                     if (child.GetAttributes().Any(attribute => attribute.LocalName != "val"))
                     {
                         unknown.Add(child);
@@ -368,9 +370,8 @@ internal static class DocxStyles
         };
     }
 
-    private static NumberingLevel ReadFormat(NumberingLevel level, string? value, OpenXmlElement element)
+    private static NumberingLevel ReadFormat(NumberingLevel level, string? value)
     {
-        _ = element;
         var format = value switch
         {
             "none" => NumberFormat.None,

@@ -104,7 +104,7 @@ public static class DocxReader
             _ => PreservedKind.Other,
         };
         context.Count(kind);
-        blocks.Add(new OpaqueBlock(child.OuterXml, kind, LinesOf(child)));
+        blocks.Add(new OpaqueBlock(XmlFragments.Canonical(child), kind, LinesOf(child)));
     }
 
     private static IReadOnlyList<string> LinesOf(OpenXmlElement element)
@@ -185,7 +185,7 @@ public static class DocxReader
         context.Count(kind);
         var properties = DocxPropertyReader.ReadCharacter(child.Descendants<W.RunProperties>().FirstOrDefault());
         var text = visible ? XmlFragments.VisibleText(child) : "";
-        inlines.Add(new OpaqueInline(child.OuterXml, kind, false, properties, text, Link: link));
+        inlines.Add(new OpaqueInline(XmlFragments.Canonical(child), kind, false, properties, text, Link: link));
     }
 
     private static void ReadRun(W.Run run, List<Inline> inlines, Hyperlink? link, ReadContext context)
@@ -205,7 +205,7 @@ public static class DocxReader
         void AddOpaque(OpenXmlElement element, PreservedKind kind, double width = 0, double height = 0)
         {
             Flush();
-            inlines.Add(new OpaqueInline(element.OuterXml, kind, true, properties, "", width, height, link));
+            inlines.Add(new OpaqueInline(XmlFragments.Canonical(element), kind, true, properties, "", width, height, link));
         }
 
         foreach (var child in run.ChildElements)
@@ -241,6 +241,9 @@ public static class DocxReader
                     var font = DocxValues.AttributeValue(symbol, "font");
                     inlines.Add(new TextRun(character, font is null ? properties : properties.WithFont(font), link));
                     break;
+                case W.SymbolChar:
+                    // A symbol without a valid character code shows nothing in Word either.
+                    break;
                 case W.FieldChar:
                     if (DocxValues.AttributeValue(child, "fldCharType") == "begin")
                     {
@@ -252,7 +255,8 @@ public static class DocxReader
                 case W.FieldCode:
                     AddOpaque(child, PreservedKind.Field);
                     break;
-                case W.Drawing or W.Picture or AlternateContent:
+                case W.Drawing or W.Picture:
+                case AlternateContent when child.Descendants().Any(descendant => descendant is W.Drawing or W.Picture):
                     context.Count(PreservedKind.Drawing);
                     var (width, height) = InlineSize(child);
                     AddOpaque(child, PreservedKind.Drawing, width, height);
@@ -327,7 +331,7 @@ public static class DocxReader
     }
 
     private static OpaqueInline Marker(OpenXmlElement element, PreservedKind kind) =>
-        new(element.OuterXml, kind, false, CharacterProperties.Empty);
+        new(XmlFragments.Canonical(element), kind, false, CharacterProperties.Empty);
 
     private static PreservedKind KindOfMarker(OpenXmlElement element) => element switch
     {

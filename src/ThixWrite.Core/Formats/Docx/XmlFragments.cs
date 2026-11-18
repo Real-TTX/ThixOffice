@@ -11,16 +11,116 @@ namespace ThixWrite.Core.Formats.Docx;
 /// </summary>
 internal static class XmlFragments
 {
-    /// <summary>The concatenated OuterXml of <paramref name="elements"/>, or null when there are none.</summary>
+    /// <summary>The concatenated canonical XML of <paramref name="elements"/>, or null when there are none.</summary>
     public static string? Join(IEnumerable<OpenXmlElement> elements)
     {
         var builder = new StringBuilder();
         foreach (var element in elements)
         {
-            builder.Append(element.OuterXml);
+            builder.Append(Canonical(element));
         }
 
         return builder.Length == 0 ? null : builder.ToString();
+    }
+
+    /// <summary>
+    /// The self-contained XML of <paramref name="element"/> in one canonical form: every namespace declaration is left to the
+    /// serializer, which declares what the fragment uses where it is first used (prefixes only named in markup-compatibility
+    /// attributes get an explicit declaration on the top element). So the same content gives the same string whether a file
+    /// declared its namespaces at the root (Word) or on the elements (other writers, ThixWrite's own fragments).
+    /// </summary>
+    public static string Canonical(OpenXmlElement element)
+    {
+        var clone = element.CloneNode(true);
+        var all = clone.Descendants().Prepend(clone).SelectMany(current => current.NamespaceDeclarations).ToList();
+
+        // Prefixes named in markup-compatibility attribute values (mc:Ignorable="w14 wp14", Requires="wps") are not "used" for
+        // the serializer; they keep an explicit declaration on the fragment's top element.
+        var referenced = ReferencedPrefixes(clone);
+        if (all.Count == 0 && referenced.Count == 0)
+        {
+            return element.OuterXml;
+        }
+
+        foreach (var current in clone.Descendants().Prepend(clone))
+        {
+            foreach (var declaration in current.NamespaceDeclarations.ToList())
+            {
+                current.RemoveNamespaceDeclaration(declaration.Key);
+            }
+        }
+
+        foreach (var prefix in referenced.Order(StringComparer.Ordinal))
+        {
+            var uri = element.LookupNamespace(prefix) ?? all.FirstOrDefault(pair => pair.Key == prefix).Value;
+            if (!string.IsNullOrEmpty(uri))
+            {
+                clone.AddNamespaceDeclaration(prefix, uri);
+            }
+        }
+
+        return clone.OuterXml;
+    }
+
+    private static HashSet<string> ReferencedPrefixes(OpenXmlElement element)
+    {
+        const string MarkupCompatibility = "http://schemas.openxmlformats.org/markup-compatibility/2006";
+        var prefixes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var current in element.Descendants().Prepend(element))
+        {
+            foreach (var attribute in current.GetAttributes())
+            {
+                var isReference = (attribute.NamespaceUri == MarkupCompatibility && attribute.LocalName is "Ignorable" or "ProcessContent" or "MustUnderstand" or "PreserveElements" or "PreserveAttributes")
+                                  || (attribute.LocalName == "Requires" && current.NamespaceUri == MarkupCompatibility);
+                if (!isReference || attribute.Value is null)
+                {
+                    continue;
+                }
+
+                foreach (var token in attribute.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    prefixes.Add(token.Split(':')[0]);
+                }
+            }
+
+            if (current is AlternateContentChoice { Requires.Value: { } requires })
+            {
+                foreach (var token in requires.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    prefixes.Add(token);
+                }
+            }
+
+            if (current.MCAttributes is { } compatibility)
+            {
+                foreach (var value in new[] { compatibility.Ignorable?.Value, compatibility.ProcessContent?.Value, compatibility.MustUnderstand?.Value })
+                {
+                    foreach (var token in (value ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        prefixes.Add(token.Split(':')[0]);
+                    }
+                }
+            }
+        }
+
+        return prefixes;
+    }
+
+    private static bool IsDeclared(KeyValuePair<string, string> pair, Dictionary<string, string> declared) =>
+        declared.TryGetValue(pair.Key, out var uri) && uri == pair.Value;
+
+    private static void StripDeclarations(OpenXmlElement element, Dictionary<string, string> declared)
+    {
+        foreach (var current in element.Descendants().Prepend(element))
+        {
+            foreach (var declaration in current.NamespaceDeclarations.ToList())
+            {
+                if (IsDeclared(declaration, declared))
+                {
+                    current.RemoveNamespaceDeclaration(declaration.Key);
+                }
+            }
+        }
     }
 
     /// <summary>The elements of <paramref name="xml"/>, parsed as children of an element of <paramref name="parentType"/>.</summary>
@@ -159,15 +259,9 @@ internal static class XmlFragments
             return;
         }
 
-        foreach (var element in root.Descendants())
+        foreach (var element in root.ChildElements)
         {
-            foreach (var declaration in element.NamespaceDeclarations.ToList())
-            {
-                if (declared.TryGetValue(declaration.Key, out var uri) && uri == declaration.Value)
-                {
-                    element.RemoveNamespaceDeclaration(declaration.Key);
-                }
-            }
+            StripDeclarations(element, declared);
         }
     }
 
