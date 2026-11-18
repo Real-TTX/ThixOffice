@@ -16,7 +16,7 @@ internal static class TestDocuments
 
     public static EditingSession Session(params string[] paragraphs) => new(Create(paragraphs));
 
-    public static DocumentLayout Layout(Document document, LayoutOptions? options = null) => new(document, new FixedWidthTextMeasurer(), options);
+    public static DocumentLayout NewLayout(Document document, LayoutOptions? options = null) => new(document, new FixedWidthTextMeasurer(), options);
 
     /// <summary>A session with its layout as navigator.</summary>
     public static (EditingSession Session, DocumentLayout Layout) Editor(Document document)

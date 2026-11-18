@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text;
 using HarfBuzzSharp;
 using SkiaSharp;
@@ -130,14 +131,8 @@ public sealed class SkiaTextMeasurer : ITextMeasurer, IDisposable
                 shapingFont.Dispose();
             }
 
-            var typefaces = _typefaces.Values.Concat(_faces.Values).Concat(_fallbacks.Values.OfType<SKTypeface>())
-                .Distinct()
-                .Where(typeface => !ReferenceEquals(typeface, SKTypeface.Default));
-            foreach (var typeface in typefaces)
-            {
-                typeface.Dispose();
-            }
-
+            // The typefaces are not disposed: SkiaSharp hands out one managed wrapper per native typeface, shared with every
+            // other user in the process (other measurers, Avalonia's own text rendering); they live as long as the font manager.
             _shapingFonts.Clear();
             _typefaces.Clear();
             _faces.Clear();
@@ -232,11 +227,6 @@ public sealed class SkiaTextMeasurer : ITextMeasurer, IDisposable
         var face = new FontFace(typeface.FamilyName, bold, italic);
         if (_faces.TryGetValue(face, out var existing))
         {
-            if (!ReferenceEquals(existing, typeface))
-            {
-                typeface.Dispose();
-            }
-
             return existing;
         }
 
@@ -377,7 +367,12 @@ public sealed class SkiaTextMeasurer : ITextMeasurer, IDisposable
         {
             using var stream = typeface.OpenStream(out var collectionIndex);
             var bytes = ReadAll(stream);
-            var blob = Blob.FromStream(new MemoryStream(bytes));
+
+            // HarfBuzz keeps reading the font data: it lives in unmanaged memory that the blob frees (Blob.FromStream would
+            // hand over a pointer into a managed array that the garbage collector may move).
+            var data = Marshal.AllocHGlobal(Math.Max(1, bytes.Length));
+            Marshal.Copy(bytes, 0, data, bytes.Length);
+            var blob = new Blob(data, bytes.Length, MemoryMode.ReadOnly, () => Marshal.FreeHGlobal(data));
             blob.MakeImmutable();
             var face = new Face(blob, collectionIndex);
             var unitsPerEm = face.UnitsPerEm > 0 ? face.UnitsPerEm : 2048;
