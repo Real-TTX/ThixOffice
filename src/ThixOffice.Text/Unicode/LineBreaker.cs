@@ -55,19 +55,18 @@ public static class LineBreaker
                 continue;
             }
 
-            var kind = Decide(before, current, lastBeforeSpaces, spacesSince);
-            breaks[index] = kind;
-
             var attaches = (current is BreakClass.CM or BreakClass.ZWJ) && before is not (BreakClass.BK or BreakClass.CR or BreakClass.LF
                 or BreakClass.NL or BreakClass.SP or BreakClass.ZW);
+            if (!attaches && current is BreakClass.CM or BreakClass.ZWJ)
+            {
+                // LB10: a mark without a base (after a space or a break) is an alphabetic character.
+                current = BreakClass.AL;
+            }
+
+            breaks[index] = Decide(before, current, lastBeforeSpaces, spacesSince);
             if (attaches)
             {
                 continue;
-            }
-
-            if (current is BreakClass.CM or BreakClass.ZWJ)
-            {
-                current = BreakClass.AL;
             }
 
             if (current == BreakClass.SP)
