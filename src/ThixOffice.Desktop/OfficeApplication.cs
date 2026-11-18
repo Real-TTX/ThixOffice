@@ -25,8 +25,9 @@ namespace ThixOffice.Desktop;
 ///  - one instance per user and data folder (MatSingleInstance, DESK-05): a second start – a double click on a document –
 ///    hands its files to the running one, which opens each in a window of its own (or the window that already has it);
 ///    &lt;APP&gt;_DATA_DIR makes a development run an instance of its own;
-///  - a document per window; the last window closed ends the app, and a downloaded update is installed then (never under
-///    the user's hands, like ThixNote); after a crash the recovery files come back as unsaved documents;
+///  - a document per window; on Windows the last window closed ends the app, on macOS the app stays until ⌘Q (the Mac
+///    convention; a click on the Dock icon opens a new document); a downloaded update is installed when the app ends
+///    (never under the user's hands, like ThixNote); after a crash the recovery files come back as unsaved documents;
 ///  - crashes and hangs are reported (ProblemReports, UiWatchdog) and shown at the next start.
 /// </summary>
 public abstract class OfficeApplication : Application
@@ -37,6 +38,8 @@ public abstract class OfficeApplication : Application
     private Bitmap? _logo;
     private WindowIcon? _icon;
     private bool _isExiting;
+    private bool _hasExited;
+    private bool _updateStarted;
 
     public static OfficeApplication Instance => (OfficeApplication)Current!;
 
@@ -46,8 +49,13 @@ public abstract class OfficeApplication : Application
     /// <summary>The app: id, name, accent, document types.</summary>
     public abstract OfficeAppDefinition Definition { get; }
 
-    /// <summary>The ribbon of a document window (data: tabs, groups, command ids).</summary>
-    public virtual RibbonLayout Ribbon => new([]);
+    /// <summary>
+    /// The ribbon of <paramref name="window"/>: a NEW definition per window (its items carry the window's state), made of
+    /// items whose ids are command ids (<see cref="OfficeRibbonItems"/>). <see cref="OfficeRibbonBinding"/> fills in labels,
+    /// icons and shortcuts from the commands, runs them, follows their state and leaves out items whose command the window
+    /// does not have (yet). Called after <see cref="AddCommands"/>.
+    /// </summary>
+    public virtual MatRibbonDefinition CreateRibbon(OfficeWindow window) => new();
 
     /// <summary>The assembly with the app's Assets (logo-256.png, &lt;id&gt;.ico): the app itself.</summary>
     protected virtual string AssetsAssembly => Definition.Name;
@@ -63,6 +71,12 @@ public abstract class OfficeApplication : Application
 
     /// <summary>The self test closes its windows and ends by itself: the last window closed must not end the app then.</summary>
     internal bool KeepsRunningWithoutWindows { get; set; }
+
+    /// <summary>
+    /// Whether closing the last document window ends the app: on Windows yes (like Word); on macOS no – the app stays in
+    /// the Dock and the menu bar, a click on its icon opens a new document, ⌘Q ends it (the Mac convention).
+    /// </summary>
+    public static bool LastWindowEndsApp(bool isMacOS) => !isMacOS;
 
     /// <summary>The program file; shortcuts and file types point to it.</summary>
     public string ExecutablePath => Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, Definition.Name);
@@ -267,9 +281,32 @@ public abstract class OfficeApplication : Application
         }
 
         _isExiting = true;
+        if (_desktop is null)
+        {
+            OnExit();
+            return;
+        }
+
+        _desktop.Shutdown(0); // raises Exit: OnExit
+        OnExit();
+    }
+
+    /// <summary>
+    /// The app ends – after its last window on Windows, by ⌘Q on macOS or by <see cref="ExitApplication"/>: a downloaded
+    /// update is installed when automatic updates are on (unless "Jetzt installieren" started it already).
+    /// </summary>
+    private void OnExit()
+    {
+        if (_hasExited)
+        {
+            return;
+        }
+
+        _hasExited = true;
+        _isExiting = true;
         UiWatchdog.Stop();
         var update = UpdateService.Downloaded;
-        if (update is not null && SettingsService.Get().InstallUpdatesAutomatically && UpdateService.CanUpdate)
+        if (!_updateStarted && update is not null && SettingsService.Get().InstallUpdatesAutomatically && UpdateService.CanUpdate)
         {
             try
             {
@@ -284,7 +321,6 @@ public abstract class OfficeApplication : Application
 
         _instance?.Dispose();
         Log.Info($"{Definition.Name} ended");
-        _desktop?.Shutdown(0);
     }
 
     /// <summary>"Jetzt installieren": every window is closed (each asks about its changes), then the update starts and opens the app again.</summary>
@@ -306,10 +342,9 @@ public abstract class OfficeApplication : Application
         }
 
         await UpdateService.StartInstallerAsync(update, restart: true);
-        _isExiting = true;
-        UiWatchdog.Stop();
-        _instance?.Dispose();
-        _desktop?.Shutdown(0);
+        _updateStarted = true;
+        _isExiting = false;
+        ExitApplication();
         return true;
     }
 
@@ -323,6 +358,13 @@ public abstract class OfficeApplication : Application
 
     private void Start(IReadOnlyList<string> files)
     {
+        // The app decides when it ends (OnWindowClosed: Windows after the last window, macOS by ⌘Q); either way OnExit runs.
+        if (_desktop is not null)
+        {
+            _desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            _desktop.Exit += (_, _) => OnExit();
+        }
+
         Dispatcher.UIThread.UnhandledException += OnUnhandledException;
         UiWatchdog.Start();
         Log.Info($"{Definition.Name} {AppInfo.Version} starting on {UpdateService.PlatformKey}");
@@ -393,7 +435,7 @@ public abstract class OfficeApplication : Application
             _desktop.MainWindow = _windows.FirstOrDefault();
         }
 
-        if (_windows.Count == 0 && _desktop is not null && !KeepsRunningWithoutWindows)
+        if (_windows.Count == 0 && _desktop is not null && !KeepsRunningWithoutWindows && LastWindowEndsApp(OperatingSystem.IsMacOS()))
         {
             ExitApplication();
         }

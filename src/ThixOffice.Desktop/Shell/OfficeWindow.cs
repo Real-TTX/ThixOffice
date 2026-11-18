@@ -7,6 +7,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using MatDesktop;
 using ThixOffice.Core.Business;
 using ThixOffice.Core.Commands;
@@ -21,15 +22,18 @@ namespace ThixOffice.Desktop.Shell;
 
 /// <summary>
 /// One document in one window (like Word: every document its own window, all in one process). From top to bottom:
-///  1. the title bar (MatTitleBar, DESK-03): logo and word mark "Thix" + the app's suffix in its accent, the quick-access
-///     buttons (Speichern, Rückgängig, Wiederholen), the document's name with a dot while it has unsaved changes, in the
-///     middle the command search "Was möchten Sie tun?", the caption buttons;
-///  2. the ribbon slot (<see cref="IOfficeRibbon"/>; today <see cref="TemporaryCommandBar"/>, next MatRibbon);
+///  1. the title bar (MatTitleBar, DESK-03): logo and word mark "Thix" + the app's suffix in its accent, the quick access
+///     (MatQuickAccess: Speichern, Rückgängig, Wiederholen), the document's name with a dot while it has unsaved changes, in
+///     the middle the command search "Was möchten Sie tun?", the caption buttons;
+///  2. the ribbon (MatRibbon, drawn from the app's <see cref="OfficeApplication.CreateRibbon"/>, bound to the commands by
+///     <see cref="OfficeRibbonBinding"/>);
 ///  3. a message bar (a recovered document, a problem);
 ///  4. the editor of the app (<see cref="OfficeEditor"/>);
-///  5. the status bar slot (<see cref="IOfficeStatusBar"/>).
-/// "Datei" opens the backstage (<see cref="IOfficeBackstage"/>) over 2–5. Every action is a command of <see cref="Commands"/>,
-/// so the search, the ribbon, the quick-access buttons and the keyboard do the same. Closing asks about unsaved changes.
+///  5. the status bar (<see cref="OfficeStatusBar"/>: the editor's texts and the zoom).
+/// "Datei" opens the backstage (<see cref="OfficeBackstage"/>) over 2–5. Every action is a command of <see cref="Commands"/>,
+/// so the search, the ribbon, the quick access and the keyboard do the same. The window handles the shortcuts of the
+/// commands (Strg+S …, ⌘S … on macOS, before any control); the ribbon handles Alt / F10 and its key tips. Closing asks
+/// about unsaved changes.
 /// </summary>
 public sealed class OfficeWindow : MatWindow
 {
@@ -67,8 +71,41 @@ public sealed class OfficeWindow : MatWindow
         UseOwnTitleBar();
 
         Commands = new OfficeCommandRegistry();
-        Search = new CommandSearchBox(Commands);
+        Search = new CommandSearchBox(Commands) { Run = RunFromSearchAsync };
         Search.Finished += (_, _) => FocusDocument();
+        Backstage = new OfficeBackstage();
+        Backstage.OpenChanged += (_, open) => OnBackstageOpenChanged(open);
+        StatusBar = new OfficeStatusBar();
+
+        RegisterCommonCommands();
+        app.AddCommands(this);
+        CollectShortcuts();
+        _editor = app.CreateEditor(this, document);
+        StatusBar.View.ZoomChanged += (_, zoom) => _editor.Zoom = zoom;
+        StatusBar.View.ZoomLevelRequested += (_, _) => _editor.Zoom = 100; // the dialog of the zoom comes with the editors
+
+        // The ribbon: the app's definition (made for this window: its items carry this window's state), bound to the commands.
+        Ribbon = new MatRibbon { IsCollapsed = settings.IsRibbonCollapsed };
+        Ribbon.FileRequested += (_, _) => Backstage.Open();
+        Ribbon.CollapsedChanged += (_, collapsed) =>
+        {
+            SettingsService.Remember(current => current with { IsRibbonCollapsed = collapsed });
+            Commands.Invalidate();
+        };
+        RibbonDefinition = app.CreateRibbon(this);
+        MatRibbonItem[] quickItems =
+        [
+            OfficeRibbonItems.Button(CommonCommandIds.Save),
+            OfficeRibbonItems.Button(CommonCommandIds.Undo),
+            OfficeRibbonItems.Button(CommonCommandIds.Redo),
+        ];
+        RibbonBinding = OfficeRibbonBinding.Bind(RibbonDefinition, Commands, Ribbon, quickItems);
+        QuickAccess = new MatQuickAccess(RibbonDefinition);
+        foreach (var item in quickItems.OfType<MatRibbonButton>())
+        {
+            QuickAccess.Add(item);
+        }
+
         TitleBar = new MatTitleBar
         {
             AppName = definition.Name,
@@ -78,42 +115,31 @@ public sealed class OfficeWindow : MatWindow
             Center = BuildTitleCenter(),
         };
 
-        Ribbon = OfficeShellParts.CreateRibbon();
-        Ribbon.IsCollapsed = settings.IsRibbonCollapsed;
-        Ribbon.FileTabInvoked += (_, _) => Backstage!.Open();
-        Ribbon.CollapsedChanged += (_, collapsed) => SettingsService.Remember(current => current with { IsRibbonCollapsed = collapsed });
-        StatusBar = OfficeShellParts.CreateStatusBar();
-        Backstage = OfficeShellParts.CreateBackstage();
-        Backstage.OpenChanged += (_, open) => OnBackstageOpenChanged(open);
-
         _unsavedMarker.Use(Shape.FillProperty, "Mat.Accent");
         ToolTip.SetTip(_unsavedMarker, "Ungespeicherte Änderungen");
 
         var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*,Auto") };
         var editorArea = new Border { Child = _editorHost, ClipToBounds = true }.Use(Border.BackgroundProperty, "Mat.Bg");
-        Grid.SetRow(Ribbon.View, 1);
+        Grid.SetRow(Ribbon, 1);
         Grid.SetRow(_messageBar, 2);
         Grid.SetRow(editorArea, 3);
         Grid.SetRow(StatusBar.View, 4);
         Grid.SetRow(Backstage.View, 1);
         Grid.SetRowSpan(Backstage.View, 4);
         layout.Children.Add(TitleBar);
-        layout.Children.Add(Ribbon.View);
+        layout.Children.Add(Ribbon);
         layout.Children.Add(_messageBar);
         layout.Children.Add(editorArea);
         layout.Children.Add(StatusBar.View);
         layout.Children.Add(Backstage.View);
         Content = layout;
 
-        RegisterCommonCommands();
-        app.AddCommands(this);
-        Ribbon.Bind(app.Ribbon, Commands);
         Backstage.Configure(BuildBackstage());
-        CollectShortcuts();
 
-        _editor = app.CreateEditor(this, document);
         AttachDocument(document);
 
+        // Registered before the ribbon is attached (it listens on the window too): the commands' shortcuts – Strg+F1 among
+        // them – are handled here first and marked handled, so the ribbon never acts on the same key a second time.
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
         Closing += OnClosing;
         Opened += (_, _) => FocusDocument();
@@ -142,14 +168,24 @@ public sealed class OfficeWindow : MatWindow
 
     public CommandSearchBox Search { get; }
 
-    public IOfficeRibbon Ribbon { get; }
+    /// <summary>The ribbon (MatDesktop): "Datei" and the app's tabs.</summary>
+    public MatRibbon Ribbon { get; }
 
-    public IOfficeBackstage Backstage { get; }
+    /// <summary>This window's ribbon definition (the app's, made for this window); the items carry the window's state.</summary>
+    public MatRibbonDefinition RibbonDefinition { get; }
 
-    public IOfficeStatusBar StatusBar { get; }
+    /// <summary>How the ribbon and the quick access are bound to <see cref="Commands"/>.</summary>
+    public OfficeRibbonBinding RibbonBinding { get; }
 
-    /// <summary>The buttons of the title bar: Speichern, Rückgängig, Wiederholen.</summary>
-    public IReadOnlyList<Button> QuickAccessButtons { get; private set; } = [];
+    public OfficeBackstage Backstage { get; }
+
+    public OfficeStatusBar StatusBar { get; }
+
+    /// <summary>The quick access of the title bar: Speichern, Rückgängig, Wiederholen.</summary>
+    public MatQuickAccess QuickAccess { get; }
+
+    /// <summary>The buttons of the quick access, in their order.</summary>
+    public IReadOnlyList<Button> QuickAccessButtons => [.. QuickAccess.Children.OfType<Button>()];
 
     /// <summary>The document's name in the title bar.</summary>
     public string DocumentNameText => _documentName.Text ?? "";
@@ -164,17 +200,20 @@ public sealed class OfficeWindow : MatWindow
     /// Runs a command from any control of a document window (the ribbon, the search, a page) and shows a refusal of the
     /// business layer in a message; false when it could not run.
     /// </summary>
-    public static async Task<bool> RunCommandAsync(Visual source, OfficeCommand command)
+    public static Task<bool> RunCommandAsync(Visual source, OfficeCommand command) => RunAsync(source, command.Label, command.ExecuteAsync);
+
+    /// <summary>Runs <paramref name="action"/> (a command, a value command with a value) and shows a refusal of the business layer under <paramref name="label"/>.</summary>
+    public static async Task<bool> RunAsync(Visual source, string label, Func<Task<bool>> action)
     {
         try
         {
-            return await command.ExecuteAsync();
+            return await action();
         }
         catch (BusinessException exception)
         {
             if (TopLevel.GetTopLevel(source) is Window window)
             {
-                await QuestionDialog.ShowMessageAsync(window, command.Label, exception.Message);
+                await QuestionDialog.ShowMessageAsync(window, label, exception.Message);
             }
 
             return false;
@@ -221,11 +260,14 @@ public sealed class OfficeWindow : MatWindow
     /// <summary>Puts another document into this window (a file opened while this window held an untouched new document).</summary>
     public void ReplaceDocument(OfficeDocument document)
     {
+        var zoom = _editor.Zoom;
         _editor.Detach();
+        _editor.ZoomChanged -= OnEditorZoomChanged;
         Document.Changed -= OnDocumentChanged;
         DocumentService.DiscardRecovery(Document);
         Document = document;
         _editor = _app.CreateEditor(this, document);
+        _editor.Zoom = zoom;
         AttachDocument(document);
         FocusDocument();
     }
@@ -283,12 +325,6 @@ public sealed class OfficeWindow : MatWindow
 
     private Grid BuildTitleCenter()
     {
-        var save = QuickAccess("save", "Speichern", "Ctrl+S", CommonCommandIds.Save);
-        var undo = QuickAccess("restore", "Rückgängig", "Ctrl+Z", CommonCommandIds.Undo);
-        var redo = QuickAccess("restore", "Wiederholen", "Ctrl+Y", CommonCommandIds.Redo, mirrored: true);
-        QuickAccessButtons = [save, undo, redo];
-
-        var quickAccess = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, VerticalAlignment = VerticalAlignment.Center, Children = { save, undo, redo } };
         var name = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -302,37 +338,17 @@ public sealed class OfficeWindow : MatWindow
         var center = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*") };
         Grid.SetColumn(name, 1);
         Grid.SetColumn(search, 2);
-        center.Children.Add(quickAccess);
+        center.Children.Add(QuickAccess);
         center.Children.Add(name);
         center.Children.Add(search);
         return center;
-    }
-
-    private Button QuickAccess(string icon, string label, string shortcut, string commandId, bool mirrored = false)
-    {
-        var button = new Button
-        {
-            Content = mirrored ? Ui.MirroredIcon(icon) : new MatIcon { Icon = icon, Size = 16 },
-            Theme = Ui.Theme("MatButton.Icon"),
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        ToolTip.SetTip(button, Ui.Tooltip(label, shortcut));
-        AutomationProperties.SetName(button, label);
-        button.Click += async (_, _) =>
-        {
-            if (Commands.Find(commandId) is { } command)
-            {
-                await RunCommandAsync(this, command);
-            }
-        };
-        return button;
     }
 
     private void RegisterCommonCommands()
     {
         Commands.Add(new OfficeCommand(CommonCommandIds.New, "Neu", () => _app.NewDocumentWindow())
         {
-            Icon = "file",
+            Icon = "file-new",
             Shortcut = "Ctrl+N",
             Description = "Erstellt ein neues, leeres Dokument in einem eigenen Fenster.",
             Keywords = ["leer", "erstellen", "anlegen", "dokument"],
@@ -353,8 +369,9 @@ public sealed class OfficeWindow : MatWindow
         });
         Commands.Add(new OfficeCommand(CommonCommandIds.SaveAs, "Speichern unter", SaveAsAsync)
         {
-            Icon = "folder",
+            Icon = "save-as",
             Shortcut = "F12",
+            MacShortcut = "Ctrl+Shift+S",
             Description = "Speichert das Dokument unter einem neuen Namen oder an einem anderen Ort.",
             Keywords = ["kopie", "umbenennen", "exportieren", "sichern"],
         });
@@ -367,15 +384,16 @@ public sealed class OfficeWindow : MatWindow
         });
         Commands.Add(new OfficeCommand(CommonCommandIds.Undo, "Rückgängig", () => Document.Undo())
         {
-            Icon = "restore",
+            Icon = "undo",
             Shortcut = "Ctrl+Z",
             CanExecute = () => Document.CanUndo,
             Keywords = ["zurück", "widerrufen"],
         });
         Commands.Add(new OfficeCommand(CommonCommandIds.Redo, "Wiederholen", () => Document.Redo())
         {
-            Icon = "restore",
+            Icon = "redo",
             Shortcut = "Ctrl+Y",
+            MacShortcut = "Ctrl+Shift+Z",
             CanExecute = () => Document.CanRedo,
             Keywords = ["wiederherstellen"],
         });
@@ -384,13 +402,34 @@ public sealed class OfficeWindow : MatWindow
             Icon = "file",
             IsSearchable = false,
         });
-        Commands.Add(new OfficeCommand(CommonCommandIds.ToggleRibbon, "Menüband reduzieren", ToggleRibbon)
+        Commands.Add(new OfficeCommand(CommonCommandIds.ToggleRibbon, "Menüband reduzieren", () => Ribbon.ToggleCollapsed())
         {
             Icon = "chevron-up",
             Shortcut = "Ctrl+F1",
+            MacShortcut = "Ctrl+Alt+R", // ⌥⌘R, MatRibbon's key on macOS
             Description = "Zeigt vom Menüband nur die Registerkarten – oder wieder alles.",
             Keywords = ["menüband", "ausblenden", "einblenden", "ribbon", "platz"],
             IsChecked = () => Ribbon.IsCollapsed,
+        });
+        Commands.Add(new OfficeCommand(CommonCommandIds.ZoomIn, "Vergrößern", () => _editor.Zoom = Math.Floor((_editor.Zoom / 10) + 1) * 10)
+        {
+            Icon = "zoom-in",
+            Description = "Zeigt das Dokument größer an.",
+            Keywords = ["zoom", "größer", "lupe"],
+            CanExecute = () => _editor.Zoom < OfficeEditor.MaxZoom,
+        });
+        Commands.Add(new OfficeCommand(CommonCommandIds.ZoomOut, "Verkleinern", () => _editor.Zoom = Math.Ceiling((_editor.Zoom / 10) - 1) * 10)
+        {
+            Icon = "zoom-out",
+            Description = "Zeigt das Dokument kleiner an.",
+            Keywords = ["zoom", "kleiner", "lupe"],
+            CanExecute = () => _editor.Zoom > OfficeEditor.MinZoom,
+        });
+        Commands.Add(new OfficeCommand(CommonCommandIds.Zoom100, "100 %", () => _editor.Zoom = 100)
+        {
+            Icon = "search",
+            Description = "Zeigt das Dokument in Originalgröße.",
+            Keywords = ["zoom", "originalgröße", "hundert"],
         });
         Commands.Add(new OfficeCommand(CommonCommandIds.Settings, "Einstellungen", () => Backstage.Open(SettingsPageId))
         {
@@ -413,27 +452,41 @@ public sealed class OfficeWindow : MatWindow
 
     private BackstageContent BuildBackstage() => new(
         [
-            new BackstageItem(NewPageId, "Neu", "file", () => new NewPage(this), Shortcut: "Ctrl+N"),
-            new BackstageItem(OpenPageId, "Öffnen", "folder-open", () => new OpenPage(this), Shortcut: "Ctrl+O"),
-            new BackstageItem(SaveItemId, "Speichern", "save", Run: async () => await SaveAsync(), Shortcut: "Ctrl+S"),
-            new BackstageItem(SaveAsPageId, "Speichern unter", "folder", () => new SaveAsPage(this), Shortcut: "F12"),
-            new BackstageItem(CloseItemId, "Schließen", "x", Run: CloseDocumentAsync, Shortcut: "Ctrl+W"),
+            new BackstageItem(NewPageId, "Neu", "file-new", () => new NewPage(this), Shortcut: ShortcutOf(CommonCommandIds.New)),
+            new BackstageItem(OpenPageId, "Öffnen", "folder-open", () => new OpenPage(this), Shortcut: ShortcutOf(CommonCommandIds.Open)),
+            new BackstageItem(SaveItemId, "Speichern", "save", Run: async () => await SaveAsync(), Shortcut: ShortcutOf(CommonCommandIds.Save)),
+            new BackstageItem(SaveAsPageId, "Speichern unter", "save-as", () => new SaveAsPage(this), Shortcut: ShortcutOf(CommonCommandIds.SaveAs)),
+            new BackstageItem(CloseItemId, "Schließen", "x", Run: CloseDocumentAsync, Shortcut: ShortcutOf(CommonCommandIds.Close)),
         ],
         new BackstageItem(SettingsPageId, "Einstellungen", "settings", () => new SettingsPage(this)),
         new BackstageItem(AboutPageId, "Info", "info", () => new AboutPage(this)),
         AppInfo.Version,
         AppInfo.Channel);
 
+    private string? ShortcutOf(string commandId) => Commands.Find(commandId)?.CurrentShortcut;
+
     private void CollectShortcuts()
     {
         _shortcuts.Clear();
         foreach (var command in Commands.All)
         {
-            if (Ui.Gesture(command.Shortcut) is { } gesture)
+            if (Ui.Gesture(command.CurrentShortcut) is { } gesture)
             {
                 _shortcuts.Add((gesture, command));
             }
         }
+    }
+
+    /// <summary>The search chose a command: a value command shows its field in the ribbon (the user types the size there); any other runs.</summary>
+    private async Task<bool> RunFromSearchAsync(OfficeCommand command)
+    {
+        if (command is OfficeValueCommand && RibbonBinding.Reveal(command.Id))
+        {
+            return true;
+        }
+
+        FocusDocument();
+        return await RunCommandAsync(this, command);
     }
 
     // ===== Document =====
@@ -441,6 +494,8 @@ public sealed class OfficeWindow : MatWindow
     private void AttachDocument(OfficeDocument document)
     {
         _editorHost.Content = _editor.View;
+        _editor.ZoomChanged += OnEditorZoomChanged;
+        StatusBar.View.Zoom = _editor.Zoom;
         document.Changed += OnDocumentChanged;
         if (document.IsRecovered)
         {
@@ -464,21 +519,18 @@ public sealed class OfficeWindow : MatWindow
         Title = $"{(Document.IsDirty ? "● " : "")}{Document.Title} – {AppInfo.ProductName}";
         Commands.Invalidate();
         _editor.UpdateStatus(StatusBar);
-        foreach (var (button, id) in QuickAccessButtons.Zip([CommonCommandIds.Save, CommonCommandIds.Undo, CommonCommandIds.Redo]))
-        {
-            button.IsEnabled = Commands.Find(id)?.IsEnabled ?? false;
-        }
     }
 
-    private void ToggleRibbon()
+    private void OnEditorZoomChanged(object? sender, double zoom)
     {
-        Ribbon.IsCollapsed = !Ribbon.IsCollapsed;
-        SettingsService.Remember(current => current with { IsRibbonCollapsed = Ribbon.IsCollapsed });
+        StatusBar.View.Zoom = zoom;
         Commands.Invalidate();
     }
 
     private void OnBackstageOpenChanged(bool open)
     {
+        // The backstage covers the ribbon: Alt and the key tips are not the ribbon's while it is open.
+        Ribbon.HandlesWindowKeys = !open;
         if (!open)
         {
             FocusDocument();
@@ -509,10 +561,17 @@ public sealed class OfficeWindow : MatWindow
             return; // the search box keeps its own keys (Strg+Z there undoes the typing)
         }
 
+        // A field of the ribbon (Schriftgrad) undoes its own typing; the other shortcuts (Strg+S) still apply there.
+        var inRibbonField = FocusManager?.GetFocusedElement() is TextBox field && Ribbon.IsVisualAncestorOf(field);
         foreach (var (gesture, command) in _shortcuts)
         {
             if (gesture.Matches(e))
             {
+                if (inRibbonField && command.Id is CommonCommandIds.Undo or CommonCommandIds.Redo)
+                {
+                    return;
+                }
+
                 e.Handled = true;
                 await RunCommandAsync(this, command);
                 return;

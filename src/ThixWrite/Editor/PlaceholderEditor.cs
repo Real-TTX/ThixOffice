@@ -19,7 +19,6 @@ public sealed class PlaceholderEditor : OfficeEditor
 {
     public const string WordsItem = "words";
     public const string CharactersItem = "characters";
-    public const string ZoomItem = "zoom";
 
     /// <summary>The text of the snapshots' sample document.</summary>
     public const string SampleText = """
@@ -38,6 +37,7 @@ public sealed class PlaceholderEditor : OfficeEditor
     private readonly TextDocument _document;
     private readonly TextBox _textBox;
     private readonly Border _view;
+    private readonly LayoutTransformControl _zoomed;
     private bool _isUpdating;
 
     public PlaceholderEditor(TextDocument document)
@@ -73,13 +73,17 @@ public sealed class PlaceholderEditor : OfficeEditor
             Child = new StackPanel { Children = { note, _textBox } },
         }.Use(Border.BackgroundProperty, "Mat.Surface").Use(Border.BorderBrushProperty, "Mat.Border");
 
+        _zoomed = new LayoutTransformControl { Child = sheet };
         _view = new Border
         {
-            Child = new ScrollViewer { Content = sheet, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto },
+            Child = new ScrollViewer { Content = _zoomed, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto },
         }.Use(Border.BackgroundProperty, "Mat.Bg");
     }
 
     public override Control View => _view;
+
+    /// <summary>The scale the page is drawn at (the zoom; tests).</summary>
+    public double Scale => _zoomed.LayoutTransform is ScaleTransform scale ? scale.ScaleX : 1;
 
     /// <summary>The text box (tests type into it).</summary>
     public TextBox TextBox => _textBox;
@@ -89,13 +93,16 @@ public sealed class PlaceholderEditor : OfficeEditor
 
     public override void FocusDocument() => _textBox.Focus();
 
-    public override void UpdateStatus(IOfficeStatusBar statusBar)
+    public override void UpdateStatus(OfficeStatusBar statusBar)
     {
         var (words, characters) = _document.Count();
         statusBar.SetItem(WordsItem, words == 1 ? "1 Wort" : $"{words} Wörter");
         statusBar.SetItem(CharactersItem, characters == 1 ? "1 Zeichen" : $"{characters} Zeichen");
-        statusBar.SetItem(ZoomItem, "100 %", StatusBarSide.Right);
     }
+
+    /// <summary>The placeholder draws the whole page larger or smaller (the native editor lays out at the zoom).</summary>
+    protected override void OnZoomChanged(double zoom) =>
+        _zoomed.LayoutTransform = zoom == 100 ? null : new ScaleTransform(zoom / 100, zoom / 100);
 
     public override void Detach() => _document.Changed -= OnDocumentChanged;
 

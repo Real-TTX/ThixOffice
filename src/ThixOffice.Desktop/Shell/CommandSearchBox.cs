@@ -68,8 +68,11 @@ public sealed class CommandSearchBox : Grid
         _box.AddHandler(KeyDownEvent, OnBoxKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
     }
 
-    /// <summary>Raised after a command ran or the search was left with Escape: the window gives the focus to the document.</summary>
+    /// <summary>The search was left with Escape: the window gives the focus to the document.</summary>
     public event EventHandler? Finished;
+
+    /// <summary>How a chosen command runs (the window: a value command shows its field in the ribbon, any other runs).</summary>
+    public Func<OfficeCommand, Task<bool>>? Run { get; init; }
 
     /// <summary>The text box (tests type into it).</summary>
     public TextBox Box => _box;
@@ -95,6 +98,11 @@ public sealed class CommandSearchBox : Grid
         }
 
         Reset();
+        if (Run is { } run)
+        {
+            return await run(command);
+        }
+
         Finished?.Invoke(this, EventArgs.Empty);
         return await OfficeWindow.RunCommandAsync(this, command);
     }
@@ -147,7 +155,7 @@ public sealed class CommandSearchBox : Grid
         var label = new TextBlock { Text = command.Label, VerticalAlignment = VerticalAlignment.Center };
         var shortcut = new TextBlock
         {
-            Text = command.Shortcut is null ? "" : Ui.ShortcutText(command.Shortcut),
+            Text = command.CurrentShortcut is { } keys ? Ui.ShortcutText(keys) : "",
             FontSize = MatTokens.Type.FsSm,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(16, 0, 4, 0),

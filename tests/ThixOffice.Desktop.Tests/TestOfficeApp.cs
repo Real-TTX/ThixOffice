@@ -5,6 +5,7 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Threading;
 using ThixOffice.Core.Business;
+using MatDesktop;
 using ThixOffice.Core.Commands;
 using ThixOffice.Core.Documents;
 using ThixOffice.Core.Infrastructure;
@@ -45,11 +46,27 @@ public sealed class TestOfficeApp : OfficeApplication
 
     public override OfficeAppDefinition Definition => TestDefinition;
 
-    public override RibbonLayout Ribbon { get; } = new(
-    [
-        new RibbonTab("home", "Start", [new RibbonGroup("doc", "Dokument", [new RibbonItem(CommonCommandIds.New, RibbonItemSize.Large), new RibbonItem(CommonCommandIds.Save), new RibbonItem(ShoutCommand)])]),
-        new RibbonTab("view", "Ansicht", [new RibbonGroup("ribbon", "Menüband", [new RibbonItem(CommonCommandIds.ToggleRibbon)])]),
-    ]);
+    public const string SizeCommand = "test.size";
+
+    public const string MissingCommand = "test.notYet";
+
+    /// <summary>
+    /// Start (Dokument: Neu, Speichern, Großschreiben, a command that does not exist yet; Größe: a combo box of a value
+    /// command), Später (only missing commands: left out), Ansicht (Menüband).
+    /// </summary>
+    public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => new MatRibbonDefinition().Add(
+        new MatRibbonTab("home", "Start").Add(
+            new MatRibbonGroup("doc", "Dokument").Add(
+                OfficeRibbonItems.Button(CommonCommandIds.New, MatRibbonSize.Large),
+                OfficeRibbonItems.Button(CommonCommandIds.Save),
+                OfficeRibbonItems.Button(ShoutCommand),
+                OfficeRibbonItems.Button(MissingCommand)),
+            new MatRibbonGroup("size", "Größe").Add(
+                OfficeRibbonItems.ComboBox(SizeCommand, width: 64, isEditable: true))),
+        new MatRibbonTab("later", "Später").Add(
+            new MatRibbonGroup("later", "Später").Add(OfficeRibbonItems.Button(MissingCommand + "2"))),
+        new MatRibbonTab("view", "Ansicht").Add(
+            new MatRibbonGroup("ribbon", "Menüband").Add(OfficeRibbonItems.Toggle(CommonCommandIds.ToggleRibbon))));
 
     protected override string AssetsAssembly => "ThixOffice.Desktop.Tests";
 
@@ -57,12 +74,24 @@ public sealed class TestOfficeApp : OfficeApplication
 
     public override OfficeEditor CreateEditor(OfficeWindow window, OfficeDocument document) => new TestEditor((TestTextDocument)document);
 
-    public override void AddCommands(OfficeWindow window) =>
+    /// <summary>The value of <see cref="SizeCommand"/> (a stand-in for a font size).</summary>
+    public string Size { get; set; } = "11";
+
+    public override void AddCommands(OfficeWindow window)
+    {
         window.Commands.Add(new OfficeCommand(ShoutCommand, "Großschreiben", () => ((TestTextDocument)window.Document).Set(((TestTextDocument)window.Document).Text.ToUpperInvariant()))
         {
             Icon = "type",
             Keywords = ["großbuchstaben", "versalien"],
+            CanExecute = () => ((TestTextDocument)window.Document).Text.Length > 0,
         });
+        window.Commands.Add(new OfficeValueCommand(SizeCommand, "Schriftgrad", OfficeValueKind.Text, () => Size, value => Size = value ?? Size)
+        {
+            Icon = "type",
+            Options = ["9", "10", "11", "12"],
+            Keywords = ["schriftgröße"],
+        });
+    }
 
     protected override void FillSampleDocument(OfficeDocument document) => ((TestTextDocument)document).Set("Beispiel");
 }
@@ -136,7 +165,7 @@ public sealed class TestEditor : OfficeEditor
 
     public override void FocusDocument() => Box.Focus();
 
-    public override void UpdateStatus(IOfficeStatusBar statusBar) => statusBar.SetItem("chars", $"{_document.Text.Length} Zeichen");
+    public override void UpdateStatus(OfficeStatusBar statusBar) => statusBar.SetItem("chars", $"{_document.Text.Length} Zeichen");
 
     public override void Detach() => _document.Changed -= OnChanged;
 
@@ -217,7 +246,7 @@ public sealed class TestData : IDisposable
         }
 
         Settle();
-        OfficeShellParts.CreateRibbon = () => new TemporaryCommandBar();
+        App.Size = "11";
         OfficeApplication.FileDialogs = new SystemFileDialogs();
         Ui.OpenExternalForTests = null;
         AccessPolicy.UsePolicyReaderForTests(null);

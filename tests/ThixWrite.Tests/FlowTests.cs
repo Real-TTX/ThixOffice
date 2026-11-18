@@ -220,7 +220,7 @@ public sealed class FlowTests
 
         window.Search.Box.Text = "datum";
         await TestData.SettleAsync();
-        Assert.Equal(WriteRibbon.InsertDateTime, window.Search.Results[0].Id);
+        Assert.Equal(WriteCommandIds.InsertDateTime, window.Search.Results[0].Id);
         await window.Search.RunSelectedAsync();
         await TestData.SettleAsync();
 
@@ -231,13 +231,48 @@ public sealed class FlowTests
     }
 
     [AvaloniaFact]
-    public void Every_command_of_the_ribbon_exists_in_a_window()
+    public async Task The_ribbon_is_Word_s_skeleton_with_only_the_commands_that_exist()
     {
         using var data = new TestData();
         var window = TestData.App.NewDocumentWindow();
-        Assert.All(WriteRibbon.Layout.CommandIds, id => Assert.NotNull(window.Commands.Find(id)));
-        Assert.All(window.Commands.All.Where(command => command.Shortcut is not null), command => Assert.NotNull(Ui.Gesture(command.Shortcut)));
+        await TestData.SettleAsync();
+
+        // Start | Einfügen | Ansicht now; Layout comes with the editor's commands (left out, no dead buttons).
+        Assert.Equal(["Start", "Einfügen", "Ansicht"], window.RibbonDefinition.Tabs.Select(tab => tab.Label));
+        Assert.Equal(["Rückgängig"], window.RibbonDefinition.Tabs[0].Groups.Select(group => group.Label));
+        Assert.Equal(["Zoom", "Menüband"], window.RibbonDefinition.Tabs[2].Groups.Select(group => group.Label));
+        Assert.Empty(window.RibbonDefinition.Problems());
+        Assert.All(window.RibbonDefinition.AllItems().Where(item => item is not (MatDesktop.MatRibbonStack or MatDesktop.MatRibbonRow or MatDesktop.MatRibbonSeparator)),
+            item => Assert.NotNull(window.Commands.Find(item.Id)));
+
+        // Every id the binding left out is one of ThixWrite's planned commands (a typo would show here).
+        var planned = typeof(WriteCommandIds).GetFields().Select(field => (string)field.GetValue(null)!).ToHashSet();
+        Assert.All(window.RibbonBinding.MissingCommandIds, id => Assert.Contains(id, planned));
+        Assert.Contains(WriteCommandIds.Bold, window.RibbonBinding.MissingCommandIds);
+        Assert.Contains(WriteCommandIds.PageMargins, window.RibbonBinding.MissingCommandIds);
+
+        Assert.All(window.Commands.All.Where(command => command.CurrentShortcut is not null), command => Assert.NotNull(Ui.Gesture(command.CurrentShortcut)));
         Assert.Equal(window.Commands.All.Count, window.Commands.All.Select(command => command.Id).Distinct().Count());
         Assert.Contains(CommonCommandIds.Save, window.Commands.All.Select(command => command.Id));
+    }
+
+    [AvaloniaFact]
+    public async Task The_zoom_of_the_status_bar_scales_the_page_and_stays_when_a_file_comes_in()
+    {
+        using var data = new TestData();
+        var path = data.File("Notizen.txt", "Text");
+        var window = TestData.App.NewDocumentWindow();
+        await TestData.SettleAsync();
+
+        window.StatusBar.View.Zoom = 150;
+        await TestData.SettleAsync();
+        Assert.Equal(150, window.Editor.Zoom);
+        Assert.Equal(1.5, EditorOf(window).Scale);
+
+        await TestData.App.OpenFileAsync(path, window); // into the untouched window: a new editor, the same zoom
+        await TestData.SettleAsync();
+        Assert.Equal(150, window.Editor.Zoom);
+        Assert.Equal(1.5, EditorOf(window).Scale);
+        Assert.Equal(150, window.StatusBar.View.Zoom);
     }
 }

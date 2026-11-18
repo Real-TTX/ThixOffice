@@ -1,5 +1,5 @@
 using Avalonia.Markup.Xaml;
-using ThixOffice.Core.Commands;
+using MatDesktop;
 using ThixOffice.Core.Documents;
 using ThixOffice.Core.Models;
 using ThixOffice.Desktop;
@@ -19,7 +19,7 @@ public partial class App : OfficeApplication
 {
     public override OfficeAppDefinition Definition => ThixWriteApp.Definition;
 
-    public override RibbonLayout Ribbon => WriteRibbon.Layout;
+    public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => WriteRibbon.Create();
 
     public override void Initialize()
     {

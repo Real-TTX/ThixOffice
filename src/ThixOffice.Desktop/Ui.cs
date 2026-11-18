@@ -56,13 +56,15 @@ public static class Ui
         var parts = shortcut.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (OperatingSystem.IsMacOS())
         {
-            return string.Concat(parts.Select(part => part switch
+            // The Mac order of the modifiers: ⌥ ⇧ ⌘, then the key ("Ctrl+Alt+R" is ⌥⌘R).
+            var order = new[] { "Alt", "Shift", "Ctrl" };
+            var modifiers = order.Where(parts.Contains).Select(part => part switch
             {
                 "Ctrl" => "⌘",
                 "Shift" => "⇧",
-                "Alt" => "⌥",
-                _ => part,
-            }));
+                _ => "⌥",
+            });
+            return string.Concat(modifiers.Concat(parts.Where(part => !order.Contains(part))));
         }
 
         return string.Join('+', parts.Select(part => part switch
@@ -159,8 +161,4 @@ public static class Ui
 
         return local.Date == day.AddDays(-1) ? $"Gestern, {local:HH:mm}" : local.ToString("dd.MM.yyyy, HH:mm", System.Globalization.CultureInfo.GetCultureInfo("de-DE"));
     }
-
-    /// <summary>A sprite icon, mirrored left to right (redo is undo mirrored: the sprite has no redo yet).</summary>
-    public static MatIcon MirroredIcon(string name, double size = 16) =>
-        new() { Icon = name, Size = size, RenderTransform = new ScaleTransform(-1, 1) };
 }
