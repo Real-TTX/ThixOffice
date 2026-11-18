@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The native text backend of the desktop apps: SkiaTextMeasurer (SkiaSharp typefaces and metrics, HarfBuzz shaping, font
+    fallback per character), SkiaPageRenderer (draws ThixOffice.Text display lists on any SKCanvas – the editor control through
+    Avalonia's Skia lease, printing) and PdfExport (SKDocument.CreatePdf). Kept out of the cores, which only know
+    ITextMeasurer, so that a web version can measure in the browser instead.
+    SkiaSharp 2.88.9 and HarfBuzzSharp 8.3.1.1 are exactly the versions Avalonia.Skia 11.3.22 brings: one copy in the app.
+  -->
+  <PropertyGroup>
+    <RootNamespace>ThixOffice.Text.Skia</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- MIT licence (both). -->
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <PackageReference Include="HarfBuzzSharp" Version="8.3.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThixOffice.Text\ThixOffice.Text.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Text for every ThixOffice app, UI-free and without native code: the measuring contract the layout engines use
+    (ITextMeasurer, FontSpec, FontMetrics, ShapedText) with a deterministic fixed-width measurer for tests, the Unicode rules
+    a layout needs (line-break opportunities after UAX #14, grapheme clusters and words after UAX #29) and the
+    renderer-neutral display list of a page (glyph runs, rectangles, lines) that the screen, PDF and print consume.
+    The real measurer and the PDF backend live in ThixOffice.Text.Skia; a web version brings its own measurer.
+  -->
+  <PropertyGroup>
+    <RootNamespace>ThixOffice.Text</RootNamespace>
+  </PropertyGroup>
+
+</Project>

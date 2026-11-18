@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Tests of ThixWrite's UI-free core: the model, the editing engine (invariants, undo/redo symmetry with random edit sequences),
+    the layout with the deterministic fixed-width measurer (line breaking, pagination rules, hit testing and caret round trips,
+    incremental layout and its performance on a long document), docx and plain-text round trips (generated fixtures, Open XML
+    validation), the Unicode rules of ThixOffice.Text and the Skia measurer / PDF export of ThixOffice.Text.Skia.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <SupportedOSPlatformVersion Condition="'$(OS)' == 'Windows_NT'">10.0.17763.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="GitHubActionsTestLogger" Version="2.4.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ThixOffice.Text\ThixOffice.Text.csproj" />
+    <ProjectReference Include="..\..\src\ThixOffice.Text.Skia\ThixOffice.Text.Skia.csproj" />
+    <ProjectReference Include="..\..\src\ThixWrite.Core\ThixWrite.Core.csproj" />
+  </ItemGroup>
+
+</Project>

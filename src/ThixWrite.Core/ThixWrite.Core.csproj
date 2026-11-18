@@ -1,9 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    ThixWrite without UI: its app definition (accent, document types) and its document model. Phase 0 has a trivial plain
-    text document so that the shell (new, open, save, recent, recovery) is used end to end; the real model (sections,
-    paragraphs, runs, styles), the layout and docx come in phase 1.
+    ThixWrite without UI: its app definition (accent, document types) and the word processor's core – the document model
+    (Model: sections, paragraphs, runs, styles, lists, preserved content), the editing engine (Editing: positions, selection,
+    reversible steps, undo, clipboard, find), the layout (Layout: line breaking, pagination, hit testing, page display lists)
+    and the formats (Formats: docx with the Open XML SDK, plain text). No UI framework and no native code: text is measured
+    through ThixOffice.Text's ITextMeasurer, so the same core can serve a web version.
+    PHASE 0 ONLY: Documents/TextDocument (plain text) stays until the native editor replaces the placeholder editor.
   -->
   <PropertyGroup>
     <RootNamespace>ThixWrite.Core</RootNamespace>
@@ -12,10 +15,17 @@
   <ItemGroup>
     <InternalsVisibleTo Include="ThixWrite" />
     <InternalsVisibleTo Include="ThixWrite.Tests" />
+    <InternalsVisibleTo Include="ThixWrite.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- MIT licence. -->
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ThixOffice.Core\ThixOffice.Core.csproj" />
+    <ProjectReference Include="..\ThixOffice.Text\ThixOffice.Text.csproj" />
   </ItemGroup>
 
 </Project>
