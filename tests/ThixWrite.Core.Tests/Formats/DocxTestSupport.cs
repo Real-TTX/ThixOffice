@@ -68,7 +68,7 @@ internal static class DocxTestSupport
     public static string DocumentXml(byte[] bytes)
     {
         using var package = WordprocessingDocument.Open(new MemoryStream(bytes), false);
-        return package.MainDocumentPart!.Document.OuterXml;
+        return package.MainDocumentPart!.Document!.OuterXml;
     }
 
     public static OpenXmlAttribute WordAttribute(string name, string value) =>

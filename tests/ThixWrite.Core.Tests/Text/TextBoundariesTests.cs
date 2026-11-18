@@ -1,19 +1,19 @@
 using ThixOffice.Text;
 using ThixOffice.Text.Unicode;
 
-namespace ThixWrite.Core.Tests.Text;
+namespace ThixWrite.Core.Tests.TextEngine;
 
 public class TextBoundariesTests
 {
-    private const string Family = "\U0001F468‍\U0001F469‍\U0001F467";
+    private const string Family = "\U0001F468\u200D\U0001F469\u200D\U0001F467";
     private const string Flags = "\U0001F1E9\U0001F1EA\U0001F1EB\U0001F1F7";
 
     [Fact]
     public void Combining_marks_belong_to_their_base()
     {
-        Assert.Equal([0, 2, 3], TextBoundaries.GraphemeBoundaries("éa"));
-        Assert.Equal(2, TextBoundaries.NextGrapheme("éa", 0));
-        Assert.Equal(0, TextBoundaries.PreviousGrapheme("éa", 2));
+        Assert.Equal([0, 2, 3], TextBoundaries.GraphemeBoundaries("e\u0301a"));
+        Assert.Equal(2, TextBoundaries.NextGrapheme("e\u0301a", 0));
+        Assert.Equal(0, TextBoundaries.PreviousGrapheme("e\u0301a", 2));
     }
 
     [Fact]
@@ -34,7 +34,7 @@ public class TextBoundariesTests
     [Fact]
     public void Grapheme_starts_mark_each_cluster_and_the_end()
     {
-        var starts = TextBoundaries.GraphemeStarts("é" + Family);
+        var starts = TextBoundaries.GraphemeStarts("e\u0301" + Family);
         Assert.True(starts[0]);
         Assert.False(starts[1]);
         Assert.True(starts[2]);
@@ -97,7 +97,7 @@ public class TextBoundariesTests
         Assert.Equal(WordCharKind.Punctuation, TextBoundaries.KindAt("'s", 0));
         Assert.Equal(WordCharKind.Word, TextBoundaries.KindAt("1.000", 1));
         Assert.Equal(WordCharKind.Punctuation, TextBoundaries.KindAt("Satz.Ende", 4));
-        Assert.Equal(WordCharKind.Special, TextBoundaries.KindAt("￼", 0));
+        Assert.Equal(WordCharKind.Special, TextBoundaries.KindAt("\uFFFC", 0));
     }
 
     [Theory]
@@ -106,7 +106,7 @@ public class TextBoundariesTests
     [InlineData("   ", 0)]
     [InlineData("a\vb\fc", 3)]
     [InlineData("Wort – Wort", 3)]
-    [InlineData("Bild￼Text", 2)]
+    [InlineData("Bild\uFFFCText", 2)]
     public void Counts_words_between_spaces_and_breaks(string text, int expected)
     {
         Assert.Equal(expected, TextBoundaries.CountWords(text));
@@ -130,7 +130,7 @@ public class FixedWidthTextMeasurerTests
     [Fact]
     public void Advances_sit_on_grapheme_starts_only()
     {
-        var text = "é\U0001F600x";
+        var text = "e\u0301\U0001F600x";
         var shaped = _measurer.Shape(text, new FontSpec("Calibri", 10));
         Assert.Equal(text.Length, shaped.Advances.Length);
         Assert.Equal(5, shaped.Advances[0]);

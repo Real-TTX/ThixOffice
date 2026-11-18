@@ -239,7 +239,7 @@ internal static class XmlFragments
                     builder.Append(' ');
                     break;
                 case W.NoBreakHyphen:
-                    builder.Append('‑');
+                    builder.Append('\u2011');
                     break;
             }
         }

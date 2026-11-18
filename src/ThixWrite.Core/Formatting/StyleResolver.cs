@@ -47,6 +47,9 @@ public sealed record EffectiveParagraphFormat(
 /// </summary>
 public sealed class StyleResolver(Document document)
 {
+    /// <summary>Word's font when neither a style nor the document defaults name one (with 10 pt).</summary>
+    public const string ImplicitFont = "Times New Roman";
+
     private const int CacheLimit = 20_000;
 
     private readonly Dictionary<string, (ParagraphProperties Paragraph, CharacterProperties Character)> _paragraphStyles = new(StringComparer.Ordinal);
@@ -172,7 +175,7 @@ public sealed class StyleResolver(Document document)
 
     /// <summary>The resolved family name of a font choice (theme fonts through the document's theme).</summary>
     public string FamilyOf(CharacterProperties properties) =>
-        properties.FontTheme is { } slot ? Document.Theme.FontOf(slot) : properties.FontFamily ?? BuiltInStyles.BodyFont;
+        properties.FontTheme is { } slot ? Document.Theme.FontOf(slot) : properties.FontFamily ?? ImplicitFont;
 
     private EffectiveCharacterFormat ToEffective(CharacterProperties merged)
     {

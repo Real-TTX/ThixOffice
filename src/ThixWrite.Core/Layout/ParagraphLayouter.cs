@@ -191,22 +191,22 @@ internal static class ParagraphLayouter
     private static (string Text, EffectiveCharacterFormat Format) DisplayLabel(string text, EffectiveCharacterFormat format)
     {
         var symbolFont = format.FontFamily is "Symbol" or "Wingdings" or "Wingdings 2" or "Wingdings 3";
-        if (!symbolFont && !text.Any(character => character is >= '' and <= ''))
+        if (!symbolFont && !text.Any(character => character is >= '\uF000' and <= '\uF0FF'))
         {
             return (text, format);
         }
 
         var mapped = new string(text.Select(character => character switch
         {
-            '' => '•',
-            '' => '▪',
-            '' => '➢',
-            '' => '✓',
-            '' => '❖',
-            '' => '◆',
-            '' => '○',
-            '' => '■',
-            >= '' and <= '' => '•',
+            '\uF0B7' => '•',
+            '\uF0A7' => '▪',
+            '\uF0D8' => '➢',
+            '\uF0FC' => '✓',
+            '\uF076' => '❖',
+            '\uF0A8' => '◆',
+            '\uF06F' => '○',
+            '\uF06E' => '■',
+            >= '\uF000' and <= '\uF0FF' => '•',
             _ => character,
         }).ToArray());
         return (mapped, format with { FontFamily = BuiltInStyles.BodyFont });

@@ -91,7 +91,7 @@ public class PlainTextFormatTests
             new Paragraph([
                 new TextRun("Zeile\vneue", CharacterProperties.Empty),
                 new OpaqueInline("<x/>", PreservedKind.Drawing, true, CharacterProperties.Empty),
-                new TextRun(" Trenn­ung", CharacterProperties.Empty),
+                new TextRun(" Trenn\u00ADung", CharacterProperties.Empty),
             ]),
             new OpaqueBlock("<w:tbl/>", PreservedKind.Table, ["A\tB", "C\tD"]),
             new Paragraph("Ende"),

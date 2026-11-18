@@ -351,6 +351,14 @@ public sealed class DocumentLayout : ICaretNavigator, IDisposable
 
     private void Splice(int start, int removed, int inserted)
     {
+        var expectedBefore = Document.Blocks.Count - inserted + removed;
+        if (_clearAll || _layouts.Count != expectedBefore)
+        {
+            // Not laid out yet (or out of step): the next update starts from scratch anyway.
+            _clearAll = true;
+            return;
+        }
+
         for (var index = start; index < start + removed && index < _layouts.Count; index++)
         {
             if (_layouts[index] is { } layout)

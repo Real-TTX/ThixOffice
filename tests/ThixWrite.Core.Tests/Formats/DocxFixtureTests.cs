@@ -126,7 +126,7 @@ public class DocxFixtureTests
         AssertValid(bytes);
         using var package = WordprocessingDocument.Open(new MemoryStream(bytes), false);
         var main = package.MainDocumentPart!;
-        var body = main.Document.Body!;
+        var body = main.Document!.Body!;
 
         var blip = body.Descendants<DocumentFormat.OpenXml.Drawing.Blip>().Single();
         var image = Assert.IsAssignableFrom<ImagePart>(main.GetPartById(blip.Embed!.Value!));
@@ -138,10 +138,10 @@ public class DocxFixtureTests
         }
 
         var headerReference = body.Descendants<W.HeaderReference>().Single();
-        Assert.Equal("Kopfzeile", Assert.IsType<HeaderPart>(main.GetPartById(headerReference.Id!.Value!)).Header.InnerText);
-        Assert.Contains(main.FootnotesPart!.Footnotes.Elements<W.Footnote>(), footnote => footnote.Id?.Value == 1);
+        Assert.Equal("Kopfzeile", Assert.IsType<HeaderPart>(main.GetPartById(headerReference.Id!.Value!)).Header!.InnerText);
+        Assert.Contains(main.FootnotesPart!.Footnotes!.Elements<W.Footnote>(), footnote => footnote.Id?.Value == 1);
         Assert.Single(body.Descendants<W.FootnoteReference>());
-        Assert.Single(main.WordprocessingCommentsPart!.Comments.Elements<W.Comment>());
+        Assert.Single(main.WordprocessingCommentsPart!.Comments!.Elements<W.Comment>());
         Assert.Single(body.Descendants<W.CommentRangeStart>());
         Assert.Single(body.Descendants<W.CommentReference>());
         Assert.Equal("Marke", body.Descendants<W.BookmarkStart>().Single().Name!.Value);

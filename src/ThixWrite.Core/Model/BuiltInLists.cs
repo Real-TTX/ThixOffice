@@ -31,9 +31,9 @@ public static class BuiltInLists
     {
         var (text, font) = (level % 3) switch
         {
-            0 => ("", "Symbol"),
+            0 => ("\uF0B7", "Symbol"),
             1 => ("o", "Courier New"),
-            _ => ("", "Wingdings"),
+            _ => ("\uF0A7", "Wingdings"),
         };
         return new NumberingLevel
         {

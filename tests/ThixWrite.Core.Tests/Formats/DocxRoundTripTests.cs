@@ -102,7 +102,7 @@ public class DocxRoundTripTests
         [
             new Paragraph("Größe\tÄrger\vneue Zeile\fneue Seite"),
             new Paragraph("  führende und  doppelte Leerzeichen "),
-            new Paragraph("Emoji 😀👍🏽, Zeichen:  geschützt, weich­trennen, nicht‑trennen, €, ß, Ω, 中文"),
+            new Paragraph("Emoji 😀👍🏽, Zeichen: \u00A0geschützt, weich\u00ADtrennen, nicht\u2011trennen, €, ß, Ω, 中文"),
             new Paragraph(""),
         ]);
 
@@ -134,7 +134,7 @@ public class DocxRoundTripTests
         using var package = WordprocessingDocument.Open(new MemoryStream(bytes), false);
         var relationship = Assert.Single(package.MainDocumentPart!.HyperlinkRelationships);
         Assert.Equal("https://www.example.com/pfad?q=1", relationship.Uri.OriginalString);
-        Assert.Equal(2, package.MainDocumentPart.Document.Body!.Elements<DocumentFormat.OpenXml.Wordprocessing.Paragraph>().Single()
+        Assert.Equal(2, package.MainDocumentPart!.Document!.Body!.Elements<DocumentFormat.OpenXml.Wordprocessing.Paragraph>().Single()
             .Elements<DocumentFormat.OpenXml.Wordprocessing.Hyperlink>().Count());
     }
 

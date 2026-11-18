@@ -12,13 +12,13 @@ public static class SpecialCharacters
     public const char PageBreak = '\f';
 
     /// <summary>The single character an inline object (<see cref="OpaqueInline"/>, later images, fields …) takes in the text.</summary>
-    public const char Object = '￼';
+    public const char Object = '\uFFFC';
 
-    public const char NonBreakingSpace = ' ';
+    public const char NonBreakingSpace = '\u00A0';
 
-    public const char SoftHyphen = '­';
+    public const char SoftHyphen = '\u00AD';
 
-    public const char NonBreakingHyphen = '‑';
+    public const char NonBreakingHyphen = '\u2011';
 
     /// <summary>True for characters that end a line by themselves.</summary>
     public static bool IsBreak(char character) => character is LineBreak or PageBreak;
@@ -98,7 +98,7 @@ public sealed record OpaqueInline(
 
     public override string Characters => ObjectText;
 
-    private const string ObjectText = "￼";
+    private const string ObjectText = "\uFFFC";
 
     /// <summary>Invisible and without size: a marker such as a bookmark or a field character.</summary>
     public bool IsMarker => DisplayText.Length == 0 && Width <= 0;

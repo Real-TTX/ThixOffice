@@ -1,6 +1,6 @@
 using ThixOffice.Text.Unicode;
 
-namespace ThixWrite.Core.Tests.Text;
+namespace ThixWrite.Core.Tests.TextEngine;
 
 public class LineBreakerTests
 {
@@ -73,8 +73,8 @@ public class LineBreakerTests
     [Fact]
     public void Non_breaking_space_glues()
     {
-        Assert.Empty(Breaks("10 kg"));
-        Assert.Equal([3], Breaks("ab 10 kg"));
+        Assert.Empty(Breaks("10\u00A0kg"));
+        Assert.Equal([3], Breaks("ab 10\u00A0kg"));
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public class LineBreakerTests
     public void Combining_marks_and_surrogate_pairs_are_never_split()
     {
         // e + combining acute, then an emoji (surrogate pair) between ideographs.
-        Assert.Empty(Breaks("é"));
+        Assert.Empty(Breaks("e\u0301"));
         var text = "漢😀字";
         var breaks = LineBreaker.GetBreaks(text);
         Assert.Equal(LineBreakKind.None, breaks[2]);
@@ -119,14 +119,14 @@ public class LineBreakerTests
     [Fact]
     public void A_mark_without_a_base_after_a_space_may_start_a_line()
     {
-        Assert.Equal([2], Breaks("a ́b"));
+        Assert.Equal([2], Breaks("a \u0301b"));
     }
 
     [Fact]
     public void Zero_width_space_soft_hyphen_and_tab_allow_a_break_after_them()
     {
-        Assert.Equal([6], Breaks("Donau​schiff"));
-        Assert.Equal([6], Breaks("Donau­schiff"));
+        Assert.Equal([6], Breaks("Donau\u200Bschiff"));
+        Assert.Equal([6], Breaks("Donau\u00ADschiff"));
         Assert.Equal([2], Breaks("a\tb"));
     }
 
@@ -142,7 +142,7 @@ public class LineBreakerTests
     [Fact]
     public void Object_replacement_breaks_on_both_sides()
     {
-        Assert.Equal([1, 2], Breaks("a￼b"));
+        Assert.Equal([1, 2], Breaks("a\uFFFCb"));
     }
 
     [Fact]

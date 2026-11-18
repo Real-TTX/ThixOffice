@@ -20,7 +20,7 @@ public enum WordCharKind
 public static class TextBoundaries
 {
     /// <summary>Object replacement character: an embedded object or a preserved element in the text.</summary>
-    public const char ObjectReplacement = '￼';
+    public const char ObjectReplacement = '\uFFFC';
 
     /// <summary>The length of the grapheme cluster starting at <paramref name="index"/>.</summary>
     public static int GraphemeLength(string text, int index) =>
@@ -111,7 +111,7 @@ public static class TextBoundaries
         }
 
         // "don't", "geht's", "1.000,50": joiners between word characters belong to the word.
-        var isJoiner = character is '\'' or '’' or '.' or ',' or '­' or '‑';
+        var isJoiner = character is '\'' or '’' or '.' or ',' or '\u00AD' or '\u2011';
         if (isJoiner && index > 0 && index + 1 < text.Length && IsWordCharacter(text[index - 1]) && IsWordCharacter(text[index + 1]))
         {
             var numberOnly = character is '.' or ',';

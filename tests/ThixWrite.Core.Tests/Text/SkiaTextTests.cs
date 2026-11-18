@@ -4,7 +4,7 @@ using ThixOffice.Text;
 using ThixOffice.Text.Drawing;
 using ThixOffice.Text.Skia;
 
-namespace ThixWrite.Core.Tests.Text;
+namespace ThixWrite.Core.Tests.TextEngine;
 
 public sealed class SkiaTextMeasurerTests : IDisposable
 {
@@ -28,7 +28,7 @@ public sealed class SkiaTextMeasurerTests : IDisposable
     [Fact]
     public void Inner_code_units_of_a_grapheme_have_no_advance()
     {
-        var text = "éx\U0001F468‍\U0001F469";
+        var text = "e\u0301x\U0001F468\u200D\U0001F469";
         var shaped = _measurer.Shape(text, Font);
         Assert.Equal(text.Length, shaped.Advances.Length);
         Assert.True(shaped.Advances[0] > 0);
