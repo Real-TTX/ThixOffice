@@ -1,0 +1,22 @@
+  <!--
+    ThixWrite's document types for Finder (CFBundleDocumentTypes, put into Info.plist by package-macos.sh). Like the
+    Windows registration only what ThixWrite can open now: plain text as "Alternate" (ThixWrite appears under "Öffnen mit",
+    the default stays the user's). .docx (its own format, then "Owner"), .odt and .rtf are added when their readers exist
+    (ThixWriteApp.Definition marks them as planned). @DOCUMENT_ICON@ is the document icon of the bundle.
+  -->
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>Textdokument</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>txt</string></array>
+      <key>LSItemContentTypes</key>
+      <array><string>public.plain-text</string></array>
+      <key>CFBundleTypeIconFile</key>
+      <string>@DOCUMENT_ICON@</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Alternate</string>
+    </dict>
+  </array>

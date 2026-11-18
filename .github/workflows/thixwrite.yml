@@ -1,0 +1,58 @@
+name: thixwrite
+# Builds, tests and packages ThixWrite (the reusable _desktop.yml does the work). Its run number is ThixWrite's build
+# number, so ThixWrite counts on its own. Manually: Actions › thixwrite › Run workflow.
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'src/ThixWrite/**'
+      - 'src/ThixWrite.Core/**'
+      - 'src/ThixOffice.Core/**'
+      - 'src/ThixOffice.Desktop/**'
+      - 'tests/ThixOffice.Core.Tests/**'
+      - 'tests/ThixOffice.Desktop.Tests/**'
+      - 'tests/ThixWrite.Tests/**'
+      - 'branding/thixwrite/**'
+      - 'scripts/package-macos.sh'
+      - 'scripts/macos-document-types/thixwrite.plist'
+      - 'Directory.Build.props'
+      - 'global.json'
+      - '.github/workflows/_desktop.yml'
+      - '.github/workflows/thixwrite.yml'
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'src/ThixWrite/**'
+      - 'src/ThixWrite.Core/**'
+      - 'src/ThixOffice.Core/**'
+      - 'src/ThixOffice.Desktop/**'
+      - 'tests/ThixOffice.Core.Tests/**'
+      - 'tests/ThixOffice.Desktop.Tests/**'
+      - 'tests/ThixWrite.Tests/**'
+      - 'branding/thixwrite/**'
+      - 'scripts/package-macos.sh'
+      - 'scripts/macos-document-types/thixwrite.plist'
+      - 'Directory.Build.props'
+      - 'global.json'
+      - '.github/workflows/_desktop.yml'
+      - '.github/workflows/thixwrite.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One run per branch at a time: two quick pushes must not publish ThixWrite to the same channel at once (queued, not cancelled).
+concurrency:
+  group: thixwrite-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  desktop:
+    uses: ./.github/workflows/_desktop.yml
+    with:
+      app-name: ThixWrite
+      app-id: thixwrite
+      project: src/ThixWrite/ThixWrite.csproj
+      tests: tests/ThixOffice.Core.Tests/ThixOffice.Core.Tests.csproj tests/ThixOffice.Desktop.Tests/ThixOffice.Desktop.Tests.csproj tests/ThixWrite.Tests/ThixWrite.Tests.csproj
+      build-number: ${{ github.run_number }}

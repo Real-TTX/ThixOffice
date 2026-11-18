@@ -1,0 +1,295 @@
+name: _desktop
+# The build of ONE app of ThixOffice for Windows and macOS – called by the app's own workflow (thixwrite.yml, later
+# thixcalc.yml, thixshow.yml), never on its own. Every app has its own run numbers (= build numbers), its own package and
+# manifest names; the rolling releases of the channels are shared by all apps.
+#   main  -> release : <major>.<minor>.<run number>-<date>   e.g. 0.1.42-20261118   (Major/Minor of the app: Directory.Build.props)
+#   dev   -> nightly : nightly-<run number>-<date>          e.g. nightly-43-20261118
+#   other -> local   : local-<date>                          (pull requests, feature branches)
+#
+# Packages (ThixWrite as the example):
+#   Windows : ThixWriteSetup.exe (the program is its own setup: install, update, uninstall)
+#   macOS   : ThixWrite-macOS-<arm64|x64>.dmg (first installation) and .zip (update of installed versions)
+#   every build   : workflow artifact "ThixWrite-<version>" (all packages + update manifest)
+#   main (push)   : rolling release "release-channel" + versioned release "thixwrite-v<version>"
+#   dev  (push)   : rolling pre-release "nightly-channel"
+# The publish job uploads only the app's own files (--clobber) and runs in ONE concurrency group for every app, so two apps
+# never edit a channel release at the same time; the shared release keeps its title (it is not retitled per app).
+
+on:
+  workflow_call:
+    inputs:
+      app-name:
+        description: 'Product name, e.g. ThixWrite (also the prefix of Major/Minor in Directory.Build.props)'
+        required: true
+        type: string
+      app-id:
+        description: 'App id, e.g. thixwrite (manifest <id>-update.json, tag <id>-v<version>)'
+        required: true
+        type: string
+      project:
+        description: 'The app project, e.g. src/ThixWrite/ThixWrite.csproj'
+        required: true
+        type: string
+      tests:
+        description: 'The test projects, separated by spaces'
+        required: true
+        type: string
+      build-number:
+        description: 'The build number: the run number of the calling workflow'
+        required: true
+        type: number
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  APP_NAME: ${{ inputs.app-name }}
+  APP_ID: ${{ inputs.app-id }}
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      channel: ${{ steps.ver.outputs.channel }}
+      date: ${{ steps.ver.outputs.date }}
+      build: ${{ steps.ver.outputs.build }}
+      version: ${{ steps.ver.outputs.version }}
+      props: ${{ steps.ver.outputs.props }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # One version for every platform of this run (the jobs may run across midnight).
+      - name: Determine version metadata
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${GITHUB_REF_NAME}" in
+            main) channel=release ;;
+            dev)  channel=nightly ;;
+            *)    channel=local ;;
+          esac
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then channel=local; fi
+          date=$(date -u +%Y%m%d)
+          build=${{ inputs.build-number }}
+          major=$(sed -n "s:.*<${APP_NAME}Major>\(.*\)</${APP_NAME}Major>.*:\1:p" Directory.Build.props)
+          minor=$(sed -n "s:.*<${APP_NAME}Minor>\(.*\)</${APP_NAME}Minor>.*:\1:p" Directory.Build.props)
+          if [ -z "$major" ] || [ -z "$minor" ]; then echo "Directory.Build.props has no ${APP_NAME}Major/Minor" >&2; exit 1; fi
+          case "$channel" in
+            release) version="${major}.${minor}.${build}-${date}" ;;
+            nightly) version="nightly-${build}-${date}" ;;
+            *)       version="local-${date}" ;;
+          esac
+          {
+            echo "channel=$channel"
+            echo "date=$date"
+            echo "build=$build"
+            echo "version=$version"
+            echo "props=-p:Channel=$channel -p:BuildNumber=$build -p:BuildDate=$date"
+          } >> "$GITHUB_OUTPUT"
+          printf '### %s (Desktop)\n\n- version: `%s`\n- channel: `%s`\n' "$APP_NAME" "$version" "$channel" >> "$GITHUB_STEP_SUMMARY"
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # The shared core and desktop and the app, their tests and the UI rendered headless (snapshots of every window).
+      - name: Build and test
+        shell: bash
+        run: |
+          set -euo pipefail
+          variable="$(printf '%s' "$APP_NAME" | tr '[:lower:]' '[:upper:]')_SCREENSHOTS"
+          for project in ${{ inputs.tests }}; do
+            dotnet build "$project" -c Release ${{ needs.version.outputs.props }}
+            env "$variable=$GITHUB_WORKSPACE/screenshots" dotnet test "$project" -c Release --no-build --logger GitHubActions
+          done
+
+      - name: Publish (win-x64, self-contained single file)
+        run: dotnet publish ${{ inputs.project }} -c Release -r win-x64 -o publish ${{ needs.version.outputs.props }}
+
+      # The published program is trimmed: it checks itself (OfficeSelfTest) – JSON, saving and opening a document, the
+      # recovery files, DPAPI, shortcuts (COM), the document icon and every window – before anybody downloads it.
+      - name: Self test of the published program
+        shell: pwsh
+        timeout-minutes: 5
+        run: |
+          $process = Start-Process -FilePath "publish\$env:APP_NAME.exe" -ArgumentList '--self-test', "$PWD\self-test.txt" -Wait -PassThru
+          if (Test-Path self-test.txt) { Get-Content self-test.txt } else { Write-Host 'no report written' }
+          if ($process.ExitCode -ne 0) { throw "self test failed (exit code $($process.ExitCode))" }
+
+      # <App>.exe is its own setup (InstallService): started from the download it installs itself per user, "--update" is
+      # the silent update, "--uninstall" the uninstaller. No installer tool needed.
+      - name: Package setup
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          Copy-Item "publish\$env:APP_NAME.exe" "artifacts\$($env:APP_NAME)Setup.exe"
+          Get-Item "artifacts\$($env:APP_NAME)Setup.exe" | Select-Object Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.app-id }}-windows
+          path: artifacts/
+          retention-days: 2
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.app-id }}-screenshots-windows
+          path: screenshots/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  macos:
+    needs: version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Build and test
+        shell: bash
+        run: |
+          set -euo pipefail
+          variable="$(printf '%s' "$APP_NAME" | tr '[:lower:]' '[:upper:]')_SCREENSHOTS"
+          for project in ${{ inputs.tests }}; do
+            dotnet build "$project" -c Release ${{ needs.version.outputs.props }}
+            env "$variable=$GITHUB_WORKSPACE/screenshots" dotnet test "$project" -c Release --no-build --logger GitHubActions
+          done
+
+      - name: Publish and package (arm64 and x64)
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x scripts/package-macos.sh
+          for rid in osx-arm64 osx-x64; do
+            dotnet publish ${{ inputs.project }} -c Release -r "$rid" -o "publish/$rid" ${{ needs.version.outputs.props }}
+            scripts/package-macos.sh "$APP_NAME" "publish/$rid" "$rid" "${{ needs.version.outputs.version }}" "${{ needs.version.outputs.build }}" artifacts
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.app-id }}-macos
+          path: artifacts/
+          retention-days: 2
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.app-id }}-screenshots-macos
+          path: screenshots/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # Windows is the must; macOS joins when its job succeeded. GitHub's macOS runners are sometimes not available at all
+  # ("not acquired … capacity"): then the release goes out for Windows and the manifest names no macOS package (installed
+  # Macs keep their version until the next build that has one).
+  publish:
+    needs: [version, windows, macos]
+    if: always() && needs.version.result == 'success' && needs.windows.result == 'success'
+    runs-on: ubuntu-latest
+    # One group for every app of the repository: only one publish job edits the channel releases at a time (queued).
+    concurrency:
+      group: thixoffice-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.app-id }}-windows
+          path: artifacts
+
+      - uses: actions/download-artifact@v4
+        if: needs.macos.result == 'success'
+        with:
+          name: ${{ inputs.app-id }}-macos
+          path: artifacts
+
+      # The manifest the installed app reads for its update check (UpdateService): "setup"/"sha256" for Windows,
+      # "packages" for each platform that was built.
+      - name: Write update manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd artifacts
+          sha() { sha256sum "$1" | cut -d' ' -f1; }
+          setup="${APP_NAME}Setup.exe"
+          mac=""
+          for rid in arm64 x64; do
+            zip="${APP_NAME}-macOS-${rid}.zip"
+            if [ -f "$zip" ]; then
+              mac="${mac},
+              \"osx-${rid}\": { \"file\": \"${zip}\", \"sha256\": \"$(sha "$zip")\" }"
+            fi
+          done
+          cat > "${APP_ID}-update.json" <<JSON
+          {
+            "version": "${{ needs.version.outputs.version }}",
+            "channel": "${{ needs.version.outputs.channel }}",
+            "buildNumber": ${{ needs.version.outputs.build }},
+            "setup": "${setup}",
+            "sha256": "$(sha "$setup")",
+            "publishedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "packages": {
+              "win-x64": { "file": "${setup}", "sha256": "$(sha "$setup")" }${mac}
+            }
+          }
+          JSON
+          cat "${APP_ID}-update.json"
+          node -e "JSON.parse(require('fs').readFileSync('${APP_ID}-update.json','utf8'))"
+          ls -l
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.app-name }}-${{ needs.version.outputs.version }}
+          path: artifacts/
+          retention-days: 30
+
+      # One rolling release per channel, shared by every app; each build replaces only its own app's files. The packages go
+      # up BEFORE the manifest, so an installation never reads a manifest whose package is not there yet.
+      - name: Publish to the update channel
+        if: github.event_name != 'pull_request' && needs.version.outputs.channel != 'local'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          channel="${{ needs.version.outputs.channel }}"
+          version="${{ needs.version.outputs.version }}"
+          tag="${channel}-channel"
+          if [ "$channel" = "release" ]; then prerelease=""; title="ThixOffice (Release-Kanal)"; else prerelease="--prerelease"; title="ThixOffice (Nightly-Kanal)"; fi
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --target "$GITHUB_SHA" --title "$title" $prerelease \
+              --notes "Neueste Builds des Kanals ${channel}, je App eigene Dateien: Windows <App>Setup.exe installiert oder aktualisiert die App, macOS <App>-macOS-arm64.dmg (Apple Silicon) bzw. -x64.dmg (Intel) öffnen und die App in „Programme“ ziehen. Installierte Versionen aktualisieren sich von hier aus selbst (<app>-update.json)."
+          fi
+          gh release upload "$tag" "artifacts/${APP_NAME}Setup.exe" artifacts/${APP_NAME}-macOS-*.zip artifacts/${APP_NAME}-macOS-*.dmg --clobber
+          gh release upload "$tag" "artifacts/${APP_ID}-update.json" --clobber
+          echo "Published ${APP_NAME} $version to $tag"
+
+      - name: Versioned release
+        if: github.event_name != 'pull_request' && needs.version.outputs.channel == 'release'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          version="${{ needs.version.outputs.version }}"
+          cd artifacts
+          files=("${APP_NAME}Setup-${version}.exe")
+          cp "${APP_NAME}Setup.exe" "${APP_NAME}Setup-${version}.exe"
+          for arch in arm64 x64; do
+            if [ -f "${APP_NAME}-macOS-${arch}.dmg" ]; then
+              cp "${APP_NAME}-macOS-${arch}.dmg" "${APP_NAME}-${version}-macOS-${arch}.dmg"
+              files+=("${APP_NAME}-${version}-macOS-${arch}.dmg")
+            fi
+          done
+          gh release create "${APP_ID}-v${version}" --target "$GITHUB_SHA" --title "${APP_NAME} ${version}" --generate-notes "${files[@]}"
