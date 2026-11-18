@@ -1,4 +1,4 @@
-// MatDesktop 0.2.0 – a copy from MatDesign, do not edit here
+// MatDesktop 0.3.0 – a copy from MatDesign, do not edit here
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;

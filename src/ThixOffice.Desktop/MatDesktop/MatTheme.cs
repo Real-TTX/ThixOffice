@@ -1,4 +1,4 @@
-// MatDesktop 0.2.0 – a copy from MatDesign, do not edit here
+// MatDesktop 0.3.0 – a copy from MatDesign, do not edit here
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -202,6 +202,19 @@ public static class MatTheme
         Brush(d, "CheckBoxCheckBackgroundStrokeChecked", p.Accent);
         Brush(d, "CheckBoxCheckGlyphForegroundChecked", p.OnAccent);
         Brush(d, "CheckBoxCheckBackgroundStrokeUnchecked", strong);
+
+        // Fluent's flyouts and menus (the menus and flyouts of the ribbon): the surface with a hairline, an item tinted under the pointer like a button
+        Brush(d, "FlyoutPresenterBackground", surface);
+        Brush(d, "FlyoutBorderThemeBrush", p.Border);
+        Brush(d, "MenuFlyoutPresenterBackground", surface);
+        Brush(d, "MenuFlyoutPresenterBorderBrush", p.Border);
+        Brush(d, "MenuFlyoutItemForeground", p.Text);
+        Brush(d, "MenuFlyoutItemForegroundPointerOver", p.Text);
+        Brush(d, "MenuFlyoutItemForegroundPressed", p.Text);
+        Brush(d, "MenuFlyoutItemBackgroundPointerOver", p["--mat-surface-3"]);
+        Brush(d, "MenuFlyoutItemBackgroundPressed", p["--mat-surface-3"]);
+        Brush(d, "MenuFlyoutItemKeyboardAcceleratorTextForeground", p.TextMuted);
+        Brush(d, "MenuFlyoutItemKeyboardAcceleratorTextForegroundPointerOver", p.TextMuted);
         return d;
     }
 

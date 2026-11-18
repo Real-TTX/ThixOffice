@@ -1,4 +1,4 @@
-// MatDesktop 0.2.0 – a copy from MatDesign, do not edit here
+// MatDesktop 0.3.0 – a copy from MatDesign, do not edit here
 // Plain C#, only System: a WinForms tray can take it too.
 using System.Globalization;
 
@@ -98,6 +98,28 @@ public static class MatText
         ["copy"] = "Copy",
         ["copy.named"] = "Copy {0}",
         ["copied"] = "Copied",
+
+        // the ribbon, the backstage and the status bar of a document program
+        ["ribbon.name"] = "Ribbon",
+        ["ribbon.tabs"] = "Ribbon tabs",
+        ["ribbon.file"] = "File",
+        ["ribbon.fileKeyTip"] = "F",
+        ["ribbon.collapse"] = "Collapse the ribbon",
+        ["ribbon.pin"] = "Pin the ribbon",
+        ["ribbon.launcher"] = "More options: {0}",
+        ["ribbon.more"] = "More",
+        ["ribbon.previous"] = "Previous row",
+        ["ribbon.next"] = "Next row",
+        ["ribbon.automatic"] = "Automatic",
+        ["ribbon.moreColors"] = "More colours …",
+        ["ribbon.shortcut.collapse"] = "Ctrl+F1",
+        ["backstage.back"] = "Back",
+        ["status.name"] = "Status bar",
+        ["status.zoomIn"] = "Zoom in",
+        ["status.zoomOut"] = "Zoom out",
+        ["status.zoom"] = "Zoom",
+        ["status.zoomLevel"] = "Zoom level",
+        ["status.percent"] = "{0}%",
     };
 
     private static readonly Dictionary<string, string> De = new(StringComparer.Ordinal)
@@ -180,6 +202,27 @@ public static class MatText
         ["copy"] = "Kopieren",
         ["copy.named"] = "{0} kopieren",
         ["copied"] = "Kopiert",
+
+        ["ribbon.name"] = "Menüband",
+        ["ribbon.tabs"] = "Registerkarten des Menübands",
+        ["ribbon.file"] = "Datei",
+        ["ribbon.fileKeyTip"] = "D",
+        ["ribbon.collapse"] = "Menüband reduzieren",
+        ["ribbon.pin"] = "Menüband anheften",
+        ["ribbon.launcher"] = "Weitere Optionen: {0}",
+        ["ribbon.more"] = "Mehr",
+        ["ribbon.previous"] = "Vorherige Zeile",
+        ["ribbon.next"] = "Nächste Zeile",
+        ["ribbon.automatic"] = "Automatisch",
+        ["ribbon.moreColors"] = "Weitere Farben …",
+        ["ribbon.shortcut.collapse"] = "Strg+F1",
+        ["backstage.back"] = "Zurück",
+        ["status.name"] = "Statusleiste",
+        ["status.zoomIn"] = "Vergrößern",
+        ["status.zoomOut"] = "Verkleinern",
+        ["status.zoom"] = "Zoom",
+        ["status.zoomLevel"] = "Zoomfaktor",
+        ["status.percent"] = "{0} %",
     };
 
     /// <summary>The texts in English, by key.</summary>

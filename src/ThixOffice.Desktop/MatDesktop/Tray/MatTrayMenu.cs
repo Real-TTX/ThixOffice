@@ -1,4 +1,4 @@
-// MatDesktop 0.2.0 – a copy from MatDesign, do not edit here
+// MatDesktop 0.3.0 – a copy from MatDesign, do not edit here
 // Plain C#, only System: a WinForms tray can build its ContextMenuStrip from Build() too.
 namespace MatDesktop;
 
