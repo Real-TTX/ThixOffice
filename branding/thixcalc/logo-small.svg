@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 256 256">
+  <!--
+    ThixCalc small icon (16-32 px): full-bleed tile in ThixCalc's green, a white sheet with a dark header row, a two by two
+    grid in strong lines and the chosen cell in green. No chart: too fine at this size.
+  -->
+  <rect x="0" y="0" width="256" height="256" rx="60" fill="#138A49"/>
+  <rect x="34" y="40" width="188" height="176" rx="22" fill="#FFFFFF"/>
+  <path d="M56 40h144a22 22 0 0 1 22 22v24H34V62a22 22 0 0 1 22-22z" fill="#0A5A2E"/>
+  <g stroke="#0A5A2E" stroke-width="12">
+    <line x1="34" y1="150" x2="222" y2="150"/>
+    <line x1="128" y1="86" x2="128" y2="216"/>
+  </g>
+  <rect x="134" y="156" width="82" height="54" rx="6" fill="#18A257"/>
+</svg>

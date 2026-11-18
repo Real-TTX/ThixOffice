@@ -1,0 +1,11 @@
+{
+  "name": "thixoffice-tools",
+  "private": true,
+  "description": "Build helpers: renders the logos of every app (branding/<app>/*.svg) into PNG/ICO files with the installed Microsoft Edge (render-icons.js).",
+  "scripts": {
+    "icons": "node render-icons.js"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.56.0"
+  }
+}

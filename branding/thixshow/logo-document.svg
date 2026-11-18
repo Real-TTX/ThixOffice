@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!--
+    The file icon of ThixShow's presentations (Explorer, Finder): a white page with a folded corner and a grey slide on it,
+    and ThixShow's tile as a badge at the bottom right (the pie chart in white), set off by a white ring.
+  -->
+  <defs>
+    <linearGradient id="badge" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#F0784F"/>
+      <stop offset="1" stop-color="#B0361A"/>
+    </linearGradient>
+  </defs>
+  <path d="M52 14h100l62 62v150a16 16 0 0 1-16 16H52a16 16 0 0 1-16-16V30a16 16 0 0 1 16-16z" fill="#FFFFFF" stroke="#CDD5E1" stroke-width="5"/>
+  <path d="M152 14v46a16 16 0 0 0 16 16h46z" fill="#F6CDBF"/>
+  <rect x="58" y="92" width="124" height="80" rx="10" fill="none" stroke="#D3DCE8" stroke-width="7"/>
+  <line x1="74" y1="112" x2="122" y2="112" stroke="#D3DCE8" stroke-width="9" stroke-linecap="round"/>
+  <rect x="118" y="130" width="122" height="122" rx="30" fill="url(#badge)" stroke="#FFFFFF" stroke-width="8"/>
+  <circle cx="179" cy="194" r="34" fill="#FFFFFF" fill-opacity="0.45"/>
+  <path d="M179 194V160a34 34 0 0 1 32.3 23.5z" fill="#FFFFFF" transform="translate(4 -4)"/>
+</svg>

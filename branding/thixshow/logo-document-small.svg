@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 256 256">
+  <!--
+    ThixShow document icon, small (16-32 px): a page with a strong outline and a large badge in ThixShow's orange with the
+    pie chart in white; the grey slide of the page is left out.
+  -->
+  <path d="M50 12h100l66 66v148a18 18 0 0 1-18 18H50a18 18 0 0 1-18-18V30a18 18 0 0 1 18-18z" fill="#FFFFFF" stroke="#8C98AA" stroke-width="12"/>
+  <path d="M150 12v50a16 16 0 0 0 16 16h50z" fill="#8C98AA"/>
+  <rect x="96" y="100" width="152" height="152" rx="36" fill="#D24A26"/>
+  <circle cx="172" cy="176" r="46" fill="#FFFFFF" fill-opacity="0.5"/>
+  <path d="M172 176V130a46 46 0 0 1 43.7 31.8z" fill="#FFFFFF" transform="translate(6 -6)"/>
+</svg>

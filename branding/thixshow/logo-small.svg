@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 256 256">
+  <!--
+    ThixShow small icon (16-32 px): full-bleed tile in ThixShow's orange, a thick white slide on a short stand and the pie
+    chart as one bold shape. No title line, no text: too fine at this size.
+  -->
+  <rect x="0" y="0" width="256" height="256" rx="60" fill="#D24A26"/>
+  <g stroke="#FFFFFF" stroke-width="22" stroke-linecap="round">
+    <line x1="128" y1="180" x2="128" y2="220"/>
+  </g>
+  <rect x="26" y="40" width="204" height="148" rx="22" fill="#FFFFFF"/>
+  <circle cx="128" cy="114" r="46" fill="#EE9475"/>
+  <path d="M128 114V68a46 46 0 0 1 43.7 31.8z" fill="#A93216" transform="translate(6 -6)"/>
+</svg>
