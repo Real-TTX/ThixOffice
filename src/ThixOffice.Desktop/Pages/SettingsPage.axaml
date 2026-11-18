@@ -1,0 +1,135 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mat="using:MatDesktop"
+             xmlns:controls="using:ThixOffice.Desktop.Controls"
+             x:Class="ThixOffice.Desktop.Pages.SettingsPage">
+  <!--
+    Datei › Einstellungen in tabs (Allgemein | Speichern | Updates | Erweitert). Every change is saved at once through the
+    business layer (values and policies are checked there). What does not apply is hidden: the autostart where the system
+    has none, the file types outside Windows, the update switches in a local build.
+  -->
+  <DockPanel Margin="32,26,32,16">
+    <TextBlock DockPanel.Dock="Top" Text="Einstellungen" Theme="{StaticResource MatText.PageTitle}" Margin="0,0,0,6" />
+    <controls:InfoBar DockPanel.Dock="Top" x:Name="PolicyNote" Margin="0,8,0,0" />
+    <controls:InfoBar DockPanel.Dock="Top" x:Name="Message" Margin="0,8,0,0" />
+
+    <TabControl x:Name="Tabs">
+      <!-- ===== Allgemein ===== -->
+      <TabItem x:Name="GeneralTabItem" Header="Allgemein">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel MaxWidth="760" HorizontalAlignment="Left" Margin="0,0,16,0">
+            <mat:MatSettingRow Title="Erscheinungsbild" Description="Hell, dunkel oder wie das System.">
+              <ComboBox x:Name="ThemeChoice" MinWidth="190" AutomationProperties.Name="Erscheinungsbild">
+                <ComboBoxItem Content="Wie das System" />
+                <ComboBoxItem Content="Hell" />
+                <ComboBoxItem Content="Dunkel" />
+              </ComboBox>
+            </mat:MatSettingRow>
+            <mat:MatSettingRow Title="Menüband reduziert anzeigen" Description="Nur die Registerkarten; ein Klick auf eine Karte klappt sie auf (Strg+F1).">
+              <ToggleSwitch x:Name="RibbonSwitch" OnContent="" OffContent="" AutomationProperties.Name="Menüband reduziert anzeigen" />
+            </mat:MatSettingRow>
+            <mat:MatSettingRow x:Name="AutostartRow" Title="Mit der Anmeldung starten" BorderThickness="0"
+                               Description="Startet beim Anmelden am Computer. Für einen Editor meist nicht nötig – deshalb ist es ausgeschaltet.">
+              <ToggleSwitch x:Name="AutostartSwitch" OnContent="" OffContent="" AutomationProperties.Name="Mit der Anmeldung starten" />
+            </mat:MatSettingRow>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- ===== Speichern ===== -->
+      <TabItem x:Name="SaveTabItem" Header="Speichern">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel MaxWidth="760" HorizontalAlignment="Left" Margin="0,0,16,0">
+            <mat:MatFormField Label="Standardspeicherort" controls:FormErrors.Field="DefaultSaveFolder"
+                              Hint="Hier beginnt „Speichern unter“ für neue Dokumente." Margin="0,4,0,8">
+              <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBox x:Name="SaveFolderBox" IsReadOnly="True" AutomationProperties.Name="Standardspeicherort" />
+                <Button Grid.Column="1" x:Name="ChooseFolderButton" Margin="8,0,0,0" Click="OnChooseFolderClick">
+                  <controls:IconLabel Icon="folder-open" Text="Ändern …" />
+                </Button>
+                <Button Grid.Column="2" x:Name="ResetFolderButton" Margin="8,0,0,0" Click="OnResetFolderClick">
+                  <controls:IconLabel Icon="restore" Text="Zurücksetzen" />
+                </Button>
+              </Grid>
+            </mat:MatFormField>
+            <mat:MatSettingRow Title="Sicherungskopie anlegen" Description="Beim Speichern bleibt die vorige Fassung als „Name.bak“ neben dem Dokument.">
+              <ToggleSwitch x:Name="BackupSwitch" OnContent="" OffContent="" AutomationProperties.Name="Sicherungskopie anlegen" />
+            </mat:MatSettingRow>
+            <mat:MatSettingRow Title="Wiederherstellungsdaten speichern" Description="Ungespeicherte Änderungen werden regelmäßig gesichert und nach einem Absturz beim nächsten Start angeboten.">
+              <ComboBox x:Name="RecoverChoice" MinWidth="190" AutomationProperties.Name="Wiederherstellungsdaten speichern" />
+            </mat:MatSettingRow>
+            <mat:MatSettingRow Title="Länge von „Zuletzt verwendet“" Description="Angeheftete Dokumente zählen nicht mit und bleiben immer.">
+              <ComboBox x:Name="RecentChoice" MinWidth="190" AutomationProperties.Name="Länge von Zuletzt verwendet" />
+            </mat:MatSettingRow>
+            <mat:MatSettingRow x:Name="FileTypesRow" Title="Dateitypen" BorderThickness="0">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Name="RepairTypesButton" Click="OnRepairTypesClick">
+                  <controls:IconLabel Icon="refresh" Text="Erneut eintragen" />
+                </Button>
+                <Button x:Name="DefaultAppsButton" Click="OnDefaultAppsClick">
+                  <controls:IconLabel Icon="external" Text="Standard-Apps …" />
+                </Button>
+              </StackPanel>
+            </mat:MatSettingRow>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- ===== Updates ===== -->
+      <TabItem x:Name="UpdatesTabItem" Header="Updates">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel MaxWidth="760" HorizontalAlignment="Left" Margin="0,0,16,0">
+            <StackPanel x:Name="UpdateSwitches">
+              <mat:MatSettingRow Title="Automatisch nach Updates suchen" Description="Kurz nach dem Start und alle 6 Stunden, nur im eigenen Kanal.">
+                <ToggleSwitch x:Name="CheckUpdatesSwitch" OnContent="" OffContent="" AutomationProperties.Name="Nach Updates suchen" />
+              </mat:MatSettingRow>
+              <mat:MatSettingRow x:Name="AutoInstallRow" Title="Updates automatisch installieren" Description="Neue Versionen werden geladen und installiert, wenn Sie das Programm schließen – nie mitten in der Arbeit.">
+                <ToggleSwitch x:Name="AutoInstallSwitch" OnContent="" OffContent="" AutomationProperties.Name="Updates automatisch installieren" />
+              </mat:MatSettingRow>
+            </StackPanel>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" Margin="0,14,0,10">
+              <TextBlock Text="Installiert" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
+              <TextBlock Grid.Column="1" x:Name="InstalledText" Margin="0,3" />
+              <TextBlock Grid.Row="1" Text="Kanal" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
+              <TextBlock Grid.Row="1" Grid.Column="1" x:Name="ChannelText" Margin="0,3" />
+              <TextBlock Grid.Row="2" Text="Zuletzt geprüft" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
+              <TextBlock Grid.Row="2" Grid.Column="1" x:Name="LastCheckText" Margin="0,3" />
+            </Grid>
+            <controls:InfoBar x:Name="UpdateMessage" />
+            <ProgressBar x:Name="UpdateProgress" Minimum="0" Maximum="1" Height="6" IsVisible="False" Margin="0,0,0,12" />
+            <controls:ActionBar>
+              <Button x:Name="InstallUpdateButton" Theme="{StaticResource MatButton.Primary}" Click="OnInstallUpdateClick" IsVisible="False">
+                <controls:IconLabel Icon="download" Text="Jetzt installieren" />
+              </Button>
+              <Button x:Name="CheckUpdateButton" Click="OnCheckUpdateClick">
+                <controls:IconLabel Icon="refresh" Text="Jetzt suchen" />
+              </Button>
+              <Button Click="OnReleasePageClick">
+                <controls:IconLabel Icon="external" Text="Versionen auf GitHub" />
+              </Button>
+            </controls:ActionBar>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- ===== Erweitert ===== -->
+      <TabItem x:Name="AdvancedTabItem" Header="Erweitert">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel MaxWidth="760" HorizontalAlignment="Left" Margin="0,0,16,0">
+            <mat:MatSettingRow Title="Datenordner" x:Name="DataFolderRow">
+              <Button Click="OnOpenDataFolderClick">
+                <controls:IconLabel Icon="folder" Text="Öffnen" />
+              </Button>
+            </mat:MatSettingRow>
+            <mat:MatSettingRow Title="Protokolle" Description="Fehler, Abstürze und Hänger. Dokumentinhalte und Dateinamen stehen nie darin.">
+              <Button Click="OnOpenLogFolderClick">
+                <controls:IconLabel Icon="folder" Text="Öffnen" />
+              </Button>
+            </mat:MatSettingRow>
+            <mat:MatSettingRow x:Name="PoliciesRow" Title="Richtlinien (Administratoren)" BorderThickness="0" />
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</UserControl>

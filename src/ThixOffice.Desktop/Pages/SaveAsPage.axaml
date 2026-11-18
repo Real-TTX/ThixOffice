@@ -1,0 +1,57 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mat="using:MatDesktop"
+             xmlns:controls="using:ThixOffice.Desktop.Controls"
+             x:Class="ThixOffice.Desktop.Pages.SaveAsPage">
+  <!--
+    Datei › Speichern unter: where the document is now, "Durchsuchen" (the system's dialog, starting in the document's
+    folder or the default save folder) and the folders of recently used documents as quick starts.
+  -->
+  <UserControl.Styles>
+    <Style Selector="Button.tile">
+      <Setter Property="Padding" Value="14,12" />
+      <Setter Property="MinWidth" Value="260" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+  </UserControl.Styles>
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="32,26,32,26" Spacing="16" HorizontalAlignment="Left" MaxWidth="900">
+      <TextBlock Text="Speichern unter" Theme="{StaticResource MatText.PageTitle}" />
+
+      <Border Theme="{StaticResource MatCard}" HorizontalAlignment="Left" MinWidth="420">
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto">
+          <TextBlock Text="Dokument" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
+          <TextBlock Grid.Column="1" x:Name="NameText" FontWeight="SemiBold" Margin="0,3" />
+          <TextBlock Grid.Row="1" Text="Speicherort" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
+          <SelectableTextBlock Grid.Row="1" Grid.Column="1" x:Name="LocationText" TextWrapping="Wrap" Margin="0,3" />
+          <TextBlock Grid.Row="2" Text="Format" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
+          <TextBlock Grid.Row="2" Grid.Column="1" x:Name="FormatText" Margin="0,3" />
+        </Grid>
+      </Border>
+
+      <WrapPanel ItemSpacing="16" LineSpacing="16">
+        <Button x:Name="BrowseButton" Classes="tile" Click="OnBrowseClick" AutomationProperties.Name="Durchsuchen">
+          <Grid ColumnDefinitions="Auto,*">
+            <mat:MatIcon Icon="folder-open" Size="28" Foreground="{DynamicResource Mat.Accent}" Margin="0,0,14,0" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Spacing="2">
+              <TextBlock Text="Durchsuchen" FontWeight="SemiBold" />
+              <TextBlock Text="Ort und Namen auf diesem Computer wählen" Theme="{StaticResource MatText.Muted}" />
+            </StackPanel>
+          </Grid>
+        </Button>
+      </WrapPanel>
+
+      <StackPanel x:Name="FoldersSection" Spacing="8">
+        <TextBlock Text="Zuletzt verwendete Ordner" Theme="{StaticResource MatText.SectionTitle}" Margin="0,8,0,2" />
+        <ItemsControl x:Name="Folders">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="6" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+        </ItemsControl>
+      </StackPanel>
+      <controls:InfoBar x:Name="Message" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

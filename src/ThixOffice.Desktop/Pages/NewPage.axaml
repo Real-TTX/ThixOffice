@@ -1,0 +1,36 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mat="using:MatDesktop"
+             x:Class="ThixOffice.Desktop.Pages.NewPage">
+  <!-- Datei › Neu: the tiles of what can be made. Today the empty document; templates come with the editors. -->
+  <UserControl.Styles>
+    <Style Selector="Button.tile">
+      <Setter Property="Padding" Value="10" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+    </Style>
+    <Style Selector="Border.sheet">
+      <Setter Property="Width" Value="150" />
+      <Setter Property="Height" Value="194" />
+      <Setter Property="CornerRadius" Value="{DynamicResource Mat.Radius}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource Mat.Bg}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Mat.Border}" />
+    </Style>
+  </UserControl.Styles>
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="32,26,32,26" Spacing="18" HorizontalAlignment="Left">
+      <TextBlock Text="Neu" Theme="{StaticResource MatText.PageTitle}" />
+      <WrapPanel x:Name="Tiles" ItemSpacing="16" LineSpacing="16">
+        <Button x:Name="BlankButton" Classes="tile" Theme="{StaticResource MatButton.Ghost}" Click="OnBlankClick">
+          <StackPanel Spacing="10">
+            <Border Classes="sheet">
+              <mat:MatIcon Icon="file" Size="40" Foreground="{DynamicResource Mat.Accent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <TextBlock x:Name="BlankLabel" HorizontalAlignment="Center" FontWeight="SemiBold" />
+          </StackPanel>
+        </Button>
+      </WrapPanel>
+      <TextBlock x:Name="Hint" Theme="{StaticResource MatText.Muted}" TextWrapping="Wrap" MaxWidth="560" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

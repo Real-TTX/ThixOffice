@@ -1,8 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/ThixOffice.Core/ThixOffice.Core.csproj" />
+    <Project Path="src/ThixOffice.Desktop/ThixOffice.Desktop.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ThixOffice.Core.Tests/ThixOffice.Core.Tests.csproj" />
+    <Project Path="tests/ThixOffice.Desktop.Tests/ThixOffice.Desktop.Tests.csproj" />
   </Folder>
 </Solution>

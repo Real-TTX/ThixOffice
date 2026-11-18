@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The shared desktop UI of every ThixOffice app (Avalonia): MatDesktop (a COPY from MatDesign, never edited here), the
+    start of an app (OfficeApplication: single instance, setup / update / uninstall, self test, snapshots, crash reports),
+    the document window (Shell/OfficeWindow: title bar with quick access and the command search, the ribbon slot, the editor,
+    the status bar slot, the backstage), the backstage pages (Neu, Öffnen, Speichern unter, Einstellungen, Info), the setup
+    window and the dialogs. An app adds only its definition, its document model, its editor and its commands.
+  -->
+  <PropertyGroup>
+    <RootNamespace>ThixOffice.Desktop</RootNamespace>
+    <AvaloniaVersion>11.3.22</AvaloniaVersion>
+    <!-- Bindings in data templates resolve by reflection (the rows are plain records). -->
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <SupportedOSPlatformVersion Condition="'$(OS)' == 'Windows_NT'">10.0.17763.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="System.IO" />
+    <Using Include="System.Net.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixOffice.Desktop.Tests" />
+    <InternalsVisibleTo Include="ThixWrite" />
+    <InternalsVisibleTo Include="ThixWrite.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
+    <!-- The snapshots draw the windows headless with Skia. -->
+    <PackageReference Include="Avalonia.Headless" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Skia" Version="$(AvaloniaVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThixOffice.Core\ThixOffice.Core.csproj" />
+  </ItemGroup>
+
+</Project>
