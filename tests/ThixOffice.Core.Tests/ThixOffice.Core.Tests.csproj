@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Tests of the shared core: the app definition and the version, settings, "Zuletzt verwendet", the atomic save and the
+    recovery files, opening and saving documents, the install / uninstall / file type rules (in an in-memory registry),
+    autostart, the update manifest and its rules, the policies, the command registry and the copy of the MatCloud contract.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <SupportedOSPlatformVersion Condition="'$(OS)' == 'Windows_NT'">10.0.17763.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="GitHubActionsTestLogger" Version="2.4.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ThixOffice.Core\ThixOffice.Core.csproj" />
+  </ItemGroup>
+
+</Project>

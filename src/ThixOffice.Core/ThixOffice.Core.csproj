@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The shared core of every ThixOffice app (ThixWrite, ThixCalc, ThixShow): the app definition, the commands, the
+    document files, the recent documents, settings, policies, setup, file types, autostart, updates and the copy of the
+    MatCloud contract. No UI. Every service is parameterized by the app's OfficeAppDefinition (AppInfo.Initialize).
+  -->
+  <PropertyGroup>
+    <RootNamespace>ThixOffice.Core</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <SupportedOSPlatformVersion Condition="'$(OS)' == 'Windows_NT'">10.0.17763.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixOffice.Core.Tests" />
+    <InternalsVisibleTo Include="ThixOffice.Desktop" />
+    <InternalsVisibleTo Include="ThixOffice.Desktop.Tests" />
+    <InternalsVisibleTo Include="ThixWrite.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.15" />
+  </ItemGroup>
+
+</Project>
