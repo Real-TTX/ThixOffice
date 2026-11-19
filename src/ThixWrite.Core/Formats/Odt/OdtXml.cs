@@ -2,89 +2,14 @@ using System.Globalization;
 using System.Xml.Linq;
 using ThixWrite.Core.Layout;
 using ThixWrite.Core.Model;
+using static ThixOffice.Core.Formats.Odf.OdfXml;
 
 namespace ThixWrite.Core.Formats.Odt;
 
-/// <summary>The namespaces of OpenDocument, its lengths ("2.5cm" ⇄ points) and the formatting properties both ways.</summary>
+/// <summary>The formatting properties of OpenDocument Text both ways (namespaces, lengths and colours: the shared <see cref="ThixOffice.Core.Formats.Odf.OdfXml"/>).</summary>
 internal static class OdtXml
 {
     public const string MimeType = "application/vnd.oasis.opendocument.text";
-
-    public static readonly XNamespace OfficeNs = "urn:oasis:names:tc:opendocument:xmlns:office:1.0";
-    public static readonly XNamespace StyleNs = "urn:oasis:names:tc:opendocument:xmlns:style:1.0";
-    public static readonly XNamespace TextNs = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
-    public static readonly XNamespace TableNs = "urn:oasis:names:tc:opendocument:xmlns:table:1.0";
-    public static readonly XNamespace DrawNs = "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0";
-    public static readonly XNamespace FoNs = "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0";
-    public static readonly XNamespace XLinkNs = "http://www.w3.org/1999/xlink";
-    public static readonly XNamespace DcNs = "http://purl.org/dc/elements/1.1/";
-    public static readonly XNamespace MetaNs = "urn:oasis:names:tc:opendocument:xmlns:meta:1.0";
-    public static readonly XNamespace SvgNs = "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0";
-    public static readonly XNamespace ManifestNs = "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0";
-
-    /// <summary>The namespace declarations of a root element (office, style, text, table, draw, fo, xlink, dc, meta, svg).</summary>
-    public static IEnumerable<XAttribute> Declarations() =>
-    [
-        new(XNamespace.Xmlns + "office", OfficeNs),
-        new(XNamespace.Xmlns + "style", StyleNs),
-        new(XNamespace.Xmlns + "text", TextNs),
-        new(XNamespace.Xmlns + "table", TableNs),
-        new(XNamespace.Xmlns + "draw", DrawNs),
-        new(XNamespace.Xmlns + "fo", FoNs),
-        new(XNamespace.Xmlns + "xlink", XLinkNs),
-        new(XNamespace.Xmlns + "dc", DcNs),
-        new(XNamespace.Xmlns + "meta", MetaNs),
-        new(XNamespace.Xmlns + "svg", SvgNs),
-    ];
-
-    // ---------------------------------------------------------------- lengths
-
-    /// <summary>"12pt", "2.5cm", "10mm", "1in", "0.5pc", "96px" in points; null for anything else.</summary>
-    public static double? Points(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        value = value.Trim();
-        var unitStart = value.Length;
-        while (unitStart > 0 && char.IsLetter(value[unitStart - 1]))
-        {
-            unitStart--;
-        }
-
-        if (!double.TryParse(value[..unitStart], NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
-        {
-            return null;
-        }
-
-        return value[unitStart..].ToLowerInvariant() switch
-        {
-            "pt" or "" => number,
-            "cm" => number * 72 / 2.54,
-            "mm" => number * 72 / 25.4,
-            "in" or "inch" => number * 72,
-            "pc" => number * 12,
-            "px" => number * 0.75,
-            _ => null,
-        };
-    }
-
-    /// <summary>A length in points as ODF writes it ("12.5pt").</summary>
-    public static string Length(double points) => Math.Round(points, 3).ToString("0.###", CultureInfo.InvariantCulture) + "pt";
-
-    /// <summary>A length in centimetres ("2.501cm") – the page and the columns, as LibreOffice writes them.</summary>
-    public static string Centimetres(double points) => Math.Round(points * 2.54 / 72, 4).ToString("0.####", CultureInfo.InvariantCulture) + "cm";
-
-    public static string Percent(double value) => Math.Round(value * 100, 2).ToString("0.##", CultureInfo.InvariantCulture) + "%";
-
-    /// <summary>"#RRGGBB" of a model colour ("RRGGBB").</summary>
-    public static string Hex(string rrggbb) => "#" + rrggbb.ToUpperInvariant();
-
-    /// <summary>"RRGGBB" of "#rrggbb", or null.</summary>
-    public static string? ColorOf(string? value) =>
-        value is { Length: 7 } && value[0] == '#' && int.TryParse(value.AsSpan(1), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _) ? value[1..].ToUpperInvariant() : null;
 
     // ---------------------------------------------------------------- character properties
 

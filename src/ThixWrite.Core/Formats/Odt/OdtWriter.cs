@@ -1,11 +1,11 @@
 using System.Globalization;
-using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Xml;
 using System.Xml.Linq;
+using ThixOffice.Core.Formats.Odf;
 using ThixWrite.Core.Formatting;
 using ThixWrite.Core.Model;
+using static ThixOffice.Core.Formats.Odf.OdfXml;
 using static ThixWrite.Core.Formats.Odt.OdtXml;
 
 namespace ThixWrite.Core.Formats.Odt;
@@ -22,41 +22,16 @@ public static partial class OdtWriter
     public static void Write(Document document, Stream stream)
     {
         var writer = new Writer(document);
-        var content = writer.Content();
-        var styles = writer.Styles();
-        using var buffer = new MemoryStream();
-        using (var zip = new ZipArchive(buffer, ZipArchiveMode.Create, leaveOpen: true))
+        var package = new OdfPackageWriter(MimeType);
+        package.AddXml("content.xml", writer.Content());
+        package.AddXml("styles.xml", writer.Styles());
+        package.AddXml("meta.xml", OdfPackageWriter.Meta("ThixWrite"));
+        foreach (var (path, bytes) in writer.Pictures)
         {
-            // The mimetype first and uncompressed, as ODF wants it (a sniffer reads it at offset 38).
-            var mime = zip.CreateEntry("mimetype", CompressionLevel.NoCompression);
-            using (var entry = mime.Open())
-            {
-                entry.Write(Encoding.ASCII.GetBytes(MimeType));
-            }
-
-            Add(zip, "content.xml", content);
-            Add(zip, "styles.xml", styles);
-            Add(zip, "meta.xml", writer.Meta());
-            foreach (var (path, bytes) in writer.Pictures)
-            {
-                var picture = zip.CreateEntry(path, CompressionLevel.NoCompression);
-                using var output = picture.Open();
-                output.Write(bytes);
-            }
-
-            Add(zip, "META-INF/manifest.xml", writer.ManifestXml());
+            package.AddBytes(path, bytes, OdfPackageWriter.MediaTypeOf(Path.GetExtension(path)));
         }
 
-        buffer.Position = 0;
-        buffer.CopyTo(stream);
-    }
-
-    private static void Add(ZipArchive zip, string path, XDocument xml)
-    {
-        var entry = zip.CreateEntry(path, CompressionLevel.Optimal);
-        using var output = entry.Open();
-        using var writer = XmlWriter.Create(output, new XmlWriterSettings { Encoding = new UTF8Encoding(false), Indent = false });
-        xml.Save(writer);
+        package.WriteTo(stream);
     }
 
     /// <summary>A style name ODF accepts (an NCName): letters, digits, "_", "-", "."; other characters as "_".</summary>
@@ -348,7 +323,7 @@ public static partial class OdtWriter
                         parent.Add(count == 1 ? new XElement(TextNs + "s") : new XElement(TextNs + "s", new XAttribute(TextNs + "c", count)));
                         break;
                     default:
-                        if (XmlConvert.IsXmlChar(character) || (char.IsHighSurrogate(character) && index + 1 < text.Length))
+                        if (System.Xml.XmlConvert.IsXmlChar(character) || (char.IsHighSurrogate(character) && index + 1 < text.Length))
                         {
                             builder.Append(character);
                         }
@@ -727,30 +702,6 @@ public static partial class OdtWriter
             }
 
             return text;
-        }
-
-        public XDocument Meta() => new(new XDeclaration("1.0", "UTF-8", null),
-            new XElement(OfficeNs + "document-meta", Declarations(), new XAttribute(OfficeNs + "version", "1.3"),
-                new XElement(OfficeNs + "meta",
-                    new XElement(MetaNs + "generator", "ThixWrite"),
-                    new XElement(DcNs + "date", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture)))));
-
-        public XDocument ManifestXml()
-        {
-            var root = new XElement(ManifestNs + "manifest", new XAttribute(XNamespace.Xmlns + "manifest", ManifestNs), new XAttribute(ManifestNs + "version", "1.3"),
-                Entry("/", MimeType), new XElement(ManifestNs + "file-entry", new XAttribute(ManifestNs + "full-path", "/"), new XAttribute(ManifestNs + "version", "1.3"), new XAttribute(ManifestNs + "media-type", MimeType)),
-                Entry("content.xml", "text/xml"), Entry("styles.xml", "text/xml"), Entry("meta.xml", "text/xml"));
-            root.Elements().First().Remove(); // the root entry carries the version (written above)
-            foreach (var (path, _) in Pictures)
-            {
-                var extension = Path.GetExtension(path).TrimStart('.').ToLowerInvariant();
-                root.Add(Entry(path, extension switch { "jpg" or "jpeg" => "image/jpeg", "gif" => "image/gif", "bmp" => "image/bmp", _ => "image/png" }));
-            }
-
-            return new XDocument(new XDeclaration("1.0", "UTF-8", null), root);
-
-            static XElement Entry(string path, string type) =>
-                new(ManifestNs + "file-entry", new XAttribute(ManifestNs + "full-path", path), new XAttribute(ManifestNs + "media-type", type));
         }
 
         /// <summary>Paragraphs with a list instance as nested text:list / text:list-item (one text:list per run of the same instance).</summary>

@@ -1,9 +1,9 @@
 using System.Globalization;
-using System.IO.Compression;
 using System.Text;
-using System.Xml;
 using System.Xml.Linq;
+using ThixOffice.Core.Formats.Odf;
 using ThixWrite.Core.Model;
+using static ThixOffice.Core.Formats.Odf.OdfXml;
 using static ThixWrite.Core.Formats.Odt.OdtXml;
 
 namespace ThixWrite.Core.Formats.Odt;
@@ -22,56 +22,10 @@ public static class OdtReader
     public const string NotAnOdtMessage = "Die Datei ist kein gültiges OpenDocument-Textdokument (.odt).";
 
     /// <summary>True when the stream is a ZIP whose mimetype says OpenDocument Text.</summary>
-    public static bool IsOdt(Stream stream)
-    {
-        var position = stream.Position;
-        try
-        {
-            using var zip = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);
-            if (zip.GetEntry("mimetype") is not { } entry)
-            {
-                return false;
-            }
+    public static bool IsOdt(Stream stream) => OdfPackage.HasMimeType(stream, MimeType, "application/vnd.oasis.opendocument.text-template");
 
-            using var reader = new StreamReader(entry.Open(), Encoding.ASCII);
-            return reader.ReadToEnd().Trim() is MimeType or "application/vnd.oasis.opendocument.text-template";
-        }
-        catch (InvalidDataException)
-        {
-            return false;
-        }
-        finally
-        {
-            stream.Position = position;
-        }
-    }
-
-    public static Document Read(Stream stream)
-    {
-        try
-        {
-            using var zip = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);
-            var content = Load(zip, "content.xml") ?? throw new InvalidDataException(NotAnOdtMessage);
-            var styles = Load(zip, "styles.xml");
-            return new Reader(zip, content, styles).Read();
-        }
-        catch (Exception exception) when (exception is XmlException or IOException or InvalidOperationException or FormatException)
-        {
-            throw new InvalidDataException(NotAnOdtMessage, exception);
-        }
-    }
-
-    private static XDocument? Load(ZipArchive zip, string path)
-    {
-        if (zip.GetEntry(path) is not { } entry)
-        {
-            return null;
-        }
-
-        using var input = entry.Open();
-        using var reader = XmlReader.Create(input, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
-        return XDocument.Load(reader);
-    }
+    public static Document Read(Stream stream) =>
+        OdfPackage.Read(stream, NotAnOdtMessage, package => new Reader(package, package.Xml("content.xml")!, package.Xml("styles.xml")).Read());
 
     private sealed class Reader
     {
@@ -106,7 +60,7 @@ public static class OdtReader
             ["List Paragraph"] = BuiltInStyles.ListParagraph,
         };
 
-        private readonly ZipArchive _zip;
+        private readonly OdfPackage _package;
         private readonly XDocument _content;
         private readonly XDocument? _stylesXml;
         private readonly Dictionary<string, XElement> _named = new(StringComparer.Ordinal);
@@ -121,9 +75,9 @@ public static class OdtReader
         private readonly Dictionary<string, int> _bookmarks = new(StringComparer.Ordinal);
         private int _comments;
 
-        public Reader(ZipArchive zip, XDocument content, XDocument? styles)
+        public Reader(OdfPackage package, XDocument content, XDocument? styles)
         {
-            _zip = zip;
+            _package = package;
             _content = content;
             _stylesXml = styles;
             foreach (var root in new[] { styles?.Root, content.Root })
@@ -607,15 +561,7 @@ public static class OdtReader
         private ImageInline? ReadPicture(XElement frame, CharacterProperties properties, Hyperlink? link)
         {
             var href = (string?)frame.Element(DrawNs + "image")?.Attribute(XLinkNs + "href");
-            if (href is null || _zip.GetEntry(href.TrimStart('.', '/')) is not { } entry)
-            {
-                return null;
-            }
-
-            using var input = entry.Open();
-            using var bytes = new MemoryStream();
-            input.CopyTo(bytes);
-            if (ImageData.FromBytes(bytes.ToArray()) is not { } image)
+            if (href is null || _package.Bytes(href) is not { } bytes || ImageData.FromBytes(bytes) is not { } image)
             {
                 return null;
             }
