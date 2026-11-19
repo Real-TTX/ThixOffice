@@ -70,6 +70,12 @@ public class OfficeCommand
     public bool IsSearchable { get; init; } = true;
 
     /// <summary>
+    /// Added to the search score: a command of a large family (ThixCalc's functions) ranks after the ordinary commands that
+    /// match as well ("summe" finds AutoSumme before SUMMEWENN) and before matches by description only.
+    /// </summary>
+    public int SearchPenalty { get; init; }
+
+    /// <summary>
     /// True for a text-editing command (Rückgängig, Kopieren, Alles markieren …): while a text field outside the document has
     /// the keyboard (a ribbon field, the find bar, a dialog), its shortcut belongs to the field, not to the document.
     /// </summary>

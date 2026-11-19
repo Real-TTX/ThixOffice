@@ -62,7 +62,7 @@ public sealed class OfficeCommandRegistry
 
         return _commands
             .Where(command => command.IsSearchable)
-            .Select((command, index) => (command, index, score: Score(command, words)))
+            .Select((command, index) => (command, index, score: Score(command, words) is var score && score < int.MaxValue ? score + command.SearchPenalty : score))
             .Where(match => match.score < int.MaxValue)
             .OrderBy(match => match.score)
             .ThenBy(match => match.index)

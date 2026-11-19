@@ -72,6 +72,24 @@ public sealed class CalcLocale
         TrueFalseInput = ["WAHR", "FALSCH"],
     };
 
+    /// <summary>
+    /// German names with English punctuation ("," between arguments, decimal point): what a user used to English Excel types
+    /// in the German version. The session reads a formula this way when the German reading fails and this one works.
+    /// </summary>
+    public static CalcLocale GermanWithEnglishPunctuation { get; } = new("de-DE", CultureInfo.GetCultureInfo("de-DE"), GermanFunctionNames.Names, German._errorNames)
+    {
+        TrueName = "WAHR",
+        FalseName = "FALSCH",
+        RowLetter = 'Z',
+        ColumnLetter = 'S',
+        GeneralName = "Standard",
+        TrueFalseInput = ["WAHR", "FALSCH", "TRUE", "FALSE"],
+        SheetBaseName = "Tabelle",
+    };
+
+    /// <summary>The same names with the other list separator and decimal symbol, or null when the locale has no such pair.</summary>
+    public CalcLocale? AlternatePunctuation => ReferenceEquals(this, German) ? GermanWithEnglishPunctuation : null;
+
     /// <summary>English (United States): SUM, "," between arguments, decimal point, #VALUE!, R1C1, m/d/yyyy.</summary>
     public static CalcLocale English { get; } = new("en-US", CultureInfo.GetCultureInfo("en-US"), new Dictionary<string, string>(), DefaultErrors())
     {

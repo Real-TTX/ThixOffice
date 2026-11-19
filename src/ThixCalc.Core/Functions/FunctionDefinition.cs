@@ -34,6 +34,15 @@ public enum FunctionCategory : byte
     Financial,
     Database,
     Engineering,
+
+    /// <summary>Kompatibilität: the names of Excel 2007 and older that newer functions replaced (STABW, VARIANZ, BETAVERT …).</summary>
+    Compatibility,
+
+    /// <summary>Web: URLCODIEREN, WEBDIENST, XMLFILTERN.</summary>
+    Web,
+
+    /// <summary>Cube: the OLAP functions (not supported offline).</summary>
+    Cube,
 }
 
 internal delegate Operand FunctionBody(FunctionCall call);
@@ -74,7 +83,7 @@ public sealed class FunctionDefinition
     /// <summary>"_xlfn." (or "_xlfn._xlws.") for functions newer than Excel 2007, as the file format writes them.</summary>
     public string? FilePrefix { get; internal init; }
 
-    public FunctionCategory Category { get; internal init; }
+    public FunctionCategory Category { get; internal set; }
 
     /// <summary>Repeating groups: arguments after the fixed ones come in groups of this size (SUMIFS: 2).</summary>
     public int RepeatGroup { get; internal init; } = 1;

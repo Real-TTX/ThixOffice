@@ -54,8 +54,35 @@ public static class FunctionRegistry
         DatabaseFunctions.Register(registrar);
         EngineeringFunctions.Register(registrar);
         DistributionFunctions.Register(registrar);
+        foreach (var definition in registrar.Functions.Values)
+        {
+            if (CompatibilityFunctions.Contains(definition.Name))
+            {
+                definition.Category = FunctionCategory.Compatibility;
+            }
+            else if (WebFunctions.Contains(definition.Name))
+            {
+                definition.Category = FunctionCategory.Web;
+            }
+            else if (definition.Name.StartsWith("CUBE", StringComparison.Ordinal))
+            {
+                definition.Category = FunctionCategory.Cube;
+            }
+        }
+
         return registrar.Functions;
     }
+
+    /// <summary>Excel's category Kompatibilität: the old names newer functions replaced (they keep working).</summary>
+    private static readonly HashSet<string> CompatibilityFunctions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "BETADIST", "BETAINV", "BINOMDIST", "CEILING", "CHIDIST", "CHIINV", "CHITEST", "CONCATENATE", "CONFIDENCE", "COVAR",
+        "CRITBINOM", "EXPONDIST", "FDIST", "FINV", "FLOOR", "FORECAST", "FTEST", "GAMMADIST", "GAMMAINV", "HYPGEOMDIST", "LOGINV",
+        "LOGNORMDIST", "MODE", "NEGBINOMDIST", "NORMDIST", "NORMINV", "NORMSDIST", "NORMSINV", "PERCENTILE", "PERCENTRANK", "POISSON",
+        "QUARTILE", "RANK", "STDEV", "STDEVP", "TDIST", "TINV", "TTEST", "VAR", "VARP", "WEIBULL", "ZTEST",
+    };
+
+    private static readonly HashSet<string> WebFunctions = new(StringComparer.OrdinalIgnoreCase) { "ENCODEURL", "FILTERXML", "WEBSERVICE" };
 
     internal static string? PrefixOf(string name) =>
         WorksheetFunctions.Contains(name) ? "_xlfn._xlws." : FutureFunctions.Contains(name) ? "_xlfn." : null;

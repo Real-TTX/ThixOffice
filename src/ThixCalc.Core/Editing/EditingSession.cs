@@ -426,16 +426,7 @@ public sealed partial class EditingSession
             return;
         }
 
-        Formula formula;
-        try
-        {
-            formula = FormulaParser.Parse(body, Workbook, sheet, range.First, Syntax);
-        }
-        catch (FormulaParseException exception)
-        {
-            throw new BusinessException(exception.Message, "formula");
-        }
-
+        var formula = ParseInput(body, sheet, range.First);
         Execute("Matrixformel", () =>
         {
             GuardArrays(sheet, range);
@@ -446,6 +437,28 @@ public sealed partial class EditingSession
 
             SetCell(sheet, range.FirstRow, range.FirstColumn, new Cell(CellValue.Blank, formula, sheet.GetStyleId(range.FirstRow, range.FirstColumn), range));
         });
+    }
+
+    /// <summary>
+    /// A typed formula in the session's syntax; when that fails and the text reads in the other punctuation of the same language
+    /// ("=SVERWEIS(10,A1:B3,2,FALSCH)" typed by someone used to English Excel), that reading is taken (it shows with ";" after).
+    /// </summary>
+    internal Formula ParseInput(string text, Worksheet sheet, CellAddress cell)
+    {
+        try
+        {
+            return FormulaParser.Parse(text, Workbook, sheet, cell, Syntax);
+        }
+        catch (FormulaParseException exception)
+        {
+            if (Locale.AlternatePunctuation is { } alternate && text.Contains(alternate.ListSeparator)
+                && FormulaParser.TryParse(text, Workbook, sheet, cell, new FormulaSyntax(alternate, ReferenceStyle), out _) is { } formula)
+            {
+                return formula;
+            }
+
+            throw new BusinessException(exception.Message, "formula");
+        }
     }
 
     /// <summary>Puts input into one cell (inside the open command).</summary>
@@ -461,16 +474,7 @@ public sealed partial class EditingSession
                 SetCell(sheet, cell.Row, cell.Column, Cell.Empty with { StyleId = style });
                 return;
             case InputKind.Formula:
-                Formula formula;
-                try
-                {
-                    formula = FormulaParser.Parse(parsed.FormulaText!, Workbook, sheet, cell, Syntax);
-                }
-                catch (FormulaParseException exception)
-                {
-                    throw new BusinessException(exception.Message, "formula");
-                }
-
+                var formula = ParseInput(parsed.FormulaText!, sheet, cell);
                 SetCell(sheet, cell.Row, cell.Column, new Cell(CellValue.Blank, formula, style, IsDynamicArray: true));
                 return;
         }

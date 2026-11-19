@@ -30,8 +30,8 @@ public sealed record FunctionInfo(string Canonical, string Name, FunctionCategor
 
 /// <summary>
 /// The German help of the function library (Funktion einfügen, the list while typing, the argument tip): descriptions and
-/// argument names of Excel's German version for the functions people use; every other function gets its arguments named
-/// from its arity. UI-free; a web version shows the same.
+/// argument names of Excel's German version. German holds the functions people use most (they come first in the lists),
+/// FunctionHelpTexts every other one; a function in neither gets its arguments named from its arity. UI-free.
 /// </summary>
 public static class FunctionHelp
 {
@@ -167,6 +167,9 @@ public static class FunctionHelp
         (FunctionCategory.Logical, "Logisch"),
         (FunctionCategory.Information, "Information"),
         (FunctionCategory.Engineering, "Konstruktion"),
+        (FunctionCategory.Cube, "Cube"),
+        (FunctionCategory.Compatibility, "Kompatibilität"),
+        (FunctionCategory.Web, "Web"),
     ];
 
     public static string CategoryName(FunctionCategory category) => Categories.FirstOrDefault(entry => entry.Category == category).Name ?? category.ToString();
@@ -196,14 +199,17 @@ public static class FunctionHelp
             .Take(limit)
             .ToList();
 
-    /// <summary>Search of the Funktion-einfügen dialog: name or description contains every word.</summary>
+    /// <summary>Search of the Funktion-einfügen dialog: the name (German or English) or the description contains every word.</summary>
     public static IReadOnlyList<FunctionInfo> Search(string words, CalcLocale locale)
     {
         var parts = words.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         return All(locale)
             .Where(info => parts.All(part => info.Name.Contains(part, StringComparison.CurrentCultureIgnoreCase)
-                || German.ContainsKey(info.Canonical) && info.Description.Contains(part, StringComparison.CurrentCultureIgnoreCase)))
-            .OrderBy(info => info.Name.Equals(words, StringComparison.CurrentCultureIgnoreCase) ? 0 : info.Name.Contains(words, StringComparison.CurrentCultureIgnoreCase) ? 1 : 2)
+                || info.Canonical.Contains(part, StringComparison.OrdinalIgnoreCase)
+                || info.Description.Contains(part, StringComparison.CurrentCultureIgnoreCase)))
+            .OrderBy(info => info.Name.Equals(words, StringComparison.CurrentCultureIgnoreCase) || info.Canonical.Equals(words, StringComparison.OrdinalIgnoreCase) ? 0
+                : info.Name.StartsWith(words, StringComparison.CurrentCultureIgnoreCase) ? 1
+                : info.Name.Contains(words, StringComparison.CurrentCultureIgnoreCase) ? 2 : 3)
             .ThenBy(info => German.ContainsKey(info.Canonical) ? 0 : 1)
             .ThenBy(info => info.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
@@ -212,7 +218,7 @@ public static class FunctionHelp
     private static FunctionInfo InfoOf(FunctionDefinition definition, CalcLocale locale)
     {
         var name = locale.FunctionName(definition.Name);
-        if (German.TryGetValue(definition.Name, out var help))
+        if (German.TryGetValue(definition.Name, out var help) || FunctionHelpTexts.German.TryGetValue(definition.Name, out help))
         {
             return new FunctionInfo(definition.Name, name, definition.Category, help.Description, help.Arguments, help.Repeats);
         }
