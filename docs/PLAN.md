@@ -151,7 +151,7 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   einrichten und Zoom, Datei › Exportieren (PDF), docx als Standardformat (Dateizuordnung Windows + macOS-Plist als
   „Alternate“), Hinweis bei nicht unterstützten Inhalten, Statusleiste (Seite X von Y, Wörter), Selbsttest der getrimmten exe.
   **Lücken (→ 1b):** direktes Drucken (bis dahin PDF), Lineal, Format übertragen, Symbol einfügen, Dialoge Schriftart… /
-  Absatz…, Kontextmenü ohne Format-Einträge, Wort-weises Ziehen nach Doppelklick, IME-Komposition als Überlagerung (nicht im
+  Absatz…, Kontextmenü ohne Format-Einträge, IME-Komposition als Überlagerung (nicht im
   Textfluss), Zwischenablage-Import von HTML/RTF aus anderen Programmen, Formatvorlagen-Galerie mit festen Einträgen.
 - **1b:** Drucken, Tabellen, Bilder, Kopf-/Fußzeilen, Seitenzahlen, Hyperlinks, Tabstopps (Lineal), Dialoge Schriftart/Absatz,
   HTML/RTF einfügen.

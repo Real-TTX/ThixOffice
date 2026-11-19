@@ -6,6 +6,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using SkiaSharp;
 using ThixOffice.Desktop;
+using ThixOffice.Text.Unicode;
 using ThixWrite.Core.Editing;
 using ThixWrite.Core.Layout;
 using ThixWrite.Core.Model;
@@ -40,6 +41,7 @@ internal sealed class DocumentSurface : Control
     private Rect _viewport;
     private bool _refreshPending;
     private bool _dragging;
+    private DocumentRange? _wordAnchor;
     private Point _pointer;
     private double _scale = PointsToDips;
 
@@ -459,7 +461,9 @@ internal sealed class DocumentSurface : Control
             Session.SetCaret(hit.Position, hit.Place.Affinity);
         }
 
-        _dragging = e.ClickCount == 1 && hit.PreservedBlock is null;
+        // Dragging after a double click extends by whole words (like Word); the word clicked stays selected.
+        _dragging = e.ClickCount <= 2 && hit.PreservedBlock is null;
+        _wordAnchor = e.ClickCount == 2 ? Session.Selection.Range : null;
         _pointer = point.Position;
         if (_dragging)
         {
@@ -478,6 +482,7 @@ internal sealed class DocumentSurface : Control
         {
             Cursor = cursor;
         }
+
         if (!_dragging)
         {
             return;
@@ -518,7 +523,21 @@ internal sealed class DocumentSurface : Control
     private void ExtendToPointer()
     {
         var hit = HitAt(_pointer);
-        Session.ExtendTo(hit.Position, hit.Place.Affinity);
+        if (_wordAnchor is not { } word || Session.Document.ParagraphAt(hit.Position.Block) is not { } paragraph)
+        {
+            Session.ExtendTo(hit.Position, hit.Place.Affinity);
+            return;
+        }
+
+        var (start, end) = TextBoundaries.WordAt(paragraph.Text, Math.Min(hit.Position.Offset, paragraph.Text.Length));
+        if (hit.Position < word.Start)
+        {
+            Session.Select(word.End, hit.Position with { Offset = start });
+        }
+        else
+        {
+            Session.Select(word.Start, DocumentPosition.Max(word.End, hit.Position with { Offset = end }));
+        }
     }
 
     /// <summary>The pointer is above or below the viewport while dragging: scroll toward it (faster the farther) and extend.</summary>

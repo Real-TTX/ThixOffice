@@ -196,6 +196,16 @@ public sealed class EditorTests
         await SettleAsync();
         Assert.Equal(new DocumentRange(new DocumentPosition(0, 0), new DocumentPosition(0, 4)), editor.Session.Selection.Range);
         Assert.Equal("1 von 5 Wörtern", window.StatusBar.TextOf(WriteEditor.WordsItem));
+
+        // Double click and drag: whole words.
+        await Task.Delay(600);
+        window.MouseDown(zwei, MouseButton.Left);
+        window.MouseUp(zwei, MouseButton.Left);
+        window.MouseDown(zwei, MouseButton.Left);
+        window.MouseMove(PointOf(window, new DocumentPosition(0, 12)));
+        window.MouseUp(PointOf(window, new DocumentPosition(0, 12)), MouseButton.Left);
+        await SettleAsync();
+        Assert.Equal(new DocumentRange(new DocumentPosition(0, 5), new DocumentPosition(0, 14)), editor.Session.Selection.Range); // "zwei drei"
     }
 
     [AvaloniaFact]
