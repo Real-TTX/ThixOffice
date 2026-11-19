@@ -268,7 +268,7 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
 
 ### Phase 3 – ThixCalc
 Zellmodell, Formel-Engine (Parser, Abhängigkeitsgraph, Funktionsbibliothek), virtualisiertes Raster,
-Formate, Sortieren/Filtern, Fixieren, bedingte Formatierung, Diagramme, xlsx/csv, danach ods.
+Formate, Sortieren/Filtern, Fixieren, bedingte Formatierung, Diagramme, xlsx/csv, danach ods (erledigt).
 
 - **Stand (2026-11-19): erstes Release von ThixCalc erledigt** (ohne Diagramme). Core (UI-frei): Zellmodell, Formel-Engine mit über
   400 Funktionen (deutsche Namen, Hilfe mit Argumentnamen), Bearbeiten als rückgängig machbare Befehle, xlsx/xlsm/csv, Viewport mit
@@ -319,7 +319,23 @@ Formate, Sortieren/Filtern, Fixieren, bedingte Formatierung, Diagramme, xlsx/csv
   gedrehter und senkrechter Text, An Zellgröße anpassen; Teilformatierung in Zellen bleibt in xlsx erhalten (Anzeige einheitlich).
   **Lücken:** Datumsgruppen (Jahr/Monat/Tag) in der Werteliste und dynamische Datumsfilter (Heute, Diesen Monat …), Farbfilter,
   Teilformatierung anzeigen und bearbeiten, Vorgang für Formeln (nur Konstanten werden verrechnet), gedrehter Text überläuft nicht.
-- **Lücken (wichtig für Excel-Umsteiger zuerst):** Blitzvorschau, Fenster teilen, Seitenumbruchvorschau, ods.
+- **Lücken (wichtig für Excel-Umsteiger zuerst):** Blitzvorschau, Fenster teilen, Seitenumbruchvorschau.
+- **ods erledigt (2026-11-19):** OpenDocument-Tabelle lesen und schreiben ohne neue Abhängigkeit, auf den gemeinsamen ODF-Bausteinen
+  in ThixOffice.Core/Formats/Odf (auch odt nutzt sie): Blätter (Reihenfolge, ausgeblendet, Registerfarbe, Schutz ohne Kennwort), Werte
+  aller Typen, Formeln OpenFormula ⇄ Modell (Bezüge in Klammern, ;, COM.MICROSOFT./LEGACY.-Namen, Matrixformeln, strukturierte
+  Bezüge als Bereich), Zahlenformate ⇄ Datenformatvorlagen (Zahl, Prozent, wissenschaftlich, Bruch, Währung, Datum/Zeit inkl. [h],
+  Text, Abschnitte mit Bedingungen), Zellformate, Spalten/Zeilen (Breite, Höhe, ausgeblendet; Gruppen werden gelesen), verbundene
+  Zellen, fixierte Bereiche/Zoom/Zelle (settings.xml), Namen, Druckbereich und Wiederholungszeilen/-spalten, Datenüberprüfung,
+  Autofilter (Wertelisten, benutzerdefiniert, Top 10), bedingte Formatierung (Zellwert, Formel, Text, Duplikate, Top/Bottom,
+  Durchschnitt, Fehler; im LibreOffice-Format calcext), Notizen, Links, Seite einrichten mit Kopf-/Fußzeile. Wiederholte Zeilen und
+  Zellen: geschrieben als ein Element mit Wiederholung, gelesen ohne leere Zellen anzulegen. Speichern als .ods fragt, wenn etwas
+  verloren geht; Öffnen nennt, was nicht übernommen wurde. .ods registriert (Windows, macOS-Plist), Selbsttest schreibt/liest ods in
+  der getrimmten exe. **Entschieden:** Diagramme werden in ods nicht geschrieben und aus ods nicht gelesen (Hinweis/Frage) – ein
+  Diagramm-Objekt (Object N/content.xml mit chart:chart) wäre eigene Arbeit. **Lücken:** Diagramme, Tabellen (als Name/Format;
+  Zellen bleiben), Farbskalen/Datenbalken/Symbolsätze, Gliederungen schreiben, Muster-/Verlaufsfüllungen (einfarbig), Teilformatierung
+  in Zellen, Bilder/Formen, Datenpilot, Kennwort des Blattschutzes, ältere bedingte Formate (style:map in Zellformaten), Basisdatum
+  außer 1899/1904. **Nicht geprüft:** echte LibreOffice-Dateien (auf dieser Maschine gibt es kein LibreOffice; die Testdateien sind
+  im Stil von LibreOffice von Hand geschrieben) – vor einem Release mit echten Dateien gegenprüfen.
 
 ### Icons für MatDesign
 

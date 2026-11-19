@@ -22,7 +22,7 @@ tab stops, the dialogs Schriftart/Absatz, format painter, symbols, HTML paste (s
 find/replace, clipboard, page setup, printing and PDF, CSV/xlsx/xlsm flows (section "ThixCalc's editor"; gaps in docs/PLAN.md).
 **ThixCalc charts (done):** the shared `ThixOffice.Charts` (section "Charts"). **Phase 4, first version of ThixShow (done):** the
 slide editor, thumbnails, sorter, show and presenter view, the German PowerPoint ribbon, printing/PDF (section "ThixShow's editor";
-gaps in docs/PLAN.md). **ThixWrite 1c (done):** footnotes/endnotes, table of contents, comments, spelling (shared seam), Referenzen/Überprüfen, odt; next the
+gaps in docs/PLAN.md). **ThixWrite 1c (done):** footnotes/endnotes, table of contents, comments, spelling (shared seam), Referenzen/Überprüfen, odt. **ODF for ThixCalc (done):** .ods read and write (section "OpenDocument Spreadsheet"). Next the
 launcher entry and ThixWrite 1d (gaps in docs/PLAN.md). Do not build ribbon controls of
 your own (a picture gallery is a `RibbonFlyoutButton` through `CreateRibbonContent`).
 
@@ -47,6 +47,11 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
                            RecentDocument (+ Drive: RecentDriveItem, Item, Order), BusinessException(message, field), Printing
                            (PrinterInfo, PrintRange, PaperSize: label + DEVMODE code + CUPS name, IPrintablePages: sizes, pixel
                            bands, PDF; PrintJob)
+  Formats/Odf/             what every OpenDocument format shares (BCL only): OdfXml (namespaces as …Ns, Points/Length/Centimetres/Inches,
+                           Percent, colours, ISO durations and dates, PlainText / TextContent of text:p), OdfFont (text-properties both
+                           ways), OdfPackage (reader: HasMimeType, Read(stream, German message, …) turns every ZIP/XML failure into
+                           InvalidDataException, Xml/Bytes of parts), OdfPackageWriter (mimetype first and stored, parts, AddPicture once
+                           per content, the manifest of every part last, Meta)
   Documents/               OfficeDocument: the UI-free base of every document model (FilePath, FileType, Title, IsDirty, IsPristine,
                            IsRecovered, Undo/Redo, protected Read/Write(Stream), Changed; Drive + DriveState + LocationText for a ThixDrive
                            document whose FilePath is its local working copy)
@@ -120,11 +125,11 @@ src/ThixOffice.Text.Skia   SkiaTextMeasurer (SkiaSharp typefaces + HarfBuzz shap
                            of every display item incl. the vector layer (any SKCanvas: editor surfaces, bitmaps via RenderPng, PDF,
                            print bands; .Vectors.cs: paths, paints, strokes, shadows), PdfExport (SKDocument.CreatePdf);
                            SkiaSharp 2.88.9 / HarfBuzzSharp 8.3.1.1 = Avalonia's
-src/ThixCalc.Core          (no UI) ThixCalcApp.Definition (.xlsx default, .xlsm, .csv; .ods planned; cloud id calc); Model/ (Workbook, Worksheet,
+src/ThixCalc.Core          (no UI) ThixCalcApp.Definition (.xlsx default, .xlsm, .csv, .ods; cloud id calc); Model/ (Workbook, Worksheet,
                            sparse CellStore, styles, rows/columns, merges, names, validation, conditional formats, PageSetup), Calculation/
                            + Formulas/ (parser, dependency graph, spills; FormulaTokens: the editor's scanner – colours, point mode, F4,
                            argument position), Functions/ (library + FunctionHelp: German descriptions and argument names), Formatting/,
-                           Globalization/ (de-DE, en-US), Formats/ (xlsx with the Open XML SDK incl. page setup, csv with Detect, Html/
+                           Globalization/ (de-DE, en-US), Formats/ (xlsx with the Open XML SDK incl. page setup, Ods/ (OpenDocument), csv with Detect, Html/
                            HtmlTables for the clipboard), Editing/ (EditingSession: every command undoable – input, array formulas,
                            styles, borders, AutoSumme, sort, filter, find, duplicates, text to columns, conditional presets, page setup,
                            print area/titles, charts), Layout/ (GridMetrics, SheetLayout.Viewport by pixels, GridRenderer,
@@ -415,7 +420,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 
 ### OpenDocument Text (odt)
 
-- `Formats/Odt`: `OdtXml` (namespaces as `…Ns`, lengths, character/paragraph properties both ways), `OdtWriter` (ZIP: mimetype first and
+- `Formats/Odt` (on the shared `ThixOffice.Core/Formats/Odf`: namespaces, units, package): `OdtXml` (character/paragraph properties both ways), `OdtWriter` (ZIP: mimetype first and
   stored, content.xml, styles.xml with the page layout and master page, meta.xml, Pictures/, manifest), `OdtReader` (named styles mapped
   to ThixWrite's ids by display name – "Heading 1" → Heading1 –, automatic styles as direct formatting, lists from list styles, tables with
   covered cells, notes, annotations, sections/indexes as paragraphs; anything else counted in `UnsupportedContent`, the opening warning says
@@ -528,6 +533,31 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - **xlsx:** `XlsxTables` (read; write into the table's part or a new one with a workbook-unique id; parts of removed tables go).
   **UI:** `CalcTableCommands` (context `table`, tab `tableDesign`), `Dialogs/TableDialogs`.
 
+### OpenDocument Spreadsheet (ods)
+
+- `Formats/Ods` (BCL only, on `ThixOffice.Core/Formats/Odf`): `OdsWriter.Write` (content.xml: sheets with `table:table-column`s, rows and
+  cells – values with `office:value-type` (float/percentage/currency/date/time by the cell's format, boolean, string; errors as
+  `calcext:value-type="error"`), `table:formula` in OpenFormula with the cached result, matrix spans for array/spill formulas, merges with
+  covered cells, notes as `office:annotation`, links as `text:a`, validations, names (`named-range` / `named-expression`, sheet-local
+  ones inside the table), the autofilter as an anonymous `database-range`, `calcext:conditional-formats` with named condition styles;
+  styles.xml: the default cell style, every data style, page layouts + master pages (one per distinct page setup, header/footer
+  regions with fields); settings.xml: active sheet, frozen panes, zoom, cursor, grid). The grid is written by boundaries: every run of
+  rows (and cells) where nothing changes is ONE element with `number-rows/columns-repeated`; filler rows/columns reach 1,048,576 rows
+  and 1,024 columns like LibreOffice's. `OdsReader.Read` is the inverse and tolerant (unknown elements skipped; empty repeated rows are
+  never materialized, content rows at most 65,536 times; the default row height / column width are the most common ones); notes for
+  `Workbook.UnsupportedContent`. `OdsWriter.Losses(workbook)` lists in German what an .ods cannot hold (charts, tables as such,
+  colour scales/data bars/icon sets, untranslatable formulas, outlines, pattern fills, macros, rich text, protection password …);
+  `CalcEditor.ConfirmSaveAsync` asks before saving that (once per set of losses); `OpeningWarning` says what an .ods had that is not
+  taken over. `CalcDocument` sniffs the mimetype (`OdsReader.IsOds`), `WorkbookFileFormat.Ods`.
+- `OdsFormulas`: model → OpenFormula on the AST (`[.A1]`, `[$Tabelle2.A1:.B3]`, `[.A:.A]`, `;`, `~` union, `!` intersection, `{1;2|3;4}`,
+  TRUE()/FALSE(), Excel's newer functions as `COM.MICROSOFT.…` unless OpenFormula has them, `LEGACY.…` distributions, structured
+  references as the range they name now); OpenFormula → canonical text by a small translator (null for LibreOffice-only functions,
+  external references, unions: the cell keeps its value, the opening warning names it).
+- `OdsNumberFormats`: format codes ⇄ data styles (number, percentage, scientific, fraction, currency with `[$€-407]` ⇄ language/country,
+  date/time incl. `[h]`, text, literals, colours, sections as `style:map`); `OdsCellStyles`: fonts (`OdfFont`), fill, borders (width →
+  thin/medium/thick/hair), alignment, rotation, wrap, shrink, protection. `OdsFeatures`: header/footer codes, validations, filters,
+  conditional formats. Column widths: characters ⇄ points with Excel's 7 px + 5 px rule (exact both ways).
+- LibreOffice is not installed here: fixtures are hand-written in its style; interop with its real output is unverified.
 ### Adding a command to ThixCalc
 
 1. An id in `CalcCommandIds` (`calc.<name>`; menu entries `calc.<menu>.<entry>`; value commands note their value).

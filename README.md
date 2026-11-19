@@ -9,7 +9,7 @@ und die aussieht wie die übrigen Thix-Apps.
 | Programm | statt | Formate | Stand |
 | --- | --- | --- | --- |
 | **ThixWrite** | Word | docx, odt, txt | Meilenstein 1c; Dokumente in ThixDrive (Phase 2) |
-| **ThixCalc** | Excel | xlsx, xlsm, csv, später ods | erstes Release (Phase 3), Arbeitsmappen in ThixDrive |
+| **ThixCalc** | Excel | xlsx, xlsm, ods, csv | erstes Release (Phase 3), Arbeitsmappen in ThixDrive |
 | **ThixShow** | PowerPoint | pptx, pptm, später odp | erste Version (Phase 4), Präsentationen in ThixDrive |
 
 Der Plan steht in [docs/PLAN.md](docs/PLAN.md).
@@ -120,6 +120,12 @@ Namen: SUMME, SVERWEIS, SUMMEWENNS, XVERWEIS, WENNFEHLER, dynamische Arrays …)
   ausgeführt); CSV mit Erkennung von Trennzeichen und Zeichensatz (bei Zweifel fragt der Textimport) und einem Hinweis beim
   Speichern, dass CSV nur die Werte des aktiven Blatts enthält. Was ThixCalc noch nicht zeigt (Bilder, Formen, Pivot-Tabellen …),
   bleibt beim Speichern erhalten – ein Hinweis nennt es beim Öffnen.
+- **OpenDocument-Tabelle (.ods)** aus LibreOffice und Co. wird gelesen und geschrieben: Blätter, Werte, Formeln (OpenFormula, mit
+  ihren Ergebnissen), Zahlenformate, Zellformate, Spaltenbreiten und Zeilenhöhen, verbundene Zellen, fixierte Bereiche, Namen,
+  Datenüberprüfung, Autofilter, bedingte Formatierung (Regeln mit Format), Notizen, Links, Seite einrichten mit Kopf- und Fußzeile,
+  Druckbereich und Wiederholungszeilen. Was eine .ods nicht aufnehmen kann (Diagramme, Farbskalen und Datenbalken, Tabellenformate,
+  Gliederungen …), nennt eine Frage vor dem Speichern; was eine .ods hatte und ThixCalc nicht übernimmt (Diagramme, Bilder,
+  Datenpilot, Makros, LibreOffice-eigene Funktionen), nennt der Hinweis beim Öffnen.
 
 ![ThixCalc hell](docs/images/thixcalc-main-light.png)
 
