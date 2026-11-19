@@ -39,8 +39,8 @@ public sealed class FormatCellsDialog : OfficeDialog
     private readonly CellStyle _start;
 
     // Zahlen
-    private readonly ListBox _category = new() { ItemsSource = Categories, Height = 250, Width = 160 };
-    private readonly NumericUpDown _decimals = new() { Minimum = 0, Maximum = 30, Value = 2, Increment = 1, FormatString = "0", Width = 120 };
+    private readonly ListBox _category = new() { ItemsSource = Categories, Height = 330, Width = 170 };
+    private readonly NumericUpDown _decimals = new() { Minimum = 0, Maximum = 30, Value = 2, Increment = 1, FormatString = "0", Width = 120, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left };
     private readonly CheckBox _thousands = new() { Content = "1.000er-Trennzeichen verwenden (.)" };
     private readonly ComboBox _type = new() { MinWidth = 240 };
     private readonly TextBox _custom = new() { MinWidth = 240 };
@@ -51,7 +51,7 @@ public sealed class FormatCellsDialog : OfficeDialog
     // Ausrichtung
     private readonly ComboBox _horizontal = Combo("Standard", "Links (Einzug)", "Zentriert", "Rechts (Einzug)", "Ausfüllen", "Blocksatz", "Über Auswahl zentrieren", "Verteilt (Einzug)");
     private readonly ComboBox _vertical = Combo("Unten", "Oben", "Zentriert", "Blocksatz", "Verteilt");
-    private readonly NumericUpDown _indent = new() { Minimum = 0, Maximum = 250, Increment = 1, FormatString = "0", Width = 120 };
+    private readonly NumericUpDown _indent = new() { Minimum = 0, Maximum = 250, Increment = 1, FormatString = "0", Width = 120, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left };
     private readonly CheckBox _wrap = new() { Content = "Zeilenumbruch" };
     private readonly CheckBox _shrink = new() { Content = "An Zellgröße anpassen" };
     private readonly CheckBox _merge = new() { Content = "Zellen verbinden" };

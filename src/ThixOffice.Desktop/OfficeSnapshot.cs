@@ -135,7 +135,7 @@ public static class OfficeSnapshot
 
         void RenderWindow(OfficeApplication application, string target, string theme, SnapshotReport written)
         {
-            var window = application.ShowWindow(application.CreateSampleDocument(Path.Combine(Documents, "Projektbericht" + application.Definition.SaveType.Extension)));
+            var window = application.ShowWindow(application.CreateSampleDocument(Path.Combine(Documents, application.SampleDocumentName + application.Definition.SaveType.Extension)));
             window.Width = 1180;
             window.Height = 760;
             Settle(window, waitLonger: true);
@@ -338,7 +338,7 @@ public static class OfficeSnapshot
         RecentDocuments.Add(Path.Combine(Documents, "Rechnungen", "Mahnung Kunde 0815" + extension), now.AddDays(-9));
         RecentDocuments.Add(Path.Combine(Documents, "Vereinsfest Einladung" + extension), now.AddDays(-2));
         RecentDocuments.Add(Path.Combine(Documents, "Angebot Müller GmbH" + extension), now.AddDays(-1).AddHours(-3));
-        RecentDocuments.Add(Path.Combine(Documents, "Projektbericht" + extension), now.AddMinutes(-12));
+        RecentDocuments.Add(Path.Combine(Documents, app.SampleDocumentName + extension), now.AddMinutes(-12));
         RecentDocuments.Pin(Path.Combine(Documents, "Vereinsfest Einladung" + extension), pinned: true);
         if (app.Definition.HasCloud)
         {

@@ -35,6 +35,8 @@ public partial class App : OfficeApplication
 
     public override IReadOnlyList<string> SnapshotScenes => [FormulaScene, ViewScene, FindScene, FormatCellsScene, FunctionScene, PageSetupScene, PrintScene];
 
+    public override string SampleDocumentName => "Haushaltsbudget 2026";
+
     public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => CalcRibbon.Create(window);
 
     public override void Initialize()

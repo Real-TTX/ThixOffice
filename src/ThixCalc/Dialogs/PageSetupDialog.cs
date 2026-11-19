@@ -44,7 +44,7 @@ public sealed class PageSetupDialog : CalcDialog
     private readonly NumericUpDown _wide = Number(0, 100, 1, "0");
     private readonly NumericUpDown _tall = Number(0, 100, 1, "0");
     private readonly ComboBox _paper = new() { ItemsSource = SheetPaper.All.Select(paper => $"{paper.Label} ({paper.WidthMillimetres / 10:0.##} × {paper.HeightMillimetres / 10:0.##} cm)").ToList(), MinWidth = 260 };
-    private readonly TextBox _firstPage = new() { Watermark = "Automatisch", Width = 120 };
+    private readonly TextBox _firstPage = new() { Watermark = "Automatisch", Width = 120, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left };
     private readonly NumericUpDown _top = Number(0, 20, 0.1m, "0.0#");
     private readonly NumericUpDown _bottom = Number(0, 20, 0.1m, "0.0#");
     private readonly NumericUpDown _left = Number(0, 20, 0.1m, "0.0#");

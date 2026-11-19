@@ -102,6 +102,9 @@ public abstract class OfficeApplication : Application
         return document;
     }
 
+    /// <summary>The file name (without extension) the sample document is shown under in the snapshots.</summary>
+    public virtual string SampleDocumentName => "Projektbericht";
+
     /// <summary>Puts the app's sample content into a new document (snapshots, tests).</summary>
     protected virtual void FillSampleDocument(OfficeDocument document)
     {
