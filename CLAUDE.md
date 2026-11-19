@@ -704,7 +704,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - `.github/workflows/_desktop.yml` (reusable, `workflow_call`: app-name, app-id, project, tests, build-number): version → Windows
   (test, publish win-x64, self test, `<App>Setup.exe`) → macOS (test, publish osx-arm64 + osx-x64, package-macos.sh) → publish
   (manifest `<id>-update.json`; rolling releases `release-channel` / `nightly-channel` SHARED by all apps – only the app's own
-  files are uploaded with `--clobber`, the release keeps its title; one concurrency group `thixoffice-publish` for every app;
+  files are uploaded with `--clobber`, the release keeps its title; one concurrency group per app and branch, `thixoffice-publish-<id>-<branch>` – a group shared by all apps cancelled waiting publish jobs;
   versioned release `<id>-v<version>` on main). Windows publishes even when macOS fails.
 - Launcher (docs/PLAN.md section 6): per app id, manifest, `<App>Setup.exe`, `<App>-macOS-<arch>.zip/.dmg`, bundle id; the uninstall
   entry has DisplayVersion / InstallLocation / DisplayIcon / UninstallString / QuietUninstallString; macOS `CFBundleGetInfoString`
