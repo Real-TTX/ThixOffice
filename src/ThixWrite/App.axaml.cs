@@ -32,10 +32,15 @@ public partial class App : OfficeApplication
     public const string ViewScene = "main-view";
     public const string ReferencesScene = "main-references";
     public const string CommentsScene = "main-comments";
+    public const string SpellingScene = "main-spelling";
+    public const string SpellingDialogScene = "dialog-spelling";
 
     public override OfficeAppDefinition Definition => ThixWriteApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, TableScene, PictureScene, HeaderScene, ReferencesScene, CommentsScene, FindScene, PageSetupScene, PrintScene, ExportScene];
+    /// <summary>ThixWrite underlines unknown words while the user types (Einstellungen › Allgemein can turn it off).</summary>
+    public override bool ChecksSpelling => true;
+
+    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, TableScene, PictureScene, HeaderScene, ReferencesScene, CommentsScene, SpellingScene, SpellingDialogScene, FindScene, PageSetupScene, PrintScene, ExportScene];
 
     public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => WriteRibbon.Create(window);
 
@@ -131,6 +136,16 @@ public partial class App : OfficeApplication
                 Avalonia.Threading.Dispatcher.UIThread.RunJobs();
                 editor.Scroller.Offset = new Avalonia.Vector(0, Math.Max(0, editor.Surface.ToSurface(0, 0, foot, 0, 0).Y - 360));
                 return window;
+            case SpellingScene:
+                // Überprüfen open, a typing error with its red wavy line.
+                window.Ribbon.SelectTab("review");
+                MakeTypo(editor);
+                return window;
+            case SpellingDialogScene:
+                MakeTypo(editor);
+                var spelling = new SpellingDialog(editor);
+                _ = spelling.ShowAsync(window);
+                return spelling;
             case CommentsScene:
                 // Überprüfen open, a comment on "4,8 %" with its card at the right.
                 window.Ribbon.SelectTab("review");
@@ -168,6 +183,18 @@ public partial class App : OfficeApplication
         }
     }
 
+    /// <summary>"Versandkostn" for "Versandkosten" in the summary (the snapshots' spelling check knows every other word), checked at once.</summary>
+    private static void MakeTypo(WriteEditor editor)
+    {
+        var paragraph = editor.Document.Content.ParagraphAt(SampleDocument.BodyParagraph)!;
+        var at = paragraph.Text.IndexOf("Versandkosten", StringComparison.Ordinal);
+        editor.Session.SetCaret(new ThixWrite.Core.Model.DocumentPosition(SampleDocument.BodyParagraph, at + 11));
+        editor.Session.DeleteForward();
+        editor.Session.SetCaret(new ThixWrite.Core.Model.DocumentPosition(SampleDocument.BodyParagraph, 0));
+        editor.Spelling.CheckNow([0]);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+    }
+
     public override void EndSnapshotScene(OfficeWindow window, string name, TopLevel shown)
     {
         var editor = (WriteEditor)window.Editor;
@@ -175,6 +202,18 @@ public partial class App : OfficeApplication
         {
             case LayoutScene:
                 editor.ShowMarks = false;
+                window.Ribbon.SelectTab("home");
+                break;
+            case SpellingScene or SpellingDialogScene:
+                if (shown is Window spellingDialog && shown != window)
+                {
+                    spellingDialog.Close();
+                }
+
+                editor.Session.Undo();
+                editor.Session.ClearHistory();
+                MarkSampleUnchanged(editor.Document);
+                editor.Session.SetCaret(new ThixWrite.Core.Model.DocumentPosition(SampleDocument.BodyParagraph, 0));
                 window.Ribbon.SelectTab("home");
                 break;
             case CommentsScene:

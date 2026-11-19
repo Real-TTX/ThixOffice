@@ -59,6 +59,7 @@ public sealed class TestData : IDisposable
         Directory.CreateDirectory(DocumentsFolder);
         AppPaths.UseDirectoryForTests(Path.Combine(Folder, "data"));
         UserRegistry.UseForTests(new MemoryUserRegistry());
+        ThixOffice.Core.Spelling.SpellingService.UseForTests(Spelling); // never the checker (and dictionary) of this machine
         AccessPolicy.UsePolicyReaderForTests(_ => false);
         PrintService.System = Printers;
         SettingsService.ResetCache();
@@ -71,6 +72,11 @@ public sealed class TestData : IDisposable
     public string Folder { get; }
 
     public string DocumentsFolder => Path.Combine(Folder, "Dokumente");
+
+    /// <summary>The spelling check of the tests: German knows every word but "Fehlr" and "Tipfehler"; English knows every word.</summary>
+    public static ThixOffice.Core.Spelling.MemorySpellingProvider Spelling => new(
+        new ThixOffice.Core.Spelling.MemorySpellChecker("de-DE", unknown: new Dictionary<string, string[]> { ["Fehlr"] = ["Fehler", "Fehl"], ["Tipfehler"] = ["Tippfehler"] }),
+        new ThixOffice.Core.Spelling.MemorySpellChecker("en-US"));
 
     public FakeFileDialogs Dialogs { get; } = new();
 
@@ -104,6 +110,7 @@ public sealed class TestData : IDisposable
         AccessPolicy.UsePolicyReaderForTests(null);
         PrintService.System = null!;
         UserRegistry.UseForTests(null);
+        ThixOffice.Core.Spelling.SpellingService.UseForTests(null);
         SettingsService.ResetCache();
         RecentDocuments.ResetCache();
         AppPaths.UseDirectoryForTests(null);

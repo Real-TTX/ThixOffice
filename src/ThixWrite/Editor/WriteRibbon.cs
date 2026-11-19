@@ -142,6 +142,9 @@ public static class WriteCommandIds
     public const string NextFootnote = "write.nextNote"; // the menu's entries are write.nextNote.<footnote|endnote>.<next|previous>
 
     // Überprüfen
+    public const string Spelling = "write.spelling";
+    public const string WordCount = "write.wordCount";
+    public const string Language = "write.language"; // the menu's entries are write.language.<tag>
     public const string NewComment = "write.comment.new";
     public const string DeleteComment = "write.comment.delete"; // the menu: write.comment.delete.one, write.comment.delete.all
     public const string DeleteCommentOne = "write.comment.delete.one";
@@ -416,6 +419,12 @@ public static class WriteRibbon
     /// <summary>Überprüfen, like Word's: Kommentare (Dokumentprüfung and Sprache join with the spelling check).</summary>
     private static MatRibbonTab ReviewTab() =>
         new MatRibbonTab("review", "Überprüfen").Add(
+            new MatRibbonGroup("proofing", "Dokumentprüfung") { Icon = "spell-check" }.Add(
+                Button(WriteCommandIds.Spelling, MatRibbonSize.Large),
+                Button(WriteCommandIds.WordCount)),
+            new MatRibbonGroup("language", "Sprache") { Icon = "globe" }.Add(
+                new MatRibbonMenuButton(WriteCommandIds.Language, "", null,
+                    [.. ReviewCommands.LanguageChoices().Select(tag => Toggle($"{WriteCommandIds.Language}.{tag}", "language"))]) { Size = MatRibbonSize.Large }),
             new MatRibbonGroup("comments", "Kommentare") { Icon = "comment" }.Add(
                 Button(WriteCommandIds.NewComment, MatRibbonSize.Large),
                 new MatRibbonMenuButton(WriteCommandIds.DeleteComment, "", null,

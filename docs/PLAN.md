@@ -217,6 +217,17 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   wird gelesen, Einträge gelöschter Kommentare werden aus commentsExtended / commentsIds / commentsExtensible entfernt.
   **Lücken:** Antworten schreiben (Antworten werden angezeigt, nicht bearbeitet), Kommentare in Kopf-/Fußzeilen und Fußnoten (bleiben
   erhalten), Sprechblasen am Seitenrand und Druck mit Markups, „Erledigt“ setzen in der Oberfläche, Erwähnungen (@).
+- **Rechtschreibprüfung erledigt (1c):** gemeinsame, UI-freie Naht in ThixOffice.Core (`ISpellChecker`, `ISpellingProvider`,
+  `SpellingService`: Sprache des Dokuments → dieselbe Sprache einer anderen Region → Systemsprache → erste; „Alle ignorieren“ für die
+  Sitzung; `SpellingQueue`: Prüfen im Hintergrund, Ergebnisse je unveränderlichem Absatz) mit den Prüfungen des Systems – Windows:
+  Spell Checking API (ISpellCheckerFactory) über generiertes COM auf einem eigenen MTA-Thread, getrimmt geprüft im Selbsttest; macOS:
+  NSSpellChecker über objc_msgSend (Autorelease-Pool, serialisiert; nur von CI gebaut) – keine mitgelieferten Wörterbücher, keine neue
+  Abhängigkeit. ThixWrite: rote Wellenlinien als Ebene über den Seiten (nur sichtbare Absätze, geprüft im Hintergrund, das Wort beim
+  Tippen erst nach dem Verlassen), Kontextmenü mit Vorschlägen / Alle ignorieren / Zum Wörterbuch hinzufügen, Überprüfen ›
+  Rechtschreibung (F7: Dialog Wort für Wort ab der Einfügemarke), Wörter zählen, Sprache (die Sprachen des Systems; gespeichert als
+  Standardsprache des Dokuments, w:lang), Einstellung „Rechtschreibung während der Eingabe prüfen“.
+  **Lücken:** Grammatik, Sprache je Absatz/Lauf (w:lang der Läufe wird erhalten, geprüft wird mit der Dokumentsprache), Kopf-/Fußzeilen
+  und Fußnoten werden nicht geprüft, AutoKorrektur, „Einmal ignorieren“ merkt sich nichts über den Dialog hinaus.
 - Danach: Launcher-Eintrag (siehe 6).
 
 ### Phase 2 – Drive in ThixCloud

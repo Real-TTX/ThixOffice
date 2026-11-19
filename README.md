@@ -33,7 +33,10 @@ Das **Inhaltsverzeichnis** entsteht aus den Überschriften (mit Punkten und Seit
 Überschrift), „Tabelle aktualisieren“ bringt es auf den neuesten Stand – in Word bleibt es ein echtes, aktualisierbares Verzeichnis.
 Ansicht › **Navigationsbereich** zeigt die Überschriften links. Die Karte **Überprüfen** bringt **Kommentare** (Strg+Alt+K): Karten
 rechts neben den Seiten, der kommentierte Text ist schattiert, Antworten aus Word erscheinen unter ihrem Kommentar; als Autor gilt der
-Benutzername aus Einstellungen › Allgemein (leer: Ihr Name aus dem System).
+Benutzername aus Einstellungen › Allgemein (leer: Ihr Name aus dem System). Die **Rechtschreibprüfung** nutzt die Wörterbücher Ihres
+Systems (Windows: Sprachpakete; macOS: die Rechtschreibung des Systems) – unbekannte Wörter bekommen eine rote Wellenlinie, ein
+Rechtsklick zeigt Vorschläge, **F7** geht Wort für Wort durch das Dokument; Überprüfen › Sprache legt die Sprache des Dokuments fest,
+Wörter zählen zählt Seiten, Wörter und Zeichen. Abschalten lässt sie sich in Einstellungen › Allgemein.
 
 Word-Dokumente (.docx) sind das Standardformat; .txt wird als reiner Text gelesen und geschrieben. Inhalte, die ThixWrite noch
 nicht anzeigt (Kommentare, verschachtelte Tabellen, Formeln …), bleiben beim Speichern erhalten – beim Öffnen sagt ein
@@ -48,6 +51,8 @@ Hinweis, welche es sind.
 | ![Tabelle](docs/images/thixwrite-main-table-light.png) | ![Bild](docs/images/thixwrite-main-picture-light.png) |
 | **Referenzen** (Fußnote am Seitenende, Navigationsbereich) | **Überprüfen** (Kommentare) |
 | ![Referenzen](docs/images/thixwrite-main-references-light.png) | ![Kommentare](docs/images/thixwrite-main-comments-light.png) |
+| **Rechtschreibung** (Wellenlinie unter einem Tippfehler) | **Rechtschreibung (F7)** |
+| ![Rechtschreibung](docs/images/thixwrite-main-spelling-light.png) | ![F7](docs/images/thixwrite-dialog-spelling-light.png) |
 | **Kopfzeile bearbeiten** (Doppelklick in den Rand) | **Datei › Drucken** (Strg+P) |
 | ![Kopfzeile](docs/images/thixwrite-main-header-light.png) | ![Drucken](docs/images/thixwrite-backstage-print-light.png) |
 | **Suchen und Ersetzen** (Strg+F, Strg+H) | **Layout und Formatierungszeichen** |

@@ -1,4 +1,5 @@
 using ThixOffice.Core.Commands;
+using ThixOffice.Core.Spelling;
 using ThixOffice.Desktop.Shell;
 
 namespace ThixWrite.Editor;
@@ -14,6 +15,34 @@ public static class ReviewCommands
         bool OnComment() => Editor()?.Document.Session.CommentAtCaret is not null;
 
         var commands = window.Commands;
+        commands.Add(new OfficeCommand(WriteCommandIds.Spelling, "Rechtschreibung", () => Editor() is { } editor ? CheckSpellingAsync(window, editor) : Task.CompletedTask)
+        {
+            Icon = "spell-check", Shortcut = "F7", MacShortcut = "Ctrl+Alt+L",
+            CanExecute = () => Editor() is { IsEditingHeaderFooter: false, IsEditingNote: false } editor && editor.Spelling.Checker is not null,
+            Description = "Prüft die Rechtschreibung von der Einfügemarke an – Wort für Wort, mit Vorschlägen.",
+            Keywords = ["rechtschreibung", "rechtschreibprüfung", "korrektur", "tippfehler", "spelling", "prüfen"],
+        });
+        commands.Add(new OfficeCommand(WriteCommandIds.WordCount, "Wörter zählen", () => Editor() is { } editor ? Dialogs.WordCountDialog.ShowAsync(window, editor) : Task.CompletedTask)
+        {
+            Icon = "file-text", CanExecute = () => Editor() is not null,
+            Description = "Zählt Seiten, Wörter, Zeichen und Absätze – des Dokuments oder der Markierung.",
+            Keywords = ["wörter zählen", "wortanzahl", "zeichen", "statistik", "anzahl"],
+        });
+        commands.Add(new OfficeCommand(WriteCommandIds.Language, "Sprache", () => { })
+        {
+            Icon = "globe", CanExecute = () => Editor() is not null && LanguageChoices().Count > 0,
+            Description = "Legt fest, in welcher Sprache die Rechtschreibung geprüft wird.",
+            Keywords = ["sprache", "korrekturhilfen", "rechtschreibung sprache"],
+        });
+        foreach (var tag in LanguageChoices())
+        {
+            commands.Add(new OfficeCommand($"{WriteCommandIds.Language}.{tag}", SpellingService.DisplayName(tag), () => Editor()?.Document.Session.SetLanguage(tag))
+            {
+                Icon = "globe", IsSearchable = false, CanExecute = () => Editor() is not null,
+                IsChecked = () => Editor() is { } editor && SpellingService.Resolve(editor.Document.Session.Language) is { } used && string.Equals(used, tag, StringComparison.OrdinalIgnoreCase),
+            });
+        }
+
         commands.Add(new OfficeCommand(WriteCommandIds.NewComment, "Neuer Kommentar", () => Editor()?.AddComment())
         {
             Icon = "comment", Shortcut = "Ctrl+Alt+K", CanExecute = InBody,
@@ -48,6 +77,23 @@ public static class ReviewCommands
             Icon = "message-square", CanExecute = () => Editor() is not null, IsChecked = () => Editor()?.ShowComments == true,
             Description = "Zeigt die Kommentare rechts neben den Seiten.", Keywords = ["kommentare anzeigen", "kommentarbereich"],
         });
+    }
+
+    /// <summary>The languages the Sprache menu offers: those the system can check (at most twelve, German and English first).</summary>
+    public static IReadOnlyList<string> LanguageChoices() =>
+        SpellingService.Languages
+            .OrderBy(tag => tag.StartsWith("de", StringComparison.OrdinalIgnoreCase) ? 0 : tag.StartsWith("en", StringComparison.OrdinalIgnoreCase) ? 1 : 2)
+            .ThenBy(tag => tag, StringComparer.OrdinalIgnoreCase)
+            .Where(tag => tag.All(character => char.IsLetterOrDigit(character) || character == '-'))
+            .Take(12)
+            .ToList();
+
+    /// <summary>Rechtschreibung (F7): the dialog steps through the unknown words from the caret on.</summary>
+    private static async Task CheckSpellingAsync(OfficeWindow window, WriteEditor editor)
+    {
+        editor.CloseHeaderFooter();
+        await Dialogs.SpellingDialog.ShowAsync(window, editor);
+        editor.FocusDocument();
     }
 
     private static void DeleteAtCaret(WriteEditor? editor)

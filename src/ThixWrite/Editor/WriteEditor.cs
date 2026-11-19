@@ -81,6 +81,8 @@ public sealed class WriteEditor : OfficeEditor
             Children = { Navigation, RulerView, _scroller, FindBar, CommentsView },
         };
         _surface.Shading = CommentShading;
+        Spelling = new SpellingSupport(this, _surface.InvalidateVisual);
+        _surface.Misspelled = pages => Spelling.Misspelled(pages);
         _surface.ContextMenu = BuildContextMenu();
         _surface.HeaderFooterRequested += (_, area) => EditHeaderFooter(area.Page, area.Footer);
         _surface.LinkClicked += (_, link) => _ = LinkCommands.Follow(_window, this, link);
@@ -173,6 +175,48 @@ public sealed class WriteEditor : OfficeEditor
 
     /// <summary>Ansicht › Lineal (hidden at first, as in Word).</summary>
     public Ruler RulerView { get; }
+
+    /// <summary>The spelling check of this editor (red wavy lines, the context menu's suggestions, Rechtschreibung).</summary>
+    internal SpellingSupport Spelling { get; }
+
+    /// <summary>
+    /// The spelling entries of the context menu for the unknown word at <paramref name="position"/>: its suggestions (a click puts it
+    /// in), Alle ignorieren, Zum Wörterbuch hinzufügen; empty when the word is known.
+    /// </summary>
+    internal IReadOnlyList<Control> SpellingMenuItems(DocumentPosition position)
+    {
+        if (Spelling.ErrorAt(position) is not { } error || Spelling.Checker is not { } checker)
+        {
+            return [];
+        }
+
+        var items = new List<Control>();
+        var suggestions = checker.Suggest(error.Word).Take(5).ToList();
+        foreach (var suggestion in suggestions)
+        {
+            var item = new MenuItem { Header = suggestion, FontWeight = Avalonia.Media.FontWeight.SemiBold };
+            item.Click += (_, _) =>
+            {
+                Document.Session.ReplaceWord(error.Range, suggestion);
+                FocusDocument();
+            };
+            items.Add(item);
+        }
+
+        if (suggestions.Count == 0)
+        {
+            items.Add(new MenuItem { Header = "(Keine Vorschläge)", IsEnabled = false });
+        }
+
+        var ignore = new MenuItem { Header = "Alle ignorieren", Icon = new MatDesktop.MatIcon { Icon = "eye-off", Size = 16 } };
+        ignore.Click += (_, _) => ThixOffice.Core.Spelling.SpellingService.Ignore(error.Word);
+        var add = new MenuItem { Header = "Zum Wörterbuch hinzufügen", Icon = new MatDesktop.MatIcon { Icon = "book", Size = 16 } };
+        add.Click += (_, _) => ThixOffice.Core.Spelling.SpellingService.AddToDictionary(checker, error.Word);
+        items.Add(ignore);
+        items.Add(add);
+        items.Add(new Separator());
+        return items;
+    }
 
     /// <summary>Überprüfen › Kommentare anzeigen: the comments at the right (shown at first when the document has comments).</summary>
     internal CommentsPane CommentsView { get; }
@@ -323,6 +367,7 @@ public sealed class WriteEditor : OfficeEditor
         Document.Writing -= OnWriting;
         Document.ContentReplaced -= OnContentReplaced;
         _surface.Detach();
+        Spelling.Dispose();
         Layout.Dispose();
     }
 
@@ -846,12 +891,32 @@ public sealed class WriteEditor : OfficeEditor
 
     private void OnContentReplaced(object? sender, EventArgs e) => _surface.ScheduleRefresh();
 
-    private ContextMenu BuildContextMenu() => OfficeCommandMenu.Create(_window,
-        [
-            WriteCommandIds.Cut, WriteCommandIds.Copy, WriteCommandIds.Paste, WriteCommandIds.PasteText, null,
-            WriteCommandIds.FontDialog, WriteCommandIds.ParagraphDialog, null,
-            WriteCommandIds.Hyperlink, WriteCommandIds.HyperlinkOpen, WriteCommandIds.HyperlinkRemove, null,
-            WriteCommandIds.NewComment,
-        ],
-        [WriteCommandIds.HyperlinkOpen, WriteCommandIds.HyperlinkRemove]);
+    private ContextMenu BuildContextMenu()
+    {
+        var menu = OfficeCommandMenu.Create(_window,
+            [
+                WriteCommandIds.Cut, WriteCommandIds.Copy, WriteCommandIds.Paste, WriteCommandIds.PasteText, null,
+                WriteCommandIds.FontDialog, WriteCommandIds.ParagraphDialog, null,
+                WriteCommandIds.Hyperlink, WriteCommandIds.HyperlinkOpen, WriteCommandIds.HyperlinkRemove, null,
+                WriteCommandIds.NewComment,
+            ],
+            [WriteCommandIds.HyperlinkOpen, WriteCommandIds.HyperlinkRemove]);
+        var spelling = new List<Control>();
+        menu.Opening += (_, _) =>
+        {
+            // An unknown word under the right click: its suggestions first, as in Word.
+            foreach (var item in spelling)
+            {
+                menu.Items.Remove(item);
+            }
+
+            spelling.Clear();
+            spelling.AddRange(SpellingMenuItems(Document.Session.Selection.Start));
+            for (var index = 0; index < spelling.Count; index++)
+            {
+                menu.Items.Insert(index, spelling[index]);
+            }
+        };
+        return menu;
+    }
 }

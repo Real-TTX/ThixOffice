@@ -22,8 +22,8 @@ tab stops, the dialogs Schriftart/Absatz, format painter, symbols, HTML paste (s
 find/replace, clipboard, page setup, printing and PDF, CSV/xlsx/xlsm flows (section "ThixCalc's editor"; gaps in docs/PLAN.md).
 **ThixCalc charts (done):** the shared `ThixOffice.Charts` (section "Charts"). **Phase 4, first version of ThixShow (done):** the
 slide editor, thumbnails, sorter, show and presenter view, the German PowerPoint ribbon, printing/PDF (section "ThixShow's editor";
-gaps in docs/PLAN.md). **ThixWrite 1c (in progress):** footnotes/endnotes, the table of contents and comments done; next spelling,
-Referenzen/Überprüfen, odt. Do not build ribbon controls of
+gaps in docs/PLAN.md). **ThixWrite 1c (in progress):** footnotes/endnotes, the table of contents, comments, spelling and the Referenzen/Überprüfen tabs done; next
+odt. Do not build ribbon controls of
 your own (a picture gallery is a `RibbonFlyoutButton` through `CreateRibbonContent`).
 
 Stack: **.NET 10** (`global.json` 10.0.100, latestMinor), C#, **Avalonia 11.3.22** with **MatDesktop 0.3.1** (a copy), xunit +
@@ -398,6 +398,20 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - **UI:** `CommentsPane` (column 2 of the editor's grid; cards, text committed on LostFocus), `DocumentSurface.Shading` (ranges drawn over
   the pictures, `DocumentPalette.CommentRange*`), `ReviewCommands`, tab `review`. Author: `SettingsService.AuthorName/AuthorInitials`
   (`AppSettings.UserName/UserInitials`, default `UserIdentity.DisplayName`, pinned to "Anna Berger" in snapshots).
+
+### Spelling (shared seam, ThixWrite's use)
+
+- **ThixOffice.Core/Spelling:** `ISpellChecker` (Language, Check → `SpellingError`s, Suggest, Add), `ISpellingProvider`, `SpellingService`
+  (CheckerFor(language) with fallback, Resolve, Ignore/WordsChanged, AddToDictionary, DisplayName, `UseForTests`), `SpellingQueue`
+  (background checks keyed by an immutable owner, `TryGet`/`CheckNow`/`Clear`, `Checked` on a worker thread), `MemorySpellChecker` /
+  `MemorySpellingProvider` (tests; snapshots use `OfficeSnapshot.SnapshotSpelling`, the UI tests `TestData.Spelling` – never the machine's
+  checker). Platforms: `Platform/Windows/WindowsSpellChecking` (generated COM on its own MTA thread, `ComThread.Invoke`),
+  `Platform/MacOS/MacSpellChecking` + `ObjectiveC` (objc_msgSend shapes, NSString, autorelease pool). `OfficeApplication.ChecksSpelling`
+  shows the setting `AppSettings.CheckSpellingAsYouType`.
+- **ThixWrite:** `SpellingText.Of(paragraph)` (markers out, objects as spaces, offsets back), `DocumentLanguage` (w:lang of the document
+  defaults; `EditingSession.Language/SetLanguage`, `ReplaceWord`), `Editor/SpellingSupport` (queue per language, `Misspelled(pages)` for
+  `DocumentSurface.Misspelled` – the wavy lines, `ErrorAt`, `NextError`, `CheckNow`), `WriteEditor.SpellingMenuItems` (context menu),
+  `Dialogs/SpellingDialog` (F7), `Dialogs/WordCountDialog`; commands in `ReviewCommands` (write.spelling, write.wordCount, write.language.*).
 
 ### Links, dialogs, format painter, symbols, ruler
 

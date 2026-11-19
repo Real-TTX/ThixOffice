@@ -83,11 +83,28 @@ internal static class WriteSelfTest
         var bytes = pdf.ToArray();
         Ensure(bytes.Length > 1000 && bytes[0] == '%' && bytes[1] == 'P' && bytes[2] == 'D' && bytes[3] == 'F', "the PDF is not a PDF");
         var picture = CheckPicture(app, folder);
+        var spelling = CheckSpelling();
         var printed = await PrintAsync(editor, folder);
 
         window.Close();
         await Settle();
-        return $"{WriteFonts.Default.Body}, {WriteFonts.Families.Count} font families, docx {new FileInfo(path).Length} bytes, PDF {bytes.Length} bytes, {picture}, {printed}";
+        return $"{WriteFonts.Default.Body}, {WriteFonts.Families.Count} font families, docx {new FileInfo(path).Length} bytes, PDF {bytes.Length} bytes, {picture}, {spelling}, {printed}";
+    }
+
+    /// <summary>The system's spelling check after trimming (Windows: the COM of the Spell Checking API): its languages and one check.</summary>
+    private static string CheckSpelling()
+    {
+        var languages = ThixOffice.Core.Spelling.SpellingService.Languages;
+        if (languages.Count == 0)
+        {
+            return "no spelling check on this system";
+        }
+
+        var checker = ThixOffice.Core.Spelling.SpellingService.CheckerFor(languages.FirstOrDefault(tag => tag.StartsWith("en", StringComparison.OrdinalIgnoreCase)) ?? languages[0])
+            ?? throw new InvalidOperationException("no spelling checker could be made");
+        var errors = checker.Check("Thiss is a tset.");
+        Ensure(errors.Count > 0 || !checker.Language.StartsWith("en", StringComparison.OrdinalIgnoreCase), "the spelling check found no error in \"Thiss is a tset.\"");
+        return $"spelling {checker.Language} of {languages.Count} languages";
     }
 
     /// <summary>A picture inserted, saved in a docx, read back and drawn by Skia (the trimmed build decodes it).</summary>

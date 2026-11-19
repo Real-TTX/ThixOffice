@@ -314,6 +314,11 @@ internal sealed class DocumentSurface : Control
         }
 
         DrawShading(context, visible);
+        if (!IsStory)
+        {
+            DrawMisspelled(context, visible, drawn);
+        }
+
         DrawSelection(context, visible);
     }
 
@@ -365,6 +370,55 @@ internal sealed class DocumentSurface : Control
                 {
                     context.FillRectangle(isActive ? active : normal, surface);
                 }
+            }
+        }
+    }
+
+    /// <summary>The unknown words on the pages drawn (the spelling check of the editor), asked on every render; null: none.</summary>
+    public Func<IReadOnlyList<int>, IReadOnlyList<DocumentRange>>? Misspelled { get; set; }
+
+    /// <summary>The ranges the last render underlined (tests).</summary>
+    public IReadOnlyList<DocumentRange> UnderlinedWords { get; private set; } = [];
+
+    /// <summary>Red wavy lines under unknown words, over the page pictures (no page is drawn again).</summary>
+    private void DrawMisspelled(DrawingContext context, Rect visible, IReadOnlyList<int> pages)
+    {
+        UnderlinedWords = Misspelled?.Invoke(pages) ?? [];
+        if (UnderlinedWords.Count == 0)
+        {
+            return;
+        }
+
+        var pen = new Pen(new SolidColorBrush(DocumentPalette.Misspelled), Math.Max(1, _scale * 0.6));
+        var step = Math.Max(2, _scale * 1.6);
+        foreach (var range in UnderlinedWords)
+        {
+            var caret = Layout.GetCaret(new CaretPlace(range.Start));
+            foreach (var rect in Layout.GetSelectionRects(range))
+            {
+                var area = ToSurface(rect.Page, rect.X, caret.Top + caret.Height, rect.Width, 0);
+                if (!area.Intersects(visible.Inflate(4)))
+                {
+                    continue;
+                }
+
+                var geometry = new StreamGeometry();
+                using (var path = geometry.Open())
+                {
+                    var x = area.X;
+                    var up = true;
+                    path.BeginFigure(new Point(x, area.Y), false);
+                    while (x < area.Right)
+                    {
+                        x = Math.Min(area.Right, x + step);
+                        path.LineTo(new Point(x, area.Y + (up ? -step / 2 : 0)));
+                        up = !up;
+                    }
+
+                    path.EndFigure(false);
+                }
+
+                context.DrawGeometry(null, pen, geometry);
             }
         }
     }
