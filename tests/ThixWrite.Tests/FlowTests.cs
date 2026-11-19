@@ -57,7 +57,7 @@ public sealed class FlowTests
         await TypeAsync(window, "Erste Zeile\nZweite Zeile");
 
         Assert.True(await window.SaveToAsync(target));
-        Assert.Equal("Erste Zeile" + Environment.NewLine + "Zweite Zeile", File.ReadAllText(target).TrimEnd());
+        Assert.Equal("Erste Zeile\nZweite Zeile", File.ReadAllText(target).Replace("\r\n", "\n").TrimEnd()); // CRLF, like Notepad
         Assert.Equal(WordFileFormat.PlainText, EditorOf(window).Document.SaveFormat);
 
         await TypeAsync(window, "!");

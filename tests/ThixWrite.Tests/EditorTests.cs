@@ -66,7 +66,7 @@ public sealed class EditorTests
         await PressAsync(window, PhysicalKey.Z, CommandKey);
         await PressAsync(window, PhysicalKey.Z, CommandKey);
         Assert.Equal(1, editor.Layout.PageCount);
-        await PressAsync(window, PhysicalKey.Y, CommandKey);
+        await RedoAsync(window); // Strg+Y, ⇧⌘Z on the Mac
         Assert.Equal(2, editor.Layout.PageCount);
     }
 

@@ -172,6 +172,11 @@ public sealed class TestData : IDisposable
         await SettleAsync();
     }
 
+    /// <summary>Wiederholen by its key: Strg+Y, ⇧⌘Z on the Mac.</summary>
+    public static Task RedoAsync(OfficeWindow window) => OperatingSystem.IsMacOS()
+        ? PressAsync(window, PhysicalKey.Z, CommandKey | RawInputModifiers.Shift)
+        : PressAsync(window, PhysicalKey.Y, CommandKey);
+
     /// <summary>The text of the document, paragraphs joined with "\n".</summary>
     public static string TextOf(OfficeWindow window) =>
         string.Join("\n", EditorOf(window).Document.Content.Blocks.OfType<ThixWrite.Core.Model.Paragraph>().Select(paragraph => paragraph.Text));

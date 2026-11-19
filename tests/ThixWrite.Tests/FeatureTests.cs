@@ -50,7 +50,14 @@ public sealed class FeatureTests
         await PressAsync(window, PhysicalKey.A, CommandKey);
         Assert.Equal(4, editor.FindBar.SearchBox.SelectionEnd - editor.FindBar.SearchBox.SelectionStart);
 
-        await PressAsync(window, PhysicalKey.H, OperatingSystem.IsMacOS() ? RawInputModifiers.Meta | RawInputModifiers.Alt : RawInputModifiers.Control);
+        if (OperatingSystem.IsMacOS())
+        {
+            await PressAsync(window, PhysicalKey.F, RawInputModifiers.Meta | RawInputModifiers.Alt); // ⌥⌘F (⌘H hides the app)
+        }
+        else
+        {
+            await PressAsync(window, PhysicalKey.H, RawInputModifiers.Control);
+        }
         Assert.True(editor.FindBar.IsReplaceVisible);
         editor.FindBar.ReplacementBox.Text = "Katze";
         Assert.Equal(2, editor.FindBar.ReplaceAll());
