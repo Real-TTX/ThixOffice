@@ -354,6 +354,7 @@ public sealed partial class EditingSession
     internal void SetCell(Worksheet sheet, int row, int column, Cell after)
     {
         var key = (sheet, row, column);
+        GuardPivot(sheet, row, column, sheet.GetCell(row, column), after);
         var before = _cellChanges!.TryGetValue(key, out var existing) ? existing.Before : sheet.GetCell(row, column);
         if (before.IsSpilled)
         {

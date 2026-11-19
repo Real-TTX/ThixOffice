@@ -21,7 +21,7 @@ internal static class AnalysisFunctions
         r.Add("PIVOTBY", 4, 11, PivotBy,
             [ArgumentKind.Array, ArgumentKind.Array, ArgumentKind.Array, ArgumentKind.Lambda, ArgumentKind.Value, ArgumentKind.Value, ArgumentKind.Array, ArgumentKind.Value, ArgumentKind.Array, ArgumentKind.Array, ArgumentKind.Value], array: true);
 
-        r.Add("GETPIVOTDATA", 2, 254, PivotData, [ArgumentKind.Value, ArgumentKind.Reference, ArgumentKind.Value], returnsReference: false);
+        r.Add("GETPIVOTDATA", 2, 254, PivotData, [ArgumentKind.Value, ArgumentKind.Reference, ArgumentKind.Value], isVolatile: true);
 
         r.Category = FunctionCategory.Statistical;
         r.Add("FORECAST.ETS", 3, 6, call =>
@@ -57,7 +57,26 @@ internal static class AnalysisFunctions
     }
 
     /// <summary>PIVOTDATENZUORDNEN: a value of the PivotTable at the reference (filled in by the pivot model).</summary>
-    private static Operand PivotData(FunctionCall call) => CellError.Reference;
+    private static Operand PivotData(FunctionCall call)
+    {
+        var reference = call.Reference(1) ?? throw new CalcErrorException(CellError.Reference);
+        var area = reference.First;
+        var sheet = area.Sheet;
+        var pivot = sheet.PivotAt(area.Range.FirstRow, area.Range.FirstColumn);
+        if (pivot is null || sheet.OutputOf(pivot) is not { } output || sheet.Workbook.FindPivotCache(pivot.CacheId) is not { } cache)
+        {
+            return CellError.Reference;
+        }
+
+        var pairs = new List<(string, CellValue)>();
+        for (var index = 2; index + 1 < call.Count; index += 2)
+        {
+            pairs.Add((call.Text(index), call.Value(index + 1)));
+        }
+
+        Require(call.Count % 2 == 0, CellError.Reference);
+        return Model.Pivot.PivotEngine.Lookup(pivot, cache, output, call.Text(0), pairs, call.Context.Locale);
+    }
 
     // ---------------------------------------------------------------- GROUPBY / PIVOTBY
 

@@ -105,6 +105,7 @@ internal sealed class WorkbookSnapshot
         private readonly SortState? _sort;
         private readonly List<TableDefinition> _tables;
         private readonly List<SheetChart> _charts;
+        private readonly List<Model.Pivot.PivotTable> _pivots;
         private readonly (int, AxisInfo)[] _rows;
         private readonly (int, AxisInfo)[] _columns;
         private readonly double _rowSize;
@@ -124,6 +125,7 @@ internal sealed class WorkbookSnapshot
             _sort = sheet.SortState;
             _tables = [.. sheet.Tables];
             _charts = [.. sheet.Charts];
+            _pivots = [.. sheet.PivotTables];
             _rows = sheet.Rows.Snapshot();
             _columns = sheet.Columns.Snapshot();
             _rowSize = sheet.Rows.DefaultSize;
@@ -149,6 +151,7 @@ internal sealed class WorkbookSnapshot
             _sheet.SortState = _sort;
             Replace(_sheet.Tables, _tables);
             Replace(_sheet.Charts, _charts);
+            Replace(_sheet.PivotTables, _pivots);
             _sheet.Rows.Restore(_rows, _rowSize);
             _sheet.Columns.Restore(_columns, _columnSize);
             _sheet.View = _view;

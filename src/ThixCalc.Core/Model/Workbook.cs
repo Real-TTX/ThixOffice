@@ -55,6 +55,11 @@ public sealed class Workbook
     /// <summary>The defined names (Namens-Manager); after changing them call <see cref="CalcEngine.Rebuild"/>.</summary>
     public List<DefinedName> Names { get; } = [];
 
+    /// <summary>The PivotCaches of the workbook's PivotTables (by <see cref="Pivot.PivotCache.Id"/>).</summary>
+    public List<Pivot.PivotCache> PivotCaches { get; } = [];
+
+    public Pivot.PivotCache? FindPivotCache(int id) => PivotCaches.FirstOrDefault(cache => cache.Id == id);
+
     /// <summary>The 1904 date system (serial 0 = 1904-01-01) instead of 1900.</summary>
     public bool Date1904 { get; set; }
 

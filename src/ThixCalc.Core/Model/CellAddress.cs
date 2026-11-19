@@ -126,6 +126,13 @@ public readonly record struct CellRange
 
     public CellRange Offset(int rows, int columns) => new(FirstRow + rows, FirstColumn + columns, LastRow + rows, LastColumn + columns);
 
+    /// <summary>"$A$1:$B$3" ("$B$2" for a single cell).</summary>
+    public string ToAbsoluteString()
+    {
+        static string Cell(CellAddress cell) => $"${A1.ColumnName(cell.Column)}${(cell.Row + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        return IsSingleCell ? Cell(First) : $"{Cell(First)}:{Cell(Last)}";
+    }
+
     /// <summary>"A1:B3", "B2" for a single cell, "A:C" for whole columns, "1:3" for whole rows.</summary>
     public override string ToString()
     {

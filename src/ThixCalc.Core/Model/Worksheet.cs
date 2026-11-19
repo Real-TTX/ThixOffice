@@ -148,6 +148,28 @@ public sealed class Worksheet
 
     public List<TableDefinition> Tables { get; } = [];
 
+    /// <summary>The PivotTables on the sheet (their output cells are ordinary cells, guarded against edits).</summary>
+    public List<Pivot.PivotTable> PivotTables { get; } = [];
+
+    private readonly Dictionary<string, (Pivot.PivotTable Pivot, Pivot.PivotCache? Cache, Pivot.PivotOutput? Output)> _pivotOutputs = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The computed layout of a PivotTable (cached per table and cache instance; null while its cache has no records).</summary>
+    public Pivot.PivotOutput? OutputOf(Pivot.PivotTable pivot)
+    {
+        var cache = Workbook.FindPivotCache(pivot.CacheId);
+        if (_pivotOutputs.TryGetValue(pivot.Name, out var known) && ReferenceEquals(known.Pivot, pivot) && ReferenceEquals(known.Cache, cache))
+        {
+            return known.Output;
+        }
+
+        var output = cache is null ? null : Pivot.PivotEngine.Compute(pivot, cache, Workbook.Calculation.Locale);
+        _pivotOutputs[pivot.Name] = (pivot, cache, output);
+        return output;
+    }
+
+    /// <summary>The PivotTable whose cells include the cell, or null.</summary>
+    public Pivot.PivotTable? PivotAt(int row, int column) => PivotTables.FirstOrDefault(pivot => pivot.Range is { } range && range.Contains(row, column));
+
     /// <summary>
     /// Text with formatted parts (rich text runs) as read: the plain text and the si element. Written back as it was while the
     /// cell still holds that text; drawn in the cell's own format.
