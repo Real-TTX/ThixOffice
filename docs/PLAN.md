@@ -177,6 +177,10 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   Seitenzahl (oben/unten, links/zentriert/rechts), Felder PAGE / NUMPAGES / DATE, docx lesen/schreiben (Teile werden
   wiederverwendet, andere Felder bleiben mit ihrem Ergebnis erhalten). **Lücken:** hohe Kopfzeilen schieben den Text nicht nach
   unten, Seitenzahlformate und Neubeginn (w:pgNumType) werden nur erhalten, Tabellen in Kopfzeilen werden als Absätze gezeigt.
+- **Links, Lineal, Dialoge erledigt (1b):** Link einfügen/bearbeiten (Strg+K), Strg+Klick öffnet nur http/https/mailto (Prüfung im
+  Business-Layer), Tooltip; Lineal mit Rändern, Einzügen und Tabstopps (ziehen, klicken), Dialoge Schriftart (Strg+D) und Absatz
+  (mit Tabstopps) als Gruppen-Starter, Format übertragen, Symbol (Menü + Dialog). **Lücken:** Links auf Textmarken (Sprung im
+  Dokument), Format übertragen per Doppelklick dauerhaft, Schriftfarbe/Abstände im Schriftart-Dialog, Lineal im Kopfzeilen-Modus.
 - **1b:** Drucken, Tabellen, Bilder, Kopf-/Fußzeilen, Seitenzahlen, Hyperlinks, Tabstopps (Lineal), Dialoge Schriftart/Absatz,
   HTML/RTF einfügen.
 - **1c:** Inhaltsverzeichnis, Fußnoten, Kommentare, Rechtschreibprüfung, odt; Karten Referenzen/Überprüfen.

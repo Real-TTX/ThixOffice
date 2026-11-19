@@ -58,6 +58,8 @@ public partial class App : OfficeApplication
         TableCommands.Add(window);
         PictureCommands.Add(window);
         HeaderFooterCommands.Add(window);
+        LinkCommands.Add(window);
+        TextCommands.Add(window);
         window.Commands.Add(new ThixOffice.Core.Commands.OfficeCommand(WriteCommandIds.Print, "Drucken", () => window.ShowBackstage(PrintPage.PageId))
         {
             Icon = "print",
@@ -96,6 +98,7 @@ public partial class App : OfficeApplication
                 return window;
             case ViewScene:
                 window.Ribbon.SelectTab("view");
+                editor.ShowRuler = true;
                 editor.ZoomToWholePage();
                 return window;
             case FindScene:
@@ -149,6 +152,7 @@ public partial class App : OfficeApplication
                 window.Ribbon.SelectTab("home");
                 break;
             case ViewScene:
+                editor.ShowRuler = false;
                 editor.Zoom = 100;
                 window.Ribbon.SelectTab("home");
                 break;

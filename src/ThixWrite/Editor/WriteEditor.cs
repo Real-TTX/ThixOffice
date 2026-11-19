@@ -40,6 +40,7 @@ public sealed class WriteEditor : OfficeEditor
     private long _countedVersion = -1;
     private readonly Canvas _overlay = new();
     private StoryEditing? _story;
+    private (ThixWrite.Core.Model.CharacterProperties Characters, ThixWrite.Core.Model.ParagraphProperties Paragraph)? _painted;
     private DocumentStatistics _statistics = new(0, 0, 0, 0);
 
     public WriteEditor(OfficeWindow window, WordDocument document)
@@ -60,10 +61,16 @@ public sealed class WriteEditor : OfficeEditor
         Avalonia.Automation.AutomationProperties.SetName(_surface, "Dokument");
 
         FindBar = new FindBar(this) { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 10, 26, 0) };
-        _view = new Grid { Children = { _scroller, FindBar } };
+        RulerView = new Ruler(this) { IsVisible = false };
+        _scroller.ScrollChanged += (_, _) => RulerView.InvalidateVisual();
+        Grid.SetRow(_scroller, 1);
+        Grid.SetRow(FindBar, 1);
+        _view = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), Children = { RulerView, _scroller, FindBar } };
         _surface.ContextMenu = BuildContextMenu();
         _surface.HeaderFooterRequested += (_, area) => EditHeaderFooter(area.Page, area.Footer);
+        _surface.LinkClicked += (_, address) => _ = LinkCommands.Open(_window, address);
         _surface.BodyRequested += (_, _) => CloseHeaderFooter();
+        _surface.SelectedByPointer += (_, _) => Paint();
         Document.Writing += OnWriting;
         _surface.DropPicture = (path, position) => OfficeWindow.RunAsync(_window, "Bild einfügen", () => Task.FromResult(InsertPictureFile(path, position)));
 
@@ -81,6 +88,53 @@ public sealed class WriteEditor : OfficeEditor
     /// <summary>The page and kind (footer?) of the header or footer being edited, else the caret's page and header.</summary>
     public (int Page, bool Footer) EditedPlace => _story is { } story ? (story.Page, story.Footer) : (CaretPage, false);
 
+    /// <summary>True while Format übertragen waits for the selection that gets the format.</summary>
+    public bool IsPainting => _painted is not null;
+
+    /// <summary>Format übertragen: takes the format at the selection (characters, and the paragraph's); the next selection gets it.</summary>
+    public void ToggleFormatPainter()
+    {
+        if (_painted is not null)
+        {
+            _painted = null;
+            ScheduleState();
+            return;
+        }
+
+        var session = Session;
+        var start = session.Selection.Start;
+        if (session.Document.ParagraphAt(start.Block) is not { } paragraph)
+        {
+            return;
+        }
+
+        var characters = paragraph.Length == 0 ? paragraph.MarkProperties
+            : paragraph.InlineAt(Math.Min(start.Offset, paragraph.Length - 1))?.Properties ?? paragraph.MarkProperties;
+        _painted = (characters with { UnknownXml = null }, paragraph.Properties with { Numbering = null, Tabs = paragraph.Properties.Tabs });
+        ScheduleState();
+    }
+
+    /// <summary>The selection made by the pointer while Format übertragen waits: it gets the format, the painter stops.</summary>
+    private void Paint()
+    {
+        if (_painted is not { } painted)
+        {
+            return;
+        }
+
+        _painted = null;
+        var session = Session;
+        var range = session.Selection.Range;
+        var wholeParagraphs = range.Start.Offset == 0 && (range.End.Block > range.Start.Block || range.End.Offset >= session.Document.Blocks[range.End.Block].Length);
+        session.FormatCharacters("Format übertragen", (_, props) => painted.Characters with { UnknownXml = props.UnknownXml });
+        if (wholeParagraphs && !range.IsEmpty)
+        {
+            session.FormatParagraphs("Format übertragen", props => painted.Paragraph with { Numbering = props.Numbering, UnknownXml = props.UnknownXml });
+        }
+
+        ScheduleState();
+    }
+
     /// <summary>True while a header or footer is edited.</summary>
     public bool IsEditingHeaderFooter => _story is not null;
 
@@ -93,6 +147,19 @@ public sealed class WriteEditor : OfficeEditor
     internal DocumentSurface Surface => _surface;
 
     internal ScrollViewer Scroller => _scroller;
+
+    /// <summary>Ansicht › Lineal (hidden at first, as in Word).</summary>
+    public Ruler RulerView { get; }
+
+    public bool ShowRuler
+    {
+        get => RulerView.IsVisible;
+        set
+        {
+            RulerView.IsVisible = value;
+            ScheduleState();
+        }
+    }
 
     /// <summary>Suchen / Ersetzen.</summary>
     public FindBar FindBar { get; }
@@ -494,6 +561,7 @@ public sealed class WriteEditor : OfficeEditor
         {
             _statePending = false;
             ShowTableTabs();
+            RulerView.InvalidateVisual();
             _window.Commands.Invalidate();
             UpdateStatus(_window.StatusBar);
         }, DispatcherPriority.Background);
@@ -558,8 +626,20 @@ public sealed class WriteEditor : OfficeEditor
     private ContextMenu BuildContextMenu()
     {
         var menu = new ContextMenu();
-        foreach (var id in new[] { WriteCommandIds.Cut, WriteCommandIds.Copy, WriteCommandIds.Paste, WriteCommandIds.PasteText })
+        string?[] ids =
+        [
+            WriteCommandIds.Cut, WriteCommandIds.Copy, WriteCommandIds.Paste, WriteCommandIds.PasteText, null,
+            WriteCommandIds.FontDialog, WriteCommandIds.ParagraphDialog, null,
+            WriteCommandIds.Hyperlink, WriteCommandIds.HyperlinkOpen, WriteCommandIds.HyperlinkRemove,
+        ];
+        foreach (var id in ids)
         {
+            if (id is null)
+            {
+                menu.Items.Add(new Separator());
+                continue;
+            }
+
             if (_window.Commands.Find(id) is not { } command)
             {
                 continue;
@@ -585,6 +665,10 @@ public sealed class WriteEditor : OfficeEditor
             {
                 var command = _window.Commands.All.FirstOrDefault(candidate => candidate.Label == (string?)item.Header);
                 item.IsEnabled = command?.IsEnabled ?? true;
+                if (command?.Id is WriteCommandIds.HyperlinkOpen or WriteCommandIds.HyperlinkRemove)
+                {
+                    item.IsVisible = item.IsEnabled; // only on a link
+                }
             }
         };
         return menu;

@@ -109,6 +109,39 @@ internal static class ContentEdits
         return new BlocksStep(start.Block, Slice(document, start.Block, end.Block - start.Block + 1), inserted, PositionMap.Identity);
     }
 
+    /// <summary>
+    /// Changes every inline in <paramref name="range"/> (text runs cut at its edges) – links, styles; null when nothing changes.
+    /// </summary>
+    public static BlocksStep? MapInlines(Document document, DocumentRange range, Func<Inline, Inline> change)
+    {
+        var inserted = new List<Block>();
+        var changed = false;
+        for (var index = range.Start.Block; index <= range.End.Block; index++)
+        {
+            if (document.Blocks[index] is not Paragraph paragraph)
+            {
+                inserted.Add(document.Blocks[index]);
+                continue;
+            }
+
+            var from = index == range.Start.Block ? range.Start.Offset : 0;
+            var to = index == range.End.Block ? range.End.Offset : paragraph.Length;
+            var inlines = new List<Inline>();
+            inlines.AddRange(paragraph.Slice(0, from));
+            foreach (var inline in paragraph.Slice(from, to))
+            {
+                var updated = change(inline);
+                changed |= updated != inline;
+                inlines.Add(updated);
+            }
+
+            inlines.AddRange(paragraph.Slice(to, paragraph.Length));
+            inserted.Add(paragraph.WithInlines(inlines));
+        }
+
+        return changed ? new BlocksStep(range.Start.Block, Slice(document, range.Start.Block, range.End.Block - range.Start.Block + 1), inserted, PositionMap.Identity) : null;
+    }
+
     /// <summary>Changes the paragraphs of blocks [<paramref name="startBlock"/>, <paramref name="endBlock"/>]; null when nothing changes.</summary>
     public static BlocksStep? FormatParagraphs(Document document, int startBlock, int endBlock, Func<Paragraph, Paragraph> change)
     {

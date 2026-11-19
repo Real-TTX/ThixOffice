@@ -259,15 +259,15 @@ public sealed class FlowTests
         Assert.Equal(["Start", "Einfügen", "Layout", "Ansicht"], window.RibbonDefinition.VisibleTabs.Select(tab => tab.Label));
         Assert.Equal(["Tabellenentwurf", "Layout", "Bildformat", "Kopf- und Fußzeile"], window.RibbonDefinition.Tabs.Where(tab => tab.Context is not null).Select(tab => tab.Label));
         Assert.Equal(["Rückgängig", "Zwischenablage", "Schriftart", "Absatz", "Formatvorlagen", "Bearbeiten"], window.RibbonDefinition.Tabs[0].Groups.Select(group => group.Label));
-        Assert.Equal(["Tabellen", "Illustrationen", "Seiten", "Kopf- und Fußzeile", "Text"], window.RibbonDefinition.Tabs[1].Groups.Select(group => group.Label));
+        Assert.Equal(["Tabellen", "Illustrationen", "Seiten", "Kopf- und Fußzeile", "Links", "Text", "Symbole"], window.RibbonDefinition.Tabs[1].Groups.Select(group => group.Label));
         Assert.Equal(["Seite einrichten", "Absatz"], window.RibbonDefinition.Tabs[2].Groups.Select(group => group.Label));
         Assert.Equal(["Anzeigen", "Zoom", "Menüband"], window.RibbonDefinition.Tabs[3].Groups.Select(group => group.Label));
         Assert.Empty(window.RibbonDefinition.Problems());
         Assert.All(window.RibbonDefinition.AllItems().Where(item => item is not (MatDesktop.MatRibbonStack or MatDesktop.MatRibbonRow or MatDesktop.MatRibbonSeparator or MatDesktop.MatRibbonCustom)),
             item => Assert.NotNull(window.Commands.Find(item.Id)));
 
-        // Only Format übertragen and Lineal are left out (they come later).
-        Assert.Equal([WriteCommandIds.FormatPainter, WriteCommandIds.Ruler], window.RibbonBinding.MissingCommandIds.Order());
+        // Every item of the ribbon has its command now.
+        Assert.Empty(window.RibbonBinding.MissingCommandIds);
 
         Assert.All(window.Commands.All.Where(command => command.CurrentShortcut is not null), command => Assert.NotNull(Ui.Gesture(command.CurrentShortcut)));
         Assert.Equal(window.Commands.All.Count, window.Commands.All.Select(command => command.Id).Distinct().Count());

@@ -224,6 +224,18 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   Kopf- und Fußzeile shows, `WriteEditor.Session` is the story's (the commands act there). Esc, a double click on the body or
   "Schließen" put the story into the document as ONE step (`SetHeaderFooter`); saving commits first (`WordDocument.Writing`).
 
+### Links, dialogs, format painter, symbols, ruler
+
+- **Links:** `Hyperlink` on inlines; session `SetHyperlink` / `RemoveHyperlink` / `LinkRange` (`ContentEdits.MapInlines`), the
+  character style "Hyperlink"; `HyperlinkDialog` (Strg+K); Strg+Klick and "Link öffnen" go through `LinkService` (business: only
+  http, https, mailto; never files or scripts), then `Ui.OpenExternal`; the surface shows the address as a tooltip.
+- **Dialogs:** `FontDialog` (Strg+D, launcher of Start › Schriftart), `ParagraphDialog` (launcher of Start › Absatz; tabs Einzüge und
+  Abstände | Zeilen- und Seitenumbruch | Tabstopps), both one undo step; `SymbolDialog` and Einfügen › Symbol's frequent symbols.
+- **Format übertragen** (Strg+Umschalt+C): `WriteEditor.ToggleFormatPainter`; the next pointer selection (`SelectedByPointer`) gets the
+  characters' format (and the paragraph's when whole paragraphs are selected).
+- **Ruler** (Ansicht › Lineal, `Ruler` above the pages): margins, indents and tab stops of the caret's paragraph; dragging markers
+  changes them, a click sets a left tab stop, a tab dragged off is removed (positions snap to 1/16 cm).
+
 ### Adding a command to ThixWrite
 
 1. An id in `WriteCommandIds` (`write.<name>`; value commands note their value format).

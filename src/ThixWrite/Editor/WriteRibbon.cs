@@ -61,7 +61,17 @@ public static class WriteCommandIds
     public const string InsertPicture = "write.insertPicture";
     public const string Header = "write.header"; // menu entries write.header.edit / .remove
     public const string Footer = "write.footer";
-    public const string PageNumber = "write.pageNumber"; // the places are write.pageNumber.<top|bottom>.<left|center|right>
+    public const string PageNumber = "write.pageNumber";
+    public const string Hyperlink = "write.hyperlink";
+    public const string HyperlinkRemove = "write.hyperlink.remove";
+    public const string HyperlinkOpen = "write.hyperlink.open";
+    public const string Symbol = "write.symbol"; // the menu's symbols are write.symbol.u<hex>
+    public const string SymbolMore = "write.symbol.more";
+
+    // Dialogs of Start
+    public const string FontDialog = "write.fontDialog";
+    public const string ParagraphDialog = "write.paragraphDialog";
+    public const string TabsDialog = "write.tabsDialog"; // the places are write.pageNumber.<top|bottom>.<left|center|right>
     public const string PageBreak = "write.pageBreak";
     public const string InsertDateTime = "write.insertDateTime";
 
@@ -161,11 +171,19 @@ public static class WriteRibbon
     {
         var theme = (window.Document as WordDocument)?.Content.Theme ?? Theme.Office;
         var definition = new MatRibbonDefinition { FileLabel = "Datei" };
-        definition.Add(HomeTab(theme), InsertTab(), LayoutTab(), ViewTab(), TableDesignTab(theme), TableLayoutTab(), PictureTab(), HeaderFooterTab());
+        void Launch(string id)
+        {
+            if (window.Commands.Find(id) is { } command)
+            {
+                _ = OfficeWindow.RunCommandAsync(window, command);
+            }
+        }
+
+        definition.Add(HomeTab(theme, Launch), InsertTab(), LayoutTab(), ViewTab(), TableDesignTab(theme), TableLayoutTab(), PictureTab(), HeaderFooterTab());
         return definition;
     }
 
-    private static MatRibbonTab HomeTab(Theme theme) =>
+    private static MatRibbonTab HomeTab(Theme theme, Action<string> launch) =>
         new MatRibbonTab("home", "Start").Add(
             new MatRibbonGroup("undo", "Rückgängig") { Icon = "undo" }.Add(
                 Button(CommonCommandIds.Undo),
@@ -175,7 +193,7 @@ public static class WriteRibbon
                 Button(WriteCommandIds.Cut),
                 Button(WriteCommandIds.Copy),
                 Toggle(WriteCommandIds.FormatPainter)),
-            new MatRibbonGroup("font", "Schriftart") { Icon = "type", ShrinkOrder = 4 }.Add(
+            new MatRibbonGroup("font", "Schriftart") { Icon = "type", ShrinkOrder = 4, Launcher = () => launch(WriteCommandIds.FontDialog) }.Add(
                 new MatRibbonStack("font-rows",
                     new MatRibbonRow("font-row-1",
                         ComboBox(WriteCommandIds.FontName, width: 150, isEditable: true),
@@ -193,7 +211,7 @@ public static class WriteRibbon
                         new MatRibbonSeparator("font-separator"),
                         ColorPicker(WriteCommandIds.Highlight, DocumentPalette.HighlightColors, "Keine Farbe"),
                         ColorPicker(WriteCommandIds.FontColor, DocumentPalette.FontColors(theme))))),
-            new MatRibbonGroup("paragraph", "Absatz") { Icon = "align-left", ShrinkOrder = 3 }.Add(
+            new MatRibbonGroup("paragraph", "Absatz") { Icon = "align-left", ShrinkOrder = 3, Launcher = () => launch(WriteCommandIds.ParagraphDialog) }.Add(
                 new MatRibbonStack("paragraph-rows",
                     new MatRibbonRow("paragraph-row-1",
                         Toggle(WriteCommandIds.Bullets, size: MatRibbonSize.Small),
@@ -232,8 +250,17 @@ public static class WriteRibbon
                     Button($"{WriteCommandIds.Footer}.remove")) { Size = MatRibbonSize.Large },
                 new MatRibbonMenuButton(WriteCommandIds.PageNumber, "", null,
                     [.. HeaderFooterCommands.PageNumberPlaces.Select(place => Button($"{WriteCommandIds.PageNumber}.{place.Id}"))]) { Size = MatRibbonSize.Large }),
+            new MatRibbonGroup("links", "Links") { Icon = "link" }.Add(
+                Button(WriteCommandIds.Hyperlink, MatRibbonSize.Large)),
             new MatRibbonGroup("text", "Text") { Icon = "clock" }.Add(
-                Button(WriteCommandIds.InsertDateTime, MatRibbonSize.Large)));
+                Button(WriteCommandIds.InsertDateTime, MatRibbonSize.Large)),
+            new MatRibbonGroup("symbols", "Symbole") { Icon = "symbol" }.Add(
+                new MatRibbonMenuButton(WriteCommandIds.Symbol, "", null,
+                [
+                    .. TextCommands.FrequentSymbols.Select(symbol => Button(TextCommands.SymbolId(symbol), MatRibbonSize.Small)),
+                    new MatRibbonSeparator("symbols-separator"),
+                    Button(WriteCommandIds.SymbolMore),
+                ]) { Size = MatRibbonSize.Large }));
 
     private static MatRibbonTab LayoutTab() =>
         new MatRibbonTab("layout", "Layout").Add(

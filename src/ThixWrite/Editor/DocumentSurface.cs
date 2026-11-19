@@ -142,6 +142,12 @@ internal sealed class DocumentSurface : Control
     /// <summary>A double click in the header (false) or footer (true) area of a page: the editor opens it.</summary>
     public event EventHandler<(int Page, bool Footer)>? HeaderFooterRequested;
 
+    /// <summary>A click or a drag of the pointer made a selection (Format übertragen applies to it).</summary>
+    public event EventHandler? SelectedByPointer;
+
+    /// <summary>Strg+Klick (⌘ on the Mac) on a link: its address (the editor opens it through the business layer).</summary>
+    public event EventHandler<string?>? LinkClicked;
+
     /// <summary>A double click on the body while a header or footer is edited: the editor closes it.</summary>
     public event EventHandler? BodyRequested;
 
@@ -586,6 +592,14 @@ internal sealed class DocumentSurface : Control
             return;
         }
 
+        var follow = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+        if (e.KeyModifiers.HasFlag(follow) && LinkUnder(point.Position) is { } link)
+        {
+            e.Handled = true;
+            LinkClicked?.Invoke(this, link.Uri);
+            return;
+        }
+
         if (ImageUnder(point.Position) is { } picture && e.ClickCount == 1 && !e.KeyModifiers.HasFlag(KeyModifiers.Shift))
         {
             Session.Select(picture, picture with { Offset = picture.Offset + 1 });
@@ -646,6 +660,7 @@ internal sealed class DocumentSurface : Control
             return;
         }
 
+        ShowLinkTip(position);
         var handle = !_dragging && SelectedImageRect() is { } selected ? HandleAt(selected, position) : null;
         var cursor = handle is { } index ? HandleCursor(index)
             : _columnDrag is not null || (!_dragging && ColumnBorderAt(position) is not null) ? _columnCursor
@@ -695,8 +710,13 @@ internal sealed class DocumentSurface : Control
             InvalidateVisual();
         }
 
+        var selected = _dragging;
         EndDrag();
         e.Pointer.Capture(null);
+        if (selected)
+        {
+            SelectedByPointer?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
@@ -734,6 +754,39 @@ internal sealed class DocumentSurface : Control
     }
 
     private const double HandleSize = 7;
+
+    private string? _tipLink;
+
+    /// <summary>The link under a point (on its text, not beside it), or null.</summary>
+    private Hyperlink? LinkUnder(Point point)
+    {
+        if (PageUnder(point) < 0)
+        {
+            return null;
+        }
+
+        var position = HitAt(point).Position;
+        if (Session.LinkRange(position) is not { } link || position.Offset >= link.Range.End.Offset)
+        {
+            return null;
+        }
+
+        return link.Link;
+    }
+
+    /// <summary>The address of a link under the pointer as its tooltip (and how to follow it).</summary>
+    private void ShowLinkTip(Point point)
+    {
+        var address = _dragging ? null : LinkUnder(point)?.Uri;
+        if (address == _tipLink)
+        {
+            return;
+        }
+
+        _tipLink = address;
+        var key = OperatingSystem.IsMacOS() ? "⌘" : "Strg";
+        ToolTip.SetTip(this, address is null ? null : $"{address}\n{key}+Klicken, um dem Link zu folgen");
+    }
 
     /// <summary>Where a point is on a page: the header area (Footer false), the footer area (true) or the body (null).</summary>
     private (int Page, bool? Footer)? AreaAt(Point point)
