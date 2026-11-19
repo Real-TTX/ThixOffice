@@ -17,6 +17,7 @@ MatRibbon, MatBackstage, MatStatusBar and MatQuickAccess in the window.
 **Milestone 1a (done): ThixWrite's native editor** on `WordDocument` (docx default, txt), the filled ribbon, find/replace,
 page setup, zoom, PDF export. **Milestone 1b (done):** printing, tables, pictures, headers/footers/page numbers, links, ruler and
 tab stops, the dialogs Schriftart/Absatz, format painter, symbols, HTML paste (see the sections below; gaps in docs/PLAN.md).
+**Phase 2, ThixOffice side (done):** ThixCloud sign-in and documents in ThixDrive for every app (section "ThixCloud and ThixDrive").
 **Next:** 1c (table of contents, footnotes, comments, spelling, odt). Do not build ribbon controls of your own.
 
 Stack: **.NET 10** (`global.json` 10.0.100, latestMinor), C#, **Avalonia 11.3.22** with **MatDesktop 0.3.1** (a copy), xunit +
@@ -31,14 +32,17 @@ ThixOffice.slnx, Directory.Build.props (versioning, Major/Minor PER APP), global
 src/ThixOffice.Core        (no UI) shared by every app; every service is parameterized by the app's OfficeAppDefinition
   Models/                  OfficeAppDefinition (id, name, accent, description, DocumentTypes, UntitledBaseName, BlankDocumentLabel;
                            derived: Suffix, ExecutableName, SetupFileName, UninstallKey, PolicyKey, MacBundleId info.schmoldt.<id>,
-                           ManifestFileName <id>-update.json, MacPackageFileName, DataDirectoryVariable <APP>_DATA_DIR,
+                           ManifestFileName <id>-update.json, MacPackageFileName, DataDirectoryVariable <APP>_DATA_DIR, CloudAppId
+                           (write/calc/show; null = no cloud) + HasCloud,
                            ScreenshotsVariable, DocumentIconFileName, SupportedTypes, DefaultType, SaveType, SupportedTypeOf),
                            DocumentType (Extension, ProgId, Description, Support Supported|Planned, IsDefault, MimeType, UTI),
-                           AppSettings, RecentDocument(+Item, Order), BusinessException(message, field), Printing
+                           AppSettings (+ CloudSettings: address, account, device, protected token), DriveOrigin (+ DriveSyncState),
+                           RecentDocument (+ Drive: RecentDriveItem, Item, Order), BusinessException(message, field), Printing
                            (PrinterInfo, PrintRange, PaperSize: label + DEVMODE code + CUPS name, IPrintablePages: sizes, pixel
                            bands, PDF; PrintJob)
   Documents/               OfficeDocument: the UI-free base of every document model (FilePath, FileType, Title, IsDirty, IsPristine,
-                           IsRecovered, Undo/Redo, protected Read/Write(Stream), Changed)
+                           IsRecovered, Undo/Redo, protected Read/Write(Stream), Changed; Drive + DriveState + LocationText for a ThixDrive
+                           document whose FilePath is its local working copy)
   Commands/                OfficeCommand (Id, Label, Icon, Shortcut "Ctrl+S", MacShortcut, CurrentShortcut, Description, Keywords,
                            CanExecute, IsChecked, IsSearchable, ExecuteAsync), OfficeValueCommand : OfficeCommand (Kind Text|Number|
                            Color|Choice, Value, Options, ApplyAsync(value): font, size, colour, style), OfficeCommandRegistry (Add,
@@ -47,17 +51,19 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
                            DocumentService (Open, Save, SaveAs, TargetPath, recovery), AccessPolicy (LockConfiguration, DisableUpdates,
                            DisableCloud, DisableFileAssociations, DisablePrinting), PrintService (printers, PagesOf "1-3, 5",
                            Print = policy + validation, then the IPrinterSystem), InstallService (Windows self-installing exe), UninstallEntry (what
-                           ThixLauncher reads), FileAssociations (ProgIDs, "Öffnen mit", Capabilities; opt-in default only for free
+                           ThixLauncher reads), CloudService + DriveService (ThixCloud / ThixDrive, see below), FileAssociations (ProgIDs, "Öffnen mit", Capabilities; opt-in default only for free
                            types), AutostartService (off by default), UpdateService + MacAppBundle (channel manifest, SHA-256, 6 h,
                            install on exit)
   Infrastructure/          AppInfo (Initialize(definition, appAssembly), Version/Channel/BuildNumber from the app's assembly, Pin for
                            snapshots), AppPaths, JsonFileStore, UserRegistry (IUserRegistry: WindowsUserRegistry | MemoryUserRegistry),
-                           TokenStore (DPAPI / Keychain), Log, ProblemReports, FileSystemProbe (snapshots show C:\Users\Anna\…)
-  Platform/                IPrinterSystem (+ SamplePrinterSystem for snapshots/tests); Windows/ ShellLink (.lnk through generated
+                           TokenStore (DPAPI / Keychain), Log, ProblemReports, FileSystemProbe (snapshots show C:\Users\Anna\…),
+                           AppPaths.DriveDirectory (the working copies of ThixDrive documents)
+  Platform/                IPrinterSystem (+ SamplePrinterSystem for snapshots/tests); SampleCloud (a ThixCloud in memory: sign-in,
+                           Drive, faults – snapshots, self test, tests); Windows/ ShellLink (.lnk through generated
                            COM), GdiPrinterSystem (winspool/gdi32 LibraryImport: pages as Skia pixel bands ≤ 600 dpi via
                            StretchDIBits, paper/orientation per page in the DEVMODE, copies collated here); MacOS/ CupsPrinterSystem
                            (libcups: destinations; the pages as PDF to cupsPrintFile with the media option)
-  MatCloud/                COPY of the MatCloud contract (never edited here); cloud sign-in comes in a later phase
+  MatCloud/                COPY of the MatCloud contract 1.4.0 (never edited here): CloudContract, MatCloudClient(.Drive), CloudHandoff
 src/ThixOffice.Desktop     shared Avalonia UI
   MatDesktop/              COPY of MatDesign's desktop toolkit 0.3.1 (never edited here)
   OfficeApplication        base Application of every app: Definition, CreateDocument, CreateEditor, AddCommands, CreateRibbon(window),
@@ -74,10 +80,11 @@ src/ThixOffice.Desktop     shared Avalonia UI
                            OfficeBackstage (MatBackstage with the pages by id; BackstageItem/BackstageContent), OfficeStatusBar
                            (MatStatusBar: texts by id + zoom), OfficeEditor (the app's part; Zoom 10–500 %, OpeningWarning, RequestZoomLevel), CommandSearchBox,
                            IFileDialogs + SystemFileDialogs
-  Pages/                   NewPage, OpenPage (Durchsuchen + Zuletzt verwendet: search, sort, pin, show, remove), SaveAsPage,
-                           SettingsPage (Allgemein | Speichern | Updates | Erweitert), AboutPage
-  Dialogs/                 QuestionDialog (+ SaveChangesDialog: Speichern, Abbrechen, gap, Nicht speichern), ProblemReportDialog
-  Controls/                ActionBar, IconLabel, InfoBar, FormErrors (from the reference apps)
+  Pages/                   NewPage, OpenPage + SaveAsPage (places: Zuletzt verwendet, ThixDrive, Dieser PC), DriveBrowser (the place
+                           ThixDrive, open and save mode), SettingsPage (Allgemein | Speichern | Cloud | Updates | Erweitert), AboutPage
+  Dialogs/                 QuestionDialog (+ SaveChangesDialog: Speichern, Abbrechen, gap, Nicht speichern), DriveDialogs (conflict,
+                           replace, pending upload), TextInputDialog, ProblemReportDialog
+  Controls/                ActionBar, IconLabel, InfoBar, FormErrors (from the reference apps), CloudSignInPanel
 src/ThixOffice.Text        (no UI, no native code) ITextMeasurer, FontSpec/FontMetrics, ShapedText, FixedWidthTextMeasurer (tests),
                            Drawing/ display lists (GlyphRunItem, RectangleItem, LineItem in points), Unicode/ LineBreaker (UAX 14),
                            TextBoundaries (graphemes, words)
@@ -97,8 +104,10 @@ src/ThixWrite              App (OfficeApplication: WordDocument, WriteEditor, co
                            Pages/PrintPage (Datei › Drucken, Strg+P: printer, copies, pages, paper; preview with
                            paging; prints PrintablePages on a worker thread), Pages/ExportPage (Datei › Exportieren: PDF), Assets (rendered by tools/render-icons.js)
 tests/ThixOffice.Core.Tests     definition, version, settings, policies, recent list, atomic save, recovery, install / file types /
-                                autostart in an in-memory registry (+ the whole setup on Windows), updates, commands, MatCloud copy
-tests/ThixOffice.Desktop.Tests  headless with a small TestOfficeApp: shell, search, backstage, keyboard, unsaved prompt, ribbon
+                                autostart in an in-memory registry (+ the whole setup on Windows), updates, commands, MatCloud copy,
+                                CloudTests + DriveTests (against SampleCloud), MatCloudIntegrationTests (real MatCloud, env-gated)
+tests/ThixOffice.Desktop.Tests  headless with a small TestOfficeApp: shell, search, backstage, keyboard, unsaved prompt, ribbon,
+                                ThixDrive (DriveUiTests: places, sign-in, browser modes, title bar state, conflict, closing, Cloud tab),
                                 binding, quick access, zoom,
                                 settings + lock, no literal colours, MatDesktop copy
 tests/ThixWrite.Core.Tests      model, editing engine (random undo/redo symmetry), layout (fixed-width measurer, 300 pages),
@@ -145,6 +154,40 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - **Status bar**: `OfficeStatusBar` (MatStatusBar): `SetItem(id, text, side)`, `RemoveItem`, `TextOf`; its zoom and
   `OfficeEditor.Zoom` (10–500 %, `OnZoomChanged`, `ZoomChanged`) follow each other; commands `view.zoomIn/zoomOut/zoom100`.
 - The ribbon's collapsed state is remembered (`AppSettings.IsRibbonCollapsed`, `MatRibbon.CollapsedChanged`).
+
+## ThixCloud and ThixDrive (shared by every app)
+
+- **Opt in:** `OfficeAppDefinition.CloudAppId` (ThixWrite `write`, ThixCalc `calc`, ThixShow `show` – MatCloud's `CloudApps`; the Drive grants
+  its routes to these ids). Nothing else per app: the places, the browser, the Cloud tab, the title bar state, the save flow, the self test
+  check and the snapshots come from ThixOffice.Core/Desktop. Without a cloud id (or under the policy DisableCloud) all of it is hidden.
+- **CloudService** (static, Core): `ConnectInBrowserAsync` (code + verification page, polls), `ConnectAsync` (password, used once),
+  `ConnectFromLauncherAsync` (`CloudHandoff`, silently at the start in `OfficeApplication.Start`, then `RefreshAccountAsync`),
+  `DisconnectAsync`; `Status`/`StatusChanged` (`CloudState`: Off, Disabled, Connecting, Online, Offline, SignedOut = 401, Forbidden =
+  403 "von der Verwaltung abgeschaltet"); the token in `TokenStore` under `cloud-<user>@<server>` (Keychain service = the app's bundle id),
+  `CloudSettings` in settings.json; `Explain(exception)` turns every failure into a German `BusinessException` and moves the state.
+  Tests, snapshots and the self test plug `SampleCloud` in through `CloudService.HandlerForTests`.
+- **DriveService** (static, Core): browse (`ListAsync` with sort + paging of `PageSize`, `SearchAsync`, `RecentAsync`, `CreateFolderAsync`,
+  `RenameAsync`, `TrashAsync`, `QuotaAsync`, `CheckName` with the cloud's rules, `Matches` = the type filter); `OpenAsync` downloads into
+  `AppPaths.DriveDirectory/<account hash>/<item id>/<name>` + `drive.json` (the `DriveOrigin`: server, user, item, parent, name, location,
+  ETag, IsUploadPending) – a pending working copy is NEVER replaced by a download; `SaveAsync` = atomic save of the working copy, sidecar
+  pending, then `SaveDriveFileAsync` with If-Match → `DriveSaveResult` (`Uploaded`, `NotUploaded` – offline, 5xx, 401, 403 –,
+  `ChangedMeanwhile` with `Current`); 413/507/404 throw (still pending); `UploadAsync` (retry), `OverwriteAsync(current)`, `SaveCopyAsync`
+  (a new file "Name (2).ext", the document follows it), `SaveAsAsync(folder, name, replacing)` (`NameTaken` → ask, then `replacing`);
+  `OpenRecentAsync` (from the Drive, else the working copy); `PendingUploads`. `DocumentService.SaveAs` to a local path makes a Drive
+  document local again; `DocumentService.Save` refuses a Drive document (the window routes it).
+- **UI (Desktop):** Öffnen / Speichern unter have places (`DocumentPlace`: Zuletzt verwendet, ThixDrive, Dieser PC) as a row of
+  choices above the content (a column left too little width for the list's actions). `DriveBrowser(window, mode)`: toolbar (search across
+  the Drive, type filter = the app's types by default, sort), breadcrumbs, list (icon, name, modified, size), "Weitere laden", in the save
+  mode file name + type, actions Öffnen/Speichern · Neuer Ordner · Umbenennen · gap · In den Papierkorb; not signed in it shows the
+  compact `CloudSignInPanel` (the same panel is the Cloud tab's sign-in). `OfficeApplication.OpenFromDriveAsync/OpenRecentAsync`,
+  `OfficeWindow.SaveIntoDriveAsync/RetryUploadAsync/ResolveConflictAsync`; Strg+S on a Drive document runs `DriveService.SaveAsync` (one
+  upload at a time, `OfficeWindow.Upload`), a waiting upload is retried every 30 s and when the document opens; closing waits for a
+  running upload and asks about a waiting one. `CloudIndicator` at the right of the title bar (Mat tokens): nothing / quiet cloud /
+  "In ThixDrive" / "Wird hochgeladen …" / "Nicht hochgeladen" (click = retry) / "Konflikt" (click = the question) / "Offline" / "Abgemeldet".
+- **Decisions:** conflict = Als Kopie speichern (primary, default: nobody's work is replaced) · Später · gap · Überschreiben (danger: the
+  other version stops being current, it stays a version). Name taken = Anderen Namen wählen · gap · Ersetzen. Closing with a waiting upload
+  = Erneut versuchen · Abbrechen · gap · Trotzdem schließen (uploaded at the next open). No backstage entry "Konto": like the reference
+  apps the account lives in Einstellungen › Cloud (the title bar state opens it).
 
 ## ThixWrite's editor
 
@@ -263,6 +306,8 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - **Snapshots:** `dotnet run --project src/ThixWrite -- --snapshot <folder>` draws every window headless in light and dark
   (`thixwrite-main`, `-main-ribbon-collapsed`, `-backstage-{new,open,saveas,settings,settings-save,settings-updates,about}`,
   `-dialog-save-changes`, `-setup-{welcome,options,update,uninstall}` on Windows, and the app's scenes
+  (`backstage-open-signin`, `-backstage-open-drive`, `-backstage-saveas-drive`, `-backstage-settings-cloud`, `-main-drive-pending`,
+  `-dialog-drive-conflict` for an app with a cloud id, against SampleCloud) and the app's scenes
   (`OfficeApplication.SnapshotScenes`; ThixWrite: `-main-layout`, `-main-view`, `-main-find`, `-dialog-page-setup`,
   `-main-table`, `-main-picture`, `-main-header`, `-backstage-print`, `-backstage-export`)): the sample report (`SampleDocument`), version 0.1.0, ANNA-PC, C:\Users\Anna\Dokumente, a sample recent
   list – no real path shows. `THIXWRITE_SCREENSHOTS=<folder> dotnet test tests/ThixWrite.Tests` does the same from the tests.
@@ -278,8 +323,12 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   `src/MatDesktop`, version in `matdesktop.version`): never edit it here; copy again with `node tools/matdesktop-copy.js
   <path>/ThixOffice/src/ThixOffice.Desktop` in MatDesign. `RulesTests.The_copy_of_MatDesktop_is_unchanged` holds it. Icons the
   sprite lacks go into MatDesign's sprite first.
-- **MatCloud contract** (`src/ThixOffice.Core/MatCloud/`) is a COPY: `node ../MatCloud/tools/contract-copy.js src/ThixOffice.Core`;
-  `CopyTests` holds it. ThixCloud sign-in (app ids write/calc/show) comes in a later phase.
+- **MatCloud contract** (`src/ThixOffice.Core/MatCloud/`) is a COPY (1.4.0): run `node tools/contract-copy.js <path>/ThixOffice/src/ThixOffice.Core`
+  inside MatCloud; `CopyTests` holds it.
+- **Integration run against a real MatCloud:** a THROWAWAY instance only (own compose project name, own port, tmpfs for /data –
+  `uid=1654` – and for the database, `MATCLOUD_ADMIN_USER/PASSWORD` create the account; never the ports 4950–4952 or the volumes of a
+  local instance; `docker compose down -v --rmi local` afterwards), then `THIXOFFICE_MATCLOUD_URL=… THIXOFFICE_MATCLOUD_USER=…
+  THIXOFFICE_MATCLOUD_PASSWORD=… dotnet test tests/ThixOffice.Core.Tests --filter MatCloudIntegrationTests` (without them it does nothing).
 
 ## Rules
 
@@ -326,7 +375,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 ## Adding an app to the suite (ThixCalc, ThixShow)
 
 1. `src/ThixCalc.Core`: `ThixCalcApp.Definition` (id `thixcalc`, name `ThixCalc`, accent, description, document types – formats
-   without a reader are `Planned`; `UntitledBaseName` "Mappe", `BlankDocumentLabel` "Leere Arbeitsmappe") and the document model
+   without a reader are `Planned`; `UntitledBaseName` "Mappe", `BlankDocumentLabel` "Leere Arbeitsmappe", `CloudAppId = CloudApps.Calc` for ThixDrive) and the document model
    (derive from `OfficeDocument`).
 2. `src/ThixCalc`: copy ThixWrite's csproj / app.manifest / App.axaml / Program.cs; `App : OfficeApplication` with
    `CreateDocument`, `CreateEditor` (an `OfficeEditor`), `AddCommands`, `Ribbon`; `Program.Main => OfficeProgram.Run<App>(…)`.

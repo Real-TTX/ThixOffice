@@ -57,7 +57,7 @@ dann veröffentlicht, wenn macOS scheitert).
 - OTA über Channel-Manifest `<app>-update.json` in `release-channel` / `nightly-channel`,
   SHA-256-Prüfung; „Updates automatisch installieren“ installiert **beim Beenden** (wie ThixNote).
 - Autostart als Einstellung (Windows Run-Key, macOS LaunchAgent), bei Editoren standardmäßig aus.
-- ThixCloud: kopierter MatCloud-Vertrag, Anmeldung per Browser-Link, Passwort oder Launcher-Übergabe.
+- ThixCloud: kopierter MatCloud-Vertrag, Anmeldung per Browser-Link, Passwort oder Launcher-Übergabe (umgesetzt, Phase 2).
 - Oberfläche deutsch, Code/Kommentare englisch. Commits nur unter Matthias Schmoldt, ohne Trailer.
 
 ## 4. Architektur
@@ -195,6 +195,22 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
 - MatCloud: App-IDs `write`, `calc`, `show`, `drive`; Modul `MatCloud.Apps.Drive` (Dateibaum, Versionen,
   Papierkorb, Freigaben, Blob-Speicher, Chunk-Upload) mit Web-App und Geräte-API `/api/v1/drive/…`.
 - ThixOffice: `DriveService` + Drive-Dateidialog; Öffnen/Speichern direkt im Drive, Konflikt über Versionen.
+- **Stand (2026-11-19): ThixOffice-Seite erledigt** gegen MatCloud-Vertrag 1.4.0 (Drive-Geräte-API, App-IDs write/calc/show).
+  Gemeinsam in ThixOffice.Core/Desktop, eine App schaltet es mit `OfficeAppDefinition.CloudAppId` ein (ThixWrite = `write`):
+  `CloudService` (Anmeldung im Browser mit Code, mit Passwort, Übergabe von ThixLauncher still beim Start; Abmelden; Konto;
+  Zustand; 401 meldet ab, 403 = „von der Verwaltung abgeschaltet“; Richtlinie DisableCloud), `DriveService` (Ordner mit Seiten
+  und Sortierung, Suche, Zuletzt, Neuer Ordner, Umbenennen, Papierkorb, Speicherplatz; Öffnen in eine **lokale Arbeitskopie** mit
+  Begleitdatei drive.json – Element-ID, ETag, Server, Konto; Speichern = erst atomar lokal, dann neue Version mit If-Match;
+  Konflikt → Als Kopie speichern / Später / Überschreiben; offline → „Nicht hochgeladen“, nie verloren, Wiederholung alle 30 s
+  und beim nächsten Öffnen; Kontingent/zu groß als klare Meldung; Speichern unter mit Namenskonflikt → Ersetzen?). Oberfläche:
+  Orte in Öffnen/Speichern unter (Zuletzt verwendet, ThixDrive, Dieser PC), der ThixDrive-Browser (Suche, Typfilter, Sortierung,
+  Pfad, „Weitere laden“, Aktionen unten), Einstellungen › Cloud, Zustand rechts in der Titelleiste, „Zuletzt verwendet“ mit
+  Wolke (öffnet aus dem Drive, offline aus der Arbeitskopie). Geprüft gegen eine MatCloud im Speicher (Tests, Selbsttest,
+  Snapshots) und einmal gegen eine echte MatCloud (feature/drive, Wegwerf-Instanz). **Lücken:** Versionen ansehen/wiederherstellen
+  und Freigaben nur im Browser; „Zuletzt verwendet“ des Kontos (alle Geräte) wird nicht angezeigt (nur die eigene Liste); Speichern
+  unter ohne Verbindung speichert nicht (das Dokument bleibt ungespeichert mit Wiederherstellungsdatei); Hochladen in Stücken über
+  64 MB nur über den Vertrag, ohne Fortsetzen nach einem Neustart; kein Konto-Eintrag im Backstage (wie in den Referenz-Apps:
+  Einstellungen › Cloud).
 
 ### Phase 3 – ThixCalc
 Zellmodell, Formel-Engine (Parser, Abhängigkeitsgraph, Funktionsbibliothek), virtualisiertes Raster,
