@@ -19,6 +19,7 @@ namespace ThixOffice.Core.Business;
 ///   DisableUpdates          no update check, no update installation
 ///   DisableCloud            no connection to ThixCloud (later phase)
 ///   DisableFileAssociations the app does not register its document types with the system
+///   DisablePrinting         the app does not print (PDF export stays)
 /// </summary>
 public static class AccessPolicy
 {
@@ -26,13 +27,14 @@ public static class AccessPolicy
     public const string DisableUpdates = "DisableUpdates";
     public const string DisableCloud = "DisableCloud";
     public const string DisableFileAssociations = "DisableFileAssociations";
+    public const string DisablePrinting = "DisablePrinting";
 
     private static Func<string, bool> _readPolicy = ReadMachinePolicy;
 
     private static (string File, DateTime Written, Dictionary<string, bool> Values) _macPolicies = ("", DateTime.MinValue, []);
 
     /// <summary>Every policy name an administrator can set (the settings page lists them).</summary>
-    public static IReadOnlyList<string> Names { get; } = [LockConfiguration, DisableUpdates, DisableCloud, DisableFileAssociations];
+    public static IReadOnlyList<string> Names { get; } = [LockConfiguration, DisableUpdates, DisableCloud, DisableFileAssociations, DisablePrinting];
 
     public static bool IsConfigurationLocked => _readPolicy(LockConfiguration);
 
@@ -41,6 +43,8 @@ public static class AccessPolicy
     public static bool IsCloudDisabled => _readPolicy(DisableCloud);
 
     public static bool AreFileAssociationsDisabled => _readPolicy(DisableFileAssociations);
+
+    public static bool IsPrintingDisabled => _readPolicy(DisablePrinting);
 
     /// <summary>Where an administrator sets them, for the settings page.</summary>
     public static string Location => $@"Windows: HKLM\{AppInfo.Definition.PolicyKey}, macOS: Profil für {AppInfo.Definition.MacBundleId}";
@@ -74,6 +78,14 @@ public static class AccessPolicy
         if (AreFileAssociationsDisabled)
         {
             throw new BusinessException("Dateizuordnungen wurden von einem Administrator deaktiviert (Richtlinie DisableFileAssociations).");
+        }
+    }
+
+    public static void EnsurePrintingAllowed()
+    {
+        if (IsPrintingDisabled)
+        {
+            throw new BusinessException("Das Drucken wurde von einem Administrator deaktiviert (Richtlinie DisablePrinting).");
         }
     }
 

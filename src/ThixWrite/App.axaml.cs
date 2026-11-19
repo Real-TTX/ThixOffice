@@ -24,12 +24,13 @@ public partial class App : OfficeApplication
     public const string FindScene = "main-find";
     public const string PageSetupScene = "dialog-page-setup";
     public const string ExportScene = "backstage-export";
+    public const string PrintScene = "backstage-print";
     public const string LayoutScene = "main-layout";
     public const string ViewScene = "main-view";
 
     public override OfficeAppDefinition Definition => ThixWriteApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, FindScene, PageSetupScene, ExportScene];
+    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, FindScene, PageSetupScene, PrintScene, ExportScene];
 
     public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => WriteRibbon.Create(window);
 
@@ -47,16 +48,22 @@ public partial class App : OfficeApplication
     public override void AddCommands(OfficeWindow window)
     {
         WriteCommands.Add(window);
+        window.Commands.Add(new ThixOffice.Core.Commands.OfficeCommand(WriteCommandIds.Print, "Drucken", () => window.ShowBackstage(PrintPage.PageId))
+        {
+            Icon = "print",
+            Shortcut = "Ctrl+P",
+            Description = "Druckt das Dokument – mit Vorschau, Druckerwahl, Exemplaren und Seitenauswahl.",
+            Keywords = ["drucken", "ausdrucken", "drucker", "papier", "vorschau"],
+        });
         window.Commands.Add(new ThixOffice.Core.Commands.OfficeCommand(WriteCommandIds.ExportPdf, "Als PDF exportieren", () => window.ShowBackstage(ExportPage.PageId))
         {
             Icon = "export",
-            Shortcut = "Ctrl+P",
-            Description = "Speichert die Seiten als PDF-Datei – zum Weitergeben und Drucken.",
-            Keywords = ["pdf", "drucken", "exportieren", "ausdrucken"],
+            Description = "Speichert die Seiten als PDF-Datei – zum Weitergeben und Archivieren.",
+            Keywords = ["pdf", "exportieren", "weitergeben"],
         });
     }
 
-    public override IEnumerable<BackstageItem> CreateBackstageItems(OfficeWindow window) => [ExportPage.Item(window)];
+    public override IEnumerable<BackstageItem> CreateBackstageItems(OfficeWindow window) => [PrintPage.Item(window), ExportPage.Item(window)];
 
     public override IEnumerable<(string Name, Func<Task<string>> Check)> SelfTestChecks() => [("ThixWrite editor, docx, PDF", () => WriteSelfTest.RunAsync(this))];
 
@@ -93,6 +100,9 @@ public partial class App : OfficeApplication
             case ExportScene:
                 window.ShowBackstage(ExportPage.PageId);
                 return window;
+            case PrintScene:
+                window.ShowBackstage(PrintPage.PageId);
+                return window;
             default:
                 return window;
         }
@@ -117,7 +127,7 @@ public partial class App : OfficeApplication
             case PageSetupScene when shown is Window dialog:
                 dialog.Close();
                 break;
-            case ExportScene:
+            case ExportScene or PrintScene:
                 window.Backstage.Close();
                 break;
         }

@@ -33,7 +33,9 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
                            ManifestFileName <id>-update.json, MacPackageFileName, DataDirectoryVariable <APP>_DATA_DIR,
                            ScreenshotsVariable, DocumentIconFileName, SupportedTypes, DefaultType, SaveType, SupportedTypeOf),
                            DocumentType (Extension, ProgId, Description, Support Supported|Planned, IsDefault, MimeType, UTI),
-                           AppSettings, RecentDocument(+Item, Order), BusinessException(message, field)
+                           AppSettings, RecentDocument(+Item, Order), BusinessException(message, field), Printing
+                           (PrinterInfo, PrintRange, PaperSize: label + DEVMODE code + CUPS name, IPrintablePages: sizes, pixel
+                           bands, PDF; PrintJob)
   Documents/               OfficeDocument: the UI-free base of every document model (FilePath, FileType, Title, IsDirty, IsPristine,
                            IsRecovered, Undo/Redo, protected Read/Write(Stream), Changed)
   Commands/                OfficeCommand (Id, Label, Icon, Shortcut "Ctrl+S", MacShortcut, CurrentShortcut, Description, Keywords,
@@ -42,14 +44,18 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
                            Find, this[id], ExecuteAsync, ApplyAsync, Search, Invalidate, StateChanged), CommonCommandIds
   Business/                SettingsService, RecentDocuments, DocumentFiles (atomic save, .bak, lock detection, recovery files),
                            DocumentService (Open, Save, SaveAs, TargetPath, recovery), AccessPolicy (LockConfiguration, DisableUpdates,
-                           DisableCloud, DisableFileAssociations), InstallService (Windows self-installing exe), UninstallEntry (what
+                           DisableCloud, DisableFileAssociations, DisablePrinting), PrintService (printers, PagesOf "1-3, 5",
+                           Print = policy + validation, then the IPrinterSystem), InstallService (Windows self-installing exe), UninstallEntry (what
                            ThixLauncher reads), FileAssociations (ProgIDs, "Öffnen mit", Capabilities; opt-in default only for free
                            types), AutostartService (off by default), UpdateService + MacAppBundle (channel manifest, SHA-256, 6 h,
                            install on exit)
   Infrastructure/          AppInfo (Initialize(definition, appAssembly), Version/Channel/BuildNumber from the app's assembly, Pin for
                            snapshots), AppPaths, JsonFileStore, UserRegistry (IUserRegistry: WindowsUserRegistry | MemoryUserRegistry),
                            TokenStore (DPAPI / Keychain), Log, ProblemReports, FileSystemProbe (snapshots show C:\Users\Anna\…)
-  Platform/Windows/        ShellLink (.lnk through generated COM)
+  Platform/                IPrinterSystem (+ SamplePrinterSystem for snapshots/tests); Windows/ ShellLink (.lnk through generated
+                           COM), GdiPrinterSystem (winspool/gdi32 LibraryImport: pages as Skia pixel bands ≤ 600 dpi via
+                           StretchDIBits, paper/orientation per page in the DEVMODE, copies collated here); MacOS/ CupsPrinterSystem
+                           (libcups: destinations; the pages as PDF to cupsPrintFile with the media option)
   MatCloud/                COPY of the MatCloud contract (never edited here); cloud sign-in comes in a later phase
 src/ThixOffice.Desktop     shared Avalonia UI
   MatDesktop/              COPY of MatDesign's desktop toolkit 0.3.1 (never edited here)
@@ -87,7 +93,8 @@ src/ThixWrite              App (OfficeApplication: WordDocument, WriteEditor, co
                            scenes), Program, WriteSelfTest, Editor/ (WriteEditor, DocumentSurface + CaretLayer + WriteInputClient,
                            PagePictures + PageDrawOperation + FormattingMarks, FindBar, WriteCommands, WriteRibbon + WriteCommandIds,
                            DocumentPalette, WriteFonts, SampleDocument), Dialogs/ (WriteDialog, PageSetupDialog, ZoomDialog),
-                           Pages/ExportPage (Datei › Exportieren: PDF), Assets (rendered by tools/render-icons.js)
+                           Pages/PrintPage (Datei › Drucken, Strg+P: printer, copies, pages, paper; preview with
+                           paging; prints PrintablePages on a worker thread), Pages/ExportPage (Datei › Exportieren: PDF), Assets (rendered by tools/render-icons.js)
 tests/ThixOffice.Core.Tests     definition, version, settings, policies, recent list, atomic save, recovery, install / file types /
                                 autostart in an in-memory registry (+ the whole setup on Windows), updates, commands, MatCloud copy
 tests/ThixOffice.Desktop.Tests  headless with a small TestOfficeApp: shell, search, backstage, keyboard, unsaved prompt, ribbon
@@ -181,7 +188,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   (`thixwrite-main`, `-main-ribbon-collapsed`, `-backstage-{new,open,saveas,settings,settings-save,settings-updates,about}`,
   `-dialog-save-changes`, `-setup-{welcome,options,update,uninstall}` on Windows, and the app's scenes
   (`OfficeApplication.SnapshotScenes`; ThixWrite: `-main-layout`, `-main-view`, `-main-find`, `-dialog-page-setup`,
-  `-backstage-export`)): the sample report (`SampleDocument`), version 0.1.0, ANNA-PC, C:\Users\Anna\Dokumente, a sample recent
+  `-backstage-print`, `-backstage-export`)): the sample report (`SampleDocument`), version 0.1.0, ANNA-PC, C:\Users\Anna\Dokumente, a sample recent
   list – no real path shows. `THIXWRITE_SCREENSHOTS=<folder> dotnet test tests/ThixWrite.Tests` does the same from the tests.
   LOOK at the pictures after a change of the UI; `docs/images` has the ones of the README.
 - The Windows publish (win-x64) is a **trimmed** single file (`TrimMode=partial`, own assemblies + ThixOffice.Text(.Skia) rooted,
@@ -189,7 +196,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   ThixWrite's own code free of reflection: `XmlFragments.Parse<TParent>`, no `Activator`). `ThixWrite.exe --self-test <report>`
   checks the published program (settings, documents, recovery, manifest, contract, DPAPI, COM, document icon, every window, and
   the app's `SelfTestChecks`: ThixWrite types into a real editor, formats, saves docx, reopens and compares, keeps a table, draws a
-  page with Skia, exports a PDF); CI runs it.
+  page with Skia, exports a PDF, prints through GDI into "Microsoft Print to PDF" when the machine has it); CI runs it.
 - Icons: `cd tools && npm install && node render-icons.js` (`--preview <png>` draws every app at 16–256 px on light and dark – look).
 - **MatDesktop** (`src/ThixOffice.Desktop/MatDesktop/`) is a COPY from MatDesign (0.3.1 from branch `feature/ribbon`,
   `src/MatDesktop`, version in `matdesktop.version`): never edit it here; copy again with `node tools/matdesktop-copy.js

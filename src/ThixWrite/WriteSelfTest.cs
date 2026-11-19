@@ -77,10 +77,32 @@ internal static class WriteSelfTest
         PdfExport.Export(editor.Layout.GetDisplayLists(), pdf, new PdfMetadata("Selbsttest"), WriteFonts.Measurer);
         var bytes = pdf.ToArray();
         Ensure(bytes.Length > 1000 && bytes[0] == '%' && bytes[1] == 'P' && bytes[2] == 'D' && bytes[3] == 'F', "the PDF is not a PDF");
+        var printed = await PrintAsync(editor, folder);
 
         window.Close();
         await Settle();
-        return $"{WriteFonts.Default.Body}, {WriteFonts.Families.Count} font families, docx {new FileInfo(path).Length} bytes, PDF {bytes.Length} bytes";
+        return $"{WriteFonts.Default.Body}, {WriteFonts.Families.Count} font families, docx {new FileInfo(path).Length} bytes, PDF {bytes.Length} bytes, {printed}";
+    }
+
+    /// <summary>
+    /// Printing through the system (GDI on Windows) into a file: "Microsoft Print to PDF" when the machine has it – the
+    /// P/Invoke of the printer after trimming, the bands drawn by Skia, the job finished by the spooler.
+    /// </summary>
+    private static async Task<string> PrintAsync(WriteEditor editor, string folder)
+    {
+        var printers = PrintService.GetPrinters();
+        const string pdfPrinter = "Microsoft Print to PDF";
+        if (!OperatingSystem.IsWindows() || !printers.Any(printer => printer.Name == pdfPrinter))
+        {
+            return $"{printers.Count} printer(s), none printed to";
+        }
+
+        var output = Path.Combine(folder, "Gedruckt.pdf");
+        var pages = new PrintablePages([.. editor.Layout.GetDisplayLists()], WriteFonts.Measurer, "Selbsttest");
+        await Task.Run(() => PrintService.Print(new ThixOffice.Core.Models.PrintJob("Selbsttest", pdfPrinter, 1, [0], pages, output)));
+        var printed = File.ReadAllBytes(output);
+        Ensure(printed.Length > 1000 && printed[0] == '%' && printed[1] == 'P', "the printer wrote no PDF");
+        return $"{printers.Count} printer(s), printed {printed.Length} bytes";
     }
 
     /// <summary>A docx as Word writes it, with a paragraph and a 2 × 2 table (Open XML SDK).</summary>

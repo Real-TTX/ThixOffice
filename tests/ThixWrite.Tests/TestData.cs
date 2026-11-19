@@ -55,6 +55,7 @@ public sealed class TestData : IDisposable
         AppPaths.UseDirectoryForTests(Path.Combine(Folder, "data"));
         UserRegistry.UseForTests(new MemoryUserRegistry());
         AccessPolicy.UsePolicyReaderForTests(_ => false);
+        PrintService.System = Printers;
         SettingsService.ResetCache();
         RecentDocuments.ResetCache();
         DocumentService.ResetUntitledCountForTests();
@@ -67,6 +68,9 @@ public sealed class TestData : IDisposable
     public string DocumentsFolder => Path.Combine(Folder, "Dokumente");
 
     public FakeFileDialogs Dialogs { get; } = new();
+
+    /// <summary>The printers the tests print to (never a real one).</summary>
+    internal ThixOffice.Core.Platform.SamplePrinterSystem Printers { get; } = new();
 
     public static App App => (App)Application.Current!;
 
@@ -93,6 +97,7 @@ public sealed class TestData : IDisposable
         OfficeApplication.FileDialogs = new SystemFileDialogs();
         Ui.OpenExternalForTests = null;
         AccessPolicy.UsePolicyReaderForTests(null);
+        PrintService.System = null!;
         UserRegistry.UseForTests(null);
         SettingsService.ResetCache();
         RecentDocuments.ResetCache();

@@ -198,7 +198,8 @@ public sealed class FeatureTests
         var window = await NewWindowAsync();
         await TypeAsync(window, "Ein Bericht für das PDF");
 
-        await PressAsync(window, PhysicalKey.P, CommandKey); // Strg+P: the page Exportieren
+        await window.Commands.ExecuteAsync(WriteCommandIds.ExportPdf); // the page Exportieren
+        await SettleAsync();
         var page = Assert.IsType<ExportPage>(window.Backstage.CurrentPage);
         Assert.True(await page.ExportPdfAsync());
 

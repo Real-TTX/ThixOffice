@@ -15,8 +15,8 @@ using ThixWrite.Editor;
 namespace ThixWrite.Pages;
 
 /// <summary>
-/// Datei › Drucken und Exportieren: "Als PDF exportieren" (the pages exactly as laid out, fonts embedded, text stays text –
-/// PdfExport through Skia). Printing directly comes later; until then the page says so and the PDF is the way to paper.
+/// Datei › Exportieren: "Als PDF exportieren" (the pages exactly as laid out, fonts embedded, text stays text – PdfExport
+/// through Skia). Printing is the page Drucken (<see cref="PrintPage"/>).
 /// </summary>
 public sealed class ExportPage : UserControl
 {
@@ -33,9 +33,6 @@ public sealed class ExportPage : UserControl
         ExportButton.Click += async (_, _) => await ExportPdfAsync();
         AutomationProperties.SetName(ExportButton, "Als PDF exportieren");
 
-        var printing = new InfoBar();
-        printing.Show("Direktes Drucken folgt in einer der nächsten Versionen. Bis dahin: als PDF exportieren und das PDF drucken – die Seiten sehen genauso aus.", InfoSeverity.Info);
-
         Content = new ScrollViewer
         {
             VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
@@ -45,7 +42,7 @@ public sealed class ExportPage : UserControl
                 Spacing = 16,
                 MaxWidth = 900,
                 HorizontalAlignment = HorizontalAlignment.Left,
-                Children = { title, ExportButton, printing, _message },
+                Children = { title, ExportButton, _message },
             },
         };
     }

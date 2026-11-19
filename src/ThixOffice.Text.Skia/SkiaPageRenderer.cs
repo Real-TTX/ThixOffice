@@ -15,8 +15,11 @@ public static class SkiaPageRenderer
 {
     private static readonly ConcurrentDictionary<FontFace, SKTypeface> Typefaces = new();
 
-    /// <summary>Draws every item of <paramref name="page"/> in order (no page background: the caller fills it).</summary>
-    public static void Draw(SKCanvas canvas, PageDisplayList page, SkiaTextMeasurer? measurer = null)
+    /// <summary>
+    /// Draws every item of <paramref name="page"/> in order (no page background: the caller fills it). <paramref name="forPaper"/>:
+    /// text without subpixel (colour) antialiasing – for printers and bitmaps that are not shown on this screen.
+    /// </summary>
+    public static void Draw(SKCanvas canvas, PageDisplayList page, SkiaTextMeasurer? measurer = null, bool forPaper = false)
     {
         foreach (var item in page.Items)
         {
@@ -29,7 +32,7 @@ public static class SkiaPageRenderer
                     DrawLine(canvas, line);
                     break;
                 case GlyphRunItem run:
-                    DrawGlyphRun(canvas, run, measurer);
+                    DrawGlyphRun(canvas, run, measurer, forPaper);
                     break;
             }
         }
@@ -106,10 +109,10 @@ public static class SkiaPageRenderer
         canvas.DrawPath(path, paint);
     }
 
-    private static void DrawGlyphRun(SKCanvas canvas, GlyphRunItem item, SkiaTextMeasurer? measurer)
+    private static void DrawGlyphRun(SKCanvas canvas, GlyphRunItem item, SkiaTextMeasurer? measurer, bool forPaper)
     {
         var typeface = measurer?.GetTypeface(item.Face) ?? TypefaceOf(item.Face);
-        using var font = new SKFont(typeface, (float)item.Font.Size) { Subpixel = true, Edging = SKFontEdging.SubpixelAntialias };
+        using var font = new SKFont(typeface, (float)item.Font.Size) { Subpixel = true, Edging = forPaper ? SKFontEdging.Antialias : SKFontEdging.SubpixelAntialias };
         using var paint = new SKPaint { Color = ToSkia(item.Color), IsAntialias = true };
         if (item.Glyphs.Length > 0 && item.Glyphs.Length == item.GlyphX.Length)
         {

@@ -241,6 +241,7 @@ public static class OfficeSnapshot
         var extension = app.Definition.SaveType.Extension;
         AppInfo.Pin(Version, Channel, buildNumber: 0, MachineName);
         AccessPolicy.UsePolicyReaderForTests(_ => false);
+        PrintService.System = new Core.Platform.SamplePrinterSystem(); // no printer of this machine in a picture
         var missing = Path.Combine(Documents, "Archiv", "Entwurf alt" + extension);
         FileSystemProbe.UseForSnapshots(path => path != missing, folder => folder.StartsWith(Documents, StringComparison.OrdinalIgnoreCase), Documents);
         var now = DateTimeOffset.Now;
@@ -256,6 +257,7 @@ public static class OfficeSnapshot
             app.KeepsRunningWithoutWindows = false;
             FileSystemProbe.UseForSnapshots(null, null, null);
             AccessPolicy.UsePolicyReaderForTests(null);
+            PrintService.System = null!;
             AppInfo.Pin(null);
         });
     }

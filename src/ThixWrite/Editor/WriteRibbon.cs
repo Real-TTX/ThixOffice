@@ -83,6 +83,7 @@ public static class WriteCommandIds
 
     // Datei
     public const string ExportPdf = "file.exportPdf";
+    public const string Print = "file.print";
 }
 
 /// <summary>

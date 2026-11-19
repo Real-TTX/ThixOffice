@@ -113,6 +113,9 @@ public sealed class WriteEditor : OfficeEditor
         }
     }
 
+    /// <summary>The page of the caret (0-based): "Aktuelle Seite drucken", the status bar.</summary>
+    public int CaretPage => Math.Clamp(_surface.CaretPage, 0, Math.Max(0, Layout.PageCount - 1));
+
     public override void FocusDocument() => _surface.Focus();
 
     public override void RequestZoomLevel() => _ = ZoomDialog.ShowAsync(_window, this);

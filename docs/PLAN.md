@@ -150,9 +150,14 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   einfügen“), Menüband Start / Einfügen / Layout / Ansicht mit Zustand aus der Auswahl, Suchen/Ersetzen-Leiste, Dialoge Seite
   einrichten und Zoom, Datei › Exportieren (PDF), docx als Standardformat (Dateizuordnung Windows + macOS-Plist als
   „Alternate“), Hinweis bei nicht unterstützten Inhalten, Statusleiste (Seite X von Y, Wörter), Selbsttest der getrimmten exe.
-  **Lücken (→ 1b):** direktes Drucken (bis dahin PDF), Lineal, Format übertragen, Symbol einfügen, Dialoge Schriftart… /
+  **Lücken (→ 1b):** Lineal, Format übertragen, Symbol einfügen, Dialoge Schriftart… /
   Absatz…, Kontextmenü ohne Format-Einträge, IME-Komposition als Überlagerung (nicht im
   Textfluss), Zwischenablage-Import von HTML/RTF aus anderen Programmen, Formatvorlagen-Galerie mit festen Einträgen.
+- **Stand 1b (2026-11-19):** MatDesktop 0.3.1 übernommen. **Drucken erledigt:** Datei › Drucken (Strg+P) wie in Word –
+  Drucker, Exemplare, Alle Seiten / Aktuelle Seite / Benutzerdefiniert („1-3, 5“), Ausrichtung und Papier aus dem Dokument,
+  Vorschau mit Blättern. Windows druckt über GDI (P/Invoke, kein System.Drawing/WPF, net10.0 bleibt; getrimmt geprüft im
+  Selbsttest über „Microsoft Print to PDF“): Seiten als Skia-Bänder in Druckerauflösung (max. 600 dpi), Papier/Ausrichtung je
+  Seite. macOS druckt über CUPS (libcups): die gewählten Seiten als PDF an cupsPrintFile. Richtlinie DisablePrinting.
 - **1b:** Drucken, Tabellen, Bilder, Kopf-/Fußzeilen, Seitenzahlen, Hyperlinks, Tabstopps (Lineal), Dialoge Schriftart/Absatz,
   HTML/RTF einfügen.
 - **1c:** Inhaltsverzeichnis, Fußnoten, Kommentare, Rechtschreibprüfung, odt; Karten Referenzen/Überprüfen.
