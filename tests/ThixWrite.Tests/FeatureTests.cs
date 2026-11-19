@@ -46,9 +46,15 @@ public sealed class FeatureTests
         await SettleAsync();
         Assert.Contains("von 2", editor.FindBar.CountText);
 
-        // Strg+A in the search field selects its text, not the document.
+        // Strg+A in the search field belongs to the field, not to the document (the headless platform's text box knows only
+        // Strg+A, so the field's own selection is checked where that is the system's key).
+        var before = editor.Session.Selection;
         await PressAsync(window, PhysicalKey.A, CommandKey);
-        Assert.Equal(4, editor.FindBar.SearchBox.SelectionEnd - editor.FindBar.SearchBox.SelectionStart);
+        Assert.Equal(before, editor.Session.Selection);
+        if (!OperatingSystem.IsMacOS())
+        {
+            Assert.Equal(4, editor.FindBar.SearchBox.SelectionEnd - editor.FindBar.SearchBox.SelectionStart);
+        }
 
         if (OperatingSystem.IsMacOS())
         {
