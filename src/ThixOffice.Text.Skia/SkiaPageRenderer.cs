@@ -21,12 +21,30 @@ public static class SkiaPageRenderer
     /// Draws every item of <paramref name="page"/> in order (no page background: the caller fills it). <paramref name="forPaper"/>:
     /// text without subpixel (colour) antialiasing – for printers and bitmaps that are not shown on this screen.
     /// </summary>
-    public static void Draw(SKCanvas canvas, PageDisplayList page, SkiaTextMeasurer? measurer = null, bool forPaper = false)
+    public static void Draw(SKCanvas canvas, PageDisplayList page, SkiaTextMeasurer? measurer = null, bool forPaper = false) =>
+        Draw(canvas, page.Items, measurer, forPaper);
+
+    /// <summary>
+    /// Draws <paramref name="items"/> in order. <see cref="ClipBeginItem"/> / <see cref="ClipEndItem"/> nest (each clip is
+    /// intersected with the one around it); clips left open at the end are closed, a stray end is ignored – the canvas leaves
+    /// as it came.
+    /// </summary>
+    public static void Draw(SKCanvas canvas, IReadOnlyList<DisplayItem> items, SkiaTextMeasurer? measurer = null, bool forPaper = false)
     {
-        foreach (var item in page.Items)
+        var clips = 0;
+        foreach (var item in items)
         {
             switch (item)
             {
+                case ClipBeginItem clip:
+                    canvas.Save();
+                    canvas.ClipRect(SKRect.Create((float)clip.X, (float)clip.Y, (float)Math.Max(0, clip.Width), (float)Math.Max(0, clip.Height)));
+                    clips++;
+                    break;
+                case ClipEndItem when clips > 0:
+                    canvas.Restore();
+                    clips--;
+                    break;
                 case RectangleItem rectangle:
                     DrawRectangle(canvas, rectangle);
                     break;
@@ -40,6 +58,11 @@ public static class SkiaPageRenderer
                     DrawImage(canvas, image);
                     break;
             }
+        }
+
+        for (; clips > 0; clips--)
+        {
+            canvas.Restore();
         }
     }
 
