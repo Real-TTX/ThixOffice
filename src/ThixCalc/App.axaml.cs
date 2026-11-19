@@ -34,10 +34,11 @@ public partial class App : OfficeApplication
     public const string ChartDesignScene = "main-chart-design";
     public const string TableScene = "main-table";
     public const string FilterScene = "dialog-filter";
+    public const string FunctionArgumentsScene = "dialog-function-arguments";
 
     public override OfficeAppDefinition Definition => ThixCalcApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [FormulaScene, ViewScene, FindScene, FormatCellsScene, FunctionScene, PageSetupScene, PrintScene, ChartScene, ChartDesignScene, TableScene, FilterScene];
+    public override IReadOnlyList<string> SnapshotScenes => [FormulaScene, ViewScene, FindScene, FormatCellsScene, FunctionScene, FunctionArgumentsScene, PageSetupScene, PrintScene, ChartScene, ChartDesignScene, TableScene, FilterScene];
 
     public override string SampleDocumentName => "Haushaltsbudget 2026";
 
@@ -140,6 +141,13 @@ public partial class App : OfficeApplication
                 window.Ribbon.SelectTab("tableDesign");
                 Dispatcher.UIThread.RunJobs();
                 return window;
+            case FunctionArgumentsScene:
+                // SVERWEIS over the budget: each argument's value beside its field, the result below.
+                editor.Session.Select(new CellAddress(17, 7));
+                var vlookup = Core.Functions.FunctionHelp.Find("SVERWEIS", editor.Session.Locale)!;
+                var arguments = FunctionArgumentsDialog.Create(editor.Session, vlookup, ["\"Miete\"", "A7:C13", "2", "FALSCH"]);
+                _ = arguments.ShowAsync(window);
+                return arguments;
             case PageSetupScene:
                 var setupDialog = PageSetupDialog.Create(editor);
                 _ = setupDialog.ShowAsync(window);

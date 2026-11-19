@@ -14,9 +14,6 @@ namespace ThixCalc.Editor;
 /// </summary>
 public static class CalcDataCommands
 {
-    /// <summary>How many functions a category's menu of the function library lists (the most used first; the rest in the dialog).</summary>
-    private const int MenuFunctions = 16;
-
     public static void Add(OfficeWindow window)
     {
         CalcEditor? Editor() => window.Editor as CalcEditor;
@@ -63,16 +60,28 @@ public static class CalcDataCommands
         });
         foreach (var (category, name) in FunctionHelp.Categories)
         {
-            var id = $"{CalcCommandIds.FunctionLibrary}.{category.ToString().ToLowerInvariant()}";
+            var id = CategoryId(category);
             commands.Add(new OfficeCommand(id, name, () => Editor()?.InsertFunctionAsync() ?? Task.CompletedTask) { Icon = IconOf(category), CanExecute = HasEditor, IsSearchable = false });
+            commands.Add(new OfficeCommand(id + ".insert", "Funktion einfügen …", () => Editor()?.InsertFunctionAsync() ?? Task.CompletedTask)
+            {
+                Icon = "sum", CanExecute = HasEditor, IsSearchable = false,
+            });
         }
 
-        foreach (var info in MenuFunctionsOf(Core.Globalization.CalcLocale.German).SelectMany(group => group.Functions))
+        commands.Add(new OfficeCommand(CalcCommandIds.MoreFunctions, "Weitere Funktionen", () => Editor()?.InsertFunctionAsync() ?? Task.CompletedTask)
+        {
+            Icon = "more-horizontal", CanExecute = HasEditor, IsSearchable = false,
+        });
+
+        // Every function is a command: the library's menus list them and "Was möchten Sie tun?" finds them by German or English
+        // name ("SVERWEIS", "vlookup") – after the ordinary commands that match as well. Each opens Funktionsargumente.
+        foreach (var info in FunctionHelp.All(Core.Globalization.CalcLocale.German))
         {
             var function = info;
-            commands.Add(new OfficeCommand(FunctionId(info.Canonical), info.Name, () => Editor()?.InsertFunctionByName(function.Name))
+            commands.Add(new OfficeCommand(FunctionId(info.Canonical), info.Name, () => Editor()?.InsertFunctionByNameAsync(function.Name) ?? Task.CompletedTask)
             {
-                CanExecute = HasEditor, IsSearchable = false, Description = info.Description,
+                Icon = "sum", CanExecute = HasEditor, Description = info.Description, SearchPenalty = 3,
+                Keywords = [info.Canonical, "funktion", FunctionHelp.CategoryName(info.Category)],
             });
         }
 
@@ -174,18 +183,15 @@ public static class CalcDataCommands
     /// <summary>The command of a function in a library menu.</summary>
     public static string FunctionId(string canonical) => $"calc.function.{canonical}";
 
-    /// <summary>The library's menus: per category the most used functions (those with German help first).</summary>
+    /// <summary>The command (and menu) of a category of the function library.</summary>
+    public static string CategoryId(FunctionCategory category) => $"{CalcCommandIds.FunctionLibrary}.{category.ToString().ToLowerInvariant()}";
+
+    /// <summary>The library's menus: per category EVERY function of it, by name (like Excel's).</summary>
     public static IReadOnlyList<(FunctionCategory Category, IReadOnlyList<FunctionInfo> Functions)> MenuFunctionsOf(Core.Globalization.CalcLocale locale)
     {
         var all = FunctionHelp.All(locale);
         return FunctionHelp.Categories
-            .Select(entry => (entry.Category, (IReadOnlyList<FunctionInfo>)all
-                .Where(info => info.Category == entry.Category)
-                .OrderBy(info => info.Description.StartsWith("Funktion der Kategorie", StringComparison.Ordinal) ? 1 : 0)
-                .ThenBy(info => info.Name, StringComparer.CurrentCultureIgnoreCase)
-                .Take(MenuFunctions)
-                .OrderBy(info => info.Name, StringComparer.CurrentCultureIgnoreCase)
-                .ToList()))
+            .Select(entry => (entry.Category, (IReadOnlyList<FunctionInfo>)all.Where(info => info.Category == entry.Category).ToList()))
             .ToList();
     }
 

@@ -1,5 +1,6 @@
 using MatDesktop;
 using ThixCalc.Core.Documents;
+using ThixCalc.Core.Functions;
 using ThixCalc.Core.Model;
 using ThixOffice.Core.Commands;
 using ThixOffice.Desktop.Shell;
@@ -256,18 +257,26 @@ public static class CalcRibbon
 
     private static MatRibbonTab FormulasTab()
     {
+        // Like Excel: Funktion einfügen, then the main categories, the others under Weitere Funktionen; every menu lists ALL
+        // functions of its category and ends with Funktion einfügen ….
         var library = new MatRibbonGroup("function-library", "Funktionsbibliothek") { Icon = "sum" };
         library.Add(Button(CalcCommandIds.InsertFunction, MatRibbonSize.Large));
-        foreach (var (category, functions) in CalcDataCommands.MenuFunctionsOf(Core.Globalization.CalcLocale.German))
+        var menus = CalcDataCommands.MenuFunctionsOf(Core.Globalization.CalcLocale.German).Where(entry => entry.Functions.Count > 0).ToList();
+        MatRibbonMenuButton Menu((FunctionCategory Category, IReadOnlyList<FunctionInfo> Functions) entry) =>
+            new(CalcDataCommands.CategoryId(entry.Category), "", null,
+                [.. entry.Functions.Select(info => Button(CalcDataCommands.FunctionId(info.Canonical))), new MatRibbonSeparator(),
+                    Button(CalcDataCommands.CategoryId(entry.Category) + ".insert")]) { Size = MatRibbonSize.Medium };
+        FunctionCategory[] main = [FunctionCategory.Financial, FunctionCategory.Logical, FunctionCategory.Text, FunctionCategory.DateTime, FunctionCategory.Lookup, FunctionCategory.Math];
+        foreach (var category in main)
         {
-            if (functions.Count == 0)
+            if (menus.FirstOrDefault(entry => entry.Category == category) is { Functions: not null } entry)
             {
-                continue;
+                library.Add(Menu(entry));
             }
-
-            library.Add(new MatRibbonMenuButton($"{CalcCommandIds.FunctionLibrary}.{category.ToString().ToLowerInvariant()}", "", null,
-                [.. functions.Select(info => Button(CalcDataCommands.FunctionId(info.Canonical)))]) { Size = MatRibbonSize.Medium });
         }
+
+        library.Add(new MatRibbonMenuButton(CalcCommandIds.MoreFunctions, "", null,
+            [.. menus.Where(entry => !main.Contains(entry.Category)).Select(Menu)]) { Size = MatRibbonSize.Medium });
 
         return new MatRibbonTab("formulas", "Formeln").Add(
             library,

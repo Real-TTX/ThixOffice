@@ -12,6 +12,8 @@ using ThixCalc.Core.Editing;
 using ThixCalc.Core.Formats;
 using ThixCalc.Core.Formats.Ods;
 using ThixCalc.Core.Formatting;
+using ThixCalc.Core.Formulas;
+using ThixCalc.Core.Functions;
 using ThixCalc.Core.Layout;
 using ThixCalc.Core.Model;
 using ThixOffice.Core.Models;
@@ -500,45 +502,55 @@ public sealed class CalcEditor : OfficeEditor
         });
     }
 
-    /// <summary>fx / Formeln › Funktion einfügen: the dialog; the chosen function goes into the cell being edited (or starts editing).</summary>
+    /// <summary>
+    /// fx / Formeln › Funktion einfügen (Umschalt+F3), like Excel: a cell that holds one function call opens Funktionsargumente
+    /// on it; otherwise Funktion einfügen, then Funktionsargumente for the chosen function.
+    /// </summary>
     public async Task InsertFunctionAsync()
     {
-        var chosen = await Dialogs.InsertFunctionDialog.ShowAsync(_window, Session.Locale);
-        if (chosen is null)
+        if (!Editing.IsEditing && Session.FormulaBarText is { } current
+            && FunctionCallText.Split(current, Session.Locale) is { } call && FunctionHelp.Find(call.Name, Session.Locale) is { } existing)
         {
+            await EditFunctionAsync(existing, call.Arguments);
             return;
         }
 
-        if (!Editing.IsEditing)
+        if (await Dialogs.InsertFunctionDialog.ShowAsync(_window, Session.Locale) is { } chosen)
         {
-            Editing.Begin(EditStart.Typing);
+            await EditFunctionAsync(chosen, []);
         }
-
-        var box = Editing.IsInFormulaBar ? Editing.BarBox : Editing.CellBox;
-        if (!box.Text.StartsWith('='))
-        {
-            box.SetText("=", 1);
-        }
-
-        box.InsertText(chosen.Name + "(");
-        FocusDocument();
     }
 
-    /// <summary>A function of the library menus: "=NAME(" into the cell (or at the caret of the edit).</summary>
-    public void InsertFunctionByName(string name)
+    /// <summary>A function of the library menus or the search: Funktionsargumente for it.</summary>
+    public Task InsertFunctionByNameAsync(string name) =>
+        FunctionHelp.Find(name, Session.Locale) is { } function ? EditFunctionAsync(function, []) : Task.CompletedTask;
+
+    /// <summary>
+    /// Funktionsargumente; OK puts the call into the cell: at the caret when a formula is being typed (it stays open), else as the
+    /// active cell's whole formula (entered like typed input).
+    /// </summary>
+    private async Task EditFunctionAsync(FunctionInfo function, IReadOnlyList<string> arguments)
     {
-        if (!Editing.IsEditing)
+        if (await Dialogs.FunctionArgumentsDialog.ShowAsync(_window, Session, function, arguments) is not { } call)
         {
-            Editing.Begin(EditStart.Typing);
+            FocusDocument();
+            return;
         }
 
-        var box = Editing.IsInFormulaBar ? Editing.BarBox : Editing.CellBox;
-        if (!box.Text.StartsWith('='))
+        if (Editing.IsEditing)
         {
-            box.InsertText("=");
+            var box = Editing.IsInFormulaBar ? Editing.BarBox : Editing.CellBox;
+            if (!box.Text.StartsWith('='))
+            {
+                box.SetText("=", 1);
+            }
+
+            box.InsertText(call);
+            FocusDocument();
+            return;
         }
 
-        box.InsertText(name + "(");
+        await RunAsync("Eingabe", () => Session.EnterInput("=" + call));
         FocusDocument();
     }
 

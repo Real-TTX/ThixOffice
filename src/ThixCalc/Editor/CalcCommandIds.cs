@@ -130,7 +130,8 @@ public static class CalcCommandIds
 
     // Formeln
     public const string InsertFunction = "calc.insertFunction";
-    public const string FunctionLibrary = "calc.functions"; // per category calc.functions.<category>, entries calc.function.<NAME>
+    public const string FunctionLibrary = "calc.functions"; // per category calc.functions.<category> (+ .insert), entries calc.function.<NAME>
+    public const string MoreFunctions = "calc.functions.more";
     public const string NameManager = "calc.nameManager";
     public const string DefineName = "calc.defineName";
     public const string ShowFormulas = "calc.showFormulas";
