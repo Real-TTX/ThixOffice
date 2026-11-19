@@ -1,0 +1,57 @@
+  <!--
+    ThixCalc's document types for Finder (CFBundleDocumentTypes, put into Info.plist by package-macos.sh). Like the Windows
+    registration only what ThixCalc can open now: Excel workbooks (its own format), workbooks with macros (kept, never run)
+    and CSV, all as "Alternate": ThixCalc appears under "Öffnen mit", the default stays the user's (house rule: never take a
+    type silently). .ods is added when its reader exists (ThixCalcApp.Definition marks it as planned). @DOCUMENT_ICON@ is the
+    document icon of the bundle.
+  -->
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>Excel-Arbeitsmappe</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>xlsx</string></array>
+      <key>LSItemContentTypes</key>
+      <array><string>org.openxmlformats.spreadsheetml.sheet</string></array>
+      <key>CFBundleTypeMIMETypes</key>
+      <array><string>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</string></array>
+      <key>CFBundleTypeIconFile</key>
+      <string>@DOCUMENT_ICON@</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Alternate</string>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>Excel-Arbeitsmappe mit Makros</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>xlsm</string></array>
+      <key>LSItemContentTypes</key>
+      <array><string>com.microsoft.excel.sheet.macroenabled</string></array>
+      <key>CFBundleTypeMIMETypes</key>
+      <array><string>application/vnd.ms-excel.sheet.macroEnabled.12</string></array>
+      <key>CFBundleTypeIconFile</key>
+      <string>@DOCUMENT_ICON@</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Alternate</string>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>CSV-Datei</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>csv</string></array>
+      <key>LSItemContentTypes</key>
+      <array><string>public.comma-separated-values-text</string></array>
+      <key>CFBundleTypeMIMETypes</key>
+      <array><string>text/csv</string></array>
+      <key>CFBundleTypeIconFile</key>
+      <string>@DOCUMENT_ICON@</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Alternate</string>
+    </dict>
+  </array>

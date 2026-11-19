@@ -1,0 +1,64 @@
+name: thixcalc
+# Builds, tests and packages ThixCalc (the reusable _desktop.yml does the work). Its run number is ThixCalc's build
+# number, so ThixCalc counts on its own. Manually: Actions › thixcalc › Run workflow.
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'src/ThixCalc/**'
+      - 'src/ThixCalc.Core/**'
+      - 'src/ThixOffice.Core/**'
+      - 'src/ThixOffice.Desktop/**'
+      - 'src/ThixOffice.Text/**'
+      - 'src/ThixOffice.Text.Skia/**'
+      - 'tests/ThixOffice.Core.Tests/**'
+      - 'tests/ThixOffice.Desktop.Tests/**'
+      - 'tests/ThixCalc.Core.Tests/**'
+      - 'tests/ThixCalc.Tests/**'
+      - 'branding/thixcalc/**'
+      - 'scripts/package-macos.sh'
+      - 'scripts/macos-document-types/thixcalc.plist'
+      - 'Directory.Build.props'
+      - 'global.json'
+      - '.github/workflows/_desktop.yml'
+      - '.github/workflows/thixcalc.yml'
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'src/ThixCalc/**'
+      - 'src/ThixCalc.Core/**'
+      - 'src/ThixOffice.Core/**'
+      - 'src/ThixOffice.Desktop/**'
+      - 'src/ThixOffice.Text/**'
+      - 'src/ThixOffice.Text.Skia/**'
+      - 'tests/ThixOffice.Core.Tests/**'
+      - 'tests/ThixOffice.Desktop.Tests/**'
+      - 'tests/ThixCalc.Core.Tests/**'
+      - 'tests/ThixCalc.Tests/**'
+      - 'branding/thixcalc/**'
+      - 'scripts/package-macos.sh'
+      - 'scripts/macos-document-types/thixcalc.plist'
+      - 'Directory.Build.props'
+      - 'global.json'
+      - '.github/workflows/_desktop.yml'
+      - '.github/workflows/thixcalc.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One run per branch at a time: two quick pushes must not publish ThixCalc to the same channel at once (queued, not cancelled).
+concurrency:
+  group: thixcalc-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  desktop:
+    uses: ./.github/workflows/_desktop.yml
+    with:
+      app-name: ThixCalc
+      app-id: thixcalc
+      project: src/ThixCalc/ThixCalc.csproj
+      tests: tests/ThixOffice.Core.Tests/ThixOffice.Core.Tests.csproj tests/ThixOffice.Desktop.Tests/ThixOffice.Desktop.Tests.csproj tests/ThixCalc.Core.Tests/ThixCalc.Core.Tests.csproj tests/ThixCalc.Tests/ThixCalc.Tests.csproj
+      build-number: ${{ github.run_number }}
