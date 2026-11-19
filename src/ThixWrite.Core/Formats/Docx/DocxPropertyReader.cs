@@ -64,7 +64,28 @@ internal static class DocxPropertyReader
                 case W.VerticalTextAlignment when ParseVerticalPosition(DocxValues.AttributeValue(child, "val")) is { } position:
                     result = result with { VerticalPosition = position };
                     break;
-                case W.FontSize or W.Highlight or W.VerticalTextAlignment:
+                case W.Caps:
+                    result = result with { Caps = DocxValues.ParseOnOff(child) };
+                    break;
+                case W.SmallCaps:
+                    result = result with { SmallCaps = DocxValues.ParseOnOff(child) };
+                    break;
+                case W.Vanish:
+                    result = result with { Hidden = DocxValues.ParseOnOff(child) };
+                    break;
+                case W.Spacing when DocxValues.ParseTwips(DocxValues.AttributeValue(child, "val")) is { } spacing:
+                    result = result with { Spacing = spacing };
+                    break;
+                case W.CharacterScale when DocxValues.ParseInteger(DocxValues.AttributeValue(child, "val")) is { } scale and > 0 and <= 600:
+                    result = result with { Scale = (int)scale };
+                    break;
+                case W.Position when DocxValues.ParseInteger(DocxValues.AttributeValue(child, "val")) is { } halfPoints:
+                    result = result with { Position = halfPoints / 2.0 };
+                    break;
+                case W.Shading:
+                    result = result with { Shading = DocxTables.ReadShadingOf(child) };
+                    break;
+                case W.FontSize or W.Highlight or W.VerticalTextAlignment or W.Spacing or W.CharacterScale or W.Position:
                     // A modelled property with an invalid value: dropped (writing it back would make the file invalid).
                     break;
                 default:
@@ -124,6 +145,20 @@ internal static class DocxPropertyReader
                     break;
                 case W.OutlineLevel when DocxValues.ParseInteger(DocxValues.AttributeValue(child, "val")) is { } level:
                     result = result with { OutlineLevel = (int)Math.Clamp(level, 0, 9) };
+                    break;
+                case W.ParagraphBorders borders:
+                    result = result with { Borders = DocxTables.ReadBordersOf(borders) };
+                    break;
+                case W.Shading:
+                    result = result with { Shading = DocxTables.ReadShadingOf(child) };
+                    break;
+                case W.FrameProperties frame:
+                    if (DocxValues.AttributeValue(frame, "dropCap") is "drop" or "margin")
+                    {
+                        result = result with { DropCapLines = (int)Math.Clamp(DocxValues.ParseInteger(DocxValues.AttributeValue(frame, "lines")) ?? 3, 1, 10) };
+                    }
+
+                    unknown.Add(child);
                     break;
                 case W.SectionProperties or W.ParagraphMarkRunProperties:
                     // Read by the paragraph reader (section break, paragraph mark).

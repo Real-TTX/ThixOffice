@@ -157,6 +157,38 @@ public sealed class RealWorldTests
         Assert.Equal(3, newsletter.Pages[0].Lines.Where(line => line.Block > 1).Select(line => Math.Round(line.Left)).Distinct().Count());
     }
 
+    [Fact]
+    public void Character_and_paragraph_formats_page_colour_and_drop_caps_are_drawn()
+    {
+        var (document, layout) = Open("05-demo-typography.docx");
+        var list = layout.GetDisplayList(0);
+        var background = Assert.IsType<RectangleItem>(list.Items[0]);
+        Assert.Equal(RgbColor.FromHex("FBF8EF"), background.Fill); // Seitenfarbe
+        var texts = list.Items.OfType<GlyphRunItem>().Select(run => run.Text).ToList();
+        Assert.DoesNotContain(texts, text => text.Contains("verborgen", StringComparison.Ordinal)); // hidden text
+        Assert.Contains("GROSSBUCHSTABEN".Replace("SS", "ß", StringComparison.Ordinal), texts); // caps, the ß stays
+        Assert.Contains(list.Items, item => item is RectangleItem { Fill: { } fill } && fill == RgbColor.FromHex("E8F1F8")); // paragraph shading
+        var resolver = new StyleResolver(document);
+        var spaced = document.Blocks.OfType<Paragraph>().SelectMany(paragraph => paragraph.Inlines).OfType<TextRun>().First(run => run.Text == "gesperrt");
+        Assert.Equal(3, spaced.Properties.Spacing);
+
+        // The drop cap: the paragraph after it starts beside the letter.
+        var (_, newsletter) = Open("14-newsletter.docx");
+        var cap = newsletter.Pages[0].Floats.Single(placed => placed.Inline is TextRun);
+        var next = newsletter.Pages[0].Lines.First(line => line.Block == cap.Block + 1);
+        Assert.True(next.Left + next.Line.Items[0].X >= cap.X + cap.Width);
+    }
+
+    [Fact]
+    public void A_footer_with_a_table_is_laid_out_as_a_table()
+    {
+        var (_, layout) = Open("09-letter-din5008.docx");
+        var cells = layout.Pages[0].HeaderFooterCells;
+        Assert.Equal(3, cells.Count);
+        Assert.True(cells[1].X > cells[0].X && cells[2].X > cells[1].X);
+        Assert.All(cells, cell => Assert.True(cell.Y > layout.Pages[0].Height / 2));
+    }
+
     private sealed class ToleranceComparer(double tolerance) : IEqualityComparer<(double, double)>
     {
         public bool Equals((double, double) x, (double, double) y) => Math.Abs(x.Item1 - y.Item1) <= tolerance && Math.Abs(x.Item2 - y.Item2) <= tolerance;

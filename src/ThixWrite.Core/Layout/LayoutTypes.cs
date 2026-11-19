@@ -32,7 +32,14 @@ public sealed record TextItem(
     FontSpec Font,
     FontMetrics Metrics,
     double BaselineShift,
-    double SpaceExtra) : LayoutItem(Start, End, X, Width);
+    double SpaceExtra) : LayoutItem(Start, End, X, Width)
+{
+    /// <summary>Points added after every character ("Abstand").</summary>
+    public double LetterSpacing { get; init; }
+
+    /// <summary>The horizontal scale of the glyphs (1 = as designed; "Skalieren").</summary>
+    public double Scale { get; init; } = 1;
+}
 
 /// <summary>The space a tab character takes (up to its stop).</summary>
 public sealed record TabItem(int Start, double X, double Width, TabLeader Leader, EffectiveCharacterFormat Format, FontSpec Font)
@@ -314,6 +321,9 @@ public sealed class PageLayout
     public IReadOnlyList<PlacedFloat> Floats => _floats;
 
     internal List<PlacedFloat> MutableFloats => _floats;
+
+    /// <summary>The table cells of the page's header and footer (drawn like <see cref="Cells"/>, never a caret place).</summary>
+    public IReadOnlyList<PlacedCell> HeaderFooterCells { get; internal set; } = [];
 
     /// <summary>The floating objects of the page's header and footer.</summary>
     public IReadOnlyList<PlacedFloat> HeaderFooterFloats { get; internal set; } = [];

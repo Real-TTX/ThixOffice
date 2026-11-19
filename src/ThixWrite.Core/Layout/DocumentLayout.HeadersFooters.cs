@@ -72,9 +72,11 @@ public sealed partial class DocumentLayout
             page.Footer = footer;
             page.FooterKind = footerKind;
             var floats = new List<PlacedFloat>();
-            page.HeaderLines = header is null ? [] : PlaceStory(header, page, today, atBottom: false, floats);
-            page.FooterLines = footer is null ? [] : PlaceStory(footer, page, today, atBottom: true, floats);
+            var cells = new List<PlacedCell>();
+            page.HeaderLines = header is null ? [] : PlaceStory(header, page, today, atBottom: false, floats, cells);
+            page.FooterLines = footer is null ? [] : PlaceStory(footer, page, today, atBottom: true, floats, cells);
             page.HeaderFooterFloats = floats;
+            page.HeaderFooterCells = cells;
             _displayLists.Remove(index);
             firstChanged = Math.Min(firstChanged, index);
         }
@@ -88,9 +90,14 @@ public sealed partial class DocumentLayout
     }
 
     /// <summary>The lines of a header (from the header distance down) or a footer (up to the footer distance) of a page.</summary>
-    private PlacedLine[] PlaceStory(Story story, PageLayout page, DateTime today, bool atBottom, List<PlacedFloat>? floats = null)
+    private PlacedLine[] PlaceStory(Story story, PageLayout page, DateTime today, bool atBottom, List<PlacedFloat>? floats = null, List<PlacedCell>? cells = null)
     {
         var setup = page.Section.Properties;
+        if (cells is not null && story.Blocks.Any(block => block is Paragraph { Cell: not null }))
+        {
+            return PlaceStoryWithTables(story, page, today, atBottom, cells);
+        }
+
         var layouts = LayoutStory(story, setup.ContentWidth, page.Number, _pages.Count, today);
         var height = layouts.Sum(item => item.Before + item.Layout.Height + item.After);
         var y = atBottom ? setup.PageHeight - setup.FooterDistance - height : setup.HeaderDistance;
@@ -118,6 +125,50 @@ public sealed partial class DocumentLayout
         }
 
         return [.. lines];
+    }
+
+    private readonly Dictionary<(Story Story, string Fields, double Width), DocumentLayout> _storyTables = [];
+
+    /// <summary>
+    /// A header or footer with tables (a footer with the company's details in three columns …): the story laid out as a document of its
+    /// own (tables, lists, fields with this page's numbers), its lines and cells moved onto the page.
+    /// </summary>
+    private PlacedLine[] PlaceStoryWithTables(Story story, PageLayout page, DateTime today, bool atBottom, List<PlacedCell> cells)
+    {
+        var setup = page.Section.Properties;
+        var fields = story.HasPageFields ? $"{page.Number}/{_pages.Count}" : "";
+        var key = (story, fields, setup.ContentWidth);
+        if (!_storyTables.TryGetValue(key, out var layout))
+        {
+            if (_storyTables.Count > 200)
+            {
+                _storyTables.Clear();
+            }
+
+            var box = new SectionProperties
+            {
+                PageWidth = setup.ContentWidth,
+                PageHeight = 20000,
+                MarginLeft = 0,
+                MarginRight = 0,
+                MarginTop = 0,
+                MarginBottom = 0,
+            };
+            var number = page.Number;
+            var pages = _pages.Count;
+            layout = new DocumentLayout(new Document(story.Blocks, Document.Styles, Document.Numbering, box, Document.Theme, Document.Settings), Measurer, Options)
+            {
+                FieldText = field => field.Text(number, pages, today),
+            };
+            _storyTables[key] = layout;
+        }
+
+        var sub = layout.Pages[0];
+        var height = sub.Lines.Select(line => line.Top + line.Line.Height).Concat(sub.Cells.Select(cell => cell.Y + cell.Height)).DefaultIfEmpty(0).Max();
+        var top = atBottom ? setup.PageHeight - setup.FooterDistance - height : setup.HeaderDistance;
+        var left = setup.MarginLeft + setup.Gutter;
+        cells.AddRange(sub.Cells.Select(cell => cell with { X = cell.X + left, Y = cell.Y + top }));
+        return [.. sub.Lines.Select(line => line with { Top = line.Top + top, Left = line.Left + left })];
     }
 
     /// <summary>The paragraphs of a story laid out for a page (fields with its numbers), with the spacing before and after each.</summary>

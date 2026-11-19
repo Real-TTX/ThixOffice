@@ -19,9 +19,14 @@ public static class DisplayListBuilder
     /// The display list of a page. <paramref name="drawObject"/> draws an object into a box (floating pictures, shapes, text boxes,
     /// charts; inline drawings ThixWrite keeps as XML) – without it they are left out (pictures in the line are always drawn).
     /// </summary>
-    public static PageDisplayList Build(PageLayout page, Func<Inline, double, double, double, double, IEnumerable<DisplayItem>>? drawObject = null)
+    public static PageDisplayList Build(PageLayout page, Func<Inline, double, double, double, double, IEnumerable<DisplayItem>>? drawObject = null, RgbColor? pageColor = null)
     {
         var items = new List<DisplayItem>();
+        if (pageColor is { } color)
+        {
+            items.Add(new RectangleItem(0, 0, page.Width, page.Height, color)); // "Seitenfarbe"
+        }
+
         var floats = page.HeaderFooterFloats.Concat(page.Floats).OrderBy(placed => placed.Anchor.ZOrder).ToList();
         if (drawObject is not null)
         {
@@ -32,6 +37,7 @@ public static class DisplayListBuilder
         }
 
         AddCellFills(page, items);
+        AddParagraphFrames(page.Lines, items, shading: true);
         AddPreservedFrames(page, items);
         foreach (var placed in page.HeaderLines.Concat(page.FooterLines).Concat(page.RepeatedLines))
         {
@@ -57,6 +63,7 @@ public static class DisplayListBuilder
         }
 
         AddCellBorders(page, items);
+        AddParagraphFrames(page.Lines, items, shading: false);
         foreach (var (x, top, bottom) in page.ColumnLines)
         {
             items.Add(new LineItem(x, top, x, bottom, RgbColor.Black, 0.5));
@@ -101,7 +108,7 @@ public static class DisplayListBuilder
     /// <summary>The fills of table cells ("Schattierung"), under everything else.</summary>
     private static void AddCellFills(PageLayout page, List<DisplayItem> items)
     {
-        foreach (var cell in page.Cells)
+        foreach (var cell in page.HeaderFooterCells.Concat(page.Cells))
         {
             if (cell.Fill is { } fill)
             {
@@ -113,7 +120,7 @@ public static class DisplayListBuilder
     /// <summary>The border lines of table cells, over the text (a line shared by two cells is the same line drawn twice).</summary>
     private static void AddCellBorders(PageLayout page, List<DisplayItem> items)
     {
-        foreach (var cell in page.Cells)
+        foreach (var cell in page.HeaderFooterCells.Concat(page.Cells))
         {
             var (left, top, right, bottom) = (cell.X, cell.Y, cell.X + cell.Width, cell.Y + cell.Height);
             AddBorder(items, cell.Top, left, top, right, top);
@@ -139,6 +146,68 @@ public static class DisplayListBuilder
             _ => LineStyle.Solid,
         };
         items.Add(new LineItem(x1, y1, x2, y2, color, border.Width, style));
+    }
+
+    /// <summary>
+    /// Paragraph shading (under the text) or borders (over it): one box around consecutive paragraphs with the same borders and shading,
+    /// as Word draws them; the lines sit the border's space outside the text, the "between" line separates the paragraphs of a box.
+    /// </summary>
+    private static void AddParagraphFrames(IReadOnlyList<PlacedLine> lines, List<DisplayItem> items, bool shading)
+    {
+        var index = 0;
+        while (index < lines.Count)
+        {
+            var format = lines[index].Paragraph.Format;
+            if (format.Borders is null && format.ShadingFill is null || lines[index].Paragraph.IsPreserved)
+            {
+                index++;
+                continue;
+            }
+
+            // The run of lines of paragraphs that share the frame (same borders, shading and column).
+            var first = lines[index];
+            var last = first;
+            var splits = new List<double>();
+            while (index + 1 < lines.Count && lines[index + 1].Left == first.Left
+                   && lines[index + 1].Paragraph.Format.Borders == format.Borders && lines[index + 1].Paragraph.Format.ShadingFill == format.ShadingFill
+                   && (lines[index + 1].Block == lines[index].Block || lines[index + 1].Block == lines[index].Block + 1))
+            {
+                if (lines[index + 1].Block != lines[index].Block)
+                {
+                    splits.Add((lines[index].Top + lines[index].Line.Height + lines[index + 1].Top) / 2);
+                }
+
+                index++;
+                last = lines[index];
+            }
+
+            index++;
+            var borders = format.Borders ?? BorderSet.Empty;
+            var left = first.Left + format.IndentLeft - Space(borders.Left);
+            var right = first.Left + first.Paragraph.Width - format.IndentRight + Space(borders.Right);
+            var top = first.Top - Space(borders.Top);
+            var bottom = last.Top + last.Line.Height + Space(borders.Bottom);
+            if (shading)
+            {
+                if (format.ShadingFill is { } fill)
+                {
+                    items.Add(new RectangleItem(left, top, right - left, bottom - top, RgbColor.FromHex(fill)));
+                }
+
+                continue;
+            }
+
+            AddBorder(items, borders.Top, left, top, right, top);
+            AddBorder(items, borders.Bottom, left, bottom, right, bottom);
+            AddBorder(items, borders.Left, left, top, left, bottom);
+            AddBorder(items, borders.Right, right, top, right, bottom);
+            foreach (var y in splits)
+            {
+                AddBorder(items, borders.InsideHorizontal, left, y, right, y);
+            }
+        }
+
+        static double Space(BorderLine? line) => line is { IsVisible: true } ? line.Space + line.Width / 2 : 0;
     }
 
     private static void AddPreservedFrames(PageLayout page, List<DisplayItem> items)
@@ -171,9 +240,15 @@ public static class DisplayListBuilder
         var line = placed.Line;
         var baseline = placed.Top + line.Baseline;
 
-        // Highlights first, under the text.
+        // Shading and highlights first, under the text.
         foreach (var item in line.Items)
         {
+            if (item is TextItem { Format.ShadingFill: { } shading } shaded)
+            {
+                items.Add(new RectangleItem(placed.Left + shaded.X, placed.Top + line.Baseline - line.Ascent, shaded.Width, line.Ascent + line.Descent,
+                    RgbColor.FromHex(shading)));
+            }
+
             if (item is TextItem { Format.Highlight: not HighlightColor.None } text)
             {
                 items.Add(new RectangleItem(placed.Left + text.X, placed.Top + line.Baseline - line.Ascent, text.Width, line.Ascent + line.Descent,
@@ -211,7 +286,17 @@ public static class DisplayListBuilder
         var color = ColorOf(text.Format);
         var x = placed.Left + text.X;
         var y = baseline + text.BaselineShift;
-        AddText(items, x, y, text.Shaped, text.ShapedStart, text.End - text.Start, text.Font, color, text.SpaceExtra);
+        var scaled = Math.Abs(text.Scale - 1) > 0.001;
+        if (scaled)
+        {
+            items.Add(new TransformBeginItem(Matrix2D.Scaling(text.Scale, 1, x, y)));
+        }
+
+        AddText(items, x, y, text.Shaped, text.ShapedStart, text.End - text.Start, text.Font, color, text.SpaceExtra, text.LetterSpacing / Math.Max(0.01, text.Scale));
+        if (scaled)
+        {
+            items.Add(TransformEndItem.Instance);
+        }
 
         var metrics = text.Metrics;
         if (text.Format.Underline != UnderlineStyle.None)
@@ -264,7 +349,8 @@ public static class DisplayListBuilder
     }
 
     /// <summary>Adds the glyph runs of characters [start, start + length) of <paramref name="shaped"/> at x (its first character).</summary>
-    private static void AddText(List<DisplayItem> items, double x, double y, ShapedText shaped, int start, int length, FontSpec font, RgbColor color, double spaceExtra)
+    private static void AddText(List<DisplayItem> items, double x, double y, ShapedText shaped, int start, int length, FontSpec font, RgbColor color, double spaceExtra,
+        double letterSpacing = 0)
     {
         if (length <= 0)
         {
@@ -289,7 +375,7 @@ public static class DisplayListBuilder
         for (var index = 0; index < length; index++)
         {
             characterX[index] = position;
-            position += shaped.Advances[start + index];
+            position += shaped.Advances[start + index] + letterSpacing;
             if (shaped.Text[start + index] == ' ')
             {
                 position += spaceExtra;
@@ -324,7 +410,7 @@ public static class DisplayListBuilder
                 }
 
                 glyphs.Add(run.Glyphs[glyph]);
-                glyphX.Add((float)(run.Positions[glyph] - originOffset + spaces * spaceExtra));
+                glyphX.Add((float)(run.Positions[glyph] - originOffset + spaces * spaceExtra + (cluster - start) * letterSpacing));
             }
 
             if (glyphs.Count == 0)

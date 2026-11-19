@@ -109,7 +109,19 @@ public sealed record ParagraphProperties
     /// <summary>Outline level 0–8 (headings; the table of contents of 1c), 9 = body text.</summary>
     public int? OutlineLevel { get; init; }
 
-    /// <summary>Paragraph properties ThixWrite does not model (borders, shading, frames …), as XML for the round trip.</summary>
+    /// <summary>"Rahmen" of the paragraph (w:pBdr: top, left, bottom, right; <see cref="BorderSet.InsideHorizontal"/> = between equal paragraphs).</summary>
+    public BorderSet? Borders { get; init; }
+
+    /// <summary>"Schattierung" of the paragraph (w:shd).</summary>
+    public Shading? Shading { get; init; }
+
+    /// <summary>
+    /// The lines of an "Initiale" (w:framePr w:dropCap="drop"/"margin" w:lines): the paragraph is the big letter beside the start of the
+    /// next one. Read for the display; the frame stays in <see cref="UnknownXml"/>.
+    /// </summary>
+    public int? DropCapLines { get; init; }
+
+    /// <summary>Paragraph properties ThixWrite does not model (frames, text alignment …), as XML for the round trip.</summary>
     public string? UnknownXml { get; init; }
 
     public bool IsEmpty => Equals(Empty);
@@ -145,6 +157,9 @@ public sealed record ParagraphProperties
             Numbering = other.Numbering ?? Numbering,
             Tabs = MergeTabs(Tabs, other.Tabs),
             OutlineLevel = other.OutlineLevel ?? OutlineLevel,
+            Borders = Borders is null ? other.Borders : Borders.Merge(other.Borders),
+            Shading = other.Shading ?? Shading,
+            DropCapLines = other.UnknownXml is null ? DropCapLines : other.DropCapLines,
             UnknownXml = other.UnknownXml ?? UnknownXml,
         };
     }

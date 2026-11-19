@@ -377,7 +377,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
             return cached;
         }
 
-        var list = DisplayListBuilder.Build(_pages[page], DrawObject);
+        var list = DisplayListBuilder.Build(_pages[page], DrawObject, Document.PageColor is { } color ? RgbColor.FromHex(color) : null);
         _displayLists[page] = list;
         return list;
     }
@@ -766,6 +766,12 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
                 }
 
                 PlaceFloats(block, paragraph, _y, areaLeft, areaWidth);
+                if (format.DropCapLines > 0 && block + 1 < owner.Document.Blocks.Count && owner.Document.Blocks[block + 1] is Paragraph { Cell: null })
+                {
+                    PlaceDropCap(block, layout, areaLeft, areaWidth);
+                    return;
+                }
+
                 if (Page.Floats.Count > 0)
                 {
                     layout = Wrapped(block, paragraph, layout, areaLeft, areaWidth);
@@ -777,6 +783,26 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
             _pendingAfter = format.SpacingAfter;
             _previousStyle = style;
             _previousContextual = format.ContextualSpacing;
+        }
+
+        /// <summary>
+        /// An "Initiale": the big letter's paragraph is placed where the next paragraph starts, and that paragraph flows beside it (the
+        /// letter's box is an area the text keeps clear of, like a floating object with square wrap).
+        /// </summary>
+        private void PlaceDropCap(int block, ParagraphLayout layout, double areaLeft, double areaWidth)
+        {
+            var top = _y;
+            PlaceLines(block, layout);
+            var height = Math.Max(1, _y - top);
+            var width = layout.Lines.Select(line => line.Items.Select(item => item.X + item.Width).DefaultIfEmpty(0).Max()).DefaultIfEmpty(0).Max();
+            var frame = new DrawingAnchor(DrawingFrame.Column, 0, null, DrawingFrame.Paragraph, 0, null, DrawingWrap.Square, false, 0, 0, 4, 0);
+            Page.MutableFloats.Add(new PlacedFloat(block, 0, new TextRun("", CharacterProperties.Empty), frame, areaLeft, top, Math.Max(1, width), height)
+            {
+                AreaLeft = areaLeft,
+                AreaRight = areaLeft + areaWidth,
+            });
+            _y = top;
+            _pendingAfter = 0;
         }
 
         private void PlaceLines(int block, ParagraphLayout layout)

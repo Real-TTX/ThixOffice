@@ -115,6 +115,27 @@ public sealed record CharacterProperties
 
     public HighlightColor? Highlight { get; init; }
 
+    /// <summary>"Großbuchstaben" (w:caps): shown in capitals, stored as typed.</summary>
+    public bool? Caps { get; init; }
+
+    /// <summary>"Kapitälchen" (w:smallCaps): lower-case letters as smaller capitals.</summary>
+    public bool? SmallCaps { get; init; }
+
+    /// <summary>"Ausgeblendet" (w:vanish): not shown, not printed.</summary>
+    public bool? Hidden { get; init; }
+
+    /// <summary>"Abstand" (w:spacing): points added after every character (negative: narrower).</summary>
+    public double? Spacing { get; init; }
+
+    /// <summary>"Skalieren" (w:w): the width of the characters in percent.</summary>
+    public int? Scale { get; init; }
+
+    /// <summary>"Position" (w:position): raised (positive) or lowered text, points.</summary>
+    public double? Position { get; init; }
+
+    /// <summary>The shading of the text (w:shd: "Schattierung" of characters).</summary>
+    public Shading? Shading { get; init; }
+
     /// <summary>Run properties ThixWrite does not model, as XML, kept for the round trip.</summary>
     public string? UnknownXml { get; init; }
 
@@ -149,6 +170,13 @@ public sealed record CharacterProperties
             VerticalPosition = other.VerticalPosition ?? VerticalPosition,
             Color = other.Color ?? Color,
             Highlight = other.Highlight ?? Highlight,
+            Caps = other.Caps ?? Caps,
+            SmallCaps = other.SmallCaps ?? SmallCaps,
+            Hidden = other.Hidden ?? Hidden,
+            Spacing = other.Spacing ?? Spacing,
+            Scale = other.Scale ?? Scale,
+            Position = other.Position ?? Position,
+            Shading = other.Shading ?? Shading,
             UnknownXml = other.UnknownXml ?? UnknownXml,
         };
     }

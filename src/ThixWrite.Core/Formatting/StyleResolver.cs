@@ -18,6 +18,24 @@ public sealed record EffectiveCharacterFormat(
 {
     /// <summary>The colour as "RRGGBB"; automatic colour is black.</summary>
     public bool IsAutoColor => string.Equals(Color, "auto", StringComparison.OrdinalIgnoreCase);
+
+    public bool Caps { get; init; }
+
+    public bool SmallCaps { get; init; }
+
+    public bool Hidden { get; init; }
+
+    /// <summary>Points added after every character.</summary>
+    public double Spacing { get; init; }
+
+    /// <summary>The width of the characters in percent (100 = as designed).</summary>
+    public int Scale { get; init; } = 100;
+
+    /// <summary>Points the text is raised (negative: lowered).</summary>
+    public double Position { get; init; }
+
+    /// <summary>The fill of the text's shading as "RRGGBB", or null.</summary>
+    public string? ShadingFill { get; init; }
 }
 
 /// <summary>The formatting a paragraph really has, every value resolved.</summary>
@@ -44,6 +62,15 @@ public sealed record EffectiveParagraphFormat(
     /// the paragraph style, and in a table cell also the table style.
     /// </summary>
     public string StyleKey { get; init; } = StyleId;
+
+    /// <summary>"Rahmen" of the paragraph, or null.</summary>
+    public BorderSet? Borders { get; init; }
+
+    /// <summary>The fill of the paragraph's shading as "RRGGBB", or null.</summary>
+    public string? ShadingFill { get; init; }
+
+    /// <summary>The lines of a drop cap ("Initiale"), 0 for a normal paragraph.</summary>
+    public int DropCapLines { get; init; }
 }
 
 /// <summary>
@@ -147,6 +174,9 @@ public sealed class StyleResolver(Document document)
             merged.OutlineLevel ?? 9)
         {
             StyleKey = tableStyle is null ? styleId : styleId + TableKeySeparator + tableStyle,
+            Borders = merged.Borders is { IsEmpty: false } borders ? borders : null,
+            ShadingFill = merged.Shading?.VisibleFill,
+            DropCapLines = paragraph.Properties.DropCapLines ?? 0,
         };
         Remember(_paragraphs, (paragraph.Properties, tableStyle), result);
         return result;
@@ -385,7 +415,16 @@ public sealed class StyleResolver(Document document)
             merged.VerticalPosition ?? VerticalPosition.Baseline,
             color,
             merged.Highlight ?? HighlightColor.None,
-            merged.StyleId);
+            merged.StyleId)
+        {
+            Caps = merged.Caps ?? false,
+            SmallCaps = merged.SmallCaps ?? false,
+            Hidden = merged.Hidden ?? false,
+            Spacing = merged.Spacing ?? 0,
+            Scale = merged.Scale ?? 100,
+            Position = merged.Position ?? 0,
+            ShadingFill = merged.Shading?.VisibleFill,
+        };
     }
 
     private (ParagraphProperties Paragraph, CharacterProperties Character) StyleChain(string styleId)

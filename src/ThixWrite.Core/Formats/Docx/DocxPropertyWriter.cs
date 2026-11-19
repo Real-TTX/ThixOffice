@@ -33,6 +33,28 @@ internal static class DocxPropertyWriter
         AddOnOff<W.Italic>(target, properties.Italic);
         AddOnOff<W.Strike>(target, properties.Strikethrough);
         AddOnOff<W.DoubleStrike>(target, properties.DoubleStrikethrough);
+        AddOnOff<W.Caps>(target, properties.Caps);
+        AddOnOff<W.SmallCaps>(target, properties.SmallCaps);
+        AddOnOff<W.Vanish>(target, properties.Hidden);
+        if (properties.Spacing is { } spacing)
+        {
+            Add(target, Element<W.Spacing>(("val", Twips(spacing))));
+        }
+
+        if (properties.Scale is { } scale)
+        {
+            Add(target, Element<W.CharacterScale>(("val", Integer(scale))));
+        }
+
+        if (properties.Position is { } raised)
+        {
+            Add(target, Element<W.Position>(("val", Integer((int)Math.Round(raised * 2)))));
+        }
+
+        if (properties.Shading is { } shading)
+        {
+            Add(target, DocxTables.WriteShadingOf(shading));
+        }
         if (properties.Color is { } color)
         {
             Add(target, Element<W.Color>(("val", color.Value), ("themeColor", color.ThemeColor), ("themeTint", color.ThemeTint),
@@ -115,6 +137,16 @@ internal static class DocxPropertyWriter
         if (properties.Alignment is { } alignment)
         {
             Add(target, Element<W.Justification>(("val", AlignmentValue(alignment))));
+        }
+
+        if (properties.Borders is { IsEmpty: false } borders)
+        {
+            Add(target, DocxTables.WriteParagraphBorders(borders));
+        }
+
+        if (properties.Shading is { } shading)
+        {
+            Add(target, DocxTables.WriteShadingOf(shading));
         }
 
         if (properties.OutlineLevel is { } level)

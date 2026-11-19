@@ -304,6 +304,40 @@ internal static class DocxTables
         return result;
     }
 
+    /// <summary>The borders of a w:pBdr (w:between as the inside line).</summary>
+    public static BorderSet ReadBordersOf(OpenXmlElement element)
+    {
+        var result = ReadBorders(element);
+        return element.ChildElements.FirstOrDefault(child => child.LocalName == "between") is { } between ? result with { InsideHorizontal = ReadBorder(between) } : result;
+    }
+
+    /// <summary>A w:pBdr of <paramref name="borders"/>.</summary>
+    public static W.ParagraphBorders WriteParagraphBorders(BorderSet borders)
+    {
+        var target = new W.ParagraphBorders();
+        void Add<TBorder>(BorderLine? line) where TBorder : OpenXmlElement, new()
+        {
+            if (line is not null)
+            {
+                target.AppendChild(DocxPropertyWriter.Element<TBorder>(("val", line.Style), ("color", line.Color), ("themeColor", line.ThemeColor),
+                    ("sz", DocxPropertyWriter.Integer((long)Math.Round(line.Width * 8))), ("space", DocxPropertyWriter.Integer((long)Math.Round(line.Space)))));
+            }
+        }
+
+        Add<W.TopBorder>(borders.Top);
+        Add<W.LeftBorder>(borders.Left);
+        Add<W.BottomBorder>(borders.Bottom);
+        Add<W.RightBorder>(borders.Right);
+        Add<W.BetweenBorder>(borders.InsideHorizontal);
+        return target;
+    }
+
+    /// <summary>A w:shd (of a table, a cell, a paragraph or text).</summary>
+    public static Shading ReadShadingOf(OpenXmlElement element) => ReadShading(element);
+
+    /// <summary>A w:shd element of <paramref name="shading"/>.</summary>
+    public static W.Shading WriteShadingOf(Shading shading) => WriteShading(shading);
+
     private static Shading ReadShading(OpenXmlElement element) => new(
         DocxValues.AttributeValue(element, "fill"),
         DocxValues.AttributeValue(element, "val") ?? "clear",

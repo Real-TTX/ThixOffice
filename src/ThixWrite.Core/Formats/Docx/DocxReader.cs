@@ -71,6 +71,7 @@ public static class DocxReader
         {
             UnsupportedContent = context.Notes(),
             Package = new PreservedPackage(bytes),
+            PageColor = main.Document?.DocumentBackground?.Color?.Value is { Length: 6 } pageColor && !string.Equals(pageColor, "FFFFFF", StringComparison.OrdinalIgnoreCase) ? pageColor : null,
         };
     }
 

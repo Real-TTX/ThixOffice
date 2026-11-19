@@ -74,6 +74,8 @@ internal static class ParagraphLayouter
         public Inline? Object;
         public double ObjectWidth;
         public double ObjectHeight;
+        public double LetterSpacing;
+        public double Scale = 1;
     }
 
     /// <summary>The narrowest line text is set in beside a floating object; a narrower gap is skipped (the line moves below the object).</summary>
@@ -326,7 +328,7 @@ internal static class ParagraphLayouter
                 VerticalPosition.Superscript => -format.FontSize * 0.33,
                 VerticalPosition.Subscript => format.FontSize * 0.14,
                 _ => 0,
-            };
+            } - format.Position;
 
             if (inline is ImageInline image)
             {
@@ -426,26 +428,43 @@ internal static class ParagraphLayouter
 
                 if (position > pieceStart)
                 {
-                    var piece = runText[pieceStart..position];
-                    var shaped = context.Measurer.Shape(piece, font);
-                    var segment = new Segment
+                    if (format.Hidden)
                     {
-                        Start = start + pieceStart,
-                        End = start + position,
-                        Kind = SegmentKind.Text,
-                        Format = format,
-                        Font = font,
-                        Metrics = metrics,
-                        BaselineShift = shift,
-                        Shaped = shaped,
-                    };
-                    for (var unit = 0; unit < piece.Length; unit++)
-                    {
-                        advances[segment.Start + unit] = shaped.Advances[unit];
-                        owner[segment.Start + unit] = segments.Count;
+                        // Hidden text ("Ausgeblendet"): no width, no ink – a marker per character keeps the caret positions.
+                        for (var unit = pieceStart; unit < position; unit++)
+                        {
+                            owner[start + unit] = segments.Count;
+                            segments.Add(new Segment { Start = start + unit, End = start + unit + 1, Kind = SegmentKind.Marker, Format = format, Font = font, Metrics = metrics });
+                        }
                     }
+                    else
+                    {
+                        foreach (var (from, to, shown, pieceFont) in CasePieces(runText, pieceStart, position, format, font))
+                        {
+                            var shaped = context.Measurer.Shape(shown, pieceFont);
+                            var scale = format.Scale / 100.0;
+                            var segment = new Segment
+                            {
+                                Start = start + from,
+                                End = start + to,
+                                Kind = SegmentKind.Text,
+                                Format = format,
+                                Font = pieceFont,
+                                Metrics = pieceFont == font ? metrics : context.MetricsOf(pieceFont),
+                                BaselineShift = shift,
+                                Shaped = shaped,
+                                LetterSpacing = format.Spacing,
+                                Scale = scale,
+                            };
+                            for (var unit = 0; unit < to - from; unit++)
+                            {
+                                advances[segment.Start + unit] = shaped.Advances[unit] * scale + format.Spacing;
+                                owner[segment.Start + unit] = segments.Count;
+                            }
 
-                    segments.Add(segment);
+                            segments.Add(segment);
+                        }
+                    }
                 }
 
                 if (!atEnd)
@@ -467,6 +486,36 @@ internal static class ParagraphLayouter
         }
 
         return segments;
+    }
+
+    /// <summary>
+    /// The pieces of text [<paramref name="start"/>, <paramref name="end"/>) of a run as they are shaped: in capitals for
+    /// "Großbuchstaben", for "Kapitälchen" the lower-case letters as capitals in a smaller size (each such stretch a piece of its own).
+    /// </summary>
+    private static IEnumerable<(int From, int To, string Shown, FontSpec Font)> CasePieces(string text, int start, int end, EffectiveCharacterFormat format, FontSpec font)
+    {
+        if (format.Caps || !format.SmallCaps)
+        {
+            var piece = text[start..end];
+            yield return (start, end, format.Caps ? piece.ToUpperInvariant() : piece, font);
+            yield break;
+        }
+
+        var small = font with { Size = font.Size * 0.8 };
+        var from = start;
+        while (from < end)
+        {
+            var lower = char.IsLower(text[from]);
+            var to = from + 1;
+            while (to < end && char.IsLower(text[to]) == lower)
+            {
+                to++;
+            }
+
+            var piece = text[from..to];
+            yield return lower ? (from, to, piece.ToUpperInvariant(), small) : (from, to, piece, font);
+            from = to;
+        }
     }
 
     private static SegmentKind KindOf(char character) => character switch
@@ -668,7 +717,7 @@ internal static class ParagraphLayouter
 
         // The visible end: without trailing spaces and the break character.
         var contentEnd = end;
-        if (ending is LineEnding.LineBreak or LineEnding.PageBreak)
+        if (ending is LineEnding.LineBreak or LineEnding.PageBreak or LineEnding.ColumnBreak)
         {
             contentEnd--;
         }
@@ -760,7 +809,7 @@ internal static class ParagraphLayouter
             {
                 case SegmentKind.Text:
                     items.Add(new TextItem(from, to, itemX, itemWidth, segment.Shaped!, from - segment.Start, segment.Format, segment.Font,
-                        segment.Metrics, segment.BaselineShift, from > lastTab ? spaceExtra : 0));
+                        segment.Metrics, segment.BaselineShift, from > lastTab ? spaceExtra : 0) { LetterSpacing = segment.LetterSpacing, Scale = segment.Scale });
                     ascent = Math.Max(ascent, segment.Metrics.Ascent - segment.BaselineShift);
                     descent = Math.Max(descent, segment.Metrics.Descent + segment.BaselineShift);
                     gap = Math.Max(gap, segment.Metrics.LineGap);
@@ -795,7 +844,7 @@ internal static class ParagraphLayouter
         var baseline = height - descent - gap;
 
         // Caret stops: grapheme starts, not right after an invisible marker; the break character itself is no stop.
-        var lastStop = ending is LineEnding.LineBreak or LineEnding.PageBreak ? end - 1 : end;
+        var lastStop = ending is LineEnding.LineBreak or LineEnding.PageBreak or LineEnding.ColumnBreak ? end - 1 : end;
         var stops = new List<int>();
         var stopX = new List<double>();
         for (var offset = start; offset <= lastStop; offset++)

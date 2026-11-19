@@ -61,6 +61,9 @@ public sealed class Document
         Settings = settings ?? DocumentSettings.Default;
     }
 
+    /// <summary>"Seitenfarbe" (w:background w:color) as "RRGGBB", or null for white paper. Kept in the package's document element.</summary>
+    public string? PageColor { get; init; }
+
     /// <summary>Raised after every change (the editing engine's steps, undo and redo).</summary>
     public event EventHandler<DocumentChange>? Changed;
 
