@@ -3,14 +3,16 @@ using ThixOffice.Core.Business;
 using ThixOffice.Core.Models;
 using ThixWrite.Core;
 using ThixWrite.Core.Documents;
+using ThixWrite.Core.Model;
+using ThixWrite.Editor;
 
 namespace ThixWrite.Tests;
 
-/// <summary>ThixWrite's definition and its phase-0 document.</summary>
+/// <summary>ThixWrite's definition, its new documents and the formats through the business layer.</summary>
 public sealed class DocumentTests
 {
     [Fact]
-    public void ThixWrite_works_on_txt_and_declares_docx_odt_and_rtf_as_planned()
+    public void ThixWrite_works_on_docx_and_txt_and_declares_odt_and_rtf_as_planned()
     {
         var definition = ThixWriteApp.Definition;
 
@@ -18,10 +20,10 @@ public sealed class DocumentTests
         Assert.Equal("#185ABD", definition.Accent);
         Assert.Equal("Write", definition.Suffix);
         Assert.Equal(".docx", definition.DefaultType.Extension);
-        Assert.Equal(DocumentTypeSupport.Planned, definition.DefaultType.Support);
-        Assert.Equal([".txt"], definition.SupportedTypes.Select(type => type.Extension));
-        Assert.Equal(".txt", definition.SaveType.Extension);
-        Assert.All(definition.DocumentTypes.Where(type => type.Extension != ".txt"), type => Assert.False(type.IsSupported));
+        Assert.Equal(DocumentTypeSupport.Supported, definition.DefaultType.Support);
+        Assert.Equal([".docx", ".txt"], definition.SupportedTypes.Select(type => type.Extension));
+        Assert.Equal(".docx", definition.SaveType.Extension);
+        Assert.All(definition.DocumentTypes.Where(type => type.Extension is ".odt" or ".rtf"), type => Assert.False(type.IsSupported));
         Assert.Equal("thixwrite-update.json", definition.ManifestFileName);
         Assert.Equal("ThixWriteSetup.exe", definition.SetupFileName);
         Assert.Equal("info.schmoldt.thixwrite", definition.MacBundleId);
@@ -29,62 +31,56 @@ public sealed class DocumentTests
     }
 
     [Fact]
-    public void Typing_in_a_row_is_one_undo_step_and_redo_brings_it_back()
+    public void New_documents_take_the_first_preferred_font_the_machine_has()
     {
-        var document = new TextDocument("Dokument1");
-        var start = new DateTime(2026, 11, 18, 10, 0, 0, DateTimeKind.Utc);
+        Assert.Equal(new DocumentFonts("Aptos", "Aptos Display"), DocumentFonts.Choose(["Arial", "Aptos", "Aptos Display", "Calibri"]));
+        Assert.Equal(new DocumentFonts("Calibri", "Calibri Light"), DocumentFonts.Choose(["arial", "calibri", "calibri light"]));
+        Assert.Equal(new DocumentFonts("Aptos", "Aptos"), DocumentFonts.Choose(["Aptos"]));
+        Assert.Equal(new DocumentFonts("Helvetica Neue", "Helvetica Neue"), DocumentFonts.Choose(["Helvetica Neue", "Arial"]));
+        Assert.Equal(new DocumentFonts("Arial", "Arial"), DocumentFonts.Choose(["Times New Roman"]));
 
-        document.SetText("H", isTyping: true, now: start);
-        document.SetText("Ha", isTyping: true, now: start.AddMilliseconds(300));
-        document.SetText("Hal", isTyping: true, now: start.AddMilliseconds(600));
-        document.SetText("Hallo", isTyping: true, now: start.AddSeconds(5)); // after a pause: a step of its own
-
-        Assert.True(document.IsDirty);
-        document.Undo();
-        Assert.Equal("Hal", document.Text);
-        document.Undo();
-        Assert.Equal("", document.Text);
-        Assert.False(document.CanUndo);
-        document.Redo();
-        document.Redo();
-        Assert.Equal("Hallo", document.Text);
-        Assert.False(document.CanRedo);
+        var document = BlankDocument.Create(new DocumentFonts("Helvetica Neue", "Avenir"));
+        Assert.Equal("Helvetica Neue", document.Styles.CharacterDefaults.FontFamily);
+        Assert.Equal("Avenir", document.Styles.Find(BuiltInStyles.Heading1)!.Character.FontFamily);
+        Assert.Equal("Avenir", document.Styles.Find(BuiltInStyles.Title)!.Character.FontFamily);
+        Assert.DoesNotContain(document.Styles.Styles, style => style.Character.FontFamily is BuiltInStyles.BodyFont or BuiltInStyles.HeadingFont);
+        Assert.Equal(595.3, document.FinalSection.PageWidth, 1);
+        Assert.Equal(70.85, document.FinalSection.MarginLeft, 1); // 2.5 cm
+        Assert.Contains(WriteFonts.Default.Body, DocumentFonts.Preferred.Select(fonts => fonts.Body));
     }
 
     [Fact]
-    public void Words_and_characters_are_counted()
-    {
-        var document = new TextDocument("Dokument1");
-        document.Load("Zwei Wörter\nund drei");
-        Assert.Equal((4, 19), document.Count());
-        Assert.False(document.IsDirty);
-        Assert.False(document.CanUndo);
-    }
-
-    [Fact]
-    public void Text_files_are_read_with_or_without_BOM_and_written_as_UTF8()
+    public void A_text_file_is_read_with_its_encoding_and_written_back_the_same_way()
     {
         using var data = new TestData();
         var withBom = Path.Combine(data.DocumentsFolder, "bom.txt");
         File.WriteAllText(withBom, "Grüße aus Köln", new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
 
-        var document = DocumentService.Open(withBom, name => new TextDocument(name));
-        Assert.Equal("Grüße aus Köln", document.Text);
+        var document = DocumentService.Open(withBom, name => new WordDocument(name));
+        Assert.Equal("Grüße aus Köln", document.Content.GetPlainText().TrimEnd());
+        Assert.Equal(WordFileFormat.PlainText, document.SaveFormat);
 
-        document.SetText(document.Text + "!");
+        document.Session.Move(ThixWrite.Core.Editing.CaretMovement.DocumentEnd);
+        document.Session.InsertText("!");
         DocumentService.Save(document);
-        var bytes = File.ReadAllBytes(withBom);
-        Assert.NotEqual(0xEF, bytes[0]);
-        Assert.Equal("Grüße aus Köln!", Encoding.UTF8.GetString(bytes));
+        Assert.Equal("Grüße aus Köln!", File.ReadAllText(withBom).TrimEnd());
     }
 
     [Fact]
-    public void A_Word_document_is_never_opened_into_the_placeholder()
+    public void A_docx_saved_as_txt_and_back_as_docx_writes_each_format()
     {
         using var data = new TestData();
-        var docx = data.File("Vertrag.docx", "PK…");
-        var exception = Assert.Throws<BusinessException>(() => DocumentService.Open(docx, name => new TextDocument(name)));
-        Assert.Contains("(noch) nicht öffnen", exception.Message);
-        Assert.Throws<BusinessException>(() => DocumentService.SaveAs(new TextDocument("x"), Path.Combine(data.DocumentsFolder, "x.docx")));
+        var document = new WordDocument("Dokument1", SampleDocument.Create(new DocumentFonts("Arial", "Arial")));
+        var text = Path.Combine(data.DocumentsFolder, "Bericht.txt");
+        var docx = Path.Combine(data.DocumentsFolder, "Bericht.docx");
+
+        DocumentService.SaveAs(document, text);
+        Assert.StartsWith("Projektbericht November", File.ReadAllText(text));
+        DocumentService.SaveAs(document, docx);
+        Assert.Equal((byte)'P', File.ReadAllBytes(docx)[0]);
+        Assert.Equal(WordFileFormat.Docx, document.SaveFormat);
+
+        var reopened = DocumentService.Open(docx, name => new WordDocument(name));
+        Assert.True(reopened.Content.ContentEquals(document.Content));
     }
 }

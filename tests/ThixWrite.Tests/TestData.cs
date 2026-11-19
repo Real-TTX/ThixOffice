@@ -8,6 +8,7 @@ using ThixOffice.Core.Infrastructure;
 using ThixOffice.Desktop;
 using ThixOffice.Desktop.Shell;
 using ThixWrite.Core;
+using ThixWrite.Editor;
 
 [assembly: Avalonia.Headless.AvaloniaTestApplication(typeof(ThixWrite.Tests.TestAppBuilder))]
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
@@ -125,4 +126,62 @@ public sealed class TestData : IDisposable
     }
 
     public static RawInputModifiers CommandKey => OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control;
+
+    /// <summary>The key that moves by words (Strg on Windows, ⌥ on macOS).</summary>
+    public static RawInputModifiers WordKey => OperatingSystem.IsMacOS() ? RawInputModifiers.Alt : RawInputModifiers.Control;
+
+    /// <summary>The editor of a window.</summary>
+    public static WriteEditor EditorOf(OfficeWindow window) => (WriteEditor)window.Editor;
+
+    /// <summary>A new window with the keyboard in its document.</summary>
+    public static async Task<OfficeWindow> NewWindowAsync()
+    {
+        var window = App.NewDocumentWindow();
+        window.Width = 1180;
+        window.Height = 820;
+        await SettleAsync();
+        EditorOf(window).FocusDocument();
+        await SettleAsync();
+        return window;
+    }
+
+    /// <summary>Types like the keyboard does (text input into the focused document); "\n" is Enter.</summary>
+    public static async Task TypeAsync(OfficeWindow window, string text)
+    {
+        var lines = text.Split('\n');
+        for (var index = 0; index < lines.Length; index++)
+        {
+            if (index > 0)
+            {
+                window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+            }
+
+            if (lines[index].Length > 0)
+            {
+                window.KeyTextInput(lines[index]);
+            }
+        }
+
+        await SettleAsync();
+    }
+
+    /// <summary>Presses a key with modifiers and lets the window settle.</summary>
+    public static async Task PressAsync(OfficeWindow window, PhysicalKey key, RawInputModifiers modifiers = RawInputModifiers.None)
+    {
+        window.KeyPressQwerty(key, modifiers);
+        await SettleAsync();
+    }
+
+    /// <summary>The text of the document, paragraphs joined with "\n".</summary>
+    public static string TextOf(OfficeWindow window) =>
+        string.Join("\n", EditorOf(window).Document.Content.Blocks.OfType<ThixWrite.Core.Model.Paragraph>().Select(paragraph => paragraph.Text));
+
+    /// <summary>The point in the window of a caret position (its middle).</summary>
+    public static Point PointOf(OfficeWindow window, ThixWrite.Core.Model.DocumentPosition position)
+    {
+        var editor = EditorOf(window);
+        var caret = editor.Layout.GetCaret(new ThixWrite.Core.Editing.CaretPlace(position));
+        var rect = editor.Surface.ToSurface(caret.Page, caret.X, caret.Top, 0, caret.Height);
+        return editor.Surface.TranslatePoint(new Point(rect.X, rect.Y + (rect.Height / 2)), window)!.Value;
+    }
 }

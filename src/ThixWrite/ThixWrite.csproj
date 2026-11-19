@@ -55,18 +55,23 @@
     <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
     <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Skia" Version="$(AvaloniaVersion)" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ThixOffice.Core\ThixOffice.Core.csproj" />
     <ProjectReference Include="..\ThixOffice.Desktop\ThixOffice.Desktop.csproj" />
     <ProjectReference Include="..\ThixWrite.Core\ThixWrite.Core.csproj" />
+    <ProjectReference Include="..\ThixOffice.Text\ThixOffice.Text.csproj" />
+    <ProjectReference Include="..\ThixOffice.Text.Skia\ThixOffice.Text.Skia.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <TrimmerRootAssembly Include="ThixOffice.Core" />
     <TrimmerRootAssembly Include="ThixOffice.Desktop" />
     <TrimmerRootAssembly Include="ThixWrite.Core" />
+    <TrimmerRootAssembly Include="ThixOffice.Text" />
+    <TrimmerRootAssembly Include="ThixOffice.Text.Skia" />
   </ItemGroup>
 
   <ItemGroup>

@@ -18,7 +18,7 @@ public sealed class SnapshotTests
 
         var report = OfficeSnapshot.Render(TestData.App, folder);
 
-        Assert.Equal(OfficeSnapshot.FileNames("thixwrite").Count, report.Written.Count + report.Skipped.Count);
+        Assert.Equal(OfficeSnapshot.FileNames(TestData.App).Count, report.Written.Count + report.Skipped.Count);
         Assert.All(report.Written, file => Assert.True(new FileInfo(Path.Combine(folder, file)).Length > 5000, $"{file} is (nearly) empty"));
         Assert.Contains("thixwrite-main-dark.png", report.Written);
         Assert.Empty(TestData.App.DocumentWindows);
@@ -27,11 +27,15 @@ public sealed class SnapshotTests
     [Fact]
     public void ThixWrite_writes_no_colour_of_its_own()
     {
-        // DESK-02: colours only from MatDesktop's theme; the one literal is the accent (ThixWriteApp.Accent).
+        // DESK-02: colours only from MatDesktop's theme; the one literal is the accent (ThixWriteApp.Accent). The one exemption:
+        // the colours that are document data (paper, ink, the palettes of Schriftfarbe and Hervorhebung) in DocumentPalette.cs.
         var literal = new Regex(@"#[0-9A-Fa-f]{6}\b|#[0-9A-Fa-f]{8}\b|Color\.(Parse|FromRgb|FromArgb)|Colors\.\w+|Brushes\.\w+");
         var root = FindRoot();
+        var palette = Path.Combine(root, "src", "ThixWrite", "Editor", "DocumentPalette.cs");
+        Assert.True(File.Exists(palette));
         var findings = new[] { "ThixWrite", "ThixWrite.Core" }
             .SelectMany(project => Directory.EnumerateFiles(Path.Combine(root, "src", project), "*.*", SearchOption.AllDirectories))
+            .Where(file => file != palette)
             .Where(file => (file.EndsWith(".cs", StringComparison.Ordinal) || file.EndsWith(".axaml", StringComparison.Ordinal))
                            && !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                            && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
