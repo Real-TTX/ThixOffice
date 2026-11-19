@@ -66,8 +66,10 @@ internal static class ShowSelfTest
         Ensure(readChart is not null && SharedChartRenderer.ChartOf(readChart, read) is { } back && back.AllSeries.Count() == 1, "the chart is lost in the pptx");
         Ensure(table > 0, "no table id");
 
-        // A slide drawn as the editor and the show draw it: the chart's bars and the picture leave colour.
+        // A slide drawn as the editor and the show draw it: the picture, the chart's labels and the shapes leave ink.
         var page = SlideRenderer.Render(read, read.Slides[1], OfficeFonts.Skia);
+        Ensure(page.Items.OfType<ThixOffice.Text.Drawing.VectorPathItem>().Any(item => item.Fill is ThixOffice.Text.Drawing.ImagePaint), "the picture is not drawn");
+        Ensure(page.Items.OfType<ThixOffice.Text.Drawing.GlyphRunItem>().Any(run => run.Text == "Werte"), "the chart is not drawn");
         var png = SkiaPageRenderer.RenderPng(page, 640, OfficeFonts.Skia);
         using var bitmap = SKBitmap.Decode(png);
         var coloured = 0;
@@ -76,11 +78,11 @@ internal static class ShowSelfTest
             for (var x = 0; x < bitmap.Width; x += 3)
             {
                 var pixel = bitmap.GetPixel(x, y);
-                coloured += Math.Max(pixel.Red, Math.Max(pixel.Green, pixel.Blue)) - Math.Min(pixel.Red, Math.Min(pixel.Green, pixel.Blue)) > 60 ? 1 : 0;
+                coloured += Math.Min(pixel.Red, Math.Min(pixel.Green, pixel.Blue)) < 200 ? 1 : 0;
             }
         }
 
-        Ensure(coloured > 200, $"the slide shows {coloured} coloured pixels");
+        Ensure(coloured > 1000, $"the slide shows {coloured} inked pixels");
 
         // The show engine through the second slide: the transition, then the click that fades the chart in.
         var show = new SlideShow(read, OfficeFonts.Skia, new SlideShowOptions(StartSlide: 1));
@@ -108,7 +110,7 @@ internal static class ShowSelfTest
 
         window.Close();
         await Settle();
-        return $"pptx {new FileInfo(path).Length} bytes, sample {new FileInfo(samplePath).Length} bytes, PDF {bytes.Length} bytes, slide {coloured} coloured px, {OfficeFonts.Families.Count} font families";
+        return $"pptx {new FileInfo(path).Length} bytes, sample {new FileInfo(samplePath).Length} bytes, PDF {bytes.Length} bytes, slide {coloured} inked px, {OfficeFonts.Families.Count} font families";
     }
 
     private static void Type(ShowEditor editor, string text) =>
