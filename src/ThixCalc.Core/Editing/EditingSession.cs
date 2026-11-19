@@ -397,6 +397,53 @@ public sealed partial class EditingSession
         });
     }
 
+    /// <summary>
+    /// Strg+Umschalt+Eingabe: <paramref name="text"/> (a formula in the locale) as a legacy array formula over the selection
+    /// (the active range); a formula that was such an array before keeps its range.
+    /// </summary>
+    public void EnterArrayFormula(string text)
+    {
+        var sheet = ActiveSheet;
+        var range = Selection;
+        if (sheet.FindArrayAnchor(ActiveCell.Row, ActiveCell.Column) is { } anchor && sheet.GetCell(anchor).ArrayRange is { } existing)
+        {
+            range = existing;
+        }
+
+        if (range.CellCount > 1_000_000)
+        {
+            throw new BusinessException("Die Auswahl ist für eine Matrixformel zu groß.");
+        }
+
+        var body = text.TrimStart().TrimStart('{').TrimEnd().TrimEnd('}');
+        if (!body.StartsWith('=') && !body.StartsWith('+'))
+        {
+            EnterInput(text);
+            return;
+        }
+
+        Formula formula;
+        try
+        {
+            formula = FormulaParser.Parse(body, Workbook, sheet, range.First, Syntax);
+        }
+        catch (FormulaParseException exception)
+        {
+            throw new BusinessException(exception.Message, "formula");
+        }
+
+        Execute("Matrixformel", () =>
+        {
+            GuardArrays(sheet, range);
+            foreach (var entry in sheet.GetCells(range).ToList())
+            {
+                SetCell(sheet, entry.Row, entry.Column, Cell.Empty with { StyleId = entry.Cell.StyleId });
+            }
+
+            SetCell(sheet, range.FirstRow, range.FirstColumn, new Cell(CellValue.Blank, formula, sheet.GetStyleId(range.FirstRow, range.FirstColumn), range));
+        });
+    }
+
     /// <summary>Puts input into one cell (inside the open command).</summary>
     internal void EnterInto(Worksheet sheet, CellAddress cell, string text)
     {
@@ -752,6 +799,24 @@ public sealed partial class EditingSession
     }
 
     public void Unfreeze() => FreezePanes(default);
+
+    /// <summary>Formeln › Berechnungsoptionen: automatic (recalculates at once) or manual (F9).</summary>
+    public void SetCalculation(bool manual)
+    {
+        Workbook.CalculationSettings = Workbook.CalculationSettings with { Manual = manual };
+        Recalculate();
+        StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Ansicht options of the active sheet (Gitternetzlinien, Überschriften, Formeln anzeigen …): not an undo step.</summary>
+    public void ChangeView(Func<SheetView, SheetView> change)
+    {
+        var sheet = ActiveSheet;
+        sheet.View = change(sheet.View);
+        Workbook.NoteStructureChanged();
+        Workbook.PublishChanges();
+        StateChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <summary>The scroll position of the scrolling pane (the grid sets it; not an undo step).</summary>
     public void ScrollTo(CellAddress topLeft)

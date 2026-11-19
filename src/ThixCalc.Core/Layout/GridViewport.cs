@@ -153,8 +153,28 @@ public sealed class SheetLayout
     {
         var view = _sheet.View;
         var scale = zoom ?? view.Zoom / 100.0;
+        var firstRow = Math.Max(view.TopLeft.Row, view.FrozenRows);
+        var firstColumn = Math.Max(view.TopLeft.Column, view.FrozenColumns);
+        return Viewport(width, height, scale, ColumnLeft(firstColumn, scale), RowTop(firstRow, scale));
+    }
+
+    /// <summary>The smallest scroll position (pixels at <paramref name="zoom"/>): the first row and column after the frozen ones.</summary>
+    public (double X, double Y) MinimumScroll(double zoom) => (ColumnLeft(_sheet.View.FrozenColumns, zoom), RowTop(_sheet.View.FrozenRows, zoom));
+
+    /// <summary>
+    /// The viewport scrolled by pixels (smooth scrolling): <paramref name="scrollX"/> / <paramref name="scrollY"/> are the
+    /// sheet positions (<see cref="ColumnLeft"/> / <see cref="RowTop"/> at <paramref name="zoom"/>) shown at the left / top
+    /// edge of the scrolling pane; the first row and column may be cut off there (the renderer clips the panes).
+    /// </summary>
+    public GridViewport Viewport(double width, double height, double zoom, double scrollX, double scrollY)
+    {
+        var view = _sheet.View;
+        var scale = zoom;
+        var (minimumX, minimumY) = MinimumScroll(scale);
+        scrollX = Math.Max(minimumX, Math.Round(scrollX));
+        scrollY = Math.Max(minimumY, Math.Round(scrollY));
         var headerHeight = view.ShowHeaders ? Math.Round(GridMetrics.RowPixels(_sheet.Rows.DefaultSize) * scale) : 0;
-        var lastRowGuess = Math.Min(SheetLimits.MaxRows, Math.Max(view.TopLeft.Row, view.FrozenRows) + (int)(height / Math.Max(1, RowHeight(0, scale))) + 1);
+        var lastRowGuess = Math.Min(SheetLimits.MaxRows, RowAt(scrollY, scale) + (int)(height / Math.Max(1, RowHeight(0, scale))) + 1);
         var digits = Math.Max(3, lastRowGuess.ToString(System.Globalization.CultureInfo.InvariantCulture).Length);
         var headerWidth = view.ShowHeaders ? Math.Round((digits * _metrics.MaxDigitWidthPixels + 10) * scale) : 0;
 
@@ -171,10 +191,10 @@ public sealed class SheetLayout
             y += size;
         }
 
+        var scrollTop = y;
         var rows = new List<AxisSegment>();
-        var firstRow = Math.Max(view.TopLeft.Row, view.FrozenRows);
-        var rowOrigin = RowTop(firstRow, scale) - y;
-        for (var row = _sheet.Rows.FirstVisibleFrom(firstRow); row < SheetLimits.MaxRows && y < height; row++)
+        var rowOrigin = scrollY - y;
+        for (var row = Math.Max(view.FrozenRows, RowAt(scrollY, scale)); row < SheetLimits.MaxRows && y < height; row++)
         {
             var size = RowHeight(row, scale);
             if (size > 0)
@@ -197,10 +217,10 @@ public sealed class SheetLayout
             x += size;
         }
 
+        var scrollLeft = x;
         var columns = new List<AxisSegment>();
-        var firstColumn = Math.Max(view.TopLeft.Column, view.FrozenColumns);
-        var columnOrigin = ColumnLeft(firstColumn, scale) - x;
-        for (var column = _sheet.Columns.FirstVisibleFrom(firstColumn); column < SheetLimits.MaxColumns && x < width; column++)
+        var columnOrigin = scrollX - x;
+        for (var column = Math.Max(view.FrozenColumns, ColumnAt(scrollX, scale)); column < SheetLimits.MaxColumns && x < width; column++)
         {
             var size = ColumnWidth(column, scale);
             if (size > 0)
@@ -210,7 +230,57 @@ public sealed class SheetLayout
             }
         }
 
-        return new GridViewport(this, width, height, scale, headerWidth, headerHeight, frozenRows, rows, frozenColumns, columns, rowOrigin, columnOrigin);
+        return new GridViewport(this, width, height, scale, headerWidth, headerHeight, frozenRows, rows, frozenColumns, columns, rowOrigin, columnOrigin)
+        {
+            ScrollTop = scrollTop,
+            ScrollLeft = scrollLeft,
+            ScrollX = scrollX,
+            ScrollY = scrollY,
+        };
+    }
+
+    /// <summary>
+    /// The pixel scroll position (at <paramref name="zoom"/>) that shows <paramref name="cell"/> whole in a grid of
+    /// <paramref name="viewport"/>'s size: unchanged when it is visible, else moved by as little as possible (Excel's way).
+    /// </summary>
+    public (double X, double Y) ScrollToShow(GridViewport viewport, CellAddress cell)
+    {
+        var view = _sheet.View;
+        var zoom = viewport.Zoom;
+        var x = viewport.ScrollX;
+        var y = viewport.ScrollY;
+        var range = _sheet.Merges.Find(cell.Row, cell.Column) ?? CellRange.Cell(cell);
+        if (cell.Row >= view.FrozenRows)
+        {
+            var top = RowTop(range.FirstRow, zoom);
+            var bottom = RowTop(range.LastRow + 1, zoom);
+            var paneHeight = Math.Max(1, viewport.Height - viewport.ScrollTop);
+            if (top < y)
+            {
+                y = top;
+            }
+            else if (bottom > y + paneHeight)
+            {
+                y = Math.Min(top, bottom - paneHeight);
+            }
+        }
+
+        if (cell.Column >= view.FrozenColumns)
+        {
+            var left = ColumnLeft(range.FirstColumn, zoom);
+            var right = ColumnLeft(range.LastColumn + 1, zoom);
+            var paneWidth = Math.Max(1, viewport.Width - viewport.ScrollLeft);
+            if (left < x)
+            {
+                x = left;
+            }
+            else if (right > x + paneWidth)
+            {
+                x = Math.Min(left, right - paneWidth);
+            }
+        }
+
+        return (x, y);
     }
 }
 
@@ -269,10 +339,23 @@ public sealed class GridViewport
 
     public IEnumerable<AxisSegment> AllColumns => FrozenColumns.Concat(Columns);
 
-    /// <summary>The y where the scrolling rows start (below headers and frozen rows).</summary>
-    public double ScrollTop => FrozenRows.Count > 0 ? FrozenRows[^1].End : HeaderHeight;
+    /// <summary>The y where the scrolling pane starts (below headers and frozen rows).</summary>
+    public double ScrollTop { get; init; }
 
-    public double ScrollLeft => FrozenColumns.Count > 0 ? FrozenColumns[^1].End : HeaderWidth;
+    /// <summary>The x where the scrolling pane starts (right of the row headers and the frozen columns).</summary>
+    public double ScrollLeft { get; init; }
+
+    /// <summary>The sheet position (pixels at <see cref="Zoom"/>) shown at the scrolling pane's left edge.</summary>
+    public double ScrollX { get; init; }
+
+    /// <summary>The sheet position shown at the scrolling pane's top edge.</summary>
+    public double ScrollY { get; init; }
+
+    /// <summary>The first scrolling row whose top is not cut off (the view's TopLeft row).</summary>
+    public int FirstWholeRow => Rows.FirstOrDefault(row => row.Start >= ScrollTop - 0.5, Rows.Count > 0 ? Rows[0] : new AxisSegment(Layout.Sheet.View.FrozenRows, 0, 0)).Index;
+
+    /// <summary>The first scrolling column whose left is not cut off.</summary>
+    public int FirstWholeColumn => Columns.FirstOrDefault(column => column.Start >= ScrollLeft - 0.5, Columns.Count > 0 ? Columns[0] : new AxisSegment(Layout.Sheet.View.FrozenColumns, 0, 0)).Index;
 
     /// <summary>The cells the scrolling pane shows (frozen panes not included).</summary>
     public CellRange VisibleRange => Rows.Count == 0 || Columns.Count == 0

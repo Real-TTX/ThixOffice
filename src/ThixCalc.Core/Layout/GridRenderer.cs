@@ -42,6 +42,17 @@ public sealed record GridRenderOptions
 
     public RgbColor HeaderHighlight { get; init; } = RgbColor.FromHex("D3F0E0");
 
+    /// <summary>The header of a whole selected row/column (Excel: dark green with white text).</summary>
+    public RgbColor HeaderSelected { get; init; } = RgbColor.FromHex("107C41");
+
+    public RgbColor HeaderSelectedText { get; init; } = RgbColor.White;
+
+    /// <summary>The line at the cell side of a highlighted header.</summary>
+    public RgbColor HeaderMarker { get; init; } = RgbColor.FromHex("107C41");
+
+    /// <summary>The line along frozen rows/columns.</summary>
+    public RgbColor FreezeLine { get; init; } = RgbColor.FromHex("9B9B9B");
+
     /// <summary>Rows/columns whose headers are highlighted (the selection's).</summary>
     public IReadOnlyList<CellRange> Selection { get; init; } = [];
 
@@ -146,9 +157,10 @@ public static class GridRenderer
                 continue;
             }
 
-            var clipX = paneColumns[0].Start;
-            var clipY = paneRows[0].Start;
-            items.Add(new ClipBeginItem(clipX, clipY, paneColumns[^1].End - clipX, paneRows[^1].End - clipY));
+            // A scrolled pane starts at its boundary (its first row/column may be cut off there).
+            var clipX = Math.Max(paneColumns[0].Start, ReferenceEquals(paneColumns, viewport.Columns) ? viewport.ScrollLeft : viewport.HeaderWidth);
+            var clipY = Math.Max(paneRows[0].Start, ReferenceEquals(paneRows, viewport.Rows) ? viewport.ScrollTop : viewport.HeaderHeight);
+            items.Add(new ClipBeginItem(clipX, clipY, Math.Min(viewport.Width, paneColumns[^1].End) - clipX, Math.Min(viewport.Height, paneRows[^1].End) - clipY));
             RenderPane(items, viewport, metrics, options, sheet, paneRows, paneColumns, merges, conditional);
             items.Add(ClipEndItem.Instance);
         }
@@ -569,33 +581,87 @@ public static class GridRenderer
         items.Add(new RectangleItem(0, 0, viewport.Width, viewport.HeaderHeight, options.HeaderBackground));
         items.Add(new RectangleItem(0, 0, viewport.HeaderWidth, viewport.Height, options.HeaderBackground));
         bool Selected(Func<CellRange, bool> test) => options.Selection.Any(test);
+        var wholeRows = options.Selection.Where(range => range.IsWholeRows).ToList();
+        var wholeColumns = options.Selection.Where(range => range.IsWholeColumns).ToList();
 
-        foreach (var column in columns)
+        // Column headers: the frozen ones, then the scrolled ones from the pane's left edge (a cut-off header stays behind it).
+        foreach (var (group, from, to) in new[] { (viewport.FrozenColumns, viewport.HeaderWidth, viewport.ScrollLeft), (viewport.Columns, viewport.ScrollLeft, viewport.Width) })
         {
-            if (Selected(range => column.Index >= range.FirstColumn && column.Index <= range.LastColumn))
+            if (group.Count == 0 || to <= from)
             {
-                items.Add(new RectangleItem(column.Start, 0, column.Size, viewport.HeaderHeight, options.HeaderHighlight));
+                continue;
             }
 
-            var shaped = measurer.Shape(A1.ColumnName(column.Index), font);
-            AddRun(items, column.Start + (column.Size - shaped.Width) / 2, (viewport.HeaderHeight + fontMetrics.Ascent - fontMetrics.Descent) / 2, shaped, options.HeaderText);
-            items.Add(new LineItem(column.End - 0.5, 0, column.End - 0.5, viewport.HeaderHeight, options.HeaderLine, 1));
+            items.Add(new ClipBeginItem(from, 0, to - from, viewport.HeaderHeight));
+            foreach (var column in group)
+            {
+                if (Selected(range => column.Index >= range.FirstColumn && column.Index <= range.LastColumn))
+                {
+                    var whole = wholeColumns.Any(range => column.Index >= range.FirstColumn && column.Index <= range.LastColumn);
+                    items.Add(new RectangleItem(column.Start, 0, column.Size, viewport.HeaderHeight, whole ? options.HeaderSelected : options.HeaderHighlight));
+                    items.Add(new LineItem(column.Start, viewport.HeaderHeight - 1, column.End, viewport.HeaderHeight - 1, options.HeaderMarker, 2));
+                }
+
+                var shaped = measurer.Shape(A1.ColumnName(column.Index), font);
+                var selectedText = wholeColumns.Any(range => column.Index >= range.FirstColumn && column.Index <= range.LastColumn);
+                AddRun(items, column.Start + (column.Size - shaped.Width) / 2, (viewport.HeaderHeight + fontMetrics.Ascent - fontMetrics.Descent) / 2, shaped, selectedText ? options.HeaderSelectedText : options.HeaderText);
+                items.Add(new LineItem(column.End - 0.5, 0, column.End - 0.5, viewport.HeaderHeight, options.HeaderLine, 1));
+            }
+
+            items.Add(ClipEndItem.Instance);
         }
 
-        foreach (var row in rows)
+        foreach (var (group, from, to) in new[] { (viewport.FrozenRows, viewport.HeaderHeight, viewport.ScrollTop), (viewport.Rows, viewport.ScrollTop, viewport.Height) })
         {
-            if (Selected(range => row.Index >= range.FirstRow && row.Index <= range.LastRow))
+            if (group.Count == 0 || to <= from)
             {
-                items.Add(new RectangleItem(0, row.Start, viewport.HeaderWidth, row.Size, options.HeaderHighlight));
+                continue;
             }
 
-            var label = (row.Index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
-            var shaped = measurer.Shape(label, font);
-            AddRun(items, (viewport.HeaderWidth - shaped.Width) / 2, row.Start + (row.Size + fontMetrics.Ascent - fontMetrics.Descent) / 2, shaped, options.HeaderText);
-            items.Add(new LineItem(0, row.End - 0.5, viewport.HeaderWidth, row.End - 0.5, options.HeaderLine, 1));
+            items.Add(new ClipBeginItem(0, from, viewport.HeaderWidth, to - from));
+            foreach (var row in group)
+            {
+                if (Selected(range => row.Index >= range.FirstRow && row.Index <= range.LastRow))
+                {
+                    var whole = wholeRows.Any(range => row.Index >= range.FirstRow && row.Index <= range.LastRow);
+                    items.Add(new RectangleItem(0, row.Start, viewport.HeaderWidth, row.Size, whole ? options.HeaderSelected : options.HeaderHighlight));
+                    items.Add(new LineItem(viewport.HeaderWidth - 1, row.Start, viewport.HeaderWidth - 1, row.End, options.HeaderMarker, 2));
+                }
+
+                var label = (row.Index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                var shaped = measurer.Shape(label, font);
+                var selectedText = wholeRows.Any(range => row.Index >= range.FirstRow && row.Index <= range.LastRow);
+                AddRun(items, (viewport.HeaderWidth - shaped.Width) / 2, row.Start + (row.Size + fontMetrics.Ascent - fontMetrics.Descent) / 2, shaped, selectedText ? options.HeaderSelectedText : options.HeaderText);
+                items.Add(new LineItem(0, row.End - 0.5, viewport.HeaderWidth, row.End - 0.5, options.HeaderLine, 1));
+            }
+
+            items.Add(ClipEndItem.Instance);
         }
 
         items.Add(new LineItem(viewport.HeaderWidth - 0.5, 0, viewport.HeaderWidth - 0.5, viewport.Height, options.HeaderLine, 1));
         items.Add(new LineItem(0, viewport.HeaderHeight - 0.5, viewport.Width, viewport.HeaderHeight - 0.5, options.HeaderLine, 1));
+
+        // The corner: Excel's small triangle (select all).
+        var size = Math.Min(viewport.HeaderWidth, viewport.HeaderHeight) * 0.55;
+        if (size >= 4)
+        {
+            var right = viewport.HeaderWidth - 4;
+            var bottom = viewport.HeaderHeight - 4;
+            for (var step = 0; step < size; step++)
+            {
+                items.Add(new LineItem(right - step, bottom - 0.5 - (size - step - 1), right - step, bottom, options.HeaderLine, 1));
+            }
+        }
+
+        // Frozen panes: the lines along the frozen rows/columns.
+        if (viewport.FrozenRows.Count > 0)
+        {
+            items.Add(new LineItem(0, viewport.ScrollTop - 0.5, viewport.Width, viewport.ScrollTop - 0.5, options.FreezeLine, 1));
+        }
+
+        if (viewport.FrozenColumns.Count > 0)
+        {
+            items.Add(new LineItem(viewport.ScrollLeft - 0.5, 0, viewport.ScrollLeft - 0.5, viewport.Height, options.FreezeLine, 1));
+        }
     }
 }

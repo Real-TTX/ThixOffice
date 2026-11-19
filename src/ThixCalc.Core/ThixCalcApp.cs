@@ -29,5 +29,6 @@ public static class ThixCalcApp
     {
         UntitledBaseName = "Mappe",
         BlankDocumentLabel = "Leere Arbeitsmappe",
+        CloudAppId = MatCloud.Contract.CloudApps.Calc, // workbooks in ThixDrive (the Drive grants its routes to "calc")
     };
 }
