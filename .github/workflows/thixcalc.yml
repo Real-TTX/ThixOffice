@@ -1,6 +1,6 @@
 name: thixcalc
 # Builds, tests and packages ThixCalc (the reusable _desktop.yml does the work). Its run number is ThixCalc's build
-# number, so ThixCalc counts on its own. Manually: Actions › thixcalc › Run workflow.
+# number, so ThixCalc counts on its own. A cancelled macOS job (no runner) is repeated by a new run. Manually: Actions › thixcalc › Run workflow.
 
 on:
   push:
