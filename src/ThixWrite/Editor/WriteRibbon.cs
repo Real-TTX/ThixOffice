@@ -56,6 +56,8 @@ public static class WriteCommandIds
     public const string SelectAll = "edit.selectAll";
 
     // Einfügen
+    public const string TablePicker = "write.tablePicker"; // the grid of the ribbon (a control of its own)
+    public const string InsertTable = "write.insertTable";
     public const string PageBreak = "write.pageBreak";
     public const string InsertDateTime = "write.insertDateTime";
 
@@ -73,6 +75,30 @@ public static class WriteCommandIds
     public const string IndentRight = "write.indentRight"; // value: cm, invariant
     public const string SpacingBefore = "write.spacingBefore"; // value: pt, invariant
     public const string SpacingAfter = "write.spacingAfter"; // value: pt, invariant
+
+    // Tabellenentwurf / Layout (contextual, while the caret is in a table)
+    public const string TableBorders = "write.table.borders"; // the menu entries are write.table.borders.<bottom|top|…>
+    public const string TableShading = "write.table.shading"; // value: #rrggbb or null (Keine Farbe)
+    public const string TableSelect = "write.table.select";
+    public const string TableSelectCell = "write.table.select.cell";
+    public const string TableSelectColumn = "write.table.select.column";
+    public const string TableSelectRow = "write.table.select.row";
+    public const string TableSelectTable = "write.table.select.table";
+    public const string TableDelete = "write.table.delete";
+    public const string TableDeleteCells = "write.table.delete.cells";
+    public const string TableDeleteColumns = "write.table.delete.columns";
+    public const string TableDeleteRows = "write.table.delete.rows";
+    public const string TableDeleteTable = "write.table.delete.table";
+    public const string TableInsertAbove = "write.table.insertAbove";
+    public const string TableInsertBelow = "write.table.insertBelow";
+    public const string TableInsertLeft = "write.table.insertLeft";
+    public const string TableInsertRight = "write.table.insertRight";
+    public const string TableMerge = "write.table.merge";
+    public const string TableSplit = "write.table.split";
+    public const string TableDistributeRows = "write.table.distributeRows";
+    public const string TableDistributeColumns = "write.table.distributeColumns";
+    public const string TableAlign = "write.table.align"; // the nine are write.table.align.<topLeft|…|bottomRight>
+    public const string TableRepeatHeader = "write.table.repeatHeader";
 
     // Ansicht
     public const string Ruler = "write.ruler";
@@ -113,7 +139,7 @@ public static class WriteRibbon
     {
         var theme = (window.Document as WordDocument)?.Content.Theme ?? Theme.Office;
         var definition = new MatRibbonDefinition { FileLabel = "Datei" };
-        definition.Add(HomeTab(theme), InsertTab(), LayoutTab(), ViewTab());
+        definition.Add(HomeTab(theme), InsertTab(), LayoutTab(), ViewTab(), TableDesignTab(theme), TableLayoutTab());
         return definition;
     }
 
@@ -169,6 +195,8 @@ public static class WriteRibbon
 
     private static MatRibbonTab InsertTab() =>
         new MatRibbonTab("insert", "Einfügen").Add(
+            new MatRibbonGroup("tables", "Tabellen") { Icon = "table" }.Add(
+                new MatRibbonCustom(WriteCommandIds.TablePicker, "Tabelle") { IsTall = true }),
             new MatRibbonGroup("pages", "Seiten") { Icon = "page-break" }.Add(
                 Button(WriteCommandIds.PageBreak, MatRibbonSize.Large)),
             new MatRibbonGroup("text", "Text") { Icon = "clock" }.Add(
@@ -214,6 +242,51 @@ public static class WriteRibbon
         number.Width = 92;
         return number;
     }
+
+    /// <summary>Tabellenentwurf (contextual): Rahmen and Schattierung of the selected cells.</summary>
+    private static MatRibbonTab TableDesignTab(Theme theme) =>
+        new MatRibbonTab("tableDesign", "Tabellenentwurf") { Context = TableCommands.Context }.Add(
+            new MatRibbonGroup("table-borders", "Rahmen") { Icon = "borders" }.Add(
+                ColorPicker(WriteCommandIds.TableShading, DocumentPalette.FontColors(theme), "Keine Farbe"),
+                new MatRibbonMenuButton(WriteCommandIds.TableBorders, "", null,
+                    [.. TableCommands.BorderChoices.Select(choice => Button($"{WriteCommandIds.TableBorders}.{choice.Id}"))]) { Size = MatRibbonSize.Large }));
+
+    /// <summary>Layout (contextual, Word's second "Layout"): select, delete, insert, merge, size, alignment, heading rows.</summary>
+    private static MatRibbonTab TableLayoutTab() =>
+        new MatRibbonTab("tableLayout", "Layout") { Context = TableCommands.Context, KeyTip = "T" }.Add(
+            new MatRibbonGroup("table-table", "Tabelle") { Icon = "grid" }.Add(
+                new MatRibbonMenuButton(WriteCommandIds.TableSelect, "", null,
+                    Button(WriteCommandIds.TableSelectCell),
+                    Button(WriteCommandIds.TableSelectColumn),
+                    Button(WriteCommandIds.TableSelectRow),
+                    Button(WriteCommandIds.TableSelectTable)) { Size = MatRibbonSize.Large }),
+            new MatRibbonGroup("table-rows", "Zeilen und Spalten") { Icon = "row-insert" }.Add(
+                new MatRibbonMenuButton(WriteCommandIds.TableDelete, "", null,
+                    Button(WriteCommandIds.TableDeleteCells),
+                    Button(WriteCommandIds.TableDeleteColumns),
+                    Button(WriteCommandIds.TableDeleteRows),
+                    Button(WriteCommandIds.TableDeleteTable)) { Size = MatRibbonSize.Large },
+                Button(WriteCommandIds.TableInsertAbove, MatRibbonSize.Large),
+                new MatRibbonStack("table-insert",
+                    Button(WriteCommandIds.TableInsertBelow),
+                    Button(WriteCommandIds.TableInsertLeft),
+                    Button(WriteCommandIds.TableInsertRight))),
+            new MatRibbonGroup("table-merge", "Zusammenführen") { Icon = "merge-cells" }.Add(
+                Button(WriteCommandIds.TableMerge),
+                Button(WriteCommandIds.TableSplit)),
+            new MatRibbonGroup("table-size", "Zellengröße") { Icon = "columns" }.Add(
+                Button(WriteCommandIds.TableDistributeRows),
+                Button(WriteCommandIds.TableDistributeColumns)),
+            new MatRibbonGroup("table-align", "Ausrichtung") { Icon = "align-center" }.Add(
+                new MatRibbonStack("table-align-rows",
+                    new MatRibbonRow("table-align-top", [.. TableCommands.CellAlignments.Take(3).Select(Align)]),
+                    new MatRibbonRow("table-align-center", [.. TableCommands.CellAlignments.Skip(3).Take(3).Select(Align)]),
+                    new MatRibbonRow("table-align-bottom", [.. TableCommands.CellAlignments.Skip(6).Select(Align)]))),
+            new MatRibbonGroup("table-data", "Daten") { Icon = "header" }.Add(
+                Toggle(WriteCommandIds.TableRepeatHeader)));
+
+    private static MatRibbonItem Align((string Id, string Label, Core.Model.CellVerticalAlignment Vertical, ParagraphAlignment Horizontal) alignment) =>
+        Toggle($"{WriteCommandIds.TableAlign}.{alignment.Id}", "cellAlign", MatRibbonSize.Small);
 
     private static MatRibbonTab ViewTab() =>
         new MatRibbonTab("view", "Ansicht").Add(

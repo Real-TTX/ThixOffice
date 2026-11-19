@@ -35,6 +35,8 @@ internal sealed class DocumentSurface : Control
     private static readonly TimeSpan BlinkInterval = TimeSpan.FromMilliseconds(530);
     private readonly CaretLayer _caretLayer = new();
     private readonly Cursor _ibeam = new(StandardCursorType.Ibeam);
+    private readonly Cursor _columnCursor = new(StandardCursorType.SizeWestEast);
+    private ColumnDrag? _columnDrag;
     private readonly DispatcherTimer _blink;
     private readonly DispatcherTimer _autoScroll;
     private readonly IBrush _paper = new SolidColorBrush(DocumentPalette.Paper);
@@ -440,6 +442,15 @@ internal sealed class DocumentSurface : Control
         }
 
         Focus();
+        if (ColumnBorderAt(point.Position) is { } border)
+        {
+            // A column border of a table: dragging it changes the widths of the columns beside it.
+            _columnDrag = border;
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
         if (hit.PreservedBlock is { } block)
         {
             Session.SelectBlock(block);
@@ -477,7 +488,8 @@ internal sealed class DocumentSurface : Control
     {
         base.OnPointerMoved(e);
         var position = e.GetPosition(this);
-        var cursor = _dragging || PageUnder(position) >= 0 ? _ibeam : Cursor.Default;
+        var cursor = _columnDrag is not null || (!_dragging && ColumnBorderAt(position) is not null) ? _columnCursor
+            : _dragging || PageUnder(position) >= 0 ? _ibeam : Cursor.Default;
         if (!ReferenceEquals(Cursor, cursor))
         {
             Cursor = cursor;
@@ -504,6 +516,12 @@ internal sealed class DocumentSurface : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        if (_columnDrag is { } drag)
+        {
+            _columnDrag = null;
+            ResizeColumn(drag, e.GetPosition(this));
+        }
+
         EndDrag();
         e.Pointer.Capture(null);
     }
@@ -517,6 +535,7 @@ internal sealed class DocumentSurface : Control
     private void EndDrag()
     {
         _dragging = false;
+        _columnDrag = null;
         _autoScroll.Stop();
     }
 
@@ -539,6 +558,74 @@ internal sealed class DocumentSurface : Control
             Session.Select(word.Start, DocumentPosition.Max(word.End, hit.Position with { Offset = end }));
         }
     }
+
+    /// <summary>A table column border being dragged: the table, the grid boundary (1 … columns), where the drag began (DIP).</summary>
+    private sealed record ColumnDrag(int TableStart, int Boundary, double StartX);
+
+    /// <summary>The vertical cell border within a few pixels of <paramref name="point"/> (the left edge of a table excepted), or null.</summary>
+    private ColumnDrag? ColumnBorderAt(Point point)
+    {
+        var page = PageUnder(point);
+        if (page < 0)
+        {
+            return null;
+        }
+
+        var rect = PageRect(page);
+        var x = (point.X - rect.X) / _scale;
+        var y = (point.Y - rect.Y) / _scale;
+        var tolerance = 3 / _scale;
+        foreach (var cell in Layout.Pages[page].Cells)
+        {
+            if (cell.IsRepeat || y < cell.Y || y > cell.Y + cell.Height || Math.Abs(x - (cell.X + cell.Width)) > tolerance)
+            {
+                continue;
+            }
+
+            if (TableSpan.At(Session.Document, cell.TableStart) is not { } span)
+            {
+                continue;
+            }
+
+            var table = span.Table;
+            var boundary = table.GridColumnOf(cell.Row, cell.Cell) + Math.Max(1, table.CellAt(cell.Row, cell.Cell).GridSpan);
+            return new ColumnDrag(cell.TableStart, boundary, point.X);
+        }
+
+        return null;
+    }
+
+    /// <summary>Applies a column drag: the column left of the border grows by the distance, the one right of it shrinks (the last border widens the table).</summary>
+    private void ResizeColumn(ColumnDrag drag, Point end)
+    {
+        var delta = (end.X - drag.StartX) / _scale;
+        if (Math.Abs(delta) < 0.5 || TableSpan.At(Session.Document, drag.TableStart) is not { } span)
+        {
+            return;
+        }
+
+        var grid = span.Table.Grid.ToList();
+        if (grid.Count != span.Table.ColumnCount || drag.Boundary < 1)
+        {
+            return;
+        }
+
+        var left = drag.Boundary - 1;
+        if (drag.Boundary < grid.Count)
+        {
+            delta = Math.Clamp(delta, TableEditsMinimum - grid[left], grid[drag.Boundary] - TableEditsMinimum);
+            grid[drag.Boundary] -= delta;
+        }
+        else
+        {
+            delta = Math.Max(delta, TableEditsMinimum - grid[left]);
+        }
+
+        grid[left] += delta;
+        Session.SetTableColumnWidths(drag.TableStart, grid);
+    }
+
+    private const double TableEditsMinimum = 12;
 
     /// <summary>The pointer is above or below the viewport while dragging: scroll toward it (faster the farther) and extend.</summary>
     private void AutoScroll()

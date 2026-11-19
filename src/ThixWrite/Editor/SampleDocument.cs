@@ -52,6 +52,27 @@ public static class SampleDocument
         session.InsertParagraphBreak();
         session.RemoveList();
 
+        Paragraph(session, BuiltInStyles.Heading2, "Kennzahlen");
+        session.ApplyStyle(BuiltInStyles.Normal);
+        session.InsertTable(4, 3);
+        string[] cells = ["Kennzahl", "Ist", "Ziel", "Bestellungen", "412", "350", "Rückgabequote", "4,8 %", "8 %", "Anteil Smartphone", "25 %", "30 %"];
+        for (var index = 0; index < cells.Length; index++)
+        {
+            if (index > 0)
+            {
+                session.HandleTab(shift: false);
+            }
+
+            session.InsertText(cells[index]);
+        }
+
+        session.SetCaret(new DocumentPosition(session.CurrentTable!.Start, 0));
+        session.SelectTableRow();
+        session.SetBold(true);
+        session.SetTableCellShading("D9E2F3");
+        session.SetRepeatHeaderRows(true);
+        session.SetCaret(new DocumentPosition(session.CurrentTable!.End + 1, 0));
+
         session.ApplyStyle(BuiltInStyles.Quote);
         session.InsertText("„Der Start ist besser gelaufen, als wir erwartet hatten.“");
         session.InsertParagraphBreak();

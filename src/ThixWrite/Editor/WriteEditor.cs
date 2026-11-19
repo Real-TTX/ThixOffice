@@ -271,9 +271,46 @@ public sealed class WriteEditor : OfficeEditor
         Dispatcher.UIThread.Post(() =>
         {
             _statePending = false;
+            ShowTableTabs();
             _window.Commands.Invalidate();
             UpdateStatus(_window.StatusBar);
         }, DispatcherPriority.Background);
+    }
+
+    /// <summary>Tabellenentwurf and Layout (contextual) show while the caret is in a table, as in Word.</summary>
+    private void ShowTableTabs()
+    {
+        if (Session.CurrentTable is not null)
+        {
+            _window.RibbonDefinition.ShowContext(TableCommands.Context);
+        }
+        else
+        {
+            _window.RibbonDefinition.HideContext(TableCommands.Context);
+        }
+    }
+
+    /// <summary>The average height of the selected table rows on the pages (Zeilen verteilen), points.</summary>
+    public double AverageRowHeight()
+    {
+        if (Session.CurrentCells is not { } cells)
+        {
+            return 12;
+        }
+
+        var heights = new List<double>();
+        for (var row = cells.FirstRow; row <= cells.LastRow; row++)
+        {
+            var (first, _) = cells.Span.BlocksOf(row, 0);
+            var page = Layout.PageOfBlock(first);
+            var placed = Layout.Pages[page].Cells.Where(cell => cell.TableStart == cells.Span.Start && cell.Row == row && !cell.IsRepeat).ToList();
+            if (placed.Count > 0)
+            {
+                heights.Add(placed.Min(cell => cell.Height));
+            }
+        }
+
+        return heights.Count == 0 ? 12 : heights.Average();
     }
 
     private void OnContentReplaced(object? sender, EventArgs e) => _surface.ScheduleRefresh();

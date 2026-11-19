@@ -57,6 +57,9 @@ public abstract class OfficeApplication : Application
     /// </summary>
     public virtual MatRibbonDefinition CreateRibbon(OfficeWindow window) => new();
 
+    /// <summary>The control of a <see cref="MatRibbonCustom"/> place of the app's ribbon (a picker the ribbon does not know), or null.</summary>
+    public virtual Control? CreateRibbonContent(OfficeWindow window, MatRibbonCustom item) => null;
+
     /// <summary>The assembly with the app's Assets (logo-256.png, &lt;id&gt;.ico): the app itself.</summary>
     protected virtual string AssetsAssembly => Definition.Name;
 

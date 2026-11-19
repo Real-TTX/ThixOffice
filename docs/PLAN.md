@@ -158,6 +158,14 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   Vorschau mit Blättern. Windows druckt über GDI (P/Invoke, kein System.Drawing/WPF, net10.0 bleibt; getrimmt geprüft im
   Selbsttest über „Microsoft Print to PDF“): Seiten als Skia-Bänder in Druckerauflösung (max. 600 dpi), Papier/Ausrichtung je
   Seite. macOS druckt über CUPS (libcups): die gewählten Seiten als PDF an cupsPrintFile. Richtlinie DisablePrinting.
+- **Tabellen erledigt (1b):** Modell (Zellabsätze im Textfluss mit Zellbezug, unveränderliche Tabellenstruktur), Layout (Raster,
+  verbundene Zellen waagrecht/senkrecht, Rahmen, Schattierung, Zellränder, vertikale Ausrichtung, Zeilen über Seitenumbrüche,
+  wiederholte Überschriftszeilen, Tabellenausrichtung), Bearbeiten (Tab/Umschalt+Tab, Tab in der letzten Zelle fügt eine Zeile an,
+  Zell-/Zeilen-/Spalten-/Tabellenauswahl, Löschen wie Word), Einfügen › Tabelle (Raster 10 × 8 und Dialog), Kontext-Karten
+  Tabellenentwurf und Layout, Spaltenbreite per Ziehen, docx lesen/schreiben (unbekannte Eigenschaften bleiben erhalten;
+  verschachtelte Tabellen bleiben als Ganzes erhalten und werden gemeldet). **Lücken:** verschachtelte Tabellen bearbeiten,
+  bedingte Formate der Tabellenformatvorlagen (w:tblStylePr), Formatvorlagen-Galerie für Tabellen, automatische Spaltenbreite nach
+  Inhalt (das Raster aus der Datei gilt), Zeilen-/Spaltenauswahl per Klick am Rand (über Layout › Auswählen).
 - **1b:** Drucken, Tabellen, Bilder, Kopf-/Fußzeilen, Seitenzahlen, Hyperlinks, Tabstopps (Lineal), Dialoge Schriftart/Absatz,
   HTML/RTF einfügen.
 - **1c:** Inhaltsverzeichnis, Fußnoten, Kommentare, Rechtschreibprüfung, odt; Karten Referenzen/Überprüfen.

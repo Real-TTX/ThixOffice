@@ -83,7 +83,7 @@ src/ThixOffice.Text        (no UI, no native code) ITextMeasurer, FontSpec/FontM
 src/ThixOffice.Text.Skia   SkiaTextMeasurer (SkiaSharp typefaces + HarfBuzz shaping, font fallback), SkiaPageRenderer (display list
                            → any SKCanvas), PdfExport (SKDocument.CreatePdf); SkiaSharp 2.88.9 / HarfBuzzSharp 8.3.1.1 = Avalonia's
 src/ThixWrite.Core         (no UI) ThixWriteApp.Definition (.docx Supported + default, .txt Supported, .odt/.rtf Planned);
-                           Model/ (Document of immutable blocks, styles, lists, sections, preserved content), Editing/ (EditingSession:
+                           Model/ (Document of immutable blocks, styles, lists, sections, tables, preserved content), Editing/ (EditingSession:
                            selection, every command as a reversible transaction, undo, clipboard fragments, find/replace,
                            GetFormatting), Layout/ (DocumentLayout: incremental line breaking + pagination, hit testing, caret and
                            selection geometry, display lists), Formats/ (docx with the Open XML SDK, plain text),
@@ -168,6 +168,28 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - **Colours:** chrome only Mat tokens; document colours (paper, ink, marks, font/highlight palettes) only in
   `Editor/DocumentPalette.cs` – the one file the colour rules test exempts.
 
+### Tables
+
+- **Model:** a table is NOT a block. Its cells' paragraphs are ordinary `Paragraph`s in `Document.Blocks`, in reading order (row
+  by row, cell by cell), each with `Paragraph.Cell` = `CellRef(Table, Row, Cell)`; the immutable `Table` record holds the
+  structure (`TableProperties`, grid widths in points, rows with `TableRowProperties` and `TableCellProperties`: spans, vertical
+  merges, borders, shading, margins, alignment; unknown XML kept). A table = the run of blocks naming the same instance
+  (`TableSpan.At/All`, `Problems()` for the invariants). Text edits keep the cell (ContentEdits); a structure edit
+  (`TableEdits`: load a `TableModel`, change, `Emit` a new Table) replaces the table's blocks in ONE `BlocksStep`, so undo is
+  exact. Cells covered by a vertical merge keep a hidden paragraph the caret skips (`CaretStops.IsCaretBlock`).
+- **Selections:** `TableSelection`: text inside one cell is a text selection; across cells or over the table's edge it is a
+  selection of WHOLE cells (`TableCellRange` rectangle of grid columns × rows): highlighted as cells, formatted per cell
+  (`TableSelection.Ranges`), cleared per cell by Entf / typing (`ClearWholeCells`), a table inside the selection goes as a whole,
+  copied as a sub-table. Backspace / Entf never join across a cell edge.
+- **Layout:** `DocumentLayout.Tables.cs`: the first block of a table places the whole table (geometry from the grid, the
+  resolved table style `StyleResolver.ResolveTable`, cell text widths, row heights, vertical merges); rows split at line
+  boundaries across pages unless cantSplit / merged; heading rows repeat (`PageLayout.RepeatedLines`, `PlacedCell.IsRepeat`).
+  `PageLayout.Cells` carry rectangles, borders and fills for drawing and hit testing. Paragraphs in cells get the table style's
+  paragraph/character properties between the defaults and their own style (`EffectiveParagraphFormat.StyleKey`).
+- **UI:** Einfügen › Tabelle (`TablePicker`, a `MatRibbonCustom` through `OfficeApplication.CreateRibbonContent`; "Tabelle
+  einfügen …"), contextual tabs Tabellenentwurf / Layout (`TableCommands`, context `table`, shown by `WriteEditor` while the caret is
+  in a table), dialogs InsertTable / SplitCells / DeleteCells, column borders dragged in `DocumentSurface`.
+
 ### Adding a command to ThixWrite
 
 1. An id in `WriteCommandIds` (`write.<name>`; value commands note their value format).
@@ -188,7 +210,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   (`thixwrite-main`, `-main-ribbon-collapsed`, `-backstage-{new,open,saveas,settings,settings-save,settings-updates,about}`,
   `-dialog-save-changes`, `-setup-{welcome,options,update,uninstall}` on Windows, and the app's scenes
   (`OfficeApplication.SnapshotScenes`; ThixWrite: `-main-layout`, `-main-view`, `-main-find`, `-dialog-page-setup`,
-  `-backstage-print`, `-backstage-export`)): the sample report (`SampleDocument`), version 0.1.0, ANNA-PC, C:\Users\Anna\Dokumente, a sample recent
+  `-main-table`, `-backstage-print`, `-backstage-export`)): the sample report (`SampleDocument`), version 0.1.0, ANNA-PC, C:\Users\Anna\Dokumente, a sample recent
   list – no real path shows. `THIXWRITE_SCREENSHOTS=<folder> dotnet test tests/ThixWrite.Tests` does the same from the tests.
   LOOK at the pictures after a change of the UI; `docs/images` has the ones of the README.
 - The Windows publish (win-x64) is a **trimmed** single file (`TrimMode=partial`, own assemblies + ThixOffice.Text(.Skia) rooted,

@@ -25,14 +25,19 @@ public partial class App : OfficeApplication
     public const string PageSetupScene = "dialog-page-setup";
     public const string ExportScene = "backstage-export";
     public const string PrintScene = "backstage-print";
+    public const string TableScene = "main-table";
     public const string LayoutScene = "main-layout";
     public const string ViewScene = "main-view";
 
     public override OfficeAppDefinition Definition => ThixWriteApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, FindScene, PageSetupScene, PrintScene, ExportScene];
+    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, TableScene, FindScene, PageSetupScene, PrintScene, ExportScene];
 
     public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => WriteRibbon.Create(window);
+
+    /// <summary>The grid of Einfügen › Tabelle.</summary>
+    public override Control? CreateRibbonContent(OfficeWindow window, MatRibbonCustom item) =>
+        item.Id == WriteCommandIds.TablePicker ? new TablePicker(window) : null;
 
     public override void Initialize()
     {
@@ -48,6 +53,7 @@ public partial class App : OfficeApplication
     public override void AddCommands(OfficeWindow window)
     {
         WriteCommands.Add(window);
+        TableCommands.Add(window);
         window.Commands.Add(new ThixOffice.Core.Commands.OfficeCommand(WriteCommandIds.Print, "Drucken", () => window.ShowBackstage(PrintPage.PageId))
         {
             Icon = "print",
@@ -103,6 +109,13 @@ public partial class App : OfficeApplication
             case PrintScene:
                 window.ShowBackstage(PrintPage.PageId);
                 return window;
+            case TableScene:
+                // The caret in the table's last row: the contextual tabs show, Layout (Tabelle) is open.
+                var table = ThixWrite.Core.Model.TableSpan.All(editor.Document.Content).First();
+                editor.Session.SetCaret(new ThixWrite.Core.Model.DocumentPosition(table.BlocksOf(3, 1).First, 2));
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                window.Ribbon.SelectTab("tableLayout");
+                return window;
             default:
                 return window;
         }
@@ -119,6 +132,10 @@ public partial class App : OfficeApplication
                 break;
             case ViewScene:
                 editor.Zoom = 100;
+                window.Ribbon.SelectTab("home");
+                break;
+            case TableScene:
+                editor.Session.SetCaret(new ThixWrite.Core.Model.DocumentPosition(SampleDocument.BodyParagraph, 0));
                 window.Ribbon.SelectTab("home");
                 break;
             case FindScene:

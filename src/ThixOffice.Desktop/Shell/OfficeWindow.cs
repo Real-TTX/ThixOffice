@@ -95,6 +95,7 @@ public sealed class OfficeWindow : MatWindow
             Commands.Invalidate();
         };
         RibbonDefinition = app.CreateRibbon(this);
+        Ribbon.CustomContent = item => app.CreateRibbonContent(this, item);
         QuickAccess = new MatQuickAccess(RibbonDefinition);
         foreach (var id in new[] { CommonCommandIds.Save, CommonCommandIds.Undo, CommonCommandIds.Redo })
         {
