@@ -732,6 +732,10 @@ public sealed class CalcEngine
         return null;
     }
 
+    /// <summary>The array and spill anchors of a sheet whose ranges meet <paramref name="range"/>.</summary>
+    internal IEnumerable<FormulaCell> AnchorsIn(Worksheet sheet, CellRange range) =>
+        IndexOf(sheet).Anchors.Where(anchor => (anchor.ArrayRange ?? anchor.SpillRange) is { } covered && covered.Intersects(range)).ToList();
+
     // ---------------------------------------------------------------- changes from the model
 
     internal void OnFormulaAdded(FormulaCell formula)

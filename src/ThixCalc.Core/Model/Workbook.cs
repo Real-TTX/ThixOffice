@@ -168,6 +168,14 @@ public sealed class Workbook
         Calculation.Rebuild();
     }
 
+    /// <summary>Removes a sheet whose references were already rewritten (undo of adding it).</summary>
+    internal void RemoveSheetWithoutChecks(Worksheet sheet)
+    {
+        _sheets.Remove(sheet);
+        ActiveSheetIndex = Math.Clamp(ActiveSheetIndex, 0, Math.Max(0, _sheets.Count - 1));
+        _sheetsChanged = true;
+    }
+
     /// <summary>Puts a removed sheet back (undo of a deletion) at <paramref name="index"/>.</summary>
     internal void InsertExistingSheet(Worksheet sheet, int index)
     {
