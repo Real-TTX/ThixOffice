@@ -1,0 +1,66 @@
+name: thixshow
+# Builds, tests and packages ThixShow (the reusable _desktop.yml does the work). Its run number is ThixShow's build
+# number, so ThixShow counts on its own. Manually: Actions › thixshow › Run workflow.
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'src/ThixShow/**'
+      - 'src/ThixShow.Core/**'
+      - 'src/ThixOffice.Core/**'
+      - 'src/ThixOffice.Desktop/**'
+      - 'src/ThixOffice.Text/**'
+      - 'src/ThixOffice.Text.Skia/**'
+      - 'src/ThixOffice.Charts/**'
+      - 'tests/ThixOffice.Core.Tests/**'
+      - 'tests/ThixOffice.Desktop.Tests/**'
+      - 'tests/ThixShow.Core.Tests/**'
+      - 'tests/ThixShow.Tests/**'
+      - 'branding/thixshow/**'
+      - 'scripts/package-macos.sh'
+      - 'scripts/macos-document-types/thixshow.plist'
+      - 'Directory.Build.props'
+      - 'global.json'
+      - '.github/workflows/_desktop.yml'
+      - '.github/workflows/thixshow.yml'
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'src/ThixShow/**'
+      - 'src/ThixShow.Core/**'
+      - 'src/ThixOffice.Core/**'
+      - 'src/ThixOffice.Desktop/**'
+      - 'src/ThixOffice.Text/**'
+      - 'src/ThixOffice.Text.Skia/**'
+      - 'src/ThixOffice.Charts/**'
+      - 'tests/ThixOffice.Core.Tests/**'
+      - 'tests/ThixOffice.Desktop.Tests/**'
+      - 'tests/ThixShow.Core.Tests/**'
+      - 'tests/ThixShow.Tests/**'
+      - 'branding/thixshow/**'
+      - 'scripts/package-macos.sh'
+      - 'scripts/macos-document-types/thixshow.plist'
+      - 'Directory.Build.props'
+      - 'global.json'
+      - '.github/workflows/_desktop.yml'
+      - '.github/workflows/thixshow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One run per branch at a time: two quick pushes must not publish ThixShow to the same channel at once (queued, not cancelled).
+concurrency:
+  group: thixshow-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  desktop:
+    uses: ./.github/workflows/_desktop.yml
+    with:
+      app-name: ThixShow
+      app-id: thixshow
+      project: src/ThixShow/ThixShow.csproj
+      tests: tests/ThixOffice.Core.Tests/ThixOffice.Core.Tests.csproj tests/ThixOffice.Desktop.Tests/ThixOffice.Desktop.Tests.csproj tests/ThixShow.Core.Tests/ThixShow.Core.Tests.csproj tests/ThixShow.Tests/ThixShow.Tests.csproj
+      build-number: ${{ github.run_number }}

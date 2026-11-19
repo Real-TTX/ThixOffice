@@ -1,0 +1,41 @@
+  <!--
+    ThixShow's document types for Finder (CFBundleDocumentTypes, put into Info.plist by package-macos.sh). Like the Windows
+    registration only what ThixShow can open now: PowerPoint presentations (its own format) and presentations with macros
+    (kept, never run), both as "Alternate": ThixShow appears under "Öffnen mit", the default stays the user's (house rule: never
+    take a type silently). .odp is added when its reader exists (ThixShowApp.Definition marks it as planned). @DOCUMENT_ICON@ is
+    the document icon of the bundle.
+  -->
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>PowerPoint-Präsentation</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>pptx</string></array>
+      <key>LSItemContentTypes</key>
+      <array><string>org.openxmlformats.presentationml.presentation</string></array>
+      <key>CFBundleTypeMIMETypes</key>
+      <array><string>application/vnd.openxmlformats-officedocument.presentationml.presentation</string></array>
+      <key>CFBundleTypeIconFile</key>
+      <string>@DOCUMENT_ICON@</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Alternate</string>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>PowerPoint-Präsentation mit Makros</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>pptm</string></array>
+      <key>LSItemContentTypes</key>
+      <array><string>com.microsoft.powerpoint.openxml.presentation.macroenabled</string></array>
+      <key>CFBundleTypeMIMETypes</key>
+      <array><string>application/vnd.ms-powerpoint.presentation.macroEnabled.12</string></array>
+      <key>CFBundleTypeIconFile</key>
+      <string>@DOCUMENT_ICON@</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Alternate</string>
+    </dict>
+  </array>

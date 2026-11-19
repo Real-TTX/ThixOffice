@@ -1,0 +1,87 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ThixShow, the presentation program of ThixOffice (Avalonia, Windows and macOS). The shell, the backstage, the setup and the
+    updates come from ThixOffice.Desktop; the presentation model, the pptx format, the slide rendering, editing and the show engine from
+    ThixShow.Core; this project adds the slide editor, the thumbnail pane, the sorter, the notes, the full-screen show and the
+    presenter view, ThixShow's commands, ribbon, dialogs and its assets.
+    Windows: published self-contained single-file for win-x64; that ThixShow.exe is its own setup (InstallService).
+    macOS:   published self-contained for osx-arm64 / osx-x64 and packed into ThixShow.app (scripts/package-macos.sh).
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>ThixShow</AssemblyName>
+    <RootNamespace>ThixShow</RootNamespace>
+    <ApplicationIcon>Assets\thixshow.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyTitle>ThixShow</AssemblyTitle>
+    <AvaloniaVersion>11.3.22</AvaloniaVersion>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <SupportedOSPlatformVersion Condition="'$(OS)' == 'Windows_NT'">10.0.17763.0</SupportedOSPlatformVersion>
+    <TieredPGO>true</TieredPGO>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <DebugType>none</DebugType>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
+    <PublishReadyToRun>true</PublishReadyToRun>
+  </PropertyGroup>
+
+  <!--
+    Windows: one file, which is also the setup. Trimmed in "partial" mode like ThixWrite: only libraries that declare
+    themselves trimmable lose what ThixShow never calls; the own assemblies stay whole. The self test proves it.
+  -->
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('win-'))">
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <!-- macOS: the files go into ThixShow.app/Contents/MacOS (scripts/package-macos.sh). -->
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('osx-'))">
+    <UseAppHost>true</UseAppHost>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixShow.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Skia" Version="$(AvaloniaVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThixOffice.Core\ThixOffice.Core.csproj" />
+    <ProjectReference Include="..\ThixOffice.Desktop\ThixOffice.Desktop.csproj" />
+    <ProjectReference Include="..\ThixShow.Core\ThixShow.Core.csproj" />
+    <ProjectReference Include="..\ThixOffice.Text\ThixOffice.Text.csproj" />
+    <ProjectReference Include="..\ThixOffice.Text.Skia\ThixOffice.Text.Skia.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <TrimmerRootAssembly Include="ThixOffice.Core" />
+    <TrimmerRootAssembly Include="ThixOffice.Desktop" />
+    <TrimmerRootAssembly Include="ThixShow.Core" />
+    <TrimmerRootAssembly Include="ThixOffice.Text" />
+    <TrimmerRootAssembly Include="ThixOffice.Charts" />
+    <TrimmerRootAssembly Include="ThixOffice.Text.Skia" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\thixshow.ico" />
+    <AvaloniaResource Include="Assets\logo-256.png" />
+    <AvaloniaResource Include="Assets\logo-64.png" />
+    <!-- The icon of the document types (InstallService writes it next to the program; the file types point to it). -->
+    <EmbeddedResource Include="Assets\thixshow-document.ico" LogicalName="thixshow-document.ico" />
+  </ItemGroup>
+
+</Project>
