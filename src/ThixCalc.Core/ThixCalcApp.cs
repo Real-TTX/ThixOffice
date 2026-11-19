@@ -4,8 +4,8 @@ namespace ThixCalc.Core;
 
 /// <summary>
 /// ThixCalc as data: the spreadsheet of ThixOffice (Excel's place), accent: Excel's green. Its own format is .xlsx (the
-/// default type); .xlsm keeps its macros (they never run) and stays .xlsm; .csv is read and written as text. .ods is PLANNED –
-/// never registered with the system, never offered – until its reader exists.
+/// default type); .xlsm keeps its macros (they never run) and stays .xlsm; .csv is read and written as text; .ods as OpenDocument
+/// Spreadsheet (what the model has; the save names what it cannot hold).
 /// </summary>
 public static class ThixCalcApp
 {
@@ -23,7 +23,7 @@ public static class ThixCalcApp
                 MimeType: "application/vnd.ms-excel.sheet.macroEnabled.12", MacTypeIdentifier: "com.microsoft.excel.sheet.macroenabled"),
             new DocumentType(".csv", "ThixCalc.Csv", "CSV-Datei (Trennzeichen-getrennt)", DocumentTypeSupport.Supported,
                 MimeType: "text/csv", MacTypeIdentifier: "public.comma-separated-values-text"),
-            new DocumentType(".ods", "ThixCalc.OpenDocumentSpreadsheet", "OpenDocument-Tabelle", DocumentTypeSupport.Planned,
+            new DocumentType(".ods", "ThixCalc.OpenDocumentSpreadsheet", "OpenDocument-Tabelle", DocumentTypeSupport.Supported,
                 MimeType: "application/vnd.oasis.opendocument.spreadsheet", MacTypeIdentifier: "org.oasis-open.opendocument.spreadsheet"),
         ])
     {

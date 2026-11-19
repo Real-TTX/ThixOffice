@@ -3,6 +3,7 @@ using Avalonia.Threading;
 using SkiaSharp;
 using ThixCalc.Core.Documents;
 using ThixCalc.Core.Editing;
+using ThixCalc.Core.Formats;
 using ThixCalc.Core.Layout;
 using ThixCalc.Core.Model;
 using ThixCalc.Editor;
@@ -16,7 +17,7 @@ namespace ThixCalc;
 /// ThixCalc's part of <c>--self-test</c> (the trimmed, published program): a new workbook in a real window, values and German
 /// formulas typed into the grid as text input (SUMME, SVERWEIS, SUMMEWENN), a format through the command, a sort, saved as
 /// xlsx, opened again and compared (Open XML SDK after trimming), a frame of the grid drawn with Skia (HarfBuzz shaping, the
-/// grid picture), and the sample workbook written and read.
+/// grid picture), the sample workbook written and read, and both again as OpenDocument (.ods).
 /// </summary>
 internal static class CalcSelfTest
 {
@@ -116,6 +117,17 @@ internal static class CalcSelfTest
         var sampleRead = DocumentService.Open(samplePath, app.CreateDocument) as CalcDocument ?? throw new InvalidOperationException("not a CalcDocument");
         Ensure(sampleRead.Workbook.Sheets.Count == 2 && sampleRead.Workbook.Sheets[0].ConditionalFormats.Count == 2 && sampleRead.Workbook.Sheets[0].Charts.Count == 2, "the sample workbook lost content");
 
+        // The typed workbook as OpenDocument Spreadsheet: written and read back (System.IO.Compression and System.Xml after trimming).
+        var odsPath = DocumentService.SaveAs(reopened, Path.Combine(folder, "Selbsttest.ods"));
+        var fromOds = DocumentService.Open(odsPath, app.CreateDocument) as CalcDocument ?? throw new InvalidOperationException("not a CalcDocument");
+        var odsSheet = fromOds.Workbook.Sheets[0];
+        Ensure(fromOds.LoadedFormat == WorkbookFileFormat.Ods, "the ods was not read as OpenDocument");
+        Ensure(odsSheet.GetValue(1, 0).Text == "Kiwis" && odsSheet.GetStyle(0, 1).Font.Bold, "the ods read back differs");
+        Ensure(odsSheet.GetFormula(5, 1) is not null && Math.Abs(odsSheet.GetValue(5, 1).Number - 0.6) < 1e-9, "the formula is lost in the ods");
+        var odsSample = DocumentService.SaveAs(sampleRead, Path.Combine(folder, "Budget.ods"));
+        var sampleOds = DocumentService.Open(odsSample, app.CreateDocument) as CalcDocument ?? throw new InvalidOperationException("not a CalcDocument");
+        Ensure(sampleOds.Workbook.Sheets.Count == 2 && sampleOds.Workbook.Sheets[0].View.IsFrozen, "the sample workbook lost content in the ods");
+
         // The sheet's pages as PDF and – where the machine has it – through the system's printer into a PDF.
         var lists = Pages.CalcPages.DisplayLists(editor, 0, "Selbsttest", out _);
         using var pdf = new MemoryStream();
@@ -126,7 +138,7 @@ internal static class CalcSelfTest
 
         window.Close();
         await Settle();
-        return $"{editor.Metrics.MaxDigitWidthPixels} px digit, {CalcFonts.Families.Count} font families, xlsx {new FileInfo(path).Length} bytes, sample {new FileInfo(samplePath).Length} bytes, PDF {bytes.Length} bytes, {printed}, frame {editor.Surface.LastRenderTime.TotalMilliseconds:0.0} ms, chart {chartPixels} px";
+        return $"{editor.Metrics.MaxDigitWidthPixels} px digit, {CalcFonts.Families.Count} font families, xlsx {new FileInfo(path).Length} bytes, ods {new FileInfo(odsPath).Length} bytes, sample {new FileInfo(samplePath).Length} bytes, PDF {bytes.Length} bytes, {printed}, frame {editor.Surface.LastRenderTime.TotalMilliseconds:0.0} ms, chart {chartPixels} px";
     }
 
     /// <summary>Printing through GDI into "Microsoft Print to PDF" when the machine has it (the P/Invoke after trimming).</summary>

@@ -9,6 +9,8 @@ using Avalonia.Layout;
 using Avalonia.Threading;
 using ThixCalc.Core.Documents;
 using ThixCalc.Core.Editing;
+using ThixCalc.Core.Formats;
+using ThixCalc.Core.Formats.Ods;
 using ThixCalc.Core.Formatting;
 using ThixCalc.Core.Layout;
 using ThixCalc.Core.Model;
@@ -151,7 +153,12 @@ public sealed class CalcEditor : OfficeEditor
                 return macros;
             }
 
-            var text = $"Diese Arbeitsmappe enthält Inhalte, die ThixCalc noch nicht anzeigt oder bearbeitet. Sie bleiben beim Speichern als Excel-Arbeitsmappe erhalten:{Environment.NewLine}{string.Join(Environment.NewLine, notes)}";
+            if (Document.LoadedFormat == WorkbookFileFormat.Ods)
+            {
+                return $"Diese OpenDocument-Tabelle enthält Inhalte, die ThixCalc nicht übernimmt. Sie werden nicht angezeigt und sind nach dem Speichern nicht mehr enthalten:{Environment.NewLine}{string.Join(Environment.NewLine, notes)}";
+            }
+
+            var text =$"Diese Arbeitsmappe enthält Inhalte, die ThixCalc noch nicht anzeigt oder bearbeitet. Sie bleiben beim Speichern als Excel-Arbeitsmappe erhalten:{Environment.NewLine}{string.Join(Environment.NewLine, notes)}";
             return macros is null ? text : macros + Environment.NewLine + text;
         }
     }
@@ -271,9 +278,12 @@ public sealed class CalcEditor : OfficeEditor
 
     private bool _csvConfirmed;
 
+    /// <summary>What the user agreed to leave out of an .ods file (asked again when more would be lost).</summary>
+    private IReadOnlyList<string> _odsConfirmed = [];
+
     /// <summary>
     /// Before a save: the input of a cell ends; CSV is confirmed once (it keeps only the active sheet's values), and a workbook
-    /// with macros saved as .xlsx is warned that the macros stay behind (Excel's question).
+    /// with macros saved as .xlsx is warned that the macros stay behind (Excel's question), and .ods names what it cannot hold.
     /// </summary>
     public override async Task<bool> ConfirmSaveAsync(string path)
     {
@@ -296,6 +306,21 @@ public sealed class CalcEditor : OfficeEditor
             }
 
             _csvConfirmed = true;
+        }
+
+        if (extension == ".ods" && OdsWriter.Losses(workbook) is { Count: > 0 } losses && losses.Except(_odsConfirmed).Any())
+        {
+            var lost = string.Join(Environment.NewLine, losses.Select(loss => "• " + loss));
+            var keep = await QuestionDialog.AskAsync(_window, "Als OpenDocument speichern",
+                $"Diese Arbeitsmappe enthält Inhalte, die eine OpenDocument-Tabelle in ThixCalc nicht aufnehmen kann. Sie sind in der .ods-Datei nicht enthalten:{Environment.NewLine}{lost}{Environment.NewLine}{Environment.NewLine}Möchten Sie trotzdem als OpenDocument speichern?",
+                new DialogChoice("Als OpenDocument speichern", "save", "MatButton.Primary", IsDefault: true),
+                new DialogChoice("Abbrechen", "x", IsCancel: true));
+            if (keep != 0)
+            {
+                return false;
+            }
+
+            _odsConfirmed = losses;
         }
 
         if (extension == ".xlsx" && workbook.HasMacros)

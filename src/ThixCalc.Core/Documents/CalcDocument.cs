@@ -10,7 +10,7 @@ namespace ThixCalc.Core.Documents;
 
 /// <summary>
 /// The document of a ThixCalc window: the workbook (<see cref="Workbook"/>) with its editing session (<see cref="Session"/>).
-/// Reading sniffs the bytes – a zip package is xlsx/xlsm, anything else CSV (separator and encoding detected); writing uses
+/// Reading sniffs the bytes – a zip package is ods (by its mimetype) or xlsx/xlsm, anything else CSV (separator and encoding detected); writing uses
 /// <see cref="SaveFormat"/> (the format it was read in; the app sets it before "Speichern unter" into another type).
 /// Every finished command, undo and redo marks the document unsaved.
 /// </summary>
@@ -85,7 +85,13 @@ public sealed class CalcDocument : OfficeDocument
         using var buffer = new MemoryStream();
         stream.CopyTo(buffer);
         buffer.Position = 0;
-        if (WorkbookFormats.IsZip(buffer.GetBuffer().AsSpan(0, (int)Math.Min(4, buffer.Length))))
+        var isZip = WorkbookFormats.IsZip(buffer.GetBuffer().AsSpan(0, (int)Math.Min(4, buffer.Length)));
+        if (isZip && Formats.Ods.OdsReader.IsOds(buffer))
+        {
+            Attach(WorkbookFormats.For(WorkbookFileFormat.Ods).Read(buffer));
+            LoadedFormat = WorkbookFileFormat.Ods;
+        }
+        else if (isZip)
         {
             var workbook = WorkbookFormats.For(WorkbookFileFormat.Xlsx).Read(buffer);
             LoadedFormat = workbook.HasMacros ? WorkbookFileFormat.Xlsm : WorkbookFileFormat.Xlsx;

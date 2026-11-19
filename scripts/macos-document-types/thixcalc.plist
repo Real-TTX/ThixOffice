@@ -1,9 +1,8 @@
   <!--
     ThixCalc's document types for Finder (CFBundleDocumentTypes, put into Info.plist by package-macos.sh). Like the Windows
-    registration only what ThixCalc can open now: Excel workbooks (its own format), workbooks with macros (kept, never run)
-    and CSV, all as "Alternate": ThixCalc appears under "Öffnen mit", the default stays the user's (house rule: never take a
-    type silently). .ods is added when its reader exists (ThixCalcApp.Definition marks it as planned). @DOCUMENT_ICON@ is the
-    document icon of the bundle.
+    registration only what ThixCalc can open now: Excel workbooks (its own format), workbooks with macros (kept, never run),
+    OpenDocument spreadsheets and CSV, all as "Alternate": ThixCalc appears under "Öffnen mit", the default stays the user's
+    (house rule: never take a type silently). @DOCUMENT_ICON@ is the document icon of the bundle.
   -->
   <array>
     <dict>
@@ -31,6 +30,22 @@
       <array><string>com.microsoft.excel.sheet.macroenabled</string></array>
       <key>CFBundleTypeMIMETypes</key>
       <array><string>application/vnd.ms-excel.sheet.macroEnabled.12</string></array>
+      <key>CFBundleTypeIconFile</key>
+      <string>@DOCUMENT_ICON@</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Alternate</string>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>OpenDocument-Tabelle</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>ods</string></array>
+      <key>LSItemContentTypes</key>
+      <array><string>org.oasis-open.opendocument.spreadsheet</string></array>
+      <key>CFBundleTypeMIMETypes</key>
+      <array><string>application/vnd.oasis.opendocument.spreadsheet</string></array>
       <key>CFBundleTypeIconFile</key>
       <string>@DOCUMENT_ICON@</string>
       <key>CFBundleTypeRole</key>
