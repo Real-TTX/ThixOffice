@@ -45,6 +45,13 @@ internal static class TestDocuments
         var document = session.Document;
         Assert.NotEmpty(document.Blocks);
         Assert.IsType<Paragraph>(document.Blocks[^1]);
+        Assert.Null(((Paragraph)document.Blocks[^1]).Cell);
+        foreach (var table in TableSpan.All(document))
+        {
+            Assert.Empty(table.Problems(document));
+        }
+
+        Assert.DoesNotContain(document.Blocks, block => block is Paragraph { Cell: not null, SectionBreak: not null });
         foreach (var paragraph in document.Blocks.OfType<Paragraph>())
         {
             Assert.DoesNotContain(paragraph.Inlines, inline => inline is TextRun { Length: 0 });
@@ -63,6 +70,7 @@ internal static class TestDocuments
         {
             Assert.InRange(position.Block, 0, document.Blocks.Count - 1);
             Assert.InRange(position.Offset, 0, document.Blocks[position.Block].Length);
+            Assert.False(document.ParagraphAt(position.Block)?.Cell?.IsCovered == true, $"The selection is in a hidden block {position.Block}.");
         }
     }
 }

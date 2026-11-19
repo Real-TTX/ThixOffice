@@ -36,7 +36,7 @@ public class DocxFixtureTests
         Assert.Contains("w:lang", document.Styles.CharacterDefaults.UnknownXml);
         Assert.Equal(259 / 240.0, document.Styles.ParagraphDefaults.LineSpacing!.Value);
         Assert.Equal(StyleType.Table, document.Styles.Find("TableGrid")!.Type);
-        Assert.Contains("tblPr", document.Styles.Find("TableGrid")!.UnknownXml);
+        Assert.Equal(new BorderLine("single", 0.5, null), document.Styles.Find("TableGrid")!.Table!.Borders!.Top);
 
         var mixed = Assert.IsType<Paragraph>(document.Blocks[1]);
         Assert.Equal(ParagraphAlignment.Justify, mixed.Properties.Alignment);
@@ -76,7 +76,7 @@ public class DocxFixtureTests
         var document = Read(Rich);
 
         var notes = document.UnsupportedContent.ToDictionary(note => note.Kind, note => note.Count);
-        Assert.Equal(1, notes[PreservedKind.Table]);
+        Assert.False(notes.ContainsKey(PreservedKind.Table)); // tables are real tables now
         Assert.Equal(1, notes[PreservedKind.Drawing]);
         Assert.Equal(1, notes[PreservedKind.Footnote]);
         Assert.Equal(1, notes[PreservedKind.Comment]);
@@ -107,8 +107,10 @@ public class DocxFixtureTests
         Assert.Equal(75, image.Width, 3);
         Assert.Equal(37.5, image.Height, 3);
 
-        var table = document.Blocks.OfType<OpaqueBlock>().Single(block => block.Kind == PreservedKind.Table);
-        Assert.Equal(["A1\tB1", "A2\tB2"], table.Lines);
+        var cells = paragraphs.Where(paragraph => paragraph.Cell is not null).ToList();
+        Assert.Equal(["A1", "B1", "A2", "B2"], cells.Select(paragraph => paragraph.Text));
+        Assert.Equal([(0, 0), (0, 1), (1, 0), (1, 1)], cells.Select(paragraph => (paragraph.Cell!.Value.Row, paragraph.Cell!.Value.Cell)));
+        Assert.All(cells, paragraph => Assert.Same(cells[0].Cell!.Value.Table, paragraph.Cell!.Value.Table));
         var control = document.Blocks.OfType<OpaqueBlock>().Single(block => block.Kind == PreservedKind.ContentControl);
         Assert.Equal(["Block-Steuerelement"], control.Lines);
 

@@ -80,6 +80,9 @@ public static class DocxReader
             case W.Paragraph paragraph:
                 blocks.Add(ReadParagraph(paragraph, context));
                 return;
+            case W.Table table when IsSupportedTable(table):
+                ReadTable(table, blocks, context);
+                return;
             case W.SectionProperties section:
                 finalSection = DocxPropertyReader.ReadSection(section);
                 return;
@@ -106,6 +109,104 @@ public static class DocxReader
         context.Count(kind);
         blocks.Add(new OpaqueBlock(XmlFragments.Canonical(child), kind, LinesOf(child)));
     }
+
+    /// <summary>
+    /// True for a table the model represents: table, rows and cells with their properties, paragraphs in the cells, range markers
+    /// (bookmarks …) anywhere between them; rows without w:gridBefore / w:gridAfter. Nested tables, content controls or custom XML
+    /// around rows or cells keep the whole table preserved (an <see cref="OpaqueBlock"/>).
+    /// </summary>
+    private static bool IsSupportedTable(W.Table table)
+    {
+        var rows = table.Elements<W.TableRow>().ToList();
+        if (rows.Count == 0 || table.ChildElements.Any(child => child is not (W.TableProperties or W.TableGrid or W.TableRow) && !IsMarker(child)))
+        {
+            return false;
+        }
+
+        foreach (var row in rows)
+        {
+            if (!row.Elements<W.TableCell>().Any()
+                || row.ChildElements.Any(child => child is not (W.TablePropertyExceptions or W.TableRowProperties or W.TableCell) && !IsMarker(child))
+                || row.TableRowProperties?.ChildElements.Any(child => child is W.GridBefore or W.GridAfter or W.WidthBeforeTableRow or W.WidthAfterTableRow) == true)
+            {
+                return false;
+            }
+
+            if (row.Elements<W.TableCell>().Any(cell => cell.ChildElements.Any(child => child is not (W.TableCellProperties or W.Paragraph) && !IsMarker(child))))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Reads a table: its structure into a <see cref="Table"/>, its cells' paragraphs into the blocks, each naming its cell.</summary>
+    private static void ReadTable(W.Table element, List<Block> blocks, ReadContext context)
+    {
+        var rows = new List<TableRow>();
+        var cells = new List<(int Row, int Cell, List<Paragraph> Paragraphs)>();
+        foreach (var child in element.ChildElements)
+        {
+            if (IsMarker(child))
+            {
+                context.PendingMarkers.Add(Marker(child, KindOfMarker(child)));
+                continue;
+            }
+
+            if (child is not W.TableRow row)
+            {
+                continue;
+            }
+
+            var cellProperties = new List<TableCellProperties>();
+            foreach (var rowChild in row.ChildElements)
+            {
+                if (IsMarker(rowChild))
+                {
+                    context.PendingMarkers.Add(Marker(rowChild, KindOfMarker(rowChild)));
+                    continue;
+                }
+
+                if (rowChild is not W.TableCell cell)
+                {
+                    continue;
+                }
+
+                var paragraphs = new List<Paragraph>();
+                foreach (var cellChild in cell.ChildElements)
+                {
+                    if (cellChild is W.Paragraph paragraph)
+                    {
+                        paragraphs.Add(ReadParagraph(paragraph, context));
+                    }
+                    else if (IsMarker(cellChild))
+                    {
+                        context.PendingMarkers.Add(Marker(cellChild, KindOfMarker(cellChild)));
+                    }
+                }
+
+                if (paragraphs.Count == 0)
+                {
+                    paragraphs.Add(new Paragraph(context.TakeMarkers()));
+                }
+
+                cells.Add((rows.Count, cellProperties.Count, paragraphs));
+                cellProperties.Add(DocxTables.ReadCell(cell.TableCellProperties));
+            }
+
+            rows.Add(new TableRow(DocxTables.ReadRow(row), new EquatableArray<TableCellProperties>(cellProperties)));
+        }
+
+        var table = new Table(DocxTables.ReadTable(element.GetFirstChild<W.TableProperties>()), DocxTables.ReadGrid(element.GetFirstChild<W.TableGrid>()), new EquatableArray<TableRow>(rows));
+        foreach (var (row, cell, paragraphs) in cells)
+        {
+            blocks.AddRange(paragraphs.Select(paragraph => paragraph.WithCell(new CellRef(table, row, cell))));
+        }
+    }
+
+    private static bool IsMarker(OpenXmlElement element) => element is W.BookmarkStart or W.BookmarkEnd or W.CommentRangeStart or W.CommentRangeEnd
+        or W.PermStart or W.PermEnd or W.MoveFromRangeStart or W.MoveFromRangeEnd or W.MoveToRangeStart or W.MoveToRangeEnd;
 
     private static IReadOnlyList<string> LinesOf(OpenXmlElement element)
     {

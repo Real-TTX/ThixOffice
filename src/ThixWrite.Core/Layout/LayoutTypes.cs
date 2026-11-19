@@ -209,10 +209,35 @@ public sealed class ParagraphLayout
 /// <summary>A line placed on a page: its block, its index in the block's layout, the top (page y) and the left of the text area (page x).</summary>
 public sealed record PlacedLine(int Block, int LineIndex, double Top, double Left, LineLayout Line, ParagraphLayout Paragraph);
 
-/// <summary>One page: size, margins (from its section) and the lines on it in order.</summary>
+/// <summary>
+/// A cell (or the part of a cell) placed on a page: its table (first block), row and cell, the rectangle (page points) and what
+/// is drawn of it – the four border lines as they apply here and the fill. <see cref="IsRepeat"/>: a heading row repeated at the
+/// top of a page (drawn, not editable there).
+/// </summary>
+public sealed record PlacedCell(
+    int TableStart,
+    int Row,
+    int Cell,
+    double X,
+    double Y,
+    double Width,
+    double Height,
+    BorderLine? Top,
+    BorderLine? Left,
+    BorderLine? Bottom,
+    BorderLine? Right,
+    string? Fill,
+    bool IsRepeat)
+{
+    public bool Contains(double x, double y) => x >= X && x < X + Width && y >= Y && y < Y + Height;
+}
+
+/// <summary>One page: size, margins (from its section), the lines on it in order, and the table cells on it.</summary>
 public sealed class PageLayout
 {
     private readonly List<PlacedLine> _lines = [];
+    private readonly List<PlacedCell> _cells = [];
+    private readonly List<PlacedLine> _repeatedLines = [];
 
     internal PageLayout(int index, SectionInfo section)
     {
@@ -236,6 +261,24 @@ public sealed class PageLayout
     public int LastBlock => _lines.Count == 0 ? -1 : _lines[^1].Block;
 
     internal List<PlacedLine> MutableLines => _lines;
+
+    /// <summary>The table cells on this page (their rectangles, borders and fills), in the order they were placed.</summary>
+    public IReadOnlyList<PlacedCell> Cells => _cells;
+
+    /// <summary>The lines of heading rows repeated at the top of this page: drawn like <see cref="Lines"/>, never a caret place.</summary>
+    public IReadOnlyList<PlacedLine> RepeatedLines => _repeatedLines;
+
+    internal List<PlacedCell> MutableCells => _cells;
+
+    internal List<PlacedLine> MutableRepeatedLines => _repeatedLines;
+
+    /// <summary>Removes what blocks from <paramref name="block"/> on placed here (re-pagination from that block).</summary>
+    internal void RemoveFrom(int block)
+    {
+        _lines.RemoveAll(line => line.Block >= block);
+        _cells.RemoveAll(cell => cell.TableStart >= block);
+        _repeatedLines.RemoveAll(line => line.Block >= block);
+    }
 
     public override string ToString() => $"Page {Index + 1}: {_lines.Count} lines, blocks {FirstBlock}–{LastBlock}";
 }

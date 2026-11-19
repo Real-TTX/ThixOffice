@@ -51,7 +51,10 @@ public sealed record Style
 
     public CharacterProperties Character { get; init; } = CharacterProperties.Empty;
 
-    /// <summary>Style children ThixWrite does not model (table style properties, w:rsid …), as XML.</summary>
+    /// <summary>The table properties of a table style (borders, cell margins …; w:tblPr), or null.</summary>
+    public TableProperties? Table { get; init; }
+
+    /// <summary>Style children ThixWrite does not model (conditional table formats w:tblStylePr, w:trPr, w:tcPr, w:rsid …), as XML.</summary>
     public string? UnknownXml { get; init; }
 }
 
@@ -90,6 +93,9 @@ public sealed class StyleSheet
 
     /// <summary>The default paragraph style ("Standard").</summary>
     public Style? DefaultParagraphStyle => Styles.FirstOrDefault(style => style.Type == StyleType.Paragraph && style.IsDefault);
+
+    /// <summary>The default table style ("Normale Tabelle").</summary>
+    public Style? DefaultTableStyle => Styles.FirstOrDefault(style => style.Type == StyleType.Table && style.IsDefault);
 
     /// <summary>The default character style ("Absatz-Standardschriftart").</summary>
     public Style? DefaultCharacterStyle => Styles.FirstOrDefault(style => style.Type == StyleType.Character && style.IsDefault);

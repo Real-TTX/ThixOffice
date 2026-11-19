@@ -53,6 +53,12 @@ public sealed class DocumentFragment
 
                 switch (Blocks[index])
                 {
+                    case Paragraph { Cell: { } cell } paragraph when index > 0 && Blocks[index - 1] is Paragraph { Cell: { } before }
+                                                                && ReferenceEquals(before.Table, cell.Table) && before.Row == cell.Row && before.Cell != cell.Cell:
+                        // The next cell of a row: a tab instead of a line (as Word copies a table as text).
+                        text.Length -= 2;
+                        text.Append('\t').Append(paragraph.Text.Replace(SpecialCharacters.Object.ToString(), "").Replace(SpecialCharacters.LineBreak, '\n'));
+                        break;
                     case Paragraph paragraph:
                         text.Append(paragraph.Text.Replace(SpecialCharacters.Object.ToString(), "").Replace(SpecialCharacters.LineBreak, '\n'));
                         break;
@@ -73,9 +79,18 @@ public sealed class DocumentFragment
         return new DocumentFragment(lines.Select(line => (Block)new Paragraph(CleanLine(line))).ToList());
     }
 
-    /// <summary>The content of <paramref name="range"/> of <paramref name="document"/>.</summary>
+    /// <summary>
+    /// The content of <paramref name="range"/> of <paramref name="document"/>. Text inside one cell is copied as text; whole
+    /// selected cells become a table of their own (the selected rows and columns), between paragraphs.
+    /// </summary>
     public static DocumentFragment Copy(Document document, DocumentRange range)
     {
+        var tables = TableSelection.WholeCells(document, new Selection(range.Start, range.End));
+        if (tables.Count > 0)
+        {
+            return CopyWithTables(document, range, tables);
+        }
+
         var blocks = new List<Block>();
         var start = range.Start;
         var end = range.End;
@@ -100,6 +115,61 @@ public sealed class DocumentFragment
         }
 
         if (blocks[^1] is not Paragraph)
+        {
+            blocks.Add(Paragraph.Empty());
+        }
+
+        return new DocumentFragment(blocks, document.Styles, document.Numbering, document.Id);
+    }
+
+    private static DocumentFragment CopyWithTables(Document document, DocumentRange range, IReadOnlyList<TableCellRange> tables)
+    {
+        var blocks = new List<Block>();
+        var cursor = range.Start;
+        foreach (var cells in tables)
+        {
+            if (cursor.Block < cells.Span.Start)
+            {
+                var before = cells.Span.Start - 1;
+                blocks.AddRange(Copy(document, new DocumentRange(cursor, new DocumentPosition(before, document.Blocks[before].Length))).Blocks);
+            }
+
+            var model = TableEdits.TableModel.Load(document, cells.Span);
+            if (cells.LastRow + 1 < model.Rows.Count)
+            {
+                TableEdits.DeleteRows(model, cells.LastRow + 1, model.Rows.Count - 1);
+            }
+
+            if (cells.FirstRow > 0)
+            {
+                TableEdits.DeleteRows(model, 0, cells.FirstRow - 1);
+            }
+
+            if (cells.LastColumn + 1 < model.ColumnCount)
+            {
+                TableEdits.DeleteColumns(model, cells.LastColumn + 1, model.ColumnCount - 1);
+            }
+
+            if (cells.FirstColumn > 0)
+            {
+                TableEdits.DeleteColumns(model, 0, cells.FirstColumn - 1);
+            }
+
+            blocks.AddRange(model.Emit());
+            cursor = new DocumentPosition(cells.Span.End + 1, 0);
+        }
+
+        if (cursor <= range.End && cursor.Block < document.Blocks.Count)
+        {
+            blocks.AddRange(Copy(document, new DocumentRange(cursor, range.End)).Blocks);
+        }
+
+        if (blocks[0] is not Paragraph { Cell: null })
+        {
+            blocks.Insert(0, Paragraph.Empty());
+        }
+
+        if (blocks[^1] is not Paragraph { Cell: null })
         {
             blocks.Add(Paragraph.Empty());
         }

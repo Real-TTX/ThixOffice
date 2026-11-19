@@ -79,7 +79,7 @@ public sealed class FeatureTests
     }
 
     [AvaloniaFact]
-    public async Task A_Word_document_with_a_table_opens_with_a_warning_and_keeps_the_table()
+    public async Task A_Word_table_opens_as_a_table_and_a_nested_one_with_a_warning_and_both_are_kept()
     {
         using var data = new TestData();
         var path = Path.Combine(data.DocumentsFolder, "Angebot.docx");
@@ -89,6 +89,10 @@ public sealed class FeatureTests
             main.Document = new W.Document(new W.Body(
                 new W.Paragraph(new W.Run(new W.Text("Angebot"))),
                 new W.Table(new W.TableRow(new W.TableCell(new W.Paragraph(new W.Run(new W.Text("Position")))))),
+                new W.Paragraph(),
+                new W.Table(new W.TableRow(new W.TableCell(
+                    new W.Table(new W.TableRow(new W.TableCell(new W.Paragraph(new W.Run(new W.Text("innen")))))),
+                    new W.Paragraph()))),
                 new W.Paragraph()));
             main.Document.Save();
         }
@@ -101,16 +105,27 @@ public sealed class FeatureTests
         Assert.True(window.MessageBar.IsVisible);
         Assert.Contains("noch nicht", window.MessageBar.Text);
         Assert.Contains("bleiben beim Speichern", window.MessageBar.Text.Replace("Sie bleiben", "bleiben", StringComparison.Ordinal));
-        Assert.Contains("Tabelle", window.MessageBar.Text);
+        Assert.Contains("Verschachtelte Tabelle", window.MessageBar.Text);
         window.MessageBar.CloseButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Assert.False(window.MessageBar.IsVisible);
+
+        // The simple table is a table: the caret goes down into its cell and types there.
+        await PressAsync(window, PhysicalKey.Home, CommandKey);
+        await PressAsync(window, PhysicalKey.ArrowDown);
+        await PressAsync(window, PhysicalKey.End);
+        await TypeAsync(window, " 1");
+        var session = EditorOf(window).Session;
+        Assert.NotNull(session.CurrentTable);
+        Assert.Equal("Position 1", session.Document.ParagraphAt(session.Selection.Active.Block)!.Text);
 
         await PressAsync(window, PhysicalKey.End, CommandKey);
         await TypeAsync(window, "Gültig bis Ende Dezember");
         await PressAsync(window, PhysicalKey.S, CommandKey);
         using var saved = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Open(path, false);
         var body = saved.MainDocumentPart!.Document!.Body!;
-        Assert.Single(body.Elements<W.Table>());
+        Assert.Equal(2, body.Elements<W.Table>().Count());
+        Assert.Contains("Position 1", body.Elements<W.Table>().First().InnerText);
+        Assert.Contains("innen", body.Elements<W.Table>().Last().InnerText);
         Assert.Contains("Gültig bis Ende Dezember", body.InnerText);
     }
 

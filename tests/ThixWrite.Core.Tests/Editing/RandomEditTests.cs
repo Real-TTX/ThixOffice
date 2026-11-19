@@ -32,8 +32,13 @@ public class RandomEditTests
     {
         var random = new Random(seed);
         var table = new OpaqueBlock("<w:tbl xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\" />", PreservedKind.Table, ["A\tB", "C\tD"]);
+        var cells = TableEdits.CreateTable(2, 3, 400, Paragraph.Empty(), null)
+            .Cast<Paragraph>()
+            .Select((paragraph, index) => index % 2 == 0 ? paragraph.WithInlines([new TextRun($"Zelle {index}", CharacterProperties.Empty)]) : paragraph)
+            .ToList();
         var document = Create([
             new Paragraph("Erster Absatz mit etwas Text."),
+            .. cells,
             new Paragraph([new TextRun("fett ", new CharacterProperties { Bold = true }), new TextRun("und normal", CharacterProperties.Empty)]),
             table,
             new Paragraph("Ein dritter Absatz, der etwas länger ist, damit er umbricht und mehrere Zeilen hat."),
@@ -53,8 +58,20 @@ public class RandomEditTests
         for (var step = 0; step < 80; step++)
         {
             RandomSelection(session, random);
-            clipboard = RandomCommand(session, random, clipboard);
-            AssertInvariants(session);
+            var before = session.Selection;
+            var command = random.Next(45);
+            clipboard = RandomCommand(session, random, clipboard, command);
+            try
+            {
+                AssertInvariants(session);
+                layout.Update();
+                AssertSameLayout(layout, session.Document);
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException)
+            {
+                throw new InvalidOperationException($"Step {step}: command {command} on {before} broke the document: {exception.Message}", exception);
+            }
+
             layout.Update();
         }
 
@@ -109,9 +126,9 @@ public class RandomEditTests
         return new DocumentPosition(block, random.Next(document.Blocks[block].Length + 1));
     }
 
-    private static DocumentFragment? RandomCommand(EditingSession session, Random random, DocumentFragment? clipboard)
+    private static DocumentFragment? RandomCommand(EditingSession session, Random random, DocumentFragment? clipboard, int command)
     {
-        switch (random.Next(30))
+        switch (command)
         {
             case 0 or 1 or 2 or 3:
                 session.InsertText(Snippets[random.Next(Snippets.Length)]);
@@ -200,6 +217,59 @@ public class RandomEditTests
                 session.Move((CaretMovement)random.Next(14), random.Next(2) == 0);
                 session.InsertText("m");
                 break;
+            case 29:
+                session.InsertTable(1 + random.Next(3), 1 + random.Next(3));
+                break;
+            case 30:
+                session.InsertTableRows(random.Next(2) == 0);
+                break;
+            case 31:
+                session.InsertTableColumns(random.Next(2) == 0);
+                break;
+            case 32:
+                session.DeleteTableRows();
+                break;
+            case 33:
+                session.DeleteTableColumns();
+                break;
+            case 34:
+                session.MergeTableCells();
+                break;
+            case 35:
+                session.SplitTableCell(1 + random.Next(3));
+                break;
+            case 36:
+                session.SetTableCellShading(random.Next(2) == 0 ? null : "FFC000");
+                break;
+            case 37:
+                session.SetTableBorders((BorderChoice)random.Next(10));
+                break;
+            case 38:
+                session.MoveToCell(random.Next(2) == 0);
+                break;
+            case 39:
+                session.SetRepeatHeaderRows(random.Next(2) == 0);
+                break;
+            case 40:
+                session.DistributeTableColumns();
+                break;
+            case 41:
+                session.DeleteTableCells((CellDeletion)random.Next(3));
+                break;
+            case 42:
+                if (random.Next(4) == 0)
+                {
+                    session.DeleteTable();
+                }
+                else
+                {
+                    session.SetTableCellAlignment((CellVerticalAlignment)random.Next(3), (ParagraphAlignment)random.Next(3));
+                }
+
+                break;
+            case 43:
+                session.SelectTableColumn();
+                break;
             default:
                 if (session.CanUndo && random.Next(2) == 0)
                 {
@@ -226,6 +296,12 @@ public class RandomEditTests
             var expected = fresh.Pages[page].Lines.Select(line => (line.Block, line.Line.Start, line.Line.End, Math.Round(line.Top, 3))).ToList();
             var actual = layout.Pages[page].Lines.Select(line => (line.Block, line.Line.Start, line.Line.End, Math.Round(line.Top, 3))).ToList();
             Assert.Equal(expected, actual);
+            var expectedCells = fresh.Pages[page].Cells.Select(Cell).ToList();
+            var actualCells = layout.Pages[page].Cells.Select(Cell).ToList();
+            Assert.Equal(expectedCells, actualCells);
         }
+
+        static (int, int, int, double, double, double, double, bool) Cell(PlacedCell cell) =>
+            (cell.TableStart, cell.Row, cell.Cell, Math.Round(cell.X, 3), Math.Round(cell.Y, 3), Math.Round(cell.Width, 3), Math.Round(cell.Height, 3), cell.IsRepeat);
     }
 }

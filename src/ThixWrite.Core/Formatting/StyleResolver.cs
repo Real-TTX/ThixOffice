@@ -37,10 +37,18 @@ public sealed record EffectiveParagraphFormat(
     bool ContextualSpacing,
     NumberingReference? Numbering,
     EquatableArray<TabStop> Tabs,
-    int OutlineLevel);
+    int OutlineLevel)
+{
+    /// <summary>
+    /// The key the text of this paragraph is resolved under (<see cref="StyleResolver.ResolveCharacter(string, CharacterProperties)"/>):
+    /// the paragraph style, and in a table cell also the table style.
+    /// </summary>
+    public string StyleKey { get; init; } = StyleId;
+}
 
 /// <summary>
-/// Resolves formatting like Word: document defaults, then the paragraph style and the styles it is based on, then (for lists)
+/// Resolves formatting like Word: document defaults, then (in a table cell) the table style, then the paragraph style and the
+/// styles it is based on, then (for lists)
 /// the list level's indents, then the paragraph's direct formatting; for text additionally the character style and the run's
 /// direct formatting. Caches by style id and property instance; the caches drop themselves when the document's style sheet,
 /// list definitions or theme are replaced. One resolver per document; not thread-safe.
@@ -51,11 +59,12 @@ public sealed class StyleResolver(Document document)
     public const string ImplicitFont = "Times New Roman";
 
     private const int CacheLimit = 20_000;
+    private const char TableKeySeparator = '\u0001';
 
     private readonly Dictionary<string, (ParagraphProperties Paragraph, CharacterProperties Character)> _paragraphStyles = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CharacterProperties> _characterStyles = new(StringComparer.Ordinal);
     private readonly Dictionary<(string ParagraphStyle, CharacterProperties Run), EffectiveCharacterFormat> _runs = [];
-    private readonly Dictionary<ParagraphProperties, EffectiveParagraphFormat> _paragraphs = [];
+    private readonly Dictionary<(ParagraphProperties Properties, string? TableStyle), EffectiveParagraphFormat> _paragraphs = [];
     private StyleSheet? _styles;
     private NumberingDefinitions? _numbering;
     private Theme? _theme;
@@ -79,14 +88,21 @@ public sealed class StyleResolver(Document document)
     public EffectiveParagraphFormat ResolveParagraph(Paragraph paragraph)
     {
         Refresh();
-        if (_paragraphs.TryGetValue(paragraph.Properties, out var cached))
+        var tableStyle = TableStyleId(paragraph);
+        if (_paragraphs.TryGetValue((paragraph.Properties, tableStyle), out var cached))
         {
             return cached;
         }
 
         var styleId = ParagraphStyleId(paragraph);
         var styleProperties = StyleChain(styleId).Paragraph;
-        var merged = Document.Styles.ParagraphDefaults.Merge(styleProperties);
+        var merged = Document.Styles.ParagraphDefaults;
+        if (tableStyle is not null)
+        {
+            merged = merged.Merge(StyleChain(tableStyle).Paragraph);
+        }
+
+        merged = merged.Merge(styleProperties);
 
         var numbering = paragraph.Properties.Numbering ?? merged.Numbering;
         if (numbering is { IsNone: false } && Document.Numbering.ResolveLevel(numbering.NumberingId, numbering.Level) is { } level)
@@ -119,14 +135,50 @@ public sealed class StyleResolver(Document document)
             merged.ContextualSpacing ?? false,
             numbering,
             tabs,
-            merged.OutlineLevel ?? 9);
-        Remember(_paragraphs, paragraph.Properties, result);
+            merged.OutlineLevel ?? 9)
+        {
+            StyleKey = tableStyle is null ? styleId : styleId + TableKeySeparator + tableStyle,
+        };
+        Remember(_paragraphs, (paragraph.Properties, tableStyle), result);
         return result;
     }
 
     /// <summary>The resolved formatting of text with <paramref name="run"/> properties in <paramref name="paragraph"/>.</summary>
     public EffectiveCharacterFormat ResolveCharacter(Paragraph paragraph, CharacterProperties run) =>
-        ResolveCharacter(ParagraphStyleId(paragraph), run);
+        ResolveCharacter(StyleKeyOf(paragraph), run);
+
+    /// <summary>The key of <paramref name="paragraph"/>'s text: its style, in a table cell with the table style.</summary>
+    public string StyleKeyOf(Paragraph paragraph) =>
+        TableStyleId(paragraph) is { } table ? ParagraphStyleId(paragraph) + TableKeySeparator + table : ParagraphStyleId(paragraph);
+
+    /// <summary>The table style a cell paragraph gets its defaults from (the table's or the default table style), null outside tables.</summary>
+    public string? TableStyleId(Paragraph paragraph)
+    {
+        if (paragraph.Cell is not { } cell)
+        {
+            return null;
+        }
+
+        var id = cell.Table.Properties.StyleId;
+        return id is not null && Document.Styles.Find(id) is { Type: StyleType.Table } ? id : Document.Styles.DefaultTableStyle?.Id;
+    }
+
+    /// <summary>
+    /// The effective table properties of <paramref name="table"/>: the default table style, the table's style chain, then its
+    /// direct properties; cell margins fall back to Word's 5.4 pt.
+    /// </summary>
+    public TableProperties ResolveTable(Table table)
+    {
+        Refresh();
+        var result = new TableProperties { CellMargins = CellMargins.WordDefault, Borders = BorderSet.Empty };
+        var styleId = table.Properties.StyleId is { } id && Document.Styles.Find(id) is { Type: StyleType.Table } ? id : Document.Styles.DefaultTableStyle?.Id;
+        foreach (var style in Document.Styles.Chain(styleId).Reverse())
+        {
+            result = result.Merge(style.Table);
+        }
+
+        return result.Merge(table.Properties with { StyleId = styleId });
+    }
 
     /// <summary>The resolved formatting of text with <paramref name="run"/> properties in a paragraph of style <paramref name="paragraphStyleId"/>.</summary>
     public EffectiveCharacterFormat ResolveCharacter(string paragraphStyleId, CharacterProperties run)
@@ -151,7 +203,15 @@ public sealed class StyleResolver(Document document)
     public CharacterProperties InheritedCharacter(string paragraphStyleId, string? characterStyleId)
     {
         Refresh();
-        var merged = Document.Styles.CharacterDefaults.Merge(StyleChain(paragraphStyleId).Character);
+        var separator = paragraphStyleId.IndexOf(TableKeySeparator);
+        var merged = Document.Styles.CharacterDefaults;
+        if (separator >= 0)
+        {
+            merged = merged.Merge(StyleChain(paragraphStyleId[(separator + 1)..]).Character);
+            paragraphStyleId = paragraphStyleId[..separator];
+        }
+
+        merged = merged.Merge(StyleChain(paragraphStyleId).Character);
         if (characterStyleId is not null)
         {
             merged = merged.Merge(CharacterStyle(characterStyleId));

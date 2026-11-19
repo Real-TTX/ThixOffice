@@ -171,7 +171,7 @@ internal static class SelectionFormattingBuilder
             return;
         }
 
-        var styleId = resolver.ParagraphStyleId(paragraph);
+        var styleId = resolver.StyleKeyOf(paragraph);
         for (var index = 0; index < paragraph.Inlines.Length; index++)
         {
             var inline = paragraph.Inlines[index];

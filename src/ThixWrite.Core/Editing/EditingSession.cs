@@ -1,6 +1,7 @@
 using ThixOffice.Text.Unicode;
 using ThixWrite.Core.Formatting;
 using ThixWrite.Core.Model;
+using static ThixWrite.Core.Editing.TableEdits;
 
 namespace ThixWrite.Core.Editing;
 
@@ -36,7 +37,7 @@ public sealed class TrackedPosition(DocumentPosition position, Bias bias)
 /// the ribbon shows may have changed (then call <see cref="GetFormatting"/>).
 /// </para>
 /// </summary>
-public sealed class EditingSession
+public sealed partial class EditingSession
 {
     private readonly UndoHistory _history = new();
     private readonly List<TrackedPosition> _tracked = [];
@@ -116,6 +117,11 @@ public sealed class EditingSession
     {
         var at = CaretStops.Snap(Document, position);
         var next = CaretStops.NextParagraphStart(Document, at.Block);
+        if (Document.ParagraphAt(at.Block)?.Cell is { } cell && (next is null || !cell.IsSameCell(Document.ParagraphAt(next.Value.Block)?.Cell)))
+        {
+            next = null; // the last paragraph of a cell: its mark stays, the selection stays in the cell
+        }
+
         Select(at with { Offset = 0 }, next ?? at with { Offset = Document.Blocks[at.Block].Length });
     }
 
@@ -181,6 +187,7 @@ public sealed class EditingSession
         var continues = ContinuesTyping(EditKind.Typing);
         Run("Eingabe", EditKind.Typing, continues, () =>
         {
+            ClearWholeCells();
             var (properties, link) = TypingFormat();
             var map = Apply(ContentEdits.InsertText(Document, _selection.Range, text, properties, link));
             SetSelectionQuiet(Selection.Caret(((ReplaceMap)map).EndOfInserted));
@@ -190,6 +197,11 @@ public sealed class EditingSession
     /// <summary>Enter: splits the paragraph (in an empty list item, ends the list instead).</summary>
     public void InsertParagraphBreak()
     {
+        if (InsertParagraphBeforeTable())
+        {
+            return;
+        }
+
         var paragraph = Document.ParagraphAt(_selection.Start.Block);
         if (_selection.IsCollapsed && paragraph is { Length: 0 } && Resolver.ResolveParagraph(paragraph).Numbering is not null)
         {
@@ -199,6 +211,8 @@ public sealed class EditingSession
 
         Run("Absatzmarke", EditKind.Other, null, () =>
         {
+            ClearWholeCells();
+            paragraph = Document.ParagraphAt(_selection.Start.Block);
             var atEnd = paragraph is not null && _selection.End.Block == _selection.Start.Block && _selection.End.Offset == paragraph.Length;
             var map = (ReplaceMap)Apply(ContentEdits.SplitParagraph(Document, _selection.Range));
             var caret = map.EndOfInserted;
@@ -226,6 +240,11 @@ public sealed class EditingSession
     /// <summary>Ctrl+Enter: a page break; the text after it starts a new paragraph on the next page.</summary>
     public void InsertPageBreak()
     {
+        if (CurrentTable is not null)
+        {
+            return; // a page break inside a table cell: Word splits the table; ThixWrite does not (yet)
+        }
+
         Run("Seitenumbruch", EditKind.Other, null, () =>
         {
             var (properties, _) = TypingFormat();
@@ -274,6 +293,11 @@ public sealed class EditingSession
                 return;
             }
 
+            if (DeleteForwardAtTableEdge(caret, paragraph, nextBlock))
+            {
+                return;
+            }
+
             if (Document.Blocks[nextBlock] is OpaqueBlock)
             {
                 // A preserved block (table) is selected first, deleted by the next key press.
@@ -296,6 +320,12 @@ public sealed class EditingSession
     {
         if (_selection.IsCollapsed)
         {
+            return;
+        }
+
+        if (TableSelection.WholeCells(Document, _selection).Count > 0)
+        {
+            Run("Löschen", EditKind.Other, null, ClearWholeCells);
             return;
         }
 
@@ -361,7 +391,13 @@ public sealed class EditingSession
     {
         if (!_selection.IsCollapsed)
         {
-            Run(label, EditKind.Other, null, () => ApplyOptional(ContentEdits.FormatCharacters(Document, _selection.Range, change)));
+            Run(label, EditKind.Other, null, () =>
+            {
+                foreach (var range in TableSelection.Ranges(Document, _selection))
+                {
+                    ApplyOptional(ContentEdits.FormatCharacters(Document, range, change));
+                }
+            });
             return;
         }
 
@@ -398,15 +434,17 @@ public sealed class EditingSession
     /// <summary>"Alle Formatierungen löschen": character and paragraph formatting and the style go back to "Standard".</summary>
     public void ClearFormatting()
     {
-        var (first, last) = SelectedBlocks();
         Run("Formatierung löschen", EditKind.Other, null, () =>
         {
             if (!_selection.IsCollapsed)
             {
-                ApplyOptional(ContentEdits.FormatCharacters(Document, _selection.Range, (_, props) => new CharacterProperties { UnknownXml = props.UnknownXml }));
+                foreach (var range in TableSelection.Ranges(Document, _selection))
+                {
+                    ApplyOptional(ContentEdits.FormatCharacters(Document, range, (_, props) => new CharacterProperties { UnknownXml = props.UnknownXml }));
+                }
             }
 
-            ApplyOptional(ContentEdits.FormatParagraphs(Document, first, last, item => item.WithProperties(ParagraphProperties.Empty)));
+            FormatSelectedParagraphs(item => item.WithProperties(ParagraphProperties.Empty));
         });
         PendingFormat = null;
     }
@@ -439,12 +477,8 @@ public sealed class EditingSession
     public void SetWidowControl(bool value) => FormatParagraphs("Absatzkontrolle", props => props with { WidowControl = value });
 
     /// <summary>Any paragraph formatting change for the paragraphs of the selection.</summary>
-    public void FormatParagraphs(string label, Func<ParagraphProperties, ParagraphProperties> change)
-    {
-        var (first, last) = SelectedBlocks();
-        Run(label, EditKind.Other, null, () =>
-            ApplyOptional(ContentEdits.FormatParagraphs(Document, first, last, item => item.WithProperties(change(item.Properties)))));
-    }
+    public void FormatParagraphs(string label, Func<ParagraphProperties, ParagraphProperties> change) =>
+        Run(label, EditKind.Other, null, () => FormatSelectedParagraphs(item => item.WithProperties(change(item.Properties))));
 
     /// <summary>"Einzug vergrößern" / Tab in a list: list items one level deeper, other paragraphs 36 pt (to the next step).</summary>
     public void IncreaseIndent() => ChangeIndent(1);
@@ -458,6 +492,11 @@ public sealed class EditingSession
     /// </summary>
     public void HandleTab(bool shift)
     {
+        if (MoveToCell(forward: !shift))
+        {
+            return; // in a table: the next / previous cell
+        }
+
         var paragraph = Document.ParagraphAt(_selection.Start.Block);
         var multiple = _selection.Start.Block != _selection.End.Block;
         var atListStart = paragraph is not null && _selection.IsCollapsed && _selection.Start.Offset == 0
@@ -493,7 +532,10 @@ public sealed class EditingSession
                 EnsureStyle(style.Id);
                 if (!_selection.IsCollapsed)
                 {
-                    ApplyOptional(ContentEdits.FormatCharacters(Document, _selection.Range, (_, props) => props with { StyleId = characterStyle }));
+                    foreach (var range in TableSelection.Ranges(Document, _selection))
+                    {
+                        ApplyOptional(ContentEdits.FormatCharacters(Document, range, (_, props) => props with { StyleId = characterStyle }));
+                    }
                 }
             });
             if (_selection.IsCollapsed)
@@ -510,12 +552,11 @@ public sealed class EditingSession
             return;
         }
 
-        var (first, last) = SelectedBlocks();
         Run($"Formatvorlage {BuiltInStyles.DisplayName(style)}", EditKind.Other, null, () =>
         {
             EnsureStyle(style.Id);
             var id = Document.Styles.Find(style.Id)!.IsDefault ? null : style.Id;
-            ApplyOptional(ContentEdits.FormatParagraphs(Document, first, last, item => item.WithProperties(item.Properties with { StyleId = id })));
+            FormatSelectedParagraphs(item => item.WithProperties(item.Properties with { StyleId = id }));
         });
     }
 
@@ -537,38 +578,34 @@ public sealed class EditingSession
         {
             var numberingId = AdjacentList(first, last, kind) ?? CreateList(kind);
             EnsureStyle(BuiltInStyles.ListParagraph);
-            ApplyOptional(ContentEdits.FormatParagraphs(Document, first, last, item =>
+            FormatSelectedParagraphs(item =>
             {
                 var level = Resolver.ResolveParagraph(item).Numbering?.Level ?? 0;
                 var styleId = item.Properties.StyleId is null or BuiltInStyles.Normal ? BuiltInStyles.ListParagraph : item.Properties.StyleId;
                 return item.WithProperties(item.Properties with { Numbering = new NumberingReference(numberingId, level), StyleId = styleId });
-            }));
+            });
         });
     }
 
     /// <summary>Takes the selected paragraphs out of their list.</summary>
     public void RemoveList()
     {
-        var (first, last) = SelectedBlocks();
         Run("Liste entfernen", EditKind.Other, null, () =>
-            ApplyOptional(ContentEdits.FormatParagraphs(Document, first, last, item =>
+            FormatSelectedParagraphs(item =>
             {
                 var styleGivesList = Document.Styles.Chain(Resolver.ParagraphStyleId(item)).Any(style => style.Paragraph.Numbering is { IsNone: false });
                 var styleId = item.Properties.StyleId == BuiltInStyles.ListParagraph ? null : item.Properties.StyleId;
                 return item.WithProperties(item.Properties with { Numbering = styleGivesList ? NumberingReference.None : null, StyleId = styleId });
-            })));
+            }));
     }
 
     /// <summary>Sets the list level (0–8) of the selected list items.</summary>
-    public void SetListLevel(int level)
-    {
-        var (first, last) = SelectedBlocks();
+    public void SetListLevel(int level) =>
         Run("Listenebene", EditKind.Other, null, () =>
-            ApplyOptional(ContentEdits.FormatParagraphs(Document, first, last, item =>
+            FormatSelectedParagraphs(item =>
                 Resolver.ResolveParagraph(item).Numbering is { } numbering
                     ? item.WithProperties(item.Properties with { Numbering = numbering with { Level = Math.Clamp(level, 0, 8) } })
-                    : item)));
-    }
+                    : item));
 
     /// <summary>"Neu beginnen mit 1": the list continues from the caret's paragraph as a new instance starting again.</summary>
     public void RestartNumbering()
@@ -628,13 +665,25 @@ public sealed class EditingSession
     /// <summary>The selected content for the clipboard (null at a caret).</summary>
     public DocumentFragment? Copy() => _selection.IsCollapsed ? null : DocumentFragment.Copy(Document, _selection.Range);
 
+    /// <summary>Copies and deletes the selection (whole cells: their text; tables inside the selection: as a whole).</summary>
+    private void DeleteForCut()
+    {
+        if (TableSelection.WholeCells(Document, _selection).Count > 0)
+        {
+            Run("Ausschneiden", EditKind.Other, null, ClearWholeCells);
+            return;
+        }
+
+        DeleteRange(_selection.Range, "Ausschneiden", EditKind.Other);
+    }
+
     /// <summary>Copies and deletes the selection.</summary>
     public DocumentFragment? Cut()
     {
         var fragment = Copy();
         if (fragment is not null)
         {
-            DeleteRange(_selection.Range, "Ausschneiden", EditKind.Other);
+            DeleteForCut();
         }
 
         return fragment;
@@ -648,7 +697,8 @@ public sealed class EditingSession
     {
         Run("Einfügen", EditKind.Other, null, () =>
         {
-            var blocks = fragment.SourceDocumentId == Document.Id ? fragment.Blocks : Adopt(fragment);
+            ClearWholeCells();
+            var blocks = WrapTables(fragment.SourceDocumentId == Document.Id ? fragment.Blocks : Adopt(fragment));
             var map = (ReplaceMap)Apply(ContentEdits.Replace(Document, _selection.Range, blocks));
             SetSelectionQuiet(Selection.Caret(map.EndOfInserted));
         });
@@ -660,6 +710,7 @@ public sealed class EditingSession
         var lines = DocumentFragment.FromPlainText(text).Blocks.Cast<Paragraph>().ToList();
         Run("Einfügen", EditKind.Other, null, () =>
         {
+            ClearWholeCells();
             var (properties, _) = TypingFormat();
             var targetBlock = ContentEdits.NextParagraph(Document, ContentEdits.Normalize(Document, _selection.Range).From.Block);
             var target = (Paragraph)Document.Blocks[targetBlock];
@@ -805,6 +856,7 @@ public sealed class EditingSession
     {
         Run(label, EditKind.Other, null, () =>
         {
+            ClearWholeCells();
             var (properties, link) = TypingFormat();
             var map = (ReplaceMap)Apply(ContentEdits.InsertText(Document, _selection.Range, text, properties, link));
             SetSelectionQuiet(Selection.Caret(map.EndOfInserted));
@@ -824,6 +876,18 @@ public sealed class EditingSession
         var previous = caret.Block - 1;
         if (previous < 0)
         {
+            return;
+        }
+
+        var previousCell = Document.ParagraphAt(previous)?.Cell;
+        if (paragraph.Cell is { } cell && !cell.IsSameCell(previousCell))
+        {
+            return; // the start of a cell: Backspace does not leave it (as in Word)
+        }
+
+        if (paragraph.Cell is null && previousCell is not null)
+        {
+            SetCaret(CaretStops.PreviousParagraphEnd(Document, caret.Block) ?? caret); // after a table: into its last cell
             return;
         }
 
@@ -919,7 +983,7 @@ public sealed class EditingSession
         bool value) =>
         (paragraph, props) =>
         {
-            var inherited = get(Resolver.InheritedCharacter(Resolver.ParagraphStyleId(paragraph), props.StyleId)) ?? false;
+            var inherited = get(Resolver.InheritedCharacter(Resolver.StyleKeyOf(paragraph), props.StyleId)) ?? false;
             return set(props, inherited == value ? null : value);
         };
 
@@ -931,9 +995,170 @@ public sealed class EditingSession
         where T : struct =>
         (paragraph, props) =>
         {
-            var inherited = get(Resolver.InheritedCharacter(Resolver.ParagraphStyleId(paragraph), props.StyleId)) ?? defaultValue;
+            var inherited = get(Resolver.InheritedCharacter(Resolver.StyleKeyOf(paragraph), props.StyleId)) ?? defaultValue;
             return set(props, EqualityComparer<T>.Default.Equals(inherited, value) ? null : value);
         };
+
+    /// <summary>Changes the paragraphs of the selection (with whole cells: only the selected cells' paragraphs).</summary>
+    private void FormatSelectedParagraphs(Func<Paragraph, Paragraph> change)
+    {
+        foreach (var range in TableSelection.Ranges(Document, _selection))
+        {
+            var last = range.End.Offset == 0 && range.End.Block > range.Start.Block ? range.End.Block - 1 : range.End.Block;
+            ApplyOptional(ContentEdits.FormatParagraphs(Document, range.Start.Block, last, change));
+        }
+    }
+
+    /// <summary>
+    /// With whole cells selected: their text goes (the cells stay), tables the selection holds completely go as a whole, the text
+    /// outside tables goes as usual; the caret goes to where the selection began (the first selected cell). Inside a command.
+    /// </summary>
+    private void ClearWholeCells()
+    {
+        var tables = TableSelection.WholeCells(Document, _selection);
+        if (tables.Count == 0)
+        {
+            return;
+        }
+
+        var range = _selection.Range;
+        var segments = new List<(DocumentRange Text, TableCellRange? Cells)>();
+        var cursor = range.Start;
+        foreach (var cells in tables)
+        {
+            if (cursor.Block < cells.Span.Start)
+            {
+                var before = cells.Span.Start - 1;
+                segments.Add((new DocumentRange(cursor, new DocumentPosition(before, Document.Blocks[before].Length)), null));
+            }
+
+            segments.Add((default, cells));
+            cursor = new DocumentPosition(cells.Span.End + 1, 0);
+        }
+
+        if (cursor <= range.End)
+        {
+            segments.Add((new DocumentRange(cursor, range.End), null));
+        }
+
+        // From the end backwards: every edit leaves the blocks before it where they are.
+        DocumentPosition? caret = null;
+        for (var index = segments.Count - 1; index >= 0; index--)
+        {
+            var (text, cells) = segments[index];
+            if (cells is null)
+            {
+                if (!text.IsEmpty)
+                {
+                    Apply(ContentEdits.Delete(Document, text));
+                }
+
+                continue;
+            }
+
+            var span = TableSpan.At(Document, cells.Span.Start)!;
+            var whole = cells.IsWholeTable && (range.Start <= new DocumentPosition(span.Start, 0) && range.End.Block > span.End);
+            if (whole)
+            {
+                Apply(TableEdits.Replace(Document, span, []));
+                caret = new DocumentPosition(span.Start, 0);
+                var before = span.Start - 1;
+                if (range.Start.Block <= before && Document.ParagraphAt(before) is { Cell: null } previous && Document.ParagraphAt(span.Start) is { Cell: null })
+                {
+                    // Text before and after the table were selected: their paragraphs join where the table was.
+                    Apply(ContentEdits.Delete(Document, new DocumentRange(new DocumentPosition(before, previous.Length), new DocumentPosition(span.Start, 0))));
+                }
+
+                continue;
+            }
+
+            var model = TableModel.Load(Document, span);
+            foreach (var (row, cell) in TableEdits.CellsIn(model, cells.FirstRow, cells.LastRow, cells.FirstColumn, cells.LastColumn))
+            {
+                var target = model.Rows[row].Cells[cell];
+                target.Paragraphs = [EmptyLike(target.Paragraphs[0])];
+            }
+
+            Apply(TableEdits.Replace(Document, span, model.Emit()));
+            var updated = TableSpan.At(Document, span.Start)!;
+            var firstCell = Math.Max(0, updated.Table.CellAtColumn(cells.FirstRow, cells.FirstColumn));
+            caret = new DocumentPosition(updated.BlocksOf(cells.FirstRow, firstCell).First, 0);
+        }
+
+        var start = segments[0].Cells is null ? range.Start : caret ?? range.Start;
+        SetSelectionQuiet(Selection.Caret(CaretStops.Snap(Document, start)));
+    }
+
+    /// <summary>Enter at the very start of a table that has no paragraph before it: a paragraph before the table (as in Word).</summary>
+    private bool InsertParagraphBeforeTable()
+    {
+        var caret = _selection.Active;
+        if (!_selection.IsCollapsed || caret.Offset != 0 || TableSpan.At(Document, caret.Block) is not { } span || span.Start != caret.Block
+            || (span.Start > 0 && Document.ParagraphAt(span.Start - 1)?.Cell is null))
+        {
+            return false;
+        }
+
+        var paragraph = (Paragraph)Document.Blocks[caret.Block];
+        Run("Absatzmarke", EditKind.Other, null, () =>
+        {
+            IReadOnlyList<Block> inserted = [Paragraph.Empty(ParagraphProperties.Empty, paragraph.MarkProperties)];
+            Apply(new BlocksStep(caret.Block, [], inserted, new BlockReplaceMap(caret.Block, 0, inserted)));
+            SetSelectionQuiet(Selection.Caret(new DocumentPosition(caret.Block, 0)));
+        });
+        return true;
+    }
+
+    /// <summary>
+    /// Entf at the end of a paragraph next to a table edge: in a cell's last paragraph nothing happens; an empty paragraph before a
+    /// table goes (the caret into the table); a paragraph with text before a table stays. False when no table edge is there.
+    /// </summary>
+    private bool DeleteForwardAtTableEdge(DocumentPosition caret, Paragraph paragraph, int nextBlock)
+    {
+        var nextCell = Document.ParagraphAt(nextBlock)?.Cell;
+        if (paragraph.Cell is { } cell)
+        {
+            return !cell.IsSameCell(nextCell);
+        }
+
+        if (nextCell is null)
+        {
+            return false;
+        }
+
+        if (paragraph.Length == 0 && paragraph.SectionBreak is null)
+        {
+            Run("Löschen", EditKind.Other, null, () =>
+            {
+                Apply(new BlocksStep(caret.Block, [paragraph], [], new BlockReplaceMap(caret.Block, 1, [])));
+                SetSelectionQuiet(Selection.Caret(new DocumentPosition(caret.Block, 0)));
+            });
+        }
+
+        return true;
+    }
+
+    /// <summary>Pasted blocks that start or end with a table get an empty paragraph there, so that the table never merges with text.</summary>
+    private static IReadOnlyList<Block> WrapTables(IReadOnlyList<Block> blocks)
+    {
+        if (blocks.Count == 0 || (blocks[0] is not Paragraph { Cell: not null } && blocks[^1] is not Paragraph { Cell: not null }))
+        {
+            return blocks;
+        }
+
+        var wrapped = blocks.ToList();
+        if (wrapped[0] is Paragraph { Cell: not null })
+        {
+            wrapped.Insert(0, Paragraph.Empty());
+        }
+
+        if (wrapped[^1] is Paragraph { Cell: not null })
+        {
+            wrapped.Add(Paragraph.Empty());
+        }
+
+        return wrapped;
+    }
 
     private (int First, int Last) SelectedBlocks()
     {
@@ -1059,7 +1284,7 @@ public sealed class EditingSession
                         properties = properties with { Numbering = remap.TryGetValue(numbering.NumberingId, out var id) ? numbering with { NumberingId = id } : null };
                     }
 
-                    blocks.Add(new Paragraph(inlines, properties, paragraph.MarkProperties, paragraph.SectionBreak));
+                    blocks.Add(new Paragraph(inlines, properties, paragraph.MarkProperties, paragraph.SectionBreak, paragraph.Cell));
                     break;
                 default:
                     blocks.Add(block);
@@ -1078,6 +1303,11 @@ public sealed class EditingSession
             if (paragraph.Properties.StyleId is { } paragraphStyle)
             {
                 ids.Add(paragraphStyle);
+            }
+
+            if (paragraph.Cell?.Table.Properties.StyleId is { } tableStyle)
+            {
+                ids.Add(tableStyle);
             }
 
             foreach (var inline in paragraph.Inlines)

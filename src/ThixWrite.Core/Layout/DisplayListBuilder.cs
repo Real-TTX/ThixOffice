@@ -18,12 +18,19 @@ public static class DisplayListBuilder
     public static PageDisplayList Build(PageLayout page)
     {
         var items = new List<DisplayItem>();
+        AddCellFills(page, items);
         AddPreservedFrames(page, items);
+        foreach (var placed in page.RepeatedLines)
+        {
+            AddLine(placed, items);
+        }
+
         foreach (var placed in page.Lines)
         {
             AddLine(placed, items);
         }
 
+        AddCellBorders(page, items);
         return new PageDisplayList(page.Index, page.Width, page.Height, items);
     }
 
@@ -51,6 +58,49 @@ public static class DisplayListBuilder
         HighlightColor.White => RgbColor.White,
         _ => new RgbColor(0, 0, 0, 0),
     };
+
+    /// <summary>The fills of table cells ("Schattierung"), under everything else.</summary>
+    private static void AddCellFills(PageLayout page, List<DisplayItem> items)
+    {
+        foreach (var cell in page.Cells)
+        {
+            if (cell.Fill is { } fill)
+            {
+                items.Add(new RectangleItem(cell.X, cell.Y, cell.Width, cell.Height, RgbColor.FromHex(fill)));
+            }
+        }
+    }
+
+    /// <summary>The border lines of table cells, over the text (a line shared by two cells is the same line drawn twice).</summary>
+    private static void AddCellBorders(PageLayout page, List<DisplayItem> items)
+    {
+        foreach (var cell in page.Cells)
+        {
+            var (left, top, right, bottom) = (cell.X, cell.Y, cell.X + cell.Width, cell.Y + cell.Height);
+            AddBorder(items, cell.Top, left, top, right, top);
+            AddBorder(items, cell.Bottom, left, bottom, right, bottom);
+            AddBorder(items, cell.Left, left, top, left, bottom);
+            AddBorder(items, cell.Right, right, top, right, bottom);
+        }
+    }
+
+    private static void AddBorder(List<DisplayItem> items, BorderLine? border, double x1, double y1, double x2, double y2)
+    {
+        if (border is not { IsVisible: true })
+        {
+            return;
+        }
+
+        var color = border.Color is { Length: 6 } hex && !string.Equals(hex, "auto", StringComparison.OrdinalIgnoreCase) ? RgbColor.FromHex(hex) : RgbColor.Black;
+        var style = border.Style switch
+        {
+            "double" => LineStyle.Double,
+            "dotted" => LineStyle.Dotted,
+            "dashed" or "dashSmallGap" or "dotDash" or "dotDotDash" => LineStyle.Dashed,
+            _ => LineStyle.Solid,
+        };
+        items.Add(new LineItem(x1, y1, x2, y2, color, border.Width, style));
+    }
 
     private static void AddPreservedFrames(PageLayout page, List<DisplayItem> items)
     {

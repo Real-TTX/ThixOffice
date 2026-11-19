@@ -11,7 +11,9 @@ internal static class ContentEdits
     /// <summary>
     /// Replaces <paramref name="range"/> with <paramref name="parts"/> (first and last a paragraph; one part = inline content).
     /// Paragraph properties follow the mark rule: a paragraph keeps the properties of the paragraph whose mark ends it; when a
-    /// deletion merges paragraphs the first one's properties win unless nothing of it is left.
+    /// deletion merges paragraphs the first one's properties win unless nothing of it is left. Inside a table cell (the range must
+    /// not leave it – the session sees to that) every resulting paragraph belongs to that cell, pasted table paragraphs included;
+    /// outside tables, inner parts keep their cells (a pasted table).
     /// </summary>
     public static BlocksStep Replace(Document document, DocumentRange range, IReadOnlyList<Block> parts)
     {
@@ -21,6 +23,7 @@ internal static class ContentEdits
         var head = first?.Slice(0, from.Offset) ?? [];
         var tail = last.Slice(to.Offset, last.Length);
         var headIsEmpty = first is null || from.Offset == 0;
+        var cell = last.Cell;
 
         var result = new List<Block>(parts.Count);
         int lastLength;
@@ -28,7 +31,7 @@ internal static class ContentEdits
         {
             var inserted = (Paragraph)parts[0];
             var basis = from.Block == to.Block || !headIsEmpty ? first ?? last : last;
-            result.Add(new Paragraph(head.Concat(inserted.Inlines).Concat(tail), basis.Properties, basis.MarkProperties, last.SectionBreak));
+            result.Add(new Paragraph(head.Concat(inserted.Inlines).Concat(tail), basis.Properties, basis.MarkProperties, last.SectionBreak, cell));
             lastLength = inserted.Length;
         }
         else
@@ -36,15 +39,20 @@ internal static class ContentEdits
             var firstPart = (Paragraph)parts[0];
             var lastPart = (Paragraph)parts[^1];
             var firstBasis = headIsEmpty || first is null ? firstPart : first;
-            result.Add(new Paragraph(head.Concat(firstPart.Inlines), firstBasis.Properties, firstBasis.MarkProperties, firstPart.SectionBreak));
+            result.Add(new Paragraph(head.Concat(firstPart.Inlines), firstBasis.Properties, firstBasis.MarkProperties, cell is null ? firstPart.SectionBreak : null, cell));
             for (var index = 1; index < parts.Count - 1; index++)
             {
-                result.Add(parts[index]);
+                result.Add(cell is null ? parts[index] : parts[index] switch
+                {
+                    Paragraph inner => inner.WithSectionBreak(null).WithCell(cell),
+                    OpaqueBlock opaque => new Paragraph(string.Join(" ", opaque.Lines)).WithCell(cell), // no preserved block inside a cell: its text
+                    var other => other,
+                });
             }
 
             // Into an empty place (nothing of the target paragraph is left) the last part keeps its own formatting.
             var lastBasis = headIsEmpty && tail.Count == 0 ? lastPart : last;
-            result.Add(new Paragraph(lastPart.Inlines.Concat(tail), lastBasis.Properties, lastBasis.MarkProperties, last.SectionBreak));
+            result.Add(new Paragraph(lastPart.Inlines.Concat(tail), lastBasis.Properties, lastBasis.MarkProperties, last.SectionBreak, cell));
             lastLength = lastPart.Length;
         }
 
@@ -250,6 +258,6 @@ internal static class ContentEdits
             return paragraph;
         }
 
-        return new Paragraph(inlines, paragraph.Properties, mark, paragraph.SectionBreak);
+        return new Paragraph(inlines, paragraph.Properties, mark, paragraph.SectionBreak, paragraph.Cell);
     }
 }

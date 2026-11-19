@@ -45,15 +45,20 @@ internal static class WriteSelfTest
         Ensure(reopened.Content.ContentEquals(editor.Document.Content), "the docx read back differs from the document written");
         Ensure(reopened.Content.Blocks[0] is Paragraph { Inlines: [TextRun { Properties.Bold: true }, ..] }, "bold is lost in the docx");
 
-        // A Word document with content ThixWrite keeps without showing it (a table): read, warned about, written back.
+        // A Word document with a table: read as a table, a cell edited, written back as a table.
         var table = Path.Combine(folder, "Tabelle.docx");
         WriteDocxWithTable(table);
         var withTable = DocumentService.Open(table, app.CreateDocument) as WordDocument ?? throw new InvalidOperationException("not a WordDocument");
-        Ensure(withTable.Content.UnsupportedContent.Count > 0, "the table was not reported as unsupported content");
+        var span = TableSpan.At(withTable.Content, 1) ?? throw new InvalidOperationException("the table was not read as a table");
+        Ensure(span.Table.RowCount == 2 && span.Table.ColumnCount == 2, "the table has the wrong size");
+        withTable.Session.SetCaret(new DocumentPosition(span.End, 2));
+        withTable.Session.InsertText("!");
+        withTable.Session.InsertTableRows(below: true);
         DocumentService.Save(withTable);
         using (var package = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Open(table, false))
         {
-            Ensure(package.MainDocumentPart?.Document?.Body?.Elements<DocumentFormat.OpenXml.Wordprocessing.Table>().Any() == true, "the table was lost on saving");
+            var written = package.MainDocumentPart?.Document?.Body?.Elements<DocumentFormat.OpenXml.Wordprocessing.Table>().SingleOrDefault();
+            Ensure(written?.Elements<DocumentFormat.OpenXml.Wordprocessing.TableRow>().Count() == 3 && written.InnerText.Contains("B2!", StringComparison.Ordinal), "the table was not saved with its change");
         }
 
         using var bitmap = new SKBitmap((int)editor.Layout.Pages[0].Width, (int)editor.Layout.Pages[0].Height);

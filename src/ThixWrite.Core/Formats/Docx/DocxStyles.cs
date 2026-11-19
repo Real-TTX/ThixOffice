@@ -209,6 +209,9 @@ internal static class DocxStyles
                 case W.StyleRunProperties run:
                     style = style with { Character = DocxPropertyReader.ReadCharacter(run) };
                     break;
+                case W.StyleTableProperties table:
+                    style = style with { Table = DocxTables.ReadTable(table) };
+                    break;
                 default:
                     unknown.Add(child);
                     break;
@@ -253,6 +256,11 @@ internal static class DocxStyles
         if (DocxPropertyWriter.WriteCharacter(style.Character, new W.StyleRunProperties()) is { } run)
         {
             DocxPropertyWriter.Add(element, run);
+        }
+
+        if (style.Table is { } table && DocxTables.WriteTable(table, new W.StyleTableProperties()) is { } tableProperties)
+        {
+            DocxPropertyWriter.Add(element, tableProperties);
         }
 
         return element;

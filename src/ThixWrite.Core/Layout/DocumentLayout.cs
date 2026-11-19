@@ -19,7 +19,7 @@ namespace ThixWrite.Core.Layout;
 /// with <see cref="LayoutOptions.PageGap"/> between them.
 /// </para>
 /// </summary>
-public sealed class DocumentLayout : ICaretNavigator, IDisposable
+public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
 {
     private const double Epsilon = 0.01;
 
@@ -153,7 +153,7 @@ public sealed class DocumentLayout : ICaretNavigator, IDisposable
     {
         Update();
         var pageLayout = _pages[Math.Clamp(page, 0, _pages.Count - 1)];
-        var line = NearestLine(pageLayout, y);
+        var line = NearestLine(pageLayout, x, y);
         if (line is null)
         {
             var position = CaretStops.Snap(Document, new DocumentPosition(NearestBlockOn(pageLayout.Index), 0));
@@ -192,8 +192,21 @@ public sealed class DocumentLayout : ICaretNavigator, IDisposable
             return rects;
         }
 
+        // Whole cells: the cells are highlighted, not their lines (as in Word).
+        var wholeCells = TableSelection.WholeCells(Document, new Selection(range.Start, range.End));
+        foreach (var cells in wholeCells)
+        {
+            AddCellRects(cells, rects);
+        }
+
         for (var block = range.Start.Block; block <= range.End.Block && block < _placements.Count; block++)
         {
+            if (wholeCells.FirstOrDefault(cells => cells.Span.Contains(block)) is { } table)
+            {
+                block = table.Span.End;
+                continue;
+            }
+
             var placement = _placements[block];
             if (placement is null)
             {
@@ -244,6 +257,37 @@ public sealed class DocumentLayout : ICaretNavigator, IDisposable
         return rects;
     }
 
+    private void AddCellRects(TableCellRange cells, List<PageRect> rects)
+    {
+        var selected = cells.Cells.ToHashSet();
+        var first = _placements[cells.Span.Start]?.Pages.FirstOrDefault() ?? 0;
+        var last = _placements[cells.Span.End]?.Pages.LastOrDefault() ?? first;
+        for (var page = first; page <= last && page < _pages.Count; page++)
+        {
+            foreach (var cell in _pages[page].Cells)
+            {
+                if (!cell.IsRepeat && cell.TableStart == cells.Span.Start && selected.Contains((cell.Row, cell.Cell)))
+                {
+                    rects.Add(new PageRect(page, cell.X, cell.Y, cell.Width, cell.Height));
+                }
+            }
+        }
+    }
+
+    /// <summary>The cell placed at a point of a page (not a repeated heading row), or null.</summary>
+    public PlacedCell? CellAt(int page, double x, double y)
+    {
+        Update();
+        return page < 0 || page >= _pages.Count ? null : _pages[page].Cells.FirstOrDefault(cell => !cell.IsRepeat && cell.Contains(x, y));
+    }
+
+    /// <summary>The page the first line of block <paramref name="block"/> is on.</summary>
+    public int PageOfBlock(int block)
+    {
+        Update();
+        return _placements[Math.Clamp(block, 0, _placements.Count - 1)]?.Pages.FirstOrDefault() ?? 0;
+    }
+
     /// <summary>The display list of page <paramref name="page"/> (cached until the page changes).</summary>
     public PageDisplayList GetDisplayList(int page)
     {
@@ -276,28 +320,58 @@ public sealed class DocumentLayout : ICaretNavigator, IDisposable
     {
         var (page, placed) = Locate(place);
         var pageIndex = page;
-        var lines = _pages[pageIndex].Lines;
-        var index = IndexOnPage(lines, placed);
-        while (true)
+        var edge = direction > 0 ? placed.Top + placed.Line.Height - Epsilon : placed.Top + Epsilon;
+        var candidate = NextLineVertically(_pages[pageIndex], placed, edge, direction, goalX);
+        while (candidate is null)
         {
-            index += direction;
-            while (index < 0 || index >= lines.Count)
+            pageIndex += direction;
+            if (pageIndex < 0 || pageIndex >= _pages.Count)
             {
-                pageIndex += direction;
-                if (pageIndex < 0 || pageIndex >= _pages.Count)
-                {
-                    return null;
-                }
-
-                lines = _pages[pageIndex].Lines;
-                index = direction > 0 ? 0 : lines.Count - 1;
+                return null;
             }
 
-            if (!lines[index].Paragraph.IsPreserved)
+            candidate = NextLineVertically(_pages[pageIndex], null, direction > 0 ? double.MinValue : double.MaxValue, direction, goalX);
+        }
+
+        return HitLine(pageIndex, candidate, goalX).Place;
+    }
+
+    /// <summary>
+    /// The line one step above / below <paramref name="edge"/> on a page: of the lines beyond it, the nearest whose width holds
+    /// <paramref name="goalX"/> (so that the caret goes down a table column and leaves the table below it), else the nearest.
+    /// </summary>
+    private static PlacedLine? NextLineVertically(PageLayout page, PlacedLine? from, double edge, int direction, double goalX)
+    {
+        PlacedLine? best = null;
+        PlacedLine? bestInColumn = null;
+        foreach (var line in page.Lines)
+        {
+            if (ReferenceEquals(line, from) || line.Paragraph.IsPreserved)
             {
-                return HitLine(pageIndex, lines[index], goalX).Place;
+                continue;
+            }
+
+            var beyond = direction > 0 ? line.Top >= edge : line.Top + line.Line.Height <= edge;
+            if (!beyond)
+            {
+                continue;
+            }
+
+            if (best is null || Closer(line, best, direction))
+            {
+                best = line;
+            }
+
+            var holdsX = goalX >= line.Left - Epsilon && goalX <= line.Left + line.Paragraph.Width + Epsilon;
+            if (holdsX && (bestInColumn is null || Closer(line, bestInColumn, direction)))
+            {
+                bestInColumn = line;
             }
         }
+
+        return bestInColumn ?? best;
+
+        static bool Closer(PlacedLine line, PlacedLine than, int direction) => direction > 0 ? line.Top < than.Top : line.Top > than.Top;
     }
 
     public CaretPlace MoveByPage(CaretPlace place, int direction, double goalX)
@@ -379,6 +453,12 @@ public sealed class DocumentLayout : ICaretNavigator, IDisposable
             _placements.Insert(start + index, null);
         }
 
+        // The block after a pure removal (a deleted table) kept the state from after the removed blocks: it is stale now.
+        if (inserted == 0 && start < _states.Count)
+        {
+            _states[start] = null;
+        }
+
         // Labels shift with the blocks, so that only real label changes count as changes.
         var labels = _labels.ToList();
         if (start <= labels.Count)
@@ -414,7 +494,7 @@ public sealed class DocumentLayout : ICaretNavigator, IDisposable
     private int ResumeBlock(int dirty)
     {
         var block = Math.Max(0, dirty);
-        while (block > 0 && (_states[block] is null || PreviousKeepsWithThis(block)))
+        while (block > 0 && (_states[block] is null || PreviousKeepsWithThis(block) || IsInsideTable(block)))
         {
             block--;
         }
@@ -423,6 +503,11 @@ public sealed class DocumentLayout : ICaretNavigator, IDisposable
     }
 
     private bool PreviousKeepsWithThis(int block) => _layouts[block - 1] is { } previous && previous.Format.KeepWithNext;
+
+    /// <summary>True for a block of a table that is not its first (a table is paginated from its first block).</summary>
+    private bool IsInsideTable(int block) => Document.Blocks[block] is Paragraph { Cell: { } cell } && IsSameTable(block - 1, cell.Table);
+
+    private bool IsSameTable(int block, Table table) => block >= 0 && Document.Blocks[block] is Paragraph { Cell: { } cell } && ReferenceEquals(cell.Table, table);
 
     // ---------------------------------------------------------------- layout of blocks
 
@@ -474,7 +559,7 @@ public sealed class DocumentLayout : ICaretNavigator, IDisposable
         else
         {
             _pages.RemoveRange(state.Page + 1, _pages.Count - state.Page - 1);
-            _pages[state.Page].MutableLines.RemoveAll(line => line.Block >= startBlock);
+            _pages[state.Page].RemoveFrom(startBlock);
         }
 
         var flow = new Flow(this, state);
@@ -488,7 +573,7 @@ public sealed class DocumentLayout : ICaretNavigator, IDisposable
     }
 
     /// <summary>The pagination of the blocks from a saved state on (one pass, keeps every rule local to the block it concerns).</summary>
-    private sealed class Flow(DocumentLayout owner, FlowState start)
+    private sealed partial class Flow(DocumentLayout owner, FlowState start)
     {
         private int _page = start.Page;
         private double _y = start.Y;
@@ -512,6 +597,16 @@ public sealed class DocumentLayout : ICaretNavigator, IDisposable
             if (section.Index != _section)
             {
                 StartSection(section);
+            }
+
+            if (owner.Document.Blocks[block] is Paragraph { Cell: { } cell })
+            {
+                if (!owner.IsSameTable(block - 1, cell.Table))
+                {
+                    PlaceTable(block, section);
+                }
+
+                return; // the other blocks of a table are placed with its first one
             }
 
             var layout = owner.EnsureLayout(block, section.Properties.ContentWidth);
@@ -647,6 +742,11 @@ public sealed class DocumentLayout : ICaretNavigator, IDisposable
             var width = document.SectionOf(block).Properties.ContentWidth;
             while (index < document.Blocks.Count)
             {
+                if (document.Blocks[index] is Paragraph { Cell: not null })
+                {
+                    break; // a table: its rows decide on their own where they go
+                }
+
                 var layout = owner.EnsureLayout(index, width);
                 if (index > block)
                 {
@@ -759,31 +859,27 @@ public sealed class DocumentLayout : ICaretNavigator, IDisposable
         return (placement.Pages[^1], lines[^1]);
     }
 
-    private static int IndexOnPage(IReadOnlyList<PlacedLine> lines, PlacedLine placed)
+    /// <summary>
+    /// The line nearest to a point: inside a table cell the nearest line of that cell; else the line whose height holds y and
+    /// whose width holds x (beside a table: the nearest of them), else the nearest line above or below.
+    /// </summary>
+    private PlacedLine? NearestLine(PageLayout page, double x, double y)
     {
-        for (var index = 0; index < lines.Count; index++)
+        var cell = page.Cells.FirstOrDefault(candidate => !candidate.IsRepeat && candidate.Contains(x, y));
+        IEnumerable<PlacedLine> lines = page.Lines;
+        if (cell is not null && TableSpan.At(Document, cell.TableStart) is { } span)
         {
-            if (ReferenceEquals(lines[index], placed))
-            {
-                return index;
-            }
+            var (first, last) = span.BlocksOf(cell.Row, cell.Cell);
+            lines = page.Lines.Where(line => line.Block >= first && line.Block <= last);
         }
 
-        return 0;
-    }
-
-    private static PlacedLine? NearestLine(PageLayout page, double y)
-    {
         PlacedLine? best = null;
         var bestDistance = double.MaxValue;
-        foreach (var line in page.Lines)
+        foreach (var line in lines)
         {
-            if (y >= line.Top && y < line.Top + line.Line.Height)
-            {
-                return line;
-            }
-
-            var distance = y < line.Top ? line.Top - y : y - (line.Top + line.Line.Height);
+            var dy = y < line.Top ? line.Top - y : y >= line.Top + line.Line.Height ? y - (line.Top + line.Line.Height) : 0;
+            var dx = x < line.Left ? line.Left - x : x > line.Left + line.Paragraph.Width ? x - (line.Left + line.Paragraph.Width) : 0;
+            var distance = (dy * 1000) + dx; // the line's height first, the side second
             if (distance < bestDistance)
             {
                 best = line;

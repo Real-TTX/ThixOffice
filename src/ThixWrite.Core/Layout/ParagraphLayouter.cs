@@ -70,7 +70,7 @@ internal static class ParagraphLayouter
     public static ParagraphLayout Layout(Paragraph paragraph, EffectiveParagraphFormat format, ListLabel? label, double width, LayoutContext context)
     {
         var text = paragraph.Text;
-        var styleId = format.StyleId;
+        var styleId = format.StyleKey;
         var markFormat = context.Resolver.ResolveCharacter(styleId, paragraph.MarkProperties);
         var segments = BuildSegments(paragraph, styleId, context, out var advances, out var owner);
         var breaks = BreakOpportunities(paragraph);
@@ -157,7 +157,7 @@ internal static class ParagraphLayouter
 
     private static string CaptionOf(PreservedKind kind) => kind switch
     {
-        PreservedKind.Table => "Tabelle – wird angezeigt, ist in dieser Version noch nicht bearbeitbar",
+        PreservedKind.Table => "Verschachtelte Tabelle – wird angezeigt, ist in dieser Version noch nicht bearbeitbar",
         PreservedKind.ContentControl => "Inhaltssteuerelement – nicht bearbeitbar",
         PreservedKind.Math => "Formel – nicht bearbeitbar",
         _ => "Nicht unterstützter Inhalt – wird beim Speichern erhalten",

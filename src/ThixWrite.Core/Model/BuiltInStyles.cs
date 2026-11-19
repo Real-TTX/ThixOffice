@@ -22,6 +22,8 @@ public static class BuiltInStyles
     public const string Strong = "Strong";
     public const string Emphasis = "Emphasis";
     public const string HyperlinkStyle = "Hyperlink";
+    public const string TableNormal = "TableNormal";
+    public const string TableGrid = "TableGrid";
 
     public const string BodyFont = "Calibri";
     public const string HeadingFont = "Calibri Light";
@@ -245,6 +247,27 @@ public static class BuiltInStyles
                 QuickFormat = true,
                 UiPriority = 20,
                 Character = new CharacterProperties { Italic = true },
+            },
+            TableNormal => new Style
+            {
+                Id = TableNormal,
+                Name = "Normal Table",
+                Type = StyleType.Table,
+                IsDefault = true,
+                UiPriority = 99,
+                SemiHidden = true,
+                UnhideWhenUsed = true,
+                Table = new TableProperties { Indent = 0, CellMargins = CellMargins.WordDefault },
+            },
+            TableGrid => new Style
+            {
+                Id = TableGrid,
+                Name = "Table Grid",
+                Type = StyleType.Table,
+                BasedOn = TableNormal,
+                UiPriority = 39,
+                Paragraph = new ParagraphProperties { SpacingAfter = 0, LineSpacing = LineSpacing.Single },
+                Table = new TableProperties { Borders = BorderSet.All(BorderLine.Single) },
             },
             HyperlinkStyle => new Style
             {

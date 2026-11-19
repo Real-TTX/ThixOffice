@@ -29,7 +29,8 @@ public sealed record SectionInfo(int Index, int StartBlock, int EndBlock, Sectio
 /// paragraph with <see cref="Paragraph.SectionBreak"/>, the last section's setup is <see cref="FinalSection"/>), the styles, the
 /// list definitions, the theme, settings, the notes about preserved content and the original package.
 /// <para>
-/// Invariants: there is at least one block and the last block is a paragraph (so the caret always has a place). The model is
+/// Invariants: there is at least one block and the last block is a paragraph outside tables (so the caret always has a place
+/// after a table, as in Word); a table's paragraphs are in reading order with every cell present (<see cref="TableSpan"/>). The model is
 /// changed only through the editing engine (internal mutators), which records every change for undo and raises
 /// <see cref="Changed"/> – the layout listens to it to re-lay only what changed.
 /// </para>
@@ -48,7 +49,7 @@ public sealed class Document
         DocumentSettings? settings = null)
     {
         _blocks = [.. blocks];
-        if (_blocks.Count == 0 || _blocks[^1] is not Paragraph)
+        if (_blocks.Count == 0 || _blocks[^1] is not Paragraph { Cell: null })
         {
             _blocks.Add(Paragraph.Empty());
         }
@@ -154,9 +155,9 @@ public sealed class Document
     {
         _blocks.RemoveRange(start, count);
         _blocks.InsertRange(start, inserted);
-        if (_blocks.Count == 0 || _blocks[^1] is not Paragraph)
+        if (_blocks.Count == 0 || _blocks[^1] is not Paragraph { Cell: null })
         {
-            throw new InvalidOperationException("The last block of a document must be a paragraph.");
+            throw new InvalidOperationException("The last block of a document must be a paragraph outside tables.");
         }
 
         _sections = null;

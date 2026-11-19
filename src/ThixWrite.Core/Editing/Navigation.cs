@@ -119,7 +119,7 @@ public static class CaretStops
     {
         for (var index = block + 1; index < document.Blocks.Count; index++)
         {
-            if (document.Blocks[index] is Paragraph)
+            if (IsCaretBlock(document, index))
             {
                 return new DocumentPosition(index, 0);
             }
@@ -133,7 +133,7 @@ public static class CaretStops
     {
         for (var index = block - 1; index >= 0; index--)
         {
-            if (document.Blocks[index] is Paragraph paragraph)
+            if (IsCaretBlock(document, index) && document.Blocks[index] is Paragraph paragraph)
             {
                 return new DocumentPosition(index, paragraph.Length);
             }
@@ -146,6 +146,12 @@ public static class CaretStops
     public static DocumentPosition Snap(Document document, DocumentPosition position)
     {
         var clamped = ContentEdits.Clamp(document, position);
+        if (document.Blocks[clamped.Block] is Paragraph { Cell.IsCovered: true })
+        {
+            // A paragraph hidden by a vertical merge: the caret goes on after it (the last block never is one).
+            return NextParagraphStart(document, clamped.Block) ?? PreviousParagraphEnd(document, clamped.Block) ?? document.End;
+        }
+
         if (document.Blocks[clamped.Block] is not Paragraph paragraph)
         {
             return new DocumentPosition(ContentEdits.NextParagraph(document, clamped.Block), 0);
@@ -163,6 +169,9 @@ public static class CaretStops
         var isBoundary = TextBoundaries.NextGrapheme(text, previous) == offset;
         return isBoundary ? clamped : clamped with { Offset = previous };
     }
+
+    /// <summary>True for a block the caret can be in: a paragraph that is not hidden in a covered cell.</summary>
+    public static bool IsCaretBlock(Document document, int block) => document.Blocks[block] is Paragraph paragraph && paragraph.Cell?.IsCovered != true;
 
     private static bool IsMarker(Paragraph paragraph, int offset) => paragraph.InlineAt(offset) is OpaqueInline { IsMarker: true };
 }

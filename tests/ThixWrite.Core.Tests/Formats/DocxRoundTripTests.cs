@@ -250,8 +250,7 @@ public class DocxRoundTripTests
         const string W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
         var bookmarkStart = $"<w:bookmarkStart w:name=\"Marke\" w:id=\"0\" xmlns:w=\"{W}\" />";
         var bookmarkEnd = $"<w:bookmarkEnd w:id=\"0\" xmlns:w=\"{W}\" />";
-        var table = $"<w:tbl xmlns:w=\"{W}\"><w:tblPr><w:tblW w:w=\"0\" w:type=\"auto\" /></w:tblPr><w:tblGrid><w:gridCol w:w=\"2000\" /></w:tblGrid>"
-                    + "<w:tr><w:tc><w:tcPr><w:tcW w:w=\"2000\" w:type=\"dxa\" /></w:tcPr><w:p><w:r><w:t>Zelle</w:t></w:r></w:p></w:tc></w:tr></w:tbl>";
+        var control = $"<w:sdt xmlns:w=\"{W}\"><w:sdtPr><w:alias w:val=\"Feld\" /></w:sdtPr><w:sdtContent><w:p><w:r><w:t>Zelle</w:t></w:r></w:p></w:sdtContent></w:sdt>";
         var document = new Document(
         [
             new Paragraph([
@@ -259,14 +258,14 @@ public class DocxRoundTripTests
                 new TextRun("markiert", CharacterProperties.Empty),
                 new OpaqueInline(bookmarkEnd, PreservedKind.Bookmark, false, CharacterProperties.Empty),
             ]),
-            new OpaqueBlock(table, PreservedKind.Table, ["Zelle"]),
+            new OpaqueBlock(control, PreservedKind.ContentControl, ["Zelle"]),
             new Paragraph("danach"),
         ]);
 
         var read = RoundTrip(document);
 
         AssertSameContent(document, read);
-        Assert.Equal([new UnsupportedContent(PreservedKind.Table, 1)], read.UnsupportedContent);
+        Assert.Equal([new UnsupportedContent(PreservedKind.ContentControl, 1)], read.UnsupportedContent);
     }
 
     [Fact]

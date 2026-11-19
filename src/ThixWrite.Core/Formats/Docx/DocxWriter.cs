@@ -101,10 +101,15 @@ public static class DocxWriter
     private static W.Body WriteBody(Document document, WriteContext context)
     {
         var body = new W.Body();
-        foreach (var block in document.Blocks)
+        for (var index = 0; index < document.Blocks.Count; index++)
         {
-            switch (block)
+            switch (document.Blocks[index])
             {
+                case Paragraph { Cell: not null }:
+                    var span = TableSpan.At(document, index)!;
+                    body.AppendChild(WriteTable(document, span, context));
+                    index = span.End;
+                    break;
                 case Paragraph paragraph:
                     body.AppendChild(WriteParagraph(paragraph, context));
                     break;
@@ -120,6 +125,56 @@ public static class DocxWriter
 
         body.AppendChild(DocxPropertyWriter.WriteSection(document.FinalSection));
         return body;
+    }
+
+    /// <summary>A table: w:tblPr (always, as the schema wants), w:tblGrid, the rows and cells with the cells' paragraphs.</summary>
+    private static W.Table WriteTable(Document document, TableSpan span, WriteContext context)
+    {
+        var table = span.Table;
+        var element = new W.Table();
+        element.AppendChild(DocxTables.WriteTable(table.Properties, new W.TableProperties()) ?? new W.TableProperties());
+        var grid = table.Grid.Count > 0 ? table.Grid : new EquatableArray<double>(Enumerable.Repeat(72.0, table.ColumnCount));
+        element.AppendChild(DocxTables.WriteGrid(grid));
+        for (var row = 0; row < table.RowCount; row++)
+        {
+            var rowElement = new W.TableRow();
+            var (exceptions, properties) = DocxTables.WriteRow(table.Rows[row].Properties);
+            if (exceptions is not null)
+            {
+                rowElement.AppendChild(exceptions);
+            }
+
+            if (properties is not null)
+            {
+                rowElement.AppendChild(properties);
+            }
+
+            for (var cell = 0; cell < table.Rows[row].CellCount; cell++)
+            {
+                var cellElement = new W.TableCell();
+                if (DocxTables.WriteCell(table.CellAt(row, cell)) is { } cellProperties)
+                {
+                    cellElement.AppendChild(cellProperties);
+                }
+
+                var (first, last) = span.BlocksOf(row, cell);
+                for (var block = first; first >= 0 && block <= last; block++)
+                {
+                    cellElement.AppendChild(WriteParagraph((Paragraph)document.Blocks[block], context));
+                }
+
+                if (first < 0)
+                {
+                    cellElement.AppendChild(new W.Paragraph());
+                }
+
+                rowElement.AppendChild(cellElement);
+            }
+
+            element.AppendChild(rowElement);
+        }
+
+        return element;
     }
 
     private static W.Paragraph WriteParagraph(Paragraph paragraph, WriteContext context)

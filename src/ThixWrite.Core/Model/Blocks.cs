@@ -6,7 +6,8 @@ namespace ThixWrite.Core.Model;
 /// <summary>
 /// A block of the document body. Blocks are IMMUTABLE: an edit replaces a block with a new instance, so undo keeps the old
 /// instances and the layout caches by instance (an unchanged block keeps its layout). 1a: <see cref="Paragraph"/> and
-/// <see cref="OpaqueBlock"/> (preserved content such as tables); 1b adds tables as blocks of their own.
+/// <see cref="OpaqueBlock"/> (preserved content). A table is not a block of its own: its cells' paragraphs are paragraphs with a
+/// <see cref="Paragraph.Cell"/> (see <see cref="Table"/>).
 /// </summary>
 public abstract class Block
 {
@@ -20,7 +21,8 @@ public abstract class Block
 /// <summary>
 /// A paragraph: inlines (normalized – adjacent runs with the same formatting joined, empty runs dropped), its properties, the
 /// formatting of its paragraph mark (decides the height of an empty paragraph) and, at the end of a section, that section's
-/// page setup (Word keeps w:sectPr in the last paragraph of a section).
+/// page setup (Word keeps w:sectPr in the last paragraph of a section). A paragraph in a table cell names its cell
+/// (<see cref="Cell"/>); every edit keeps it.
 /// </summary>
 public sealed class Paragraph : Block
 {
@@ -30,9 +32,11 @@ public sealed class Paragraph : Block
         IEnumerable<Inline> inlines,
         ParagraphProperties? properties = null,
         CharacterProperties? markProperties = null,
-        SectionProperties? sectionBreak = null)
+        SectionProperties? sectionBreak = null,
+        CellRef? cell = null)
     {
         Inlines = Normalize(inlines);
+        Cell = cell;
         Properties = properties ?? ParagraphProperties.Empty;
         MarkProperties = markProperties ?? CharacterProperties.Empty;
         SectionBreak = sectionBreak;
@@ -63,21 +67,27 @@ public sealed class Paragraph : Block
 
     public SectionProperties? SectionBreak { get; }
 
+    /// <summary>The table cell this paragraph is in, or null outside tables.</summary>
+    public CellRef? Cell { get; }
+
     /// <summary>The text: runs' characters, one <see cref="SpecialCharacters.Object"/> per inline object.</summary>
     public string Text { get; }
 
     public override int Length => Text.Length;
 
-    public static Paragraph Empty(ParagraphProperties? properties = null, CharacterProperties? markProperties = null) =>
-        new([], properties, markProperties);
+    public static Paragraph Empty(ParagraphProperties? properties = null, CharacterProperties? markProperties = null, CellRef? cell = null) =>
+        new([], properties, markProperties, null, cell);
 
-    public Paragraph WithProperties(ParagraphProperties properties) => new(Inlines, properties, MarkProperties, SectionBreak);
+    public Paragraph WithProperties(ParagraphProperties properties) => new(Inlines, properties, MarkProperties, SectionBreak, Cell);
 
-    public Paragraph WithMarkProperties(CharacterProperties markProperties) => new(Inlines, Properties, markProperties, SectionBreak);
+    public Paragraph WithMarkProperties(CharacterProperties markProperties) => new(Inlines, Properties, markProperties, SectionBreak, Cell);
 
-    public Paragraph WithSectionBreak(SectionProperties? sectionBreak) => new(Inlines, Properties, MarkProperties, sectionBreak);
+    public Paragraph WithSectionBreak(SectionProperties? sectionBreak) => new(Inlines, Properties, MarkProperties, sectionBreak, Cell);
 
-    public Paragraph WithInlines(IEnumerable<Inline> inlines) => new(inlines, Properties, MarkProperties, SectionBreak);
+    public Paragraph WithInlines(IEnumerable<Inline> inlines) => new(inlines, Properties, MarkProperties, SectionBreak, Cell);
+
+    /// <summary>The same paragraph in another cell (or outside tables with null).</summary>
+    public Paragraph WithCell(CellRef? cell) => Nullable.Equals(cell, Cell) && ReferenceEquals(cell?.Table, Cell?.Table) ? this : new(Inlines, Properties, MarkProperties, SectionBreak, cell);
 
     /// <summary>The offset in the text where inline <paramref name="index"/> starts.</summary>
     public int StartOf(int index) => _starts[index];
@@ -162,6 +172,7 @@ public sealed class Paragraph : Block
         && Properties == paragraph.Properties
         && MarkProperties == paragraph.MarkProperties
         && SectionBreak == paragraph.SectionBreak
+        && Nullable.Equals(Cell, paragraph.Cell)
         && Inlines.SequenceEqual(paragraph.Inlines);
 
     public override string ToString() => Text.Replace(SpecialCharacters.Object, '¤');
