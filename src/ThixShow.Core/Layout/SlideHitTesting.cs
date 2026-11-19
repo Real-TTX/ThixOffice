@@ -78,7 +78,8 @@ public static class SlideHitTesting
             if (shape is GroupShape group)
             {
                 var groupMatrix = group.Transform is { } groupTransform ? SlideRenderer.GroupMatrix(groupTransform) * parent : parent;
-                if (HitTest(context, group.Children, groupMatrix, x, y, [.. path, group.Id]) is { } inner)
+                var children = group.Transform is { } mapping ? group.Children.Select(child => SlideRenderer.MapChildElement(child, mapping)).ToList() : group.Children.ToList();
+                if (HitTest(context, children, groupMatrix, x, y, [.. path, group.Id]) is { } inner)
                 {
                     return inner;
                 }
@@ -132,23 +133,30 @@ public static class SlideHitTesting
     }
 
     /// <summary>The transform of an element's box (0..w, 0..h points) to the slide, groups above included; null when not found.</summary>
-    public static Matrix2D? MatrixOf(Presentation presentation, Slide slide, int shapeId)
+    public static Matrix2D? MatrixOf(Presentation presentation, Slide slide, int shapeId) => Locate(presentation, slide, shapeId)?.Matrix;
+
+    /// <summary>
+    /// An element as it is placed on the slide: the element with its box in its parent's space (group children mapped), its resolved
+    /// transform and the matrix of its box to the slide.
+    /// </summary>
+    public static (SlideElement Element, Transform2D Transform, Matrix2D Matrix)? Locate(Presentation presentation, Slide slide, int shapeId)
     {
         var context = SlideContext.For(presentation, slide);
-        return MatrixOf(context, slide.Shapes, shapeId, Matrix2D.Identity);
+        return Locate(context, slide.Shapes, shapeId, Matrix2D.Identity);
     }
 
-    private static Matrix2D? MatrixOf(SlideContext context, IEnumerable<SlideElement> shapes, int id, Matrix2D parent)
+    private static (SlideElement Element, Transform2D Transform, Matrix2D Matrix)? Locate(SlideContext context, IEnumerable<SlideElement> shapes, int id, Matrix2D parent)
     {
         foreach (var shape in shapes)
         {
-            var transform = ShapeResolver.Resolve(context, shape).Transform;
             if (shape.Id == id)
             {
-                return SlideRenderer.ShapeMatrix(transform) * parent;
+                var transform = ShapeResolver.Resolve(context, shape).Transform;
+                return (shape, transform, SlideRenderer.ShapeMatrix(transform) * parent);
             }
 
-            if (shape is GroupShape group && group.Transform is { } groupTransform && MatrixOf(context, group.Children, id, SlideRenderer.GroupMatrix(groupTransform) * parent) is { } inner)
+            if (shape is GroupShape group && group.Transform is { } groupTransform
+                && Locate(context, group.Children.Select(child => SlideRenderer.MapChildElement(child, groupTransform)), id, SlideRenderer.GroupMatrix(groupTransform) * parent) is { } inner)
             {
                 return inner;
             }
@@ -160,15 +168,13 @@ public static class SlideHitTesting
     /// <summary>The four corners of an element on the slide (top-left, top-right, bottom-right, bottom-left of its box).</summary>
     public static IReadOnlyList<(double X, double Y)> CornersOf(Presentation presentation, Slide slide, int shapeId)
     {
-        var shape = slide.FindShape(shapeId);
-        var matrix = MatrixOf(presentation, slide, shapeId);
-        if (shape is null || matrix is not { } m)
+        if (Locate(presentation, slide, shapeId) is not { } placed)
         {
             return [];
         }
 
-        var transform = ShapeResolver.Resolve(SlideContext.For(presentation, slide), shape).Transform;
-        var (width, height) = (Units.EmuToPoints(transform.Width), Units.EmuToPoints(transform.Height));
+        var (width, height) = (Units.EmuToPoints(placed.Transform.Width), Units.EmuToPoints(placed.Transform.Height));
+        var m = placed.Matrix;
         return [m.Apply(0, 0), m.Apply(width, 0), m.Apply(width, height), m.Apply(0, height)];
     }
 
@@ -190,13 +196,12 @@ public static class SlideHitTesting
     /// </summary>
     public static IReadOnlyList<SelectionHandle> HandlesOf(Presentation presentation, Slide slide, int shapeId)
     {
-        var shape = slide.FindShape(shapeId);
-        var matrix = MatrixOf(presentation, slide, shapeId);
-        if (shape is null || matrix is not { } m)
+        if (Locate(presentation, slide, shapeId) is not { } placed)
         {
             return [];
         }
 
+        var (shape, m) = (placed.Element, placed.Matrix);
         var resolved = ShapeResolver.Resolve(SlideContext.For(presentation, slide), shape);
         var (width, height) = (Units.EmuToPoints(resolved.Transform.Width), Units.EmuToPoints(resolved.Transform.Height));
         var handles = new List<SelectionHandle>();

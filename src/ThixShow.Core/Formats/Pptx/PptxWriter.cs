@@ -42,7 +42,7 @@ public static class PptxWriter
     private sealed class Writer(PresentationDocument package, Presentation presentation, bool isNew)
     {
         private readonly PresentationDocument _package = package;
-        private readonly PresentationPart _presentationPart = package.PresentationPart!;
+        private PresentationPart MainPart => _package.PresentationPart!;
         private readonly Dictionary<string, OpenXmlPart> _partsByUri = new(StringComparer.Ordinal);
         private readonly Dictionary<string, ImagePart> _imagesByKey = new(StringComparer.Ordinal);
         private readonly Dictionary<string, ImageData> _imagesByUri = new(StringComparer.Ordinal);
@@ -52,7 +52,8 @@ public static class PptxWriter
 
         public void Run()
         {
-            IndexParts(_presentationPart);
+            SetFlavour();
+            IndexParts(MainPart);
             if (presentation.OriginalSlides is { } originals)
             {
                 foreach (var slide in originals.Values.Where(slide => slide.PartUri is not null))
@@ -78,6 +79,21 @@ public static class PptxWriter
             WritePresentation(masterParts, slideParts.Select(entry => (entry.Slide.Id, entry.Part)).ToList());
             WriteTableStyles();
             WriteProperties();
+        }
+
+        /// <summary>.pptm keeps the VBA project; .pptx drops it (the content type follows).</summary>
+        private void SetFlavour()
+        {
+            var wanted = presentation.IsMacroEnabled ? PresentationDocumentType.MacroEnabledPresentation : PresentationDocumentType.Presentation;
+            if (!presentation.IsMacroEnabled && MainPart.VbaProjectPart is { } vba)
+            {
+                MainPart.DeletePart(vba);
+            }
+
+            if (_package.DocumentType != wanted)
+            {
+                _package.ChangeDocumentType(wanted);
+            }
         }
 
         // ------------------------------------------------------------ parts and relationships
@@ -348,7 +364,7 @@ public static class PptxWriter
                 var part = PartOf(master.PartUri) as SlideMasterPart;
                 if (part is null || !usedParts.Add(part))
                 {
-                    part = _presentationPart.AddNewPart<SlideMasterPart>();
+                    part = MainPart.AddNewPart<SlideMasterPart>();
                     usedParts.Add(part);
                     Register(part);
                 }
@@ -530,7 +546,7 @@ public static class PptxWriter
                 var isNewPart = part is null || !used.Add(part);
                 if (isNewPart)
                 {
-                    part = _presentationPart.AddNewPart<SlidePart>();
+                    part = MainPart.AddNewPart<SlidePart>();
                     used.Add(part);
                     Register(part);
                 }
@@ -639,12 +655,12 @@ public static class PptxWriter
 
         private NotesMasterPart EnsureNotesMaster()
         {
-            if (_presentationPart.NotesMasterPart is { } existing)
+            if (MainPart.NotesMasterPart is { } existing)
             {
                 return existing;
             }
 
-            var part = _presentationPart.AddNewPart<NotesMasterPart>();
+            var part = MainPart.AddNewPart<NotesMasterPart>();
             var theme = part.AddNewPart<ThemePart>();
             Save(theme, ThemeXml.Write(presentation.Masters[0].Theme with { Source = null }));
             var size = presentation.NotesSize;
@@ -688,19 +704,19 @@ public static class PptxWriter
 
         private void RemoveUnused(List<SlideMasterPart> masters, List<SlidePart> slides)
         {
-            foreach (var slide in _presentationPart.SlideParts.Except(slides).ToList())
+            foreach (var slide in MainPart.SlideParts.Except(slides).ToList())
             {
-                _presentationPart.DeletePart(slide);
+                MainPart.DeletePart(slide);
             }
 
-            foreach (var master in _presentationPart.SlideMasterParts.Except(masters).ToList())
+            foreach (var master in MainPart.SlideMasterParts.Except(masters).ToList())
             {
                 foreach (var layout in master.SlideLayoutParts.ToList())
                 {
                     master.DeletePart(layout);
                 }
 
-                _presentationPart.DeletePart(master);
+                MainPart.DeletePart(master);
             }
 
             foreach (var master in masters)
@@ -724,13 +740,13 @@ public static class PptxWriter
 
             string IdOf(OpenXmlPart part)
             {
-                var existing = _presentationPart.Parts.FirstOrDefault(pair => pair.OpenXmlPart == part);
-                return existing.OpenXmlPart is not null ? existing.RelationshipId : _presentationPart.CreateRelationshipToPart(part);
+                var existing = MainPart.Parts.FirstOrDefault(pair => pair.OpenXmlPart == part);
+                return existing.OpenXmlPart is not null ? existing.RelationshipId : MainPart.CreateRelationshipToPart(part);
             }
 
             root.Place(new XElement(P + "sldMasterIdLst", masters.Select(master =>
                 new XElement(P + "sldMasterId", new XAttribute("id", Text(master.Id)), new XAttribute(R + "id", IdOf(master.Part))))), order);
-            if (_presentationPart.NotesMasterPart is { } notesMaster)
+            if (MainPart.NotesMasterPart is { } notesMaster)
             {
                 root.Place(new XElement(P + "notesMasterIdLst", new XElement(P + "notesMasterId", new XAttribute(R + "id", IdOf(notesMaster)))), order);
             }
@@ -741,13 +757,13 @@ public static class PptxWriter
             size.Set("type", presentation.SlideSize.Type);
             root.Place(size, order);
             root.Place(new XElement(P + "notesSz", new XAttribute("cx", Text(presentation.NotesSize.Width)), new XAttribute("cy", Text(presentation.NotesSize.Height))), order);
-            root.Place(DrawingXml.WriteListStyle(presentation.DefaultTextStyle, P + "defaultTextStyle", new PartWriter(this, _presentationPart)), order);
+            root.Place(DrawingXml.WriteListStyle(presentation.DefaultTextStyle, P + "defaultTextStyle", new PartWriter(this, MainPart)), order);
             WriteSections(root, order);
-            Save(_presentationPart, root);
+            Save(MainPart, root);
 
-            if (isNew && _presentationPart.PresentationPropertiesPart is null)
+            if (isNew && MainPart.PresentationPropertiesPart is null)
             {
-                Save(_presentationPart.AddNewPart<PresentationPropertiesPart>(), NewRoot(P + "presentationPr"));
+                Save(MainPart.AddNewPart<PresentationPropertiesPart>(), NewRoot(P + "presentationPr"));
             }
         }
 
@@ -779,13 +795,13 @@ public static class PptxWriter
 
         private void WriteTableStyles()
         {
-            if (_presentationPart.TableStylesPart is not null)
+            if (MainPart.TableStylesPart is not null)
             {
                 return;
             }
 
             var styles = presentation.TableStyles.IsEmpty ? [TableRenderer.BuiltInStyle(TableRenderer.DefaultStyleId)] : presentation.TableStyles.ToList();
-            Save(_presentationPart.AddNewPart<TableStylesPart>(), TableStyleXml.Write(styles, presentation.DefaultTableStyleId ?? TableRenderer.DefaultStyleId));
+            Save(MainPart.AddNewPart<TableStylesPart>(), TableStyleXml.Write(styles, presentation.DefaultTableStyleId ?? TableRenderer.DefaultStyleId));
         }
 
         private void WriteProperties()

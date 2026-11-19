@@ -53,10 +53,8 @@ internal static class TimingXml
         };
         var direction = kind switch
         {
-            TransitionKind.Split => $"{effect.Attr("orient") ?? "horz"}-{effect.Attr("dir") ?? "out"}",
-            TransitionKind.Push or TransitionKind.Wipe or TransitionKind.Cover or TransitionKind.Uncover => effect.Attr("dir") ?? (kind == TransitionKind.Push ? "u" : "l"),
-            TransitionKind.Zoom => effect.Attr("dir") ?? "in",
-            TransitionKind.RandomBars => effect.Attr("dir") ?? "vert",
+            TransitionKind.Split when effect.Attr("orient") is not null || effect.Attr("dir") is not null => $"{effect.Attr("orient") ?? "horz"}-{effect.Attr("dir") ?? "out"}",
+            TransitionKind.Push or TransitionKind.Wipe or TransitionKind.Cover or TransitionKind.Uncover or TransitionKind.Zoom or TransitionKind.RandomBars => effect.Attr("dir"),
             _ => null,
         };
         return new SlideTransition(

@@ -202,15 +202,31 @@ public static class SlideRenderer
         return matrix * Matrix2D.Translation(Units.EmuToPoints(transform.X), Units.EmuToPoints(transform.Y));
     }
 
-    /// <summary>The transform of a group's child space onto its parent's space.</summary>
-    public static Matrix2D GroupMatrix(Transform2D transform)
+    /// <summary>
+    /// The group's own flips and rotation about its box centre, in its parent's space. Its children's boxes are first mapped from the
+    /// child space by <see cref="MapChild"/> (scaled and moved, their own rotation kept): DrawingML scales a child's box, never skews
+    /// a rotated child.
+    /// </summary>
+    public static Matrix2D GroupMatrix(Transform2D transform) =>
+        Matrix2D.Translation(-Units.EmuToPoints(transform.X), -Units.EmuToPoints(transform.Y)) * ShapeMatrix(transform);
+
+    /// <summary>A child's box mapped from its group's child space into the group's box (its rotation, flips and own child space kept).</summary>
+    public static Transform2D MapChild(Transform2D child, Transform2D group)
     {
-        var scaleX = transform.ChildWidth != 0 ? transform.Width / (double)transform.ChildWidth : 1;
-        var scaleY = transform.ChildHeight != 0 ? transform.Height / (double)transform.ChildHeight : 1;
-        return Matrix2D.Translation(-Units.EmuToPoints(transform.ChildX), -Units.EmuToPoints(transform.ChildY))
-               * Matrix2D.Scaling(scaleX, scaleY)
-               * ShapeMatrix(transform);
+        var scaleX = group.ChildWidth != 0 ? group.Width / (double)group.ChildWidth : 1;
+        var scaleY = group.ChildHeight != 0 ? group.Height / (double)group.ChildHeight : 1;
+        return child with
+        {
+            X = group.X + (long)Math.Round((child.X - group.ChildX) * scaleX),
+            Y = group.Y + (long)Math.Round((child.Y - group.ChildY) * scaleY),
+            Width = (long)Math.Round(child.Width * scaleX),
+            Height = (long)Math.Round(child.Height * scaleY),
+        };
     }
+
+    /// <summary>An element of a group with its box in the group's parent space (see <see cref="MapChild"/>).</summary>
+    public static SlideElement MapChildElement(SlideElement child, Transform2D group) =>
+        child.Transform is { } transform ? child with { Transform = MapChild(transform, group) } : child;
 
     private static void RenderGroup(List<DisplayItem> items, SlideContext context, GroupShape group, ITextMeasurer measurer, RenderOptions options, int slideNumber)
     {
@@ -227,7 +243,7 @@ public static class SlideRenderer
         items.Add(new TransformBeginItem(GroupMatrix(transform)));
         foreach (var child in group.Children)
         {
-            RenderElement(items, context, child, measurer, options, slideNumber, group.Fill);
+            RenderElement(items, context, MapChildElement(child, transform), measurer, options, slideNumber, group.Fill);
         }
 
         items.Add(TransformEndItem.Instance);
