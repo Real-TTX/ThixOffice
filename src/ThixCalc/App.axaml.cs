@@ -7,6 +7,7 @@ using ThixCalc.Core.Documents;
 using ThixCalc.Core.Model;
 using ThixCalc.Dialogs;
 using ThixCalc.Editor;
+using ThixCalc.Pages;
 using ThixOffice.Core.Commands;
 using ThixOffice.Core.Documents;
 using ThixOffice.Core.Models;
@@ -27,10 +28,12 @@ public partial class App : OfficeApplication
     public const string FormatCellsScene = "dialog-format-cells";
     public const string FunctionScene = "dialog-function";
     public const string ViewScene = "main-view";
+    public const string PrintScene = "backstage-print";
+    public const string PageSetupScene = "dialog-page-setup";
 
     public override OfficeAppDefinition Definition => ThixCalcApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [FormulaScene, ViewScene, FindScene, FormatCellsScene, FunctionScene];
+    public override IReadOnlyList<string> SnapshotScenes => [FormulaScene, ViewScene, FindScene, FormatCellsScene, FunctionScene, PageSetupScene, PrintScene];
 
     public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => CalcRibbon.Create(window);
 
@@ -48,7 +51,10 @@ public partial class App : OfficeApplication
     {
         CalcCommands.Add(window);
         CalcStyleCommands.Add(window);
+        CalcPageCommands.Add(window);
     }
+
+    public override IEnumerable<BackstageItem> CreateBackstageItems(OfficeWindow window) => [CalcPrintPage.Item(window), CalcExportPage.Item(window)];
 
     public override IEnumerable<(string Name, Func<Task<string>> Check)> SelfTestChecks() => [("ThixCalc grid, formulas, xlsx", () => CalcSelfTest.RunAsync(this))];
 
@@ -91,6 +97,14 @@ public partial class App : OfficeApplication
                 function.SearchBox.Text = "verweis";
                 _ = function.ShowAsync(window);
                 return function;
+            case PrintScene:
+                editor.Session.SetPageSetup(setup => setup with { Landscape = true, FitToPage = true, FitToWidth = 1, FitToHeight = 0, Footer = "&CSeite &P von &N" });
+                window.ShowBackstage(CalcPrintPage.PageId);
+                return window;
+            case PageSetupScene:
+                var setupDialog = PageSetupDialog.Create(editor);
+                _ = setupDialog.ShowAsync(window);
+                return setupDialog;
             default:
                 return window;
         }
@@ -113,7 +127,11 @@ public partial class App : OfficeApplication
                 editor.FindBar.Close();
                 editor.Session.Select(SampleWorkbook.StartCell);
                 break;
-            case FormatCellsScene or FunctionScene when shown is Window dialog:
+            case PrintScene:
+                window.Backstage.Close();
+                editor.Session.Undo();
+                break;
+            case FormatCellsScene or FunctionScene or PageSetupScene when shown is Window dialog:
                 dialog.Close();
                 editor.Session.Select(SampleWorkbook.StartCell);
                 break;

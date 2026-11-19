@@ -106,9 +106,35 @@ internal static class CalcSelfTest
         var sampleRead = DocumentService.Open(samplePath, app.CreateDocument) as CalcDocument ?? throw new InvalidOperationException("not a CalcDocument");
         Ensure(sampleRead.Workbook.Sheets.Count == 2 && sampleRead.Workbook.Sheets[0].ConditionalFormats.Count == 2, "the sample workbook lost content");
 
+        // The sheet's pages as PDF and – where the machine has it – through the system's printer into a PDF.
+        var lists = Pages.CalcPages.DisplayLists(editor, 0, "Selbsttest", out _);
+        using var pdf = new MemoryStream();
+        PdfExport.Export(lists, pdf, new PdfMetadata("Selbsttest"), CalcFonts.Skia);
+        var bytes = pdf.ToArray();
+        Ensure(bytes.Length > 1000 && bytes[0] == '%' && bytes[1] == 'P' && bytes[2] == 'D' && bytes[3] == 'F', "the PDF is not a PDF");
+        var printed = await PrintAsync(lists, folder);
+
         window.Close();
         await Settle();
-        return $"{editor.Metrics.MaxDigitWidthPixels} px digit, {CalcFonts.Families.Count} font families, xlsx {new FileInfo(path).Length} bytes, sample {new FileInfo(samplePath).Length} bytes, frame {editor.Surface.LastRenderTime.TotalMilliseconds:0.0} ms";
+        return $"{editor.Metrics.MaxDigitWidthPixels} px digit, {CalcFonts.Families.Count} font families, xlsx {new FileInfo(path).Length} bytes, sample {new FileInfo(samplePath).Length} bytes, PDF {bytes.Length} bytes, {printed}, frame {editor.Surface.LastRenderTime.TotalMilliseconds:0.0} ms";
+    }
+
+    /// <summary>Printing through GDI into "Microsoft Print to PDF" when the machine has it (the P/Invoke after trimming).</summary>
+    private static async Task<string> PrintAsync(IReadOnlyList<ThixOffice.Text.Drawing.PageDisplayList> lists, string folder)
+    {
+        var printers = PrintService.GetPrinters();
+        const string pdfPrinter = "Microsoft Print to PDF";
+        if (!OperatingSystem.IsWindows() || !printers.Any(printer => printer.Name == pdfPrinter))
+        {
+            return $"{printers.Count} printer(s), none printed to";
+        }
+
+        var output = Path.Combine(folder, "Gedruckt.pdf");
+        var pages = new ThixOffice.Desktop.Rendering.PrintablePages(lists, CalcFonts.Skia, "Selbsttest", GridPalette.SheetSkia);
+        await Task.Run(() => PrintService.Print(new ThixOffice.Core.Models.PrintJob("Selbsttest", pdfPrinter, 1, [0], pages, output)));
+        var printed = File.ReadAllBytes(output);
+        Ensure(printed.Length > 1000 && printed[0] == '%' && printed[1] == 'P', "the printer wrote no PDF");
+        return $"printed {printed.Length} bytes";
     }
 
     private static void Type(CalcEditor editor, string text) =>
