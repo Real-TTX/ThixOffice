@@ -363,7 +363,12 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   the Mac keeps ⌘B/⌘I/⌘U, ⌥⌘←/→ for sheets, ⌘⇧K/J for grouping so ⌥-arrows stay word movement).
 - **Clipboard (`CalcClipboard`):** own format (a token naming the process's `ClipboardContent`: exact cells, formulas, styles, merges) +
   tab text + an HTML table (`HtmlTables.Export`, Windows' "HTML Format" envelope); paste order own → HTML table (`HtmlTables.Import`) →
-  text (`PasteText`). Inhalte einfügen = `PasteOptions`.
+  text (`PasteText`). Inhalte einfügen = `PasteOptions` (mode, transpose, skip blanks, `PasteOperation`; dialog Strg+Alt+V). A selected
+  chart is copied as a chart (pasted at the active cell). Strg+Plus/Minus, Reihe (`FillSeries`) and the edit dialogs: `CalcEditCommands`.
+- **Filters:** `FilterMenu` (values, sort, Zahlen-/Text-/Datumsfilter → `CustomFilterDialog`, `TopTenDialog`, averages) acts on
+  `EditingSession.ActiveFilter` (the active cell's table, else the sheet's autofilter). **Find:** `CalcFindBar` with Alle suchen (results list).
+- **Cell editing undo:** `FormulaTextBox` keeps its own undo/redo while a cell is edited (typed runs coalesce; `SetText` resets it).
+- **Rich text** in cells is kept (`Worksheet.RichText`: the si element per cell, written back while the text is unchanged), drawn plain.
 - **Printing:** `SheetPagination` (core) cuts the print area / used range / selection into pages by the sheet's `PageSetup` (scale or fit
   N × M pages, title rows, order) and renders each in points (header/footer codes); `CalcPages` feeds the shared `OfficePrintPage`
   (scopes Aktives Blatt / Arbeitsmappe / Auswahl) and `OfficeExportPage`.

@@ -42,6 +42,11 @@ public sealed class ChartPictureTests
         yield return ("column-long-categories", ChartFactory.Create(ChartTemplates.Find("column")!, [Series("Umsatz", longNames, longNames.Select((_, index) => (double?)(1000 + index * 137 % 900)).ToArray())]));
         yield return ("bar-legend-right", ChartEdits.SetLegend(ChartFactory.Create(ChartTemplates.Find("bar")!, budget), LegendPosition.Right));
         yield return ("unsupported", new Chart { UnsupportedType = "Netz" });
+
+        // Dates on a time axis: the first of every month for two years (labels thin out to the major unit).
+        var months = Enumerable.Range(0, 24).Select(index => (double?)(new DateTime(2025, 1, 1).AddMonths(index) - new DateTime(1899, 12, 30)).TotalDays).ToList();
+        var dates = new ChartDataRef(null, months.Select(serial => new ChartValue(serial, null, "MMM yy")).ToList(), "MMM yy");
+        yield return ("line-dates", ChartFactory.Create(ChartTemplates.Find("line")!, [new SeriesSpec(ChartText.Of("Kurs"), dates, ChartDataRef.Literal(months.Select((_, index) => (double?)(100 + Math.Sin(index / 3.0) * 20 + index))))], dateCategories: true));
     }
 
     [Fact]
@@ -60,6 +65,7 @@ public sealed class ChartPictureTests
             var items = ChartRenderer.Render(data, new ChartRenderOptions
             {
                 Measurer = CalcFonts.Skia,
+                Formatter = new ThixCalc.Core.Charts.CalcChartFormatter(ThixCalc.Core.Globalization.CalcLocale.German, false),
                 FontFamily = "Calibri",
                 Width = 360 * scale,
                 Height = 216 * scale,
