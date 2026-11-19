@@ -126,7 +126,7 @@ internal static class TimingXml
                 }
 
             case TransitionKind.Push:
-                return WithDirection(P + "push", direction, "u");
+                return WithDirection(P + "push", direction, "l");
             case TransitionKind.Wipe:
                 return WithDirection(P + "wipe", direction, "l");
             case TransitionKind.Cover:
@@ -149,7 +149,7 @@ internal static class TimingXml
             case TransitionKind.Dissolve:
                 return new XElement(P + "dissolve");
             case TransitionKind.RandomBars:
-                return WithDirection(P + "randomBar", direction, "vert");
+                return WithDirection(P + "randomBar", direction, "horz");
             case TransitionKind.Morph:
                 return morph ? new XElement(P159 + "morph", new XAttribute("option", "byObject")) : new XElement(P + "fade");
             default:

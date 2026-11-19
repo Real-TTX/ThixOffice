@@ -241,6 +241,17 @@ Formate, Sortieren/Filtern, Fixieren, bedingte Formatierung, Diagramme, xlsx/csv
 Folienmodell, Layouts/Designs, Formen/Text/Bilder/Tabellen, Folienübersicht, Übergänge/Animationen,
 Präsentations- und Referentenansicht, pptx, danach odp.
 
+- **Stand (2026-11-19): UI-freier Kern erledigt (ThixShow.Core, Branch feature/show-core).** Modell (Masters → Layouts → Folien mit
+  Platzhalter-Vererbung, Designs mit Farb-/Schrift-/Formatschema, Formen mit 126 Vorgabegeometrien aus den Formeln der Spezifikation,
+  Bilder, Gruppen, Linien, Tabellen, Diagramm-Rahmen als Naht, Füllungen, Konturen, Schatten, Textkörper mit Aufzählungen und
+  AutoAnpassen, Notizen, Abschnitte, Übergänge, Animationen), Darstellung als Anzeigelisten (Miniaturen, Handzettel 1/2/3/4/6/9,
+  Notizenseiten, PDF über Skia), pptx/pptm lesen und schreiben (Unbekanntes bleibt erhalten, unveränderte Folien bleiben unberührt),
+  eigene Designs (ThixShow, Klar, Kontrast, Natur, Abend, Papier), Bearbeitungssitzung mit Rückgängig für alle Befehle, Fangen an
+  Hilfslinien, Zwischenablage, Suchen/Ersetzen, Bildschirmpräsentation als Zustandsmaschine mit Ebenen je Bild und Referentenansicht.
+  **Lücken:** Diagramme zeichnet erst der gemeinsame Diagrammkern (Naht `IChartRenderer`), SmartArt/OLE als Platzhalter, Morphen und
+  p14-Übergänge als Verblassen, Absatz-Animationen bewegen die ganze Form, Effekte in Gruppen bewegen die ganze Gruppe, Schriftgrößen
+  skalieren beim Ändern der Foliengröße nicht mit, Diagramme zwischen Präsentationen kopieren, odp (Naht: `Formats/`).
+
 ### Phase 5 – ODF-Nachzug und Feinschliff
 Rundreise-Tests gegen LibreOffice-Dateien, Druckqualität, Barrierefreiheit, Englisch als zweite Sprache.
 
