@@ -3,10 +3,10 @@ using ThixOffice.Core.Models;
 namespace ThixWrite.Core;
 
 /// <summary>
-/// ThixWrite as data: the word processor of ThixOffice (Word's place), accent: Word's blue. Its own format is .docx; until
-/// the docx reader exists (phase 1a) .docx, .odt and .rtf are declared as PLANNED – never registered with the system, never
-/// offered – so that a real Word document is never opened into the placeholder editor and overwritten as plain text.
-/// Phase 0 works on .txt, which ThixWrite offers under "Öffnen mit" only (the default program of .txt stays the user's).
+/// ThixWrite as data: the word processor of ThixOffice (Word's place), accent: Word's blue. Its own format is .docx (the
+/// default type: "Speichern unter" offers it first, the install flow registers it with the document icon); .txt is read and
+/// written as plain text. .odt and .rtf are PLANNED – never registered with the system, never offered – until their readers
+/// exist. ThixWrite never takes .docx or .txt from another program silently: it offers itself under "Öffnen mit".
 /// </summary>
 public static class ThixWriteApp
 {
@@ -18,7 +18,7 @@ public static class ThixWriteApp
         Accent,
         "Textverarbeitung für Briefe, Berichte und alles, was Sie schreiben.",
         [
-            new DocumentType(".docx", "ThixWrite.Document", "Word-Dokument", DocumentTypeSupport.Planned, IsDefault: true,
+            new DocumentType(".docx", "ThixWrite.Document", "Word-Dokument", DocumentTypeSupport.Supported, IsDefault: true,
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "org.openxmlformats.wordprocessingml.document"),
             new DocumentType(".odt", "ThixWrite.OpenDocumentText", "OpenDocument-Text", DocumentTypeSupport.Planned,
                 MimeType: "application/vnd.oasis.opendocument.text", MacTypeIdentifier: "org.oasis-open.opendocument.text"),

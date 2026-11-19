@@ -1,5 +1,6 @@
 using System.Text;
 using ThixOffice.Core.Documents;
+using ThixOffice.Core.Models;
 using ThixWrite.Core.Editing;
 using ThixWrite.Core.Formats.Docx;
 using ThixWrite.Core.Formats.Text;
@@ -24,9 +25,15 @@ public enum WordFileFormat
 public sealed class WordDocument : OfficeDocument
 {
     public WordDocument(string untitledName)
+        : this(untitledName, Document.CreateBlank())
+    {
+    }
+
+    /// <summary>A new document named <paramref name="untitledName"/> with <paramref name="content"/> (a blank document with the app's fonts).</summary>
+    public WordDocument(string untitledName, Document content)
         : base(untitledName)
     {
-        Attach(Document.CreateBlank());
+        Attach(content);
     }
 
     /// <summary>Raised when <see cref="Content"/> and <see cref="Session"/> were replaced (a file was read into this document).</summary>
@@ -89,9 +96,17 @@ public sealed class WordDocument : OfficeDocument
         SaveFormat = LoadedFormat;
     }
 
-    protected override void Write(Stream stream)
+    protected override void Write(Stream stream) => Write(stream, SaveFormat);
+
+    /// <summary>"Speichern unter" writes the format of the chosen type (.txt: plain text); <see cref="SaveFormat"/> follows once it is saved.</summary>
+    protected override void Write(Stream stream, DocumentType type) => Write(stream, FormatOf(type.Extension) ?? SaveFormat);
+
+    /// <summary>Saved (or opened) as <paramref name="type"/>: the next "Speichern" writes that format.</summary>
+    protected override void OnSaved(DocumentType type) => SaveFormat = FormatOf(type.Extension) ?? SaveFormat;
+
+    private void Write(Stream stream, WordFileFormat format)
     {
-        if (SaveFormat == WordFileFormat.PlainText)
+        if (format == WordFileFormat.PlainText)
         {
             PlainTextFormat.Write(Content, stream, TextEncoding);
             return;
