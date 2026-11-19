@@ -123,6 +123,7 @@ public partial class App : OfficeApplication
             case ReferencesScene:
                 // Referenzen open, the foot of the first page with its footnote in view.
                 window.Ribbon.SelectTab("references");
+                editor.ShowNavigation = true;
                 editor.Layout.Update();
                 var foot = editor.Layout.Pages[0].Footnotes.FirstOrDefault()?.Lines[0].Top ?? 0;
                 Avalonia.Threading.Dispatcher.UIThread.RunJobs();
@@ -164,6 +165,7 @@ public partial class App : OfficeApplication
                 window.Ribbon.SelectTab("home");
                 break;
             case ReferencesScene:
+                editor.ShowNavigation = false;
                 editor.Scroller.Offset = default;
                 window.Ribbon.SelectTab("home");
                 break;

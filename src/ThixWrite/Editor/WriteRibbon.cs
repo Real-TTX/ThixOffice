@@ -133,11 +133,16 @@ public static class WriteCommandIds
     public const string HeaderFooterClose = "write.hf.close";
 
     // Referenzen
+    public const string Toc = "write.toc"; // the menu: write.toc.insert, write.toc.remove
+    public const string TocInsert = "write.toc.insert";
+    public const string TocRemove = "write.toc.remove";
+    public const string TocUpdate = "write.toc.update";
     public const string InsertFootnote = "write.footnote";
     public const string InsertEndnote = "write.endnote";
     public const string NextFootnote = "write.nextNote"; // the menu's entries are write.nextNote.<footnote|endnote>.<next|previous>
 
     // Ansicht
+    public const string NavigationPane = "write.navigationPane";
     public const string Ruler = "write.ruler";
     public const string ShowMarksView = "write.showMarks.view";
     public const string ZoomDialog = "write.zoom";
@@ -387,6 +392,11 @@ public static class WriteRibbon
     /// <summary>Referenzen, like Word's: Inhaltsverzeichnis, Fußnoten.</summary>
     private static MatRibbonTab ReferencesTab() =>
         new MatRibbonTab("references", "Referenzen").Add(
+            new MatRibbonGroup("toc", "Inhaltsverzeichnis") { Icon = "toc" }.Add(
+                new MatRibbonMenuButton(WriteCommandIds.Toc, "", null,
+                    Button(WriteCommandIds.TocInsert),
+                    Button(WriteCommandIds.TocRemove)) { Size = MatRibbonSize.Large },
+                Button(WriteCommandIds.TocUpdate)),
             new MatRibbonGroup("footnotes", "Fußnoten") { Icon = "footnote" }.Add(
                 Button(WriteCommandIds.InsertFootnote, MatRibbonSize.Large),
                 new MatRibbonStack("footnote-more",
@@ -398,6 +408,7 @@ public static class WriteRibbon
         new MatRibbonTab("view", "Ansicht").Add(
             new MatRibbonGroup("show", "Anzeigen") { Icon = "ruler" }.Add(
                 Toggle(WriteCommandIds.Ruler),
+                Toggle(WriteCommandIds.NavigationPane),
                 Toggle(WriteCommandIds.ShowMarksView)),
             new MatRibbonGroup("zoom", "Zoom") { Icon = "zoom-in" }.Add(
                 Button(WriteCommandIds.ZoomDialog, MatRibbonSize.Large),

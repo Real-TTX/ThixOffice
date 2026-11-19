@@ -25,10 +25,23 @@ public static class LinkCommands
         {
             Icon = "x", CanExecute = OnLink, Description = "Macht aus dem Link wieder gewöhnlichen Text.",
         });
-        commands.Add(new OfficeCommand(WriteCommandIds.HyperlinkOpen, "Link öffnen", () => Open(window, Editor()?.Session.LinkAtCaret?.Uri))
+        commands.Add(new OfficeCommand(WriteCommandIds.HyperlinkOpen, "Link öffnen", () => Editor() is { Session.LinkAtCaret: { } link } editor ? Follow(window, editor, link) : Task.CompletedTask)
         {
             Icon = "external", CanExecute = OnLink, Description = "Öffnet die Adresse des Links im Browser oder E-Mail-Programm.",
         });
+    }
+
+    /// <summary>Follows a link: one to a place in the document (a bookmark, the entries of a table of contents) moves the caret there, any other opens its address.</summary>
+    public static Task Follow(OfficeWindow window, WriteEditor editor, ThixWrite.Core.Model.Hyperlink link)
+    {
+        if (string.IsNullOrEmpty(link.Uri) && link.Anchor is { } anchor)
+        {
+            editor.Session.GoToBookmark(anchor);
+            editor.FocusDocument();
+            return Task.CompletedTask;
+        }
+
+        return Open(window, link.Uri);
     }
 
     /// <summary>Opens a link's address through the business layer (only web pages and e-mail); a refusal shows a message.</summary>

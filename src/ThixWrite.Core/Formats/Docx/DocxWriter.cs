@@ -228,6 +228,16 @@ public static class DocxWriter
                 noteRun.AppendChild<OpenXmlElement>(note.Kind == NoteKind.Footnote ? new W.FootnoteReference { Id = id } : new W.EndnoteReference { Id = id });
                 yield return noteRun;
                 break;
+            case TocMarkInline { IsEnd: false } toc:
+                yield return FieldCharRun(toc.Properties, W.FieldCharValues.Begin);
+                var instruction = NewRun(toc.Properties);
+                instruction.AppendChild(new W.FieldCode(toc.Instruction) { Space = SpaceProcessingModeValues.Preserve });
+                yield return instruction;
+                yield return FieldCharRun(toc.Properties, W.FieldCharValues.Separate);
+                break;
+            case TocMarkInline toc:
+                yield return FieldCharRun(toc.Properties, W.FieldCharValues.End);
+                break;
             case NoteMarkInline mark:
                 var markRun = NewRun(mark.Properties);
                 markRun.AppendChild<OpenXmlElement>(mark.Kind == NoteKind.Footnote ? new W.FootnoteReferenceMark() : new W.EndnoteReferenceMark());
@@ -331,6 +341,13 @@ public static class DocxWriter
 
         Flush();
         return element;
+    }
+
+    private static W.Run FieldCharRun(CharacterProperties properties, W.FieldCharValues type)
+    {
+        var run = NewRun(properties);
+        run.AppendChild(new W.FieldChar { FieldCharType = type });
+        return run;
     }
 
     private static W.Run NewRun(CharacterProperties properties)

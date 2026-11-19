@@ -64,12 +64,17 @@ public sealed class WriteEditor : OfficeEditor
         FindBar = new FindBar(this) { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 10, 26, 0) };
         RulerView = new Ruler(this) { IsVisible = false };
         _scroller.ScrollChanged += (_, _) => RulerView.InvalidateVisual();
+        Navigation = new NavigationPane(this) { IsVisible = false };
         Grid.SetRow(_scroller, 1);
         Grid.SetRow(FindBar, 1);
-        _view = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), Children = { RulerView, _scroller, FindBar } };
+        Grid.SetColumn(RulerView, 1);
+        Grid.SetColumn(_scroller, 1);
+        Grid.SetColumn(FindBar, 1);
+        Grid.SetRowSpan(Navigation, 2);
+        _view = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), ColumnDefinitions = new ColumnDefinitions("Auto,*"), Children = { Navigation, RulerView, _scroller, FindBar } };
         _surface.ContextMenu = BuildContextMenu();
         _surface.HeaderFooterRequested += (_, area) => EditHeaderFooter(area.Page, area.Footer);
-        _surface.LinkClicked += (_, address) => _ = LinkCommands.Open(_window, address);
+        _surface.LinkClicked += (_, link) => _ = LinkCommands.Follow(_window, this, link);
         _surface.BodyRequested += (_, _) => CloseHeaderFooter();
         _surface.NoteRequested += OnNoteRequested;
         _surface.AddHandler(InputElement.PointerPressedEvent, (_, _) =>
@@ -159,6 +164,20 @@ public sealed class WriteEditor : OfficeEditor
 
     /// <summary>Ansicht › Lineal (hidden at first, as in Word).</summary>
     public Ruler RulerView { get; }
+
+    /// <summary>Ansicht › Navigationsbereich: the headings at the left (hidden at first).</summary>
+    internal NavigationPane Navigation { get; }
+
+    public bool ShowNavigation
+    {
+        get => Navigation.IsVisible;
+        set
+        {
+            Navigation.IsVisible = value;
+            Navigation.Refresh();
+            ScheduleState();
+        }
+    }
 
     public bool ShowRuler
     {
@@ -702,6 +721,7 @@ public sealed class WriteEditor : OfficeEditor
             _statePending = false;
             ShowTableTabs();
             RulerView.InvalidateVisual();
+            Navigation.Refresh();
             _window.Commands.Invalidate();
             UpdateStatus(_window.StatusBar);
         }, DispatcherPriority.Background);

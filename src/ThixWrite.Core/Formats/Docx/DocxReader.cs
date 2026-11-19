@@ -60,6 +60,7 @@ public static class DocxReader
             blocks.Add(new Paragraph(context.TakeMarkers()));
         }
 
+        DocxToc.Collapse(blocks, context.Uncount);
         return new Document(
             blocks,
             DocxStyles.ReadStyles(main.StyleDefinitionsPart?.Styles),
@@ -85,6 +86,14 @@ public static class DocxReader
                 return;
             case W.SectionProperties section:
                 finalSection = DocxPropertyReader.ReadSection(section, context.ReadStory);
+                return;
+            case W.SdtBlock sdt when DocxToc.IsTocControl(sdt) && sdt.SdtContentBlock is { } content:
+                // Word's "Inhaltsverzeichnis" control: its paragraphs are the document's (the TOC field inside is read as one).
+                foreach (var inner in content.ChildElements)
+                {
+                    ReadBodyChild(inner, blocks, context, ref finalSection);
+                }
+
                 return;
             case W.BookmarkStart or W.BookmarkEnd or W.CommentRangeStart or W.CommentRangeEnd or W.PermStart or W.PermEnd
                 or W.MoveFromRangeStart or W.MoveFromRangeEnd or W.MoveToRangeStart or W.MoveToRangeEnd or W.ProofError:

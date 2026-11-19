@@ -176,7 +176,7 @@ internal static class SelectionFormattingBuilder
         {
             var inline = paragraph.Inlines[index];
             var start = paragraph.StartOf(index);
-            if (start >= to || start + inline.Length <= from || inline is OpaqueInline { IsMarker: true })
+            if (start >= to || start + inline.Length <= from || inline is { IsMarker: true })
             {
                 continue;
             }

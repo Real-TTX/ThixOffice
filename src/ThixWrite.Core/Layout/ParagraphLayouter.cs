@@ -290,6 +290,14 @@ internal static class ParagraphLayouter
                 continue;
             }
 
+            if (inline is { IsMarker: true } and not OpaqueInline)
+            {
+                // A marker of the model (the start or end of a table of contents, of a comment): no width, no ink.
+                owner[start] = segments.Count;
+                segments.Add(new Segment { Start = start, End = start + 1, Kind = SegmentKind.Marker, Format = format, Font = font, Metrics = metrics, Object = inline });
+                continue;
+            }
+
             if (inline is OpaqueInline opaque)
             {
                 var segment = new Segment
@@ -391,7 +399,7 @@ internal static class ParagraphLayouter
         var hasMarkers = false;
         for (var index = 0; index < paragraph.Inlines.Length; index++)
         {
-            if (paragraph.Inlines[index] is OpaqueInline { IsMarker: true })
+            if (paragraph.Inlines[index] is { IsMarker: true })
             {
                 markers[paragraph.StartOf(index)] = true;
                 hasMarkers = true;
@@ -701,7 +709,7 @@ internal static class ParagraphLayouter
         for (var offset = start; offset <= lastStop; offset++)
         {
             var isGrapheme = offset >= text.Length || graphemeStarts[offset];
-            var afterMarker = offset > 0 && offset < text.Length && offset > start && paragraph.InlineAt(offset - 1) is OpaqueInline { IsMarker: true };
+            var afterMarker = offset > 0 && offset < text.Length && offset > start && paragraph.InlineAt(offset - 1) is { IsMarker: true };
             if (!isGrapheme || afterMarker)
             {
                 continue;

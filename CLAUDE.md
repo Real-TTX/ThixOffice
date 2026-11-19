@@ -22,7 +22,7 @@ tab stops, the dialogs Schriftart/Absatz, format painter, symbols, HTML paste (s
 find/replace, clipboard, page setup, printing and PDF, CSV/xlsx/xlsm flows (section "ThixCalc's editor"; gaps in docs/PLAN.md).
 **ThixCalc charts (done):** the shared `ThixOffice.Charts` (section "Charts"). **Phase 4, first version of ThixShow (done):** the
 slide editor, thumbnails, sorter, show and presenter view, the German PowerPoint ribbon, printing/PDF (section "ThixShow's editor";
-gaps in docs/PLAN.md). **ThixWrite 1c (in progress):** footnotes/endnotes done; next table of contents, comments, spelling,
+gaps in docs/PLAN.md). **ThixWrite 1c (in progress):** footnotes/endnotes and the table of contents done; next comments, spelling,
 Referenzen/Überprüfen, odt. Do not build ribbon controls of
 your own (a picture gallery is a `RibbonFlyoutButton` through `CreateRibbonContent`).
 
@@ -371,6 +371,21 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - **Editing:** `EditingSession.InsertNote(kind)` (returns the reference), `SetNoteContent(reference, story)` (one step), `NextNote`.
   `WriteEditor.EditNote(reference, at)` opens the note like a header (story surface over its text, `NoteMarkText` = its label; no dimming);
   a click on the body, Esc or saving commits. **docx:** `DocxNotes` (ids reused, separators kept, notes referenced from preserved XML kept).
+
+### Table of contents, navigation
+
+- **Model:** `TocMarkInline(IsEnd, Instruction)` (a marker: `Inline.IsMarker` – invisible, no width, sticks to the next character; every
+  marker check uses `{ IsMarker: true }`) around ordinary entry paragraphs (style TOC1–9, right dotted tab at the text width, text + tab +
+  page number as runs with `Hyperlink(null, "_Toc…")`). `TableOfContents` (instruction, levels from `\o "1-3"`, entry styles).
+- **Session** (`EditingSession.Toc.cs`): `FindTableOfContents` (start mark → end mark, else the TOC-styled paragraphs after it),
+  `Headings(levels)` (by resolved outline level), `InsertTableOfContents`, `UpdateTableOfContents`, `RemoveTableOfContents` – each ONE
+  step; headings get "_Toc…" bookmarks (OpaqueInline bookmark markers) when they have none; page numbers come from
+  `ICaretNavigator.PageNumberOf` (the layout, synchronously inside the step) and are fixed again after the entries are in.
+  `FindBookmark` / `GoToBookmark`: links with an anchor jump (`LinkCommands.Follow`).
+- **docx:** written as Word's complex TOC field; `DocxToc.Collapse` turns Word's field (also inside the "Table of Contents" content
+  control, which is unwrapped) back into the marks; nested PAGEREF fields stay preserved and are not reported.
+- **UI:** Referenzen › Inhaltsverzeichnis (menu: Automatisches Verzeichnis, entfernen), Tabelle aktualisieren; Ansicht ›
+  Navigationsbereich (`NavigationPane`, column 0 of the editor's grid, refreshed with the ribbon state).
 
 ### Links, dialogs, format painter, symbols, ruler
 

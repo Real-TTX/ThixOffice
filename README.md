@@ -29,6 +29,9 @@ Format übertragen, Symbole und Einfügen aus anderen Programmen (HTML: Formatie
 Meilenstein 1c bringt die Karte **Referenzen**: **Fußnoten** (Strg+Alt+F) stehen unten auf ihrer Seite unter einem kurzen Strich,
 lange Fußnoten laufen auf der nächsten Seite weiter; **Endnoten** (Strg+Alt+D) folgen nach dem Text (i, ii, iii …). Den Text einer
 Notiz schreiben Sie direkt an Ort und Stelle; ein Klick auf eine Fußnote öffnet sie, ein Doppelklick auf ihre Nummer im Text auch.
+Das **Inhaltsverzeichnis** entsteht aus den Überschriften (mit Punkten und Seitenzahlen, jeder Eintrag springt per Strg+Klick zur
+Überschrift), „Tabelle aktualisieren“ bringt es auf den neuesten Stand – in Word bleibt es ein echtes, aktualisierbares Verzeichnis.
+Ansicht › **Navigationsbereich** zeigt die Überschriften links.
 
 Word-Dokumente (.docx) sind das Standardformat; .txt wird als reiner Text gelesen und geschrieben. Inhalte, die ThixWrite noch
 nicht anzeigt (Kommentare, verschachtelte Tabellen, Formeln …), bleiben beim Speichern erhalten – beim Öffnen sagt ein

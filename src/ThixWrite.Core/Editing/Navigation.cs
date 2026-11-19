@@ -45,6 +45,9 @@ public interface ICaretNavigator
 
     /// <summary>The end of the line the caret is on (before a trailing space of a wrapped line, upstream).</summary>
     CaretPlace LineEnd(CaretPlace place);
+
+    /// <summary>The number of the page (1-based) block <paramref name="block"/> starts on – the table of contents asks.</summary>
+    int PageNumberOf(int block) => 1;
 }
 
 /// <summary>
@@ -173,5 +176,5 @@ public static class CaretStops
     /// <summary>True for a block the caret can be in: a paragraph that is not hidden in a covered cell.</summary>
     public static bool IsCaretBlock(Document document, int block) => document.Blocks[block] is Paragraph paragraph && paragraph.Cell?.IsCovered != true;
 
-    private static bool IsMarker(Paragraph paragraph, int offset) => paragraph.InlineAt(offset) is OpaqueInline { IsMarker: true };
+    private static bool IsMarker(Paragraph paragraph, int offset) => paragraph.InlineAt(offset) is { IsMarker: true };
 }

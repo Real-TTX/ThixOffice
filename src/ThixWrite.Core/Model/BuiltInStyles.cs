@@ -326,7 +326,7 @@ public static class BuiltInStyles
                 UnhideWhenUsed = true,
                 Character = new CharacterProperties { FontSize = 8 },
             },
-            Toc1 or Toc2 or Toc3 => new Style
+            _ when id.StartsWith("TOC", StringComparison.Ordinal) && id.Length == 4 && char.IsDigit(id[3]) && id[3] != '0' => new Style
             {
                 Id = id,
                 Name = $"toc {id[^1]}",

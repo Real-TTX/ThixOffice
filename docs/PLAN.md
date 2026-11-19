@@ -199,6 +199,14 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   **Lücken:** Nummernformat/Neubeginn je Abschnitt (w:footnotePr wird nur erhalten), eigene Zeichen (customMarkFollows bleibt
   erhalten, nicht bearbeitbar), Fußnoten in Tabellenzellen schieben die Zeile nicht auf die nächste Seite, Endnoten am
   Abschnittsende, Fußnoten unter dem Text statt am Seitenende.
+- **Inhaltsverzeichnis erledigt (1c):** Referenzen › Inhaltsverzeichnis (Überschrift „Inhalt“, Einträge der Gliederungsebenen 1–3 mit
+  Punkt-Tabstopp und Seitenzahl, Formatvorlagen Verzeichnis 1–3), Tabelle aktualisieren (neue Überschriften, neue Seitenzahlen, ein
+  Schritt), Inhaltsverzeichnis entfernen; jeder Eintrag ist ein Link auf eine Textmarke „_Toc…“ an der Überschrift (Strg+Klick springt;
+  Links auf Textmarken springen jetzt allgemein). docx: ein echtes Word-Feld TOC (begin / instrText / separate … end) – Word kann es
+  selbst aktualisieren; ein Verzeichnis aus Word (auch im Inhaltssteuerelement „Table of Contents“, mit PAGEREF-Feldern) wird erkannt
+  und aktualisiert, Words Textmarken werden wiederverwendet. Ansicht › Navigationsbereich: die Überschriften links, Klick springt.
+  **Lücken:** Verzeichnis-Galerie (nur „Automatisches Verzeichnis“), Ebenen/Optionen-Dialog, Seitenzahlen als PAGEREF-Felder (ThixWrite
+  schreibt die Zahl als Text), Abbildungs-/Tabellenverzeichnis, Ziehen im Navigationsbereich.
 - Danach: Launcher-Eintrag (siehe 6).
 
 ### Phase 2 – Drive in ThixCloud

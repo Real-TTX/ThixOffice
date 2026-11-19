@@ -39,6 +39,9 @@ public abstract record Inline(CharacterProperties Properties, Hyperlink? Link)
 
     /// <summary>The characters as the paragraph text has them.</summary>
     public abstract string Characters { get; }
+
+    /// <summary>Invisible and without size (a bookmark, a field character, the start of a comment …): it sticks to the character after it.</summary>
+    public virtual bool IsMarker => false;
 }
 
 /// <summary>Formatted text. May contain tabs and line / page breaks (<see cref="SpecialCharacters"/>).</summary>
@@ -103,5 +106,5 @@ public sealed record OpaqueInline(
     private const string ObjectText = "\uFFFC";
 
     /// <summary>Invisible and without size: a marker such as a bookmark or a field character.</summary>
-    public bool IsMarker => DisplayText.Length == 0 && Width <= 0;
+    public override bool IsMarker => DisplayText.Length == 0 && Width <= 0;
 }

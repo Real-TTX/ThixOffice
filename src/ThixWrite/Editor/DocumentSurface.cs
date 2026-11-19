@@ -147,7 +147,7 @@ internal sealed class DocumentSurface : Control
     public event EventHandler? SelectedByPointer;
 
     /// <summary>Strg+Klick (⌘ on the Mac) on a link: its address (the editor opens it through the business layer).</summary>
-    public event EventHandler<string?>? LinkClicked;
+    public event EventHandler<Hyperlink>? LinkClicked;
 
     /// <summary>A double click on the body while a header or footer is edited: the editor closes it.</summary>
     public event EventHandler? BodyRequested;
@@ -615,7 +615,7 @@ internal sealed class DocumentSurface : Control
         if (e.KeyModifiers.HasFlag(follow) && LinkUnder(point.Position) is { } link)
         {
             e.Handled = true;
-            LinkClicked?.Invoke(this, link.Uri);
+            LinkClicked?.Invoke(this, link);
             return;
         }
 
@@ -796,7 +796,8 @@ internal sealed class DocumentSurface : Control
     /// <summary>The address of a link under the pointer as its tooltip (and how to follow it).</summary>
     private void ShowLinkTip(Point point)
     {
-        var address = _dragging ? null : LinkUnder(point)?.Uri;
+        var link = _dragging ? null : LinkUnder(point);
+        var address = link is null ? null : string.IsNullOrEmpty(link.Uri) ? (link.Anchor is null ? null : "Zur Überschrift springen") : link.Uri;
         if (address == _tipLink)
         {
             return;

@@ -351,6 +351,8 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
         return _placements[Math.Clamp(block, 0, _placements.Count - 1)]?.Pages.FirstOrDefault() ?? 0;
     }
 
+    public int PageNumberOf(int block) => PageOfBlock(block) + 1;
+
     /// <summary>The display list of page <paramref name="page"/> (cached until the page changes).</summary>
     public PageDisplayList GetDisplayList(int page)
     {
