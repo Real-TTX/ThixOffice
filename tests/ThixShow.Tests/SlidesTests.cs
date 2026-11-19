@@ -187,4 +187,27 @@ public sealed class SlidesTests
         await SettleAsync();
         Assert.Equal("Neue Reiseziele im Norden", SlideTitles.TitleOf(editor.Session.Presentation, editor.Session.Presentation.Slides[3]));
     }
+
+    [AvaloniaFact]
+    public async Task The_show_settings_are_remembered_between_sessions()
+    {
+        using var data = new TestData();
+        var window = await NewWindowAsync();
+        Assert.True(ShowSettings.UsePresenterView);
+        Assert.False(ShowSettings.Loop);
+        Assert.Null(ShowSettings.AudienceScreen);
+
+        await window.Commands[ShowCommandIds.PresenterView].ExecuteAsync();
+        await window.Commands[ShowCommandIds.LoopShow].ExecuteAsync();
+        await ((ThixOffice.Core.Commands.OfficeValueCommand)window.Commands[ShowCommandIds.ChooseScreen]).ApplyAsync("1");
+
+        ThixOffice.Core.Business.SettingsService.ResetCache(); // a new session reads the settings file
+        Assert.False(ShowSettings.UsePresenterView);
+        Assert.True(ShowSettings.Loop);
+        Assert.Equal(1, ShowSettings.AudienceScreen);
+        Assert.True(window.Commands[ShowCommandIds.LoopShow].Checked);
+
+        await ((ThixOffice.Core.Commands.OfficeValueCommand)window.Commands[ShowCommandIds.ChooseScreen]).ApplyAsync("auto");
+        Assert.Null(ShowSettings.AudienceScreen);
+    }
 }

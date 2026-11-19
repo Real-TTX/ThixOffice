@@ -41,7 +41,8 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
                            (write/calc/show; null = no cloud) + HasCloud,
                            ScreenshotsVariable, DocumentIconFileName, SupportedTypes, DefaultType, SaveType, SupportedTypeOf),
                            DocumentType (Extension, ProgId, Description, Support Supported|Planned, IsDefault, MimeType, UTI),
-                           AppSettings (+ CloudSettings: address, account, device, protected token), DriveOrigin (+ DriveSyncState),
+                           AppSettings (+ CloudSettings: address, account, device, protected token; AppValues: an app's small remembered
+                           choices – SettingsService.AppValue/RememberAppValue, no lock like the window size), DriveOrigin (+ DriveSyncState),
                            RecentDocument (+ Drive: RecentDriveItem, Item, Order), BusinessException(message, field), Printing
                            (PrinterInfo, PrintRange, PaperSize: label + DEVMODE code + CUPS name, IPrintablePages: sizes, pixel
                            bands, PDF; PrintJob)

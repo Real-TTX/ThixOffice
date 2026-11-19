@@ -373,11 +373,11 @@ public static class ShowCommands
         {
             Icon = "refresh", IsChecked = () => ShowSettings.Loop, Description = "Beginnt nach der letzten Folie wieder mit der ersten.",
         });
-        commands.Add(new OfficeValueCommand(ShowCommandIds.ChooseScreen, "Bildschirm", OfficeValueKind.Choice,
-            () => ShowSettings.AudienceScreen?.ToString(CultureInfo.InvariantCulture) ?? "auto",
-            value => ShowSettings.AudienceScreen = int.TryParse(value, CultureInfo.InvariantCulture, out var index) ? index : null)
+        commands.Add(new OfficeValueCommand(ShowCommandIds.ChooseScreen, "Bildschirm", OfficeValueKind.Text,
+            () => ShowSettings.AudienceScreen is { } screen ? ScreenLabel(screen) : "Automatisch",
+            value => ShowSettings.AudienceScreen = ScreenIndex(value))
         {
-            Icon = "tv", Description = "Wählt den Bildschirm, auf dem die Präsentation läuft (Automatisch: der zweite, wenn vorhanden).",
+            Icon = "tv", Options = ["Automatisch", .. Enumerable.Range(0, 4).Select(ScreenLabel)], Description = "Wählt den Bildschirm, auf dem die Präsentation läuft (Automatisch: der zweite, wenn vorhanden).",
         });
 
         // ===== Ansicht =====
@@ -530,6 +530,21 @@ public static class ShowCommands
             Icon = command.Icon, CanExecute = () => command.IsEnabled, IsChecked = command.IsChecked, Description = command.Description, IsSearchable = false,
         },
     };
+
+    /// <summary>"Bildschirm 2" for the screen with index 1.</summary>
+    public static string ScreenLabel(int index) => $"Bildschirm {(index + 1).ToString(CultureInfo.CurrentCulture)}";
+
+    /// <summary>The screen index of a choice ("Bildschirm 2" or an index); null for Automatisch.</summary>
+    public static int? ScreenIndex(string? value)
+    {
+        var text = value?.Trim() ?? "";
+        if (text.StartsWith("Bildschirm ", StringComparison.Ordinal) && int.TryParse(text["Bildschirm ".Length..], CultureInfo.InvariantCulture, out var number) && number > 0)
+        {
+            return number - 1;
+        }
+
+        return int.TryParse(text, CultureInfo.InvariantCulture, out var index) && index >= 0 ? index : null;
+    }
 
     /// <summary>Runs a session command and returns its task (for commands whose execution is awaited).</summary>
     internal static Task RunTask(ShowEditor? editor, string label, Action<ShowEditor> action) =>

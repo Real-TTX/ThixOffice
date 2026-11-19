@@ -2,23 +2,43 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform;
+using ThixOffice.Core.Business;
 using ThixOffice.Desktop.Shell;
 using ThixShow.Core.Show;
 using ThixShow.Editor;
 
 namespace ThixShow.Show;
 
-/// <summary>Where and how the show runs (Bildschirmpräsentation › Bildschirm, Referentenansicht); kept for the process.</summary>
+/// <summary>
+/// Where and how the show runs (Bildschirmpräsentation › Bildschirm, Referentenansicht, Wiederholen), remembered between sessions in
+/// the app's settings (<see cref="SettingsService.RememberAppValue"/>).
+/// </summary>
 public static class ShowSettings
 {
+    private const string ScreenKey = "show.screen";
+    private const string PresenterKey = "show.presenterView";
+    private const string LoopKey = "show.loop";
+
     /// <summary>The screen of the audience: null = automatic (the second screen when there is one), else the index in the system's list.</summary>
-    public static int? AudienceScreen { get; set; }
+    public static int? AudienceScreen
+    {
+        get => int.TryParse(SettingsService.AppValue(ScreenKey), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var index) ? index : null;
+        set => SettingsService.RememberAppValue(ScreenKey, value?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
 
     /// <summary>Referentenansicht verwenden (PowerPoint's default: on when there are two screens).</summary>
-    public static bool UsePresenterView { get; set; } = true;
+    public static bool UsePresenterView
+    {
+        get => SettingsService.AppValue(PresenterKey) != "false";
+        set => SettingsService.RememberAppValue(PresenterKey, value ? null : "false");
+    }
 
     /// <summary>Wiederholen, bis „Esc“ gedrückt wird.</summary>
-    public static bool Loop { get; set; }
+    public static bool Loop
+    {
+        get => SettingsService.AppValue(LoopKey) == "true";
+        set => SettingsService.RememberAppValue(LoopKey, value ? "true" : null);
+    }
 }
 
 /// <summary>
