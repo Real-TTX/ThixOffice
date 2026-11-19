@@ -132,7 +132,15 @@ public static class SkiaPageRenderer
         {
             case LineStyle.Double:
                 canvas.DrawLine(x1, y1, x2, y2, paint);
-                canvas.DrawLine(x1, y1 + thickness * 2, x2, y2 + thickness * 2, paint);
+                if (x1 == x2 && y1 != y2)
+                {
+                    canvas.DrawLine(x1 + thickness * 2, y1, x2 + thickness * 2, y2, paint);
+                }
+                else
+                {
+                    canvas.DrawLine(x1, y1 + thickness * 2, x2, y2 + thickness * 2, paint);
+                }
+
                 return;
             case LineStyle.Dotted:
                 paint.PathEffect = SKPathEffect.CreateDash([thickness, thickness * 2], 0);

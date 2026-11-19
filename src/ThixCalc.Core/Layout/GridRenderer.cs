@@ -228,7 +228,7 @@ public static class GridRenderer
             {
                 var rect = viewport.RangeRect(merge);
                 var display = displays.GetValueOrDefault(merge.First) ?? Present(sheet, merge.FirstRow, merge.FirstColumn, metrics, conditional, options.Text);
-                items.Add(new RectangleItem(rect.X, rect.Y, rect.Width - 1, rect.Height - 1, display.Fill ?? options.Background));
+                items.Add(new RectangleItem(rect.X - 1, rect.Y - 1, rect.Width, rect.Height, display.Fill ?? options.Background));
             }
         }
 
@@ -237,7 +237,8 @@ public static class GridRenderer
             if (display.Fill is { } fill && sheet.Merges.Find(display.Cell.Row, display.Cell.Column) is null)
             {
                 var rect = viewport.CellRect(display.Cell);
-                items.Add(new RectangleItem(rect.X - 0.5, rect.Y - 0.5, rect.Width, rect.Height, fill));
+                // The cell covers its own grid lines (the right and bottom pixel, and its neighbours' at the left and top), whole pixels.
+                items.Add(new RectangleItem(rect.X - 1, rect.Y - 1, rect.Width, rect.Height, fill));
             }
 
             if (display.Conditional?.DataBar is { } bar)
@@ -543,7 +544,7 @@ public static class GridRenderer
             {
                 BorderStyle.Medium or BorderStyle.MediumDashed or BorderStyle.MediumDashDot or BorderStyle.MediumDashDotDot or BorderStyle.SlantDashDot => (2.0, LineStyle.Solid),
                 BorderStyle.Thick => (3.0, LineStyle.Solid),
-                BorderStyle.Double => (3.0, LineStyle.Double),
+                BorderStyle.Double => (1.0, LineStyle.Double),
                 BorderStyle.Dotted or BorderStyle.Hair => (1.0, LineStyle.Dotted),
                 BorderStyle.Dashed or BorderStyle.DashDot or BorderStyle.DashDotDot => (1.0, LineStyle.Dashed),
                 _ => (1.0, LineStyle.Solid),
@@ -551,6 +552,23 @@ public static class GridRenderer
             if (edge.Style is BorderStyle.MediumDashed or BorderStyle.MediumDashDot or BorderStyle.MediumDashDotDot)
             {
                 style = LineStyle.Dashed;
+            }
+
+            // Whole pixels: an even thickness sits between pixels, a double line's second stroke goes into the cell.
+            var horizontal = Math.Abs(y1 - y2) < 0.01;
+            var shift = thickness % 2 == 0 ? -0.5 : 0;
+            if (style == LineStyle.Double)
+            {
+                shift = -2;
+            }
+
+            if (horizontal)
+            {
+                (y1, y2) = (y1 + shift, y2 + shift);
+            }
+            else if (Math.Abs(x1 - x2) < 0.01)
+            {
+                (x1, x2) = (x1 + shift, x2 + shift);
             }
 
             items.Add(new LineItem(x1, y1, x2, y2, color, thickness, style));
