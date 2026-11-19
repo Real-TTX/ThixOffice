@@ -40,7 +40,7 @@ internal static class ShowGalleries
         NewSlideGallery => new RibbonFlyoutButton(window, ShowCommandIds.NewSlide, "Neue Folie", "slide-add", button => Layouts(window, button, newSlide: true), tooltip: "Neue Folie – mit einem Layout Ihrer Wahl"),
         LayoutGallery => new RibbonFlyoutButton(window, ShowCommandIds.Layout, "Layout", "template", button => Layouts(window, button, newSlide: false), large: false),
         ShapesGallery => new RibbonFlyoutButton(window, ShowCommandIds.Shapes, "Formen", "shapes", button => Shapes(window, button, ShowCommandIds.Shapes), tooltip: "Formen – wählen Sie eine Form und ziehen Sie sie auf der Folie auf"),
-        DesignGallery => new RibbonFlyoutButton(window, ShowCommandIds.Design, "Designs", "palette", button => Designs(window, button), tooltip: "Designs – Farben, Schriftarten und Layouts der Präsentation"),
+        DesignGallery => new DesignStrip(window),
         TablePicker => new TablePicker(window, ShowCommandIds.InsertTable, (rows, columns) => Apply(window, ShowCommandIds.InsertTable, $"{rows.ToString(CultureInfo.InvariantCulture)}x{columns.ToString(CultureInfo.InvariantCulture)}")),
         _ => null,
     };
@@ -98,30 +98,23 @@ internal static class ShowGalleries
         return new ScrollViewer { Content = panel, MaxHeight = 560 };
     }
 
-    /// <summary>The designs, each shown as its title slide in the presentation's slide size.</summary>
-    private static Control Designs(OfficeWindow window, RibbonFlyoutButton button)
+    /// <summary>A design's picture: its title slide ("Aa" in the title font) in a slide size.</summary>
+    public static SKPicture DesignPicture(ThemeDesign design, SlideSize size)
     {
-        var grid = new WrapPanel { MaxWidth = 3 * 188, Margin = new Thickness(8) };
-        var size = (window.Editor as ShowEditor)?.Session.Presentation.SlideSize ?? SlideSize.Widescreen;
-        var current = window.Commands.Find(ShowCommandIds.Design) is ThixOffice.Core.Commands.OfficeValueCommand command ? command.Value : null;
-        foreach (var design in BuiltInThemes.All)
+        var sample = MasterFactory.CreatePresentation(design, size);
+        var slide = MasterFactory.CreateSlide(sample.Masters[0].Layouts[0], 256);
+        var title = slide.Shapes.OfType<AutoShape>().FirstOrDefault(shape => shape.Placeholder?.IsTitle == true);
+        if (title is not null)
         {
-            var sample = MasterFactory.CreatePresentation(design, size);
-            var slide = MasterFactory.CreateSlide(sample.Masters[0].Layouts[0], 256);
-            sample = sample with { Slides = [slide] };
-            var picture = SlidePictures.Record(SlideRenderer.Render(sample, slide, OfficeFonts.Cached, new RenderOptions(ShowPlaceholderPrompts: true)));
-            var tile = Tile(new PictureView(picture, size.WidthPoints) { Width = 164, Height = 164 / size.AspectRatio }, design.Name, design.Id == current);
-            var id = design.Id;
-            tile.Click += (_, _) =>
-            {
-                button.Close();
-                Apply(window, ShowCommandIds.Design, id);
-            };
-            grid.Children.Add(tile);
+            slide = slide with { Shapes = ShapeTree.Replace(slide.Shapes, title.Id, shape => ((AutoShape)shape) with { Text = TextBody.FromText("Aa") }) };
         }
 
-        return new StackPanel { Children = { Heading("Designs von ThixShow"), grid } };
+        sample = sample with { Slides = [slide] };
+        return SlidePictures.Record(SlideRenderer.Render(sample, slide, OfficeFonts.Cached));
     }
+
+    /// <summary>The internal applies a value command (the design strip).</summary>
+    internal static void ApplyValue(OfficeWindow window, string commandId, string value) => Apply(window, commandId, value);
 
     /// <summary>The shapes by category; a choice starts drawing it on the slide (or changes the selected shapes' form).</summary>
     public static Control Shapes(OfficeWindow window, RibbonFlyoutButton? button, string commandId)
@@ -138,7 +131,7 @@ internal static class ShowGalleries
             var row = new WrapPanel { MaxWidth = 12 * 30 };
             foreach (var preset in category.Presets)
             {
-                var shape = new Button { Width = 28, Height = 28, Padding = new Thickness(3), Content = new ShapePreview(preset) }.Themed("MatButton.Icon");
+                var shape = new Button { Width = 28, Height = 28, Padding = new Thickness(3), Content = new ShapePreview(preset) { Width = 20, Height = 20 } }.Themed("MatButton.Icon");
                 var name = ShapeCatalog.NameOf(preset);
                 AutomationProperties.SetName(shape, name);
                 ToolTip.SetTip(shape, name);
@@ -251,6 +244,54 @@ internal sealed class ShapePreview(string preset) : Control
             }
 
             context.DrawGeometry(null, path.Stroke ? pen : null, stream);
+        }
+    }
+}
+
+/// <summary>
+/// Entwurf › Designs like PowerPoint: the designs side by side in the ribbon, each as its title slide ("Aa" in its fonts and
+/// colours), the current one framed in the accent; a click gives the presentation that design.
+/// </summary>
+internal sealed class DesignStrip : StackPanel
+{
+    private readonly OfficeWindow _window;
+    private readonly List<(string Id, Border Frame)> _tiles = [];
+
+    public DesignStrip(OfficeWindow window)
+    {
+        _window = window;
+        Orientation = Orientation.Horizontal;
+        Spacing = 4;
+        Margin = new Thickness(2, 4, 2, 0);
+        var size = SlideSize.Widescreen;
+        foreach (var design in BuiltInThemes.All)
+        {
+            var picture = ShowGalleries.DesignPicture(design, size);
+            var frame = new Border { Child = new PictureView(picture, size.WidthPoints) { Width = 92, Height = 92 / size.AspectRatio }, BorderThickness = new Thickness(2) };
+            var tile = new Button { Content = frame, Padding = new Thickness(1) }.Themed("MatButton.Icon");
+            AutomationProperties.SetName(tile, design.Name);
+            ToolTip.SetTip(tile, $"Design „{design.Name}“");
+            var id = design.Id;
+            tile.Click += (_, _) => ShowGalleries.ApplyValue(window, ShowCommandIds.Design, id);
+            _tiles.Add((id, frame));
+            Children.Add(tile);
+        }
+
+        window.Commands.StateChanged += (_, _) => Ui.Post(Sync);
+        Sync();
+    }
+
+    /// <summary>The design tiles (tests click them).</summary>
+    public IEnumerable<Button> Tiles => Children.OfType<Button>();
+
+    private void Sync()
+    {
+        var command = _window.Commands.Find(ShowCommandIds.Design) as ThixOffice.Core.Commands.OfficeValueCommand;
+        IsEnabled = command?.IsEnabled ?? false;
+        var current = command?.Value;
+        foreach (var (id, frame) in _tiles)
+        {
+            frame.Use(Border.BorderBrushProperty, id == current ? "Mat.Accent" : "Mat.Border");
         }
     }
 }

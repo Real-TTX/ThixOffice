@@ -89,6 +89,7 @@ internal sealed class SlideShowWindow : Window
         window.WindowState = WindowState.FullScreen;
         window.Activate();
         window.Surface.Focus();
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => window.Surface.Focus(), Avalonia.Threading.DispatcherPriority.Input);
         if (ShowSettings.UsePresenterView && screens.Count > 1 && audience is not null)
         {
             window.ShowPresenter(screens.FirstOrDefault(screen => !screen.Bounds.Equals(audience.Bounds)));

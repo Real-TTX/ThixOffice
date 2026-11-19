@@ -334,6 +334,7 @@ public sealed class ShowEditor : OfficeEditor
 
         UpdateViewButtons();
         FocusDocument();
+        Dispatcher.UIThread.Post(FocusDocument, DispatcherPriority.Input);
         ScheduleState();
     }
 
@@ -565,6 +566,7 @@ public sealed class ShowEditor : OfficeEditor
 
     private void OnContentReplaced(object? sender, EventArgs e)
     {
+        Notes.Reset();
         Attach();
         FitToWindow();
     }

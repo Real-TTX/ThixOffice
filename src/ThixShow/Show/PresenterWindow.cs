@@ -28,9 +28,10 @@ internal sealed class PresenterWindow : Window
     private readonly DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private double _notesSize = 18;
 
-    public PresenterWindow(ShowController controller)
+    public PresenterWindow(ShowController controller, Func<DateTime>? now = null)
     {
         _controller = controller;
+        Now = now ?? (() => DateTime.Now);
         Title = "Referentenansicht";
         Width = 1280;
         Height = 760;
@@ -130,8 +131,8 @@ internal sealed class PresenterWindow : Window
 
     public Button AllSlides { get; }
 
-    /// <summary>The time the clock shows (tests set it).</summary>
-    internal Func<DateTime> Now { get; set; } = () => DateTime.Now;
+    /// <summary>The time the clock shows (snapshots and tests give their own).</summary>
+    internal Func<DateTime> Now { get; }
 
     private static Button IconButton(string icon, string tooltip, Action action)
     {

@@ -113,7 +113,7 @@ public partial class App : OfficeApplication
                 var controller = new ShowController(session.Presentation, new Core.Show.SlideShowOptions(StartSlide: 1));
                 controller.Start();
                 controller.GoTo(1);
-                var presenter = new PresenterWindow(controller) { Now = () => new DateTime(2026, 11, 19, 14, 32, 0) };
+                var presenter = new PresenterWindow(controller, () => new DateTime(2026, 11, 19, 14, 32, 0));
                 presenter.Show();
                 Dispatcher.UIThread.RunJobs();
                 return presenter;

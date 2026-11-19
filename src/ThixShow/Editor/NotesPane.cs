@@ -17,8 +17,7 @@ internal sealed class NotesPane : Border
 {
     private readonly ShowEditor _editor;
     private uint? _slideId;
-    private bool _loading;
-    private bool _dirty;
+    private string _loaded = "";
 
     public NotesPane(ShowEditor editor)
     {
@@ -35,13 +34,6 @@ internal sealed class NotesPane : Border
         };
         Box.Use(TextBox.BackgroundProperty, "Mat.Surface");
         Avalonia.Automation.AutomationProperties.SetName(Box, "Notizen");
-        Box.TextChanged += (_, _) =>
-        {
-            if (!_loading)
-            {
-                _dirty = true;
-            }
-        };
         Box.LostFocus += (_, _) => Commit();
         Box.GotFocus += (_, _) => _editor.FocusedArea = EditorArea.Notes;
         Box.AddHandler(PointerWheelChangedEvent, OnWheel, RoutingStrategies.Tunnel);
@@ -51,11 +43,14 @@ internal sealed class NotesPane : Border
 
     public TextBox Box { get; }
 
+    /// <summary>True while the text differs from the notes it was loaded with (typed, not yet in the presentation).</summary>
+    private bool IsDirty => (Box.Text ?? "") != _loaded;
+
     /// <summary>Shows the notes of the current slide (committing what was typed for the one before).</summary>
     public void Load()
     {
         var slide = _editor.Session.CurrentSlide;
-        if (slide?.Id == _slideId && !_dirty)
+        if (slide?.Id == _slideId && !IsDirty)
         {
             var text = slide?.NotesText ?? "";
             if (Box.Text != text && !Box.IsFocused)
@@ -71,24 +66,29 @@ internal sealed class NotesPane : Border
         Set(slide?.NotesText ?? "");
     }
 
+    /// <summary>Another presentation came into the window: what was typed belonged to the old one and is dropped.</summary>
+    public void Reset()
+    {
+        _slideId = null;
+        Set("");
+    }
+
     private void Set(string text)
     {
-        _loading = true;
+        _loaded = text;
         Box.Text = text;
-        _loading = false;
-        _dirty = false;
     }
 
     /// <summary>Puts what was typed into the presentation (one undo step).</summary>
     public void Commit()
     {
-        if (!_dirty || _slideId is not { } id)
+        if (!IsDirty || _slideId is not { } id)
         {
             return;
         }
 
-        _dirty = false;
         var text = Box.Text ?? "";
+        _loaded = text;
         if (_editor.Session.Presentation.FindSlide(id) is { } slide && slide.NotesText != text)
         {
             _ = _editor.RunAsync("Notizen", () => _editor.Session.SetNotesText(id, text));
