@@ -69,6 +69,13 @@ public sealed class SettingsAndPolicyTests
         SettingsService.Remember(settings => settings with { IsRibbonCollapsed = true, WindowWidth = 10 });
         Assert.True(SettingsService.Get().IsRibbonCollapsed);
         Assert.Equal(760, SettingsService.Get().WindowWidth); // clamped
+
+        // An app's own small choices are remembered under the lock too, and survive a new session.
+        SettingsService.RememberAppValue("show.loop", "true");
+        SettingsService.ResetCache();
+        Assert.Equal("true", SettingsService.AppValue("show.loop"));
+        SettingsService.RememberAppValue("show.loop", null);
+        Assert.Null(SettingsService.AppValue("show.loop"));
     }
 
     [Fact]

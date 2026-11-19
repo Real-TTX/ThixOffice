@@ -51,4 +51,10 @@ public sealed record AppSettings
     public double WindowWidth { get; init; } = 1180;
 
     public double WindowHeight { get; init; } = 760;
+
+    /// <summary>
+    /// Small choices an app remembers by itself between sessions, by key (ThixShow: the screen of the show, Referentenansicht,
+    /// Wiederholen). Each app has its own settings file, so keys need no prefix.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> AppValues { get; init; } = new Dictionary<string, string>();
 }

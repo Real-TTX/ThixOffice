@@ -43,8 +43,31 @@ public static class SettingsService
             WindowWidth = Math.Clamp(next.WindowWidth, 760, 4000),
             WindowHeight = Math.Clamp(next.WindowHeight, 460, 3000),
             IsRibbonCollapsed = next.IsRibbonCollapsed,
+            AppValues = next.AppValues.Count <= MaxAppValues ? next.AppValues : current.AppValues,
         });
     }
+
+    /// <summary>How many remembered app values a settings file keeps at most.</summary>
+    public const int MaxAppValues = 64;
+
+    /// <summary>A value the app remembered (null when none).</summary>
+    public static string? AppValue(string key) => Get().AppValues.TryGetValue(key, out var value) ? value : null;
+
+    /// <summary>Remembers a value of the app (null forgets it); no configuration lock – like the window size.</summary>
+    public static void RememberAppValue(string key, string? value) => Remember(settings =>
+    {
+        var values = new Dictionary<string, string>(settings.AppValues);
+        if (value is null)
+        {
+            values.Remove(key);
+        }
+        else
+        {
+            values[key] = value;
+        }
+
+        return settings with { AppValues = values };
+    });
 
     /// <summary>Where "Speichern unter" starts: the chosen folder when it still exists, otherwise the documents folder.</summary>
     public static string SaveFolder => Get().DefaultSaveFolder is { Length: > 0 } folder && FileSystemProbe.FolderExists(folder) ? folder : FileSystemProbe.DocumentsFolder;
