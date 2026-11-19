@@ -53,6 +53,18 @@ public sealed record GridRenderOptions
     /// <summary>The line along frozen rows/columns.</summary>
     public RgbColor FreezeLine { get; init; } = RgbColor.FromHex("9B9B9B");
 
+    /// <summary>The red triangle of a cell with a note.</summary>
+    public RgbColor NoteMarker { get; init; } = RgbColor.FromHex("C00000");
+
+    /// <summary>The autofilter's arrow buttons (face, frame) and the colour of an active filter.</summary>
+    public RgbColor FilterButton { get; init; } = RgbColor.FromHex("F3F3F3");
+
+    public RgbColor FilterButtonLine { get; init; } = RgbColor.FromHex("ABABAB");
+
+    public RgbColor FilterActive { get; init; } = RgbColor.FromHex("107C41");
+
+    public RgbColor FilterArrow { get; init; } = RgbColor.FromHex("595959");
+
     /// <summary>Rows/columns whose headers are highlighted (the selection's).</summary>
     public IReadOnlyList<CellRange> Selection { get; init; } = [];
 
@@ -289,6 +301,65 @@ public static class GridRenderer
         {
             RenderBorders(items, viewport, display, sheet.Workbook.Theme);
         }
+
+        // Notes: Excel's red triangle in the top right corner.
+        foreach (var note in sheet.Comments.Keys)
+        {
+            if (range.Contains(note) && !sheet.Rows.IsHidden(note.Row) && !sheet.Columns.IsHidden(note.Column))
+            {
+                var rect = viewport.CellRect(note);
+                var size = Math.Max(4, Math.Round(5 * Math.Max(1, viewport.Zoom)));
+                for (var step = 0; step < size; step++)
+                {
+                    items.Add(new LineItem(rect.Right - size + step - 0.5, rect.Y + 0.5 + step - 1, rect.Right - 1, rect.Y + 0.5 + step - 1, options.NoteMarker, 1));
+                }
+            }
+        }
+
+        // The arrows of an autofilter in its header row.
+        if (sheet.AutoFilter is { } filter && filter.Range.FirstRow >= range.FirstRow && filter.Range.FirstRow <= range.LastRow)
+        {
+            for (var column = Math.Max(filter.Range.FirstColumn, range.FirstColumn); column <= Math.Min(filter.Range.LastColumn, range.LastColumn); column++)
+            {
+                if (FilterButtonRect(viewport, column) is not { } button)
+                {
+                    continue;
+                }
+
+                var active = filter.Columns.Any(entry => entry.ColumnOffset == column - filter.Range.FirstColumn);
+                items.Add(new RectangleItem(button.X, button.Y, button.Width, button.Height, options.FilterButton, options.FilterButtonLine, 1));
+                var middle = Math.Round(button.X + button.Width / 2);
+                var top = Math.Round(button.Y + button.Height * 0.38);
+                var half = Math.Max(2, Math.Round(button.Width * 0.22));
+                for (var step = 0; step <= half; step++)
+                {
+                    items.Add(new LineItem(middle - half + step - 0.5, top + step + 0.5, middle + half - step + 0.5, top + step + 0.5, active ? options.FilterActive : options.FilterArrow, 1));
+                }
+
+                if (active)
+                {
+                    items.Add(new LineItem(middle - half, top - 2.5, middle + half + 1, top - 2.5, options.FilterActive, 1));
+                }
+            }
+        }
+    }
+
+    /// <summary>The arrow button of an autofilter column in its header cell (pixels of the viewport), or null when the column has none.</summary>
+    public static PixelRect? FilterButtonRect(GridViewport viewport, int column)
+    {
+        if (viewport.Layout.Sheet.AutoFilter is not { } filter || column < filter.Range.FirstColumn || column > filter.Range.LastColumn)
+        {
+            return null;
+        }
+
+        var cell = viewport.CellRect(new CellAddress(filter.Range.FirstRow, column));
+        var size = Math.Round(Math.Min(cell.Height - 3, 16 * viewport.Zoom));
+        if (size < 6 || cell.Width < size + 2)
+        {
+            return null;
+        }
+
+        return new PixelRect(cell.Right - size - 2, cell.Bottom - size - 2, size, size);
     }
 
     private static FontSpec PixelFont(CellFont font, double zoom) => new(font.Name, font.Size * 96 / 72 * zoom, font.Bold, font.Italic);

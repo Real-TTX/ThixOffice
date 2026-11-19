@@ -393,6 +393,9 @@ internal sealed class GridSurface : Control, ITextField
         var alt = modifiers.HasFlag(KeyModifiers.Alt);
         switch (key)
         {
+            case Key.Down when alt:
+                _editor.ShowValidationList();
+                return true;
             case Key.Left or Key.Right or Key.Up or Key.Down:
                 Session.Move(DirectionOf(key), shift, command);
                 break;
@@ -577,6 +580,21 @@ internal sealed class GridSurface : Control, ITextField
             return;
         }
 
+        if (!editing.IsEditing && hit.Kind == HitKind.Cell && FilterColumnAt(viewport, hit.Cell, device) is { } filterColumn)
+        {
+            Session.Select(hit.Cell);
+            OpenFilter(filterColumn);
+            e.Handled = true;
+            return;
+        }
+
+        if (!editing.IsEditing && add && hit.Kind == HitKind.Cell && Session.ActiveSheet.Hyperlinks.FirstOrDefault(link => link.Range.Contains(hit.Cell)) is { } hyperlink)
+        {
+            _ = _editor.OpenLinkAsync(hyperlink);
+            e.Handled = true;
+            return;
+        }
+
         if (editing.IsEditing && !editing.Commit())
         {
             return; // an invalid entry keeps the cell open
@@ -650,6 +668,24 @@ internal sealed class GridSurface : Control, ITextField
 
         e.Pointer.Capture(this);
         e.Handled = true;
+    }
+
+    /// <summary>The autofilter column whose arrow is at <paramref name="device"/>, or null.</summary>
+    private int? FilterColumnAt(GridViewport viewport, CellAddress cell, Point device) =>
+        Session.ActiveSheet.AutoFilter is { } filter && cell.Row == filter.Range.FirstRow && GridRenderer.FilterButtonRect(viewport, cell.Column) is { } button && button.Contains(device.X, device.Y)
+            ? cell.Column - filter.Range.FirstColumn
+            : null;
+
+    /// <summary>The list behind a filter arrow (the last one opened, for tests).</summary>
+    internal FilterMenu? FilterMenu { get; private set; }
+
+    /// <summary>Opens the filter list of an autofilter column under the pointer.</summary>
+    internal void OpenFilter(int columnOffset)
+    {
+        var flyout = new Flyout { Placement = PlacementMode.Pointer };
+        FilterMenu = new FilterMenu(_editor, columnOffset, () => flyout.Hide());
+        flyout.Content = FilterMenu;
+        flyout.ShowAt(this, showAtPointer: true);
     }
 
     private void SelectRows(int anchor, int row, bool add)
@@ -881,6 +917,28 @@ internal sealed class GridSurface : Control, ITextField
             _ => StandardCursorType.Arrow,
         };
         Cursor = new Cursor(cursor);
+        ShowNote(hit);
+    }
+
+    private bool _showsNote;
+
+    /// <summary>Hovering a cell with a note shows the note (Excel shows it beside the cell).</summary>
+    private void ShowNote(HitResult hit)
+    {
+        if (hit.Kind == HitKind.Cell && Session.ActiveSheet.Comments.TryGetValue(hit.Cell, out var note))
+        {
+            ToolTip.SetTip(this, note.Author.Length > 0 ? note.Author + ":\n" + note.Text : note.Text);
+            ToolTip.SetIsOpen(this, true);
+            _showsNote = true;
+            return;
+        }
+
+        if (_showsNote)
+        {
+            ToolTip.SetIsOpen(this, false);
+            ToolTip.SetTip(this, null);
+            _showsNote = false;
+        }
     }
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)

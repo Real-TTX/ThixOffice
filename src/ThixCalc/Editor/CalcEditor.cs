@@ -49,6 +49,7 @@ public sealed class CalcEditor : OfficeEditor
     private readonly ScrollBar _horizontal = new() { Orientation = Orientation.Horizontal, AllowAutoHide = false };
     private readonly Dictionary<Worksheet, SheetLayout> _layouts = [];
     private readonly FormulaAssist _assist;
+    private readonly Button _listButton = new() { Content = new MatDesktop.MatIcon { Icon = "chevron-down", Size = 12 }, Width = 18, Padding = new Thickness(0), IsVisible = false, HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center };
     private bool _statePending;
     private bool _syncingBars;
     private int _shownSheet = -1;
@@ -72,6 +73,9 @@ public sealed class CalcEditor : OfficeEditor
         _assist = new FormulaAssist(this) { IsVisible = false };
         _overlay.Children.Add(cellBox);
         _overlay.Children.Add(_assist);
+        _listButton.Click += (_, _) => ShowValidationList();
+        Avalonia.Automation.AutomationProperties.SetName(_listButton, "Auswahlliste");
+        _overlay.Children.Add(_listButton);
 
         var gridArea = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("*") };
         var host = new Panel { Children = { Surface, _overlay }, ClipToBounds = true };
@@ -317,6 +321,64 @@ public sealed class CalcEditor : OfficeEditor
     }
 
     private bool _csvAsked;
+
+    /// <summary>Strg+Klick on a link: a web or mail address opens in the system (only http, https, mailto), a place of the workbook is selected.</summary>
+    public async Task OpenLinkAsync(Hyperlink link)
+    {
+        if (link.Location is { Length: > 0 } location && link.Target is null)
+        {
+            await RunAsync("Link", () => GoTo(location));
+            return;
+        }
+
+        await OfficeWindow.RunAsync(_window, "Link öffnen", () =>
+        {
+            Ui.OpenExternal(ThixOffice.Core.Business.LinkService.Normalize(link.Target));
+            return Task.FromResult(true);
+        });
+    }
+
+    /// <summary>The arrow of a list validation beside the active cell (Excel's in-cell drop-down), or hidden.</summary>
+    private void PlaceListButton()
+    {
+        var sheet = Session.ActiveSheet;
+        var cell = Session.ActiveCell;
+        var rule = Editing.IsEditing ? null : Validation.RuleAt(sheet, cell);
+        if (rule is not { Type: ValidationType.List, ShowDropDown: true } || Surface.Bounds.Width <= 0)
+        {
+            _listButton.IsVisible = false;
+            return;
+        }
+
+        var viewport = Surface.Viewport();
+        var rect = viewport.CellRect(cell);
+        var scaling = Surface.Scale / (Zoom / 100);
+        _listButton.Height = Math.Max(14, rect.Height / scaling);
+        Canvas.SetLeft(_listButton, rect.Right / scaling + 1);
+        Canvas.SetTop(_listButton, rect.Y / scaling);
+        _listButton.IsVisible = rect.Right / scaling + 20 < Surface.Bounds.Width && rect.Y >= viewport.ScrollTop;
+    }
+
+    /// <summary>The entries of the list validation (Alt+Pfeil unten in Excel): a choice is entered into the cell.</summary>
+    internal void ShowValidationList()
+    {
+        var sheet = Session.ActiveSheet;
+        if (Validation.RuleAt(sheet, Session.ActiveCell) is not { Type: ValidationType.List } rule)
+        {
+            return;
+        }
+
+        var flyout = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedRight };
+        foreach (var value in Validation.ListEntries(sheet, Session.ActiveCell, rule))
+        {
+            var text = NumberFormatter.Format(value, "General", Session.Locale, Session.Workbook.Date1904).Text;
+            var item = new MenuItem { Header = text };
+            item.Click += (_, _) => _ = RunAsync("Eingabe", () => Session.EnterInput(text));
+            flyout.Items.Add(item);
+        }
+
+        flyout.ShowAt(_listButton.IsVisible ? _listButton : Surface);
+    }
 
     // ===== Running =====
 
@@ -629,6 +691,7 @@ public sealed class CalcEditor : OfficeEditor
         {
             _statePending = false;
             FormulaBar.Refresh();
+            PlaceListButton();
             _window.Commands.Invalidate();
             UpdateStatus(_window.StatusBar);
             SyncScrollBars();

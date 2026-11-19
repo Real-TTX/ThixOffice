@@ -227,12 +227,12 @@ Formate, Sortieren/Filtern, Fixieren, bedingte Formatierung, Diagramme, xlsx/csv
   Formeln/Daten/Überprüfen/Ansicht wie im deutschen Excel, Dialoge Zellen formatieren, Funktion einfügen, Sortieren,
   Datenüberprüfung, Text in Spalten, Duplikate entfernen, Namens-Manager, bedingte Formatierung (Regeln, Datenbalken, Farbskalen,
   Regeln verwalten), Seite einrichten, Zoom, Link, Notiz, Textimport; Suchen/Ersetzen (gemeinsame Leiste); Zwischenablage (eigen,
-  Text, HTML-Tabelle hin und zurück); Drucken mit Vorschau (aktives Blatt, Mappe, Auswahl) und PDF; Hinweise bei CSV und Makros;
+  Text, HTML-Tabelle hin und zurück); Filterpfeile mit Werteliste und Sortieren, Auswahlliste der Datenüberprüfung neben der Zelle
+  (Alt+Pfeil unten), Notiz-Dreieck mit Anzeige beim Zeigen, Links per Strg+Klick; Drucken mit Vorschau (aktives Blatt, Mappe, Auswahl) und PDF; Hinweise bei CSV und Makros;
   ThixDrive über die Shell. Gemeinsam gemacht (ThixWrite nutzt sie mit): Skia-Zeichenoperation, Druck- und Exportseite,
   Dialograhmen, Suchleiste, Kontextmenüs aus Befehlen, Speichern-Rückfrage des Editors.
 - **Lücken (wichtig für Excel-Umsteiger zuerst):** Diagramme (werden erhalten, aber nicht angezeigt – nächster Schritt),
-  AutoFilter-Pfeile mit Werteliste in den Kopfzellen (Filtern schaltet den Filter, wählen geht noch nicht), Dropdown einer
-  Datenüberprüfungs-Liste in der Zelle, Notiz-Dreieck und -Anzeige im Raster, Link per Strg+Klick öffnen, Einfügen › Tabelle,
+  benutzerdefinierte Filter (Zahlen-/Textfilter; die Werteliste hinter den Filterpfeilen gibt es), Einfügen › Tabelle,
   Strg+Plus/Minus (Zellen einfügen/löschen), Dialog Inhalte einfügen (nur Menüeinträge), Reihe ausfüllen (Dialog), Blitzvorschau,
   „Alle suchen“, Fenster teilen, Seitenumbruchvorschau, Textrichtung/Drehung beim Zeichnen, Teilformatierung in einer Zelle, Rückgängig
   innerhalb der Zellbearbeitung, ods.
