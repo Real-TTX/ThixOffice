@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Tests of ThixShow's UI-free core: the model (placeholder inheritance, theme colours with their transforms against documented
+    values, preset geometry formulas against known paths), the slide renderer with the deterministic fixed-width measurer (z-order,
+    group transforms, autofit, determinism, thumbnails, handouts, notes pages), pptx round trips (generated fixtures, Open XML
+    validation, preserved content), the editing engine (commands, random undo/redo symmetry, snapping), the slide show engine
+    (build steps, timelines, frames) and performance (a 200-slide deck), plus Skia rendering and PDF of ThixOffice.Text.Skia.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <SupportedOSPlatformVersion Condition="'$(OS)' == 'Windows_NT'">10.0.17763.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="GitHubActionsTestLogger" Version="2.4.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ThixOffice.Text\ThixOffice.Text.csproj" />
+    <ProjectReference Include="..\..\src\ThixOffice.Text.Skia\ThixOffice.Text.Skia.csproj" />
+    <ProjectReference Include="..\..\src\ThixShow.Core\ThixShow.Core.csproj" />
+  </ItemGroup>
+
+</Project>

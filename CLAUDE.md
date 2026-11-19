@@ -103,6 +103,9 @@ src/ThixOffice.Charts      (no UI) charts for every app (section "Charts"): Mode
                            Formats/ (ChartXml reads c:chartSpace, ChartXmlWriter writes it; unknown XML kept)
 src/ThixOffice.Text.Skia   SkiaTextMeasurer (SkiaSharp typefaces + HarfBuzz shaping, font fallback), SkiaPageRenderer (display list
                            → any SKCanvas), PdfExport (SKDocument.CreatePdf); SkiaSharp 2.88.9 / HarfBuzzSharp 8.3.1.1 = Avalonia's
+                           Vector items (ThixOffice.Text/Drawing/VectorItems.cs: VectorPath + builder with arcs as Béziers, Matrix2D, paints –
+                           solid, linear/radial gradient, picture –, StrokeStyle with dashes/caps/joins, DropShadow, VectorPathItem,
+                           TransformBegin/End, ClipPathBegin, OpacityBegin/End) are drawn by SkiaVectorRenderer (+ RenderPng, ExportPdf)
 src/ThixCalc.Core          (no UI) ThixCalcApp.Definition (.xlsx default, .xlsm, .csv; .ods planned; cloud id calc); Model/ (Workbook, Worksheet,
                            sparse CellStore, styles, rows/columns, merges, names, validation, conditional formats, PageSetup), Calculation/
                            + Formulas/ (parser, dependency graph, spills; FormulaTokens: the editor's scanner – colours, point mode, F4,
@@ -127,6 +130,20 @@ src/ThixWrite.Core         (no UI) ThixWriteApp.Definition (.docx Supported + de
                            selection geometry, display lists), Formats/ (docx with the Open XML SDK, plain text),
                            Documents/WordDocument (OfficeDocument: Content + Session; LoadedFormat / SaveFormat), BlankDocument +
                            DocumentFonts (new documents: Aptos → Calibri → Helvetica Neue → Arial, whatever the machine has)
+src/ThixShow.Core          (no UI) ThixShowApp.Definition (.pptx default, .pptm, .odp planned; cloud id show); Model/ (immutable Presentation:
+                           masters → layouts → slides, themes, shape tree – AutoShape, ConnectorShape, PictureShape, GroupShape, GraphicFrame
+                           with Table / chart seam / kept SmartArt+OLE, PreservedElement –, fills, outlines, effects, text bodies, notes,
+                           sections, transitions, animation timing; ValueList = equality by content; XmlFragment = kept XML with PartReferences;
+                           BuiltInThemes + MasterFactory: ThixShow's own designs and layouts; AnimationPresets), Drawing/ (ColorResolver: scheme
+                           colours + transforms; GeometryEngine + PresetGeometries: guide formulas, 126 presets, custom geometry, handles),
+                           Formatting/ (SlideContext, ShapeResolver: placeholder inheritance, theme styles, text style chain), Layout/
+                           (SlideRenderer → display lists, TextBodyLayouter with normAutofit, TableRenderer, Paints, PrintLayouts: slides /
+                           handouts / notes pages, SlideHitTesting: hits, corners, handles; IChartRenderer = the chart seam), Formats/Pptx
+                           (PptxReader/PptxWriter: the original package is kept, only changed parts/elements are rewritten; unchanged elements
+                           are written as read and relinked), Editing/ (EditingSession: every command one undo step – the presentation before
+                           and after –, typing/nudging groups, Group(label, action), PresentationChanged per slide/shape; Snapping, TextEdits,
+                           ShowFragment = clipboard), Show/ (SlideTimeline: build steps; EffectEvaluator; SlideShow: clicks + clock → ShowFrame
+                           layers with opacity/transform/clip, presenter view), Documents/ShowDocument
 src/ThixWrite              App (OfficeApplication: WordDocument, WriteEditor, commands, ribbon, backstage page, self test, snapshot
                            scenes), Program, WriteSelfTest, Editor/ (WriteEditor, DocumentSurface + CaretLayer + WriteInputClient,
                            PagePictures + PageDrawOperation + FormattingMarks, FindBar, WriteCommands, WriteRibbon + WriteCommandIds,
@@ -143,6 +160,9 @@ tests/ThixOffice.Desktop.Tests  headless with a small TestOfficeApp: shell, sear
 tests/ThixCalc.Core.Tests       model, engine, functions, formats, editing, layout, pagination, selection layer
 tests/ThixCalc.Tests            the real ThixCalc headless through keys/text/pointer: modes, point mode, F4, suggestions, autofill, resize,
                                 headers, wheel, 100k rows, tabs, ribbon state, find, clipboard, dialogs, printing, CSV, snapshots, colours
+tests/ThixShow.Core.Tests       colours against documented Office values, preset formulas against known paths, inheritance, rendering
+                                (fixed-width measurer, Skia pixels, PDF), pptx round trips + validator + preservation fixtures, editing
+                                (random undo/redo), show engine timelines and frames, 200-slide performance
 tests/ThixWrite.Core.Tests      model, editing engine (random undo/redo symmetry), layout (fixed-width measurer, 300 pages),
                                 docx/txt round trips and fixtures, Unicode rules, Skia measurer and PDF
 tests/ThixWrite.Tests           the real ThixWrite headless, driven by real key / text / pointer events: typing, caret movement,
