@@ -32,6 +32,15 @@ public sealed class CalcEditor : OfficeEditor
     public const string AverageItem = "average";
     public const string CountItem = "count";
     public const string SumItem = "sum";
+    public const string NumericCountItem = "numericCount";
+    public const string MinimumItem = "minimum";
+    public const string MaximumItem = "maximum";
+
+    /// <summary>The aggregates the status bar can show, in Excel's order (its context menu chooses).</summary>
+    public static IReadOnlyList<(string Id, string Label)> Aggregates { get; } =
+    [
+        (AverageItem, "Mittelwert"), (CountItem, "Anzahl"), (NumericCountItem, "Numerische Anzahl"), (MinimumItem, "Minimum"), (MaximumItem, "Maximum"), (SumItem, "Summe"),
+    ];
 
     private readonly OfficeWindow _window;
     private readonly Grid _view;
@@ -92,6 +101,7 @@ public sealed class CalcEditor : OfficeEditor
 
         Attach();
         document.ContentReplaced += OnContentReplaced;
+        window.StatusBar.View.ContextMenu = StatusMenu();
         Zoom = Session.ActiveSheet.View.Zoom;
     }
 
@@ -217,6 +227,9 @@ public sealed class CalcEditor : OfficeEditor
         var showsNumbers = many && statistics.NumericCount > 0;
         Item(AverageItem, showsNumbers && statistics.Average is { } average ? $"Mittelwert: {Number(average)}" : null);
         Item(CountItem, many && statistics.Count > 1 ? $"Anzahl: {statistics.Count.ToString(CultureInfo.CurrentCulture)}" : null);
+        Item(NumericCountItem, showsNumbers ? $"Numerische Anzahl: {statistics.NumericCount.ToString(CultureInfo.CurrentCulture)}" : null);
+        Item(MinimumItem, showsNumbers && statistics.Minimum is { } minimum ? $"Minimum: {Number(minimum)}" : null);
+        Item(MaximumItem, showsNumbers && statistics.Maximum is { } maximum ? $"Maximum: {Number(maximum)}" : null);
         Item(SumItem, showsNumbers ? $"Summe: {Number(statistics.Sum)}" : null);
     }
 
@@ -226,6 +239,29 @@ public sealed class CalcEditor : OfficeEditor
         Session.SelectionChanged -= OnSelectionChanged;
         Session.StateChanged -= OnStateChanged;
         Document.ContentReplaced -= OnContentReplaced;
+    }
+
+    /// <summary>The status bar's menu (Excel's "Statusleiste anpassen"): which aggregates of the selection show.</summary>
+    private ContextMenu StatusMenu()
+    {
+        var menu = new ContextMenu();
+        foreach (var (id, label) in Aggregates)
+        {
+            var item = new MenuItem { Header = label, ToggleType = MenuItemToggleType.CheckBox, IsChecked = StatusAggregates.Contains(id) };
+            item.Click += (_, _) =>
+            {
+                if (!StatusAggregates.Remove(id))
+                {
+                    StatusAggregates.Add(id);
+                }
+
+                item.IsChecked = StatusAggregates.Contains(id);
+                UpdateStatus(_window.StatusBar);
+            };
+            menu.Items.Add(item);
+        }
+
+        return menu;
     }
 
     // ===== Running =====
