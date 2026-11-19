@@ -29,7 +29,7 @@ public static class ColorResolver
         var state = Base(color, context, 0);
         foreach (var modifier in color.Modifiers)
         {
-            state = Apply(state, modifier);
+            state = ColorTransforms.Apply(state, modifier.Name, modifier.Value);
         }
 
         return state.ToRgb();
@@ -44,14 +44,7 @@ public static class ColorResolver
         _ => null,
     };
 
-    private readonly record struct ColorState(double R, double G, double B, double A)
-    {
-        public RgbColor ToRgb() => new(ToByte(R), ToByte(G), ToByte(B), ToByte(A));
-
-        private static byte ToByte(double value) => (byte)Math.Round(Math.Clamp(value, 0, 1) * 255);
-    }
-
-    private static ColorState Base(ColorSpec color, ColorContext context, int depth)
+    private static ColorValue Base(ColorSpec color, ColorContext context, int depth)
     {
         switch (color.Kind)
         {
@@ -64,33 +57,33 @@ public static class ColorResolver
             case ColorKind.Hsl:
                 {
                     var parts = ParseInts(color.Value);
-                    var (r, g, b) = HslToRgb(parts[0] / 60000.0 / 360.0, parts[1] / 100000.0, parts[2] / 100000.0);
-                    return new ColorState(r, g, b, 1);
+                    var (r, g, b) = ColorTransforms.HslToRgb(parts[0] / 60000.0 / 360.0, parts[1] / 100000.0, parts[2] / 100000.0);
+                    return new ColorValue(r, g, b, 1);
                 }
 
             case ColorKind.ScRgb:
                 {
                     var parts = ParseInts(color.Value);
-                    return new ColorState(ToSrgb(parts[0] / 100000.0), ToSrgb(parts[1] / 100000.0), ToSrgb(parts[2] / 100000.0), 1);
+                    return new ColorValue(ColorTransforms.ToSrgb(parts[0] / 100000.0), ColorTransforms.ToSrgb(parts[1] / 100000.0), ColorTransforms.ToSrgb(parts[2] / 100000.0), 1);
                 }
 
             case ColorKind.Scheme:
                 if (depth > 4)
                 {
-                    return new ColorState(0, 0, 0, 1);
+                    return new ColorValue(0, 0, 0, 1);
                 }
 
                 if (color.IsPlaceholder)
                 {
                     if (context.PlaceholderColor is not { } placeholder || placeholder.IsPlaceholder)
                     {
-                        return new ColorState(0, 0, 0, 1);
+                        return new ColorValue(0, 0, 0, 1);
                     }
 
                     var resolved = Base(placeholder, context, depth + 1);
                     foreach (var modifier in placeholder.Modifiers)
                     {
-                        resolved = Apply(resolved, modifier);
+                        resolved = ColorTransforms.Apply(resolved, modifier.Name, modifier.Value);
                     }
 
                     return resolved;
@@ -99,26 +92,26 @@ public static class ColorResolver
                 var slot = context.Map.Map(color.Value);
                 if (Array.IndexOf(ColorScheme.SlotNames, slot) < 0)
                 {
-                    return new ColorState(0, 0, 0, 1);
+                    return new ColorValue(0, 0, 0, 1);
                 }
 
                 var scheme = context.Scheme[slot];
                 var state = Base(scheme, context, depth + 1);
                 foreach (var modifier in scheme.Modifiers)
                 {
-                    state = Apply(state, modifier);
+                    state = ColorTransforms.Apply(state, modifier.Name, modifier.Value);
                 }
 
                 return state;
             default:
-                return new ColorState(0, 0, 0, 1);
+                return new ColorValue(0, 0, 0, 1);
         }
     }
 
-    private static ColorState FromHex(string hex)
+    private static ColorValue FromHex(string hex)
     {
         var rgb = RgbColor.FromHex(hex);
-        return new ColorState(rgb.R / 255.0, rgb.G / 255.0, rgb.B / 255.0, 1);
+        return new ColorValue(rgb.R / 255.0, rgb.G / 255.0, rgb.B / 255.0, 1);
     }
 
     private static int[] ParseInts(string value)
@@ -130,178 +123,6 @@ public static class ColorResolver
         }
 
         return [.. parts];
-    }
-
-    private static ColorState Apply(ColorState state, ColorModifier modifier)
-    {
-        var value = (modifier.Value ?? 0) / 100000.0;
-        switch (modifier.Name)
-        {
-            case "alpha":
-                return state with { A = value };
-            case "alphaMod":
-                return state with { A = state.A * value };
-            case "alphaOff":
-                return state with { A = Math.Clamp(state.A + value, 0, 1) };
-            case "tint":
-                return Linear(state, channel => 1 - ((1 - channel) * value));
-            case "shade":
-                return Linear(state, channel => channel * value);
-            case "gamma":
-                return state with { R = ToSrgb(state.R), G = ToSrgb(state.G), B = ToSrgb(state.B) };
-            case "invGamma":
-                return state with { R = ToLinear(state.R), G = ToLinear(state.G), B = ToLinear(state.B) };
-            case "inv":
-                return state with { R = 1 - state.R, G = 1 - state.G, B = 1 - state.B };
-            case "gray":
-                {
-                    var gray = (0.3 * state.R) + (0.59 * state.G) + (0.11 * state.B);
-                    return state with { R = gray, G = gray, B = gray };
-                }
-
-            case "comp":
-                return Hsl(state, (h, s, l) => ((h + 0.5) % 1, s, l));
-            case "hue":
-                return Hsl(state, (_, s, l) => (value * 100000 / 60000 / 360 % 1, s, l));
-            case "hueOff":
-                return Hsl(state, (h, s, l) => ((((h + (value * 100000 / 60000 / 360)) % 1) + 1) % 1, s, l));
-            case "hueMod":
-                return Hsl(state, (h, s, l) => (h * value % 1, s, l));
-            case "sat":
-                return Hsl(state, (h, _, l) => (h, Math.Clamp(value, 0, 1), l));
-            case "satMod":
-                return Hsl(state, (h, s, l) => (h, Math.Clamp(s * value, 0, 1), l));
-            case "satOff":
-                return Hsl(state, (h, s, l) => (h, Math.Clamp(s + value, 0, 1), l));
-            case "lum":
-                return Hsl(state, (h, s, _) => (h, s, Math.Clamp(value, 0, 1)));
-            case "lumMod":
-                return Hsl(state, (h, s, l) => (h, s, Math.Clamp(l * value, 0, 1)));
-            case "lumOff":
-                return Hsl(state, (h, s, l) => (h, s, Math.Clamp(l + value, 0, 1)));
-            case "red":
-                return LinearChannel(state, 0, _ => value);
-            case "redMod":
-                return LinearChannel(state, 0, channel => channel * value);
-            case "redOff":
-                return LinearChannel(state, 0, channel => channel + value);
-            case "green":
-                return LinearChannel(state, 1, _ => value);
-            case "greenMod":
-                return LinearChannel(state, 1, channel => channel * value);
-            case "greenOff":
-                return LinearChannel(state, 1, channel => channel + value);
-            case "blue":
-                return LinearChannel(state, 2, _ => value);
-            case "blueMod":
-                return LinearChannel(state, 2, channel => channel * value);
-            case "blueOff":
-                return LinearChannel(state, 2, channel => channel + value);
-            default:
-                return state;
-        }
-    }
-
-    private static ColorState Linear(ColorState state, Func<double, double> change) => state with
-    {
-        R = ToSrgb(Math.Clamp(change(ToLinear(state.R)), 0, 1)),
-        G = ToSrgb(Math.Clamp(change(ToLinear(state.G)), 0, 1)),
-        B = ToSrgb(Math.Clamp(change(ToLinear(state.B)), 0, 1)),
-    };
-
-    private static ColorState LinearChannel(ColorState state, int channel, Func<double, double> change) => channel switch
-    {
-        0 => state with { R = ToSrgb(Math.Clamp(change(ToLinear(state.R)), 0, 1)) },
-        1 => state with { G = ToSrgb(Math.Clamp(change(ToLinear(state.G)), 0, 1)) },
-        _ => state with { B = ToSrgb(Math.Clamp(change(ToLinear(state.B)), 0, 1)) },
-    };
-
-    private static ColorState Hsl(ColorState state, Func<double, double, double, (double H, double S, double L)> change)
-    {
-        var (h, s, l) = RgbToHsl(state.R, state.G, state.B);
-        var (nh, ns, nl) = change(h, s, l);
-        var (r, g, b) = HslToRgb(nh, ns, nl);
-        return state with { R = r, G = g, B = b };
-    }
-
-    /// <summary>sRGB (0–1) to linear light.</summary>
-    public static double ToLinear(double value) =>
-        value <= 0.04045 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
-
-    /// <summary>Linear light to sRGB (0–1).</summary>
-    public static double ToSrgb(double value) =>
-        value <= 0.0031308 ? value * 12.92 : (1.055 * Math.Pow(value, 1 / 2.4)) - 0.055;
-
-    /// <summary>RGB (0–1) to hue (0–1), saturation, luminance.</summary>
-    public static (double H, double S, double L) RgbToHsl(double r, double g, double b)
-    {
-        var max = Math.Max(r, Math.Max(g, b));
-        var min = Math.Min(r, Math.Min(g, b));
-        var l = (max + min) / 2;
-        if (max - min < 1e-12)
-        {
-            return (0, 0, l);
-        }
-
-        var d = max - min;
-        var s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-        double h;
-        if (max == r)
-        {
-            h = ((g - b) / d) + (g < b ? 6 : 0);
-        }
-        else if (max == g)
-        {
-            h = ((b - r) / d) + 2;
-        }
-        else
-        {
-            h = ((r - g) / d) + 4;
-        }
-
-        return (h / 6, s, l);
-    }
-
-    public static (double R, double G, double B) HslToRgb(double h, double s, double l)
-    {
-        if (s <= 0)
-        {
-            return (l, l, l);
-        }
-
-        var q = l < 0.5 ? l * (1 + s) : l + s - (l * s);
-        var p = (2 * l) - q;
-        return (Hue(p, q, h + (1.0 / 3)), Hue(p, q, h), Hue(p, q, h - (1.0 / 3)));
-    }
-
-    private static double Hue(double p, double q, double t)
-    {
-        if (t < 0)
-        {
-            t += 1;
-        }
-
-        if (t > 1)
-        {
-            t -= 1;
-        }
-
-        if (t < 1.0 / 6)
-        {
-            return p + ((q - p) * 6 * t);
-        }
-
-        if (t < 0.5)
-        {
-            return q;
-        }
-
-        if (t < 2.0 / 3)
-        {
-            return p + ((q - p) * ((2.0 / 3) - t) * 6);
-        }
-
-        return p;
     }
 
     private static Dictionary<string, string> BuildPresetColors()
