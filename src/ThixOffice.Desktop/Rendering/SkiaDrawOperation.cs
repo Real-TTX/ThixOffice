@@ -20,7 +20,7 @@ public sealed class SkiaDrawOperation(Rect bounds, Action<SKCanvas> draw, bool d
 {
     public Rect Bounds => bounds;
 
-    public bool HitTest(Point p) => false;
+    public bool HitTest(Point p) => bounds.Contains(p);
 
     public bool Equals(ICustomDrawOperation? other) => ReferenceEquals(this, other);
 
