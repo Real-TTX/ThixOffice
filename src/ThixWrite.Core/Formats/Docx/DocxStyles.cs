@@ -32,7 +32,7 @@ internal static class DocxStyles
         target.AppendChild(new W.DocDefaults(
             new W.RunPropertiesDefault(characterDefaults ?? new W.RunPropertiesBaseStyle()),
             new W.ParagraphPropertiesDefault(paragraphDefaults ?? new W.ParagraphPropertiesBaseStyle())));
-        foreach (var latent in XmlFragments.Parse(sheet.LatentStylesXml, typeof(W.Styles)))
+        foreach (var latent in XmlFragments.Parse<W.Styles>(sheet.LatentStylesXml))
         {
             target.AppendChild(latent);
         }
@@ -77,7 +77,7 @@ internal static class DocxStyles
     public static W.Numbering WriteNumbering(NumberingDefinitions definitions, W.Numbering target)
     {
         target.RemoveAllChildren();
-        foreach (var element in XmlFragments.Parse(definitions.UnknownXml, typeof(W.Numbering)))
+        foreach (var element in XmlFragments.Parse<W.Numbering>(definitions.UnknownXml))
         {
             XmlFragments.Add(target, element);
         }

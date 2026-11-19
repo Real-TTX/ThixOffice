@@ -123,8 +123,15 @@ internal static class XmlFragments
         }
     }
 
-    /// <summary>The elements of <paramref name="xml"/>, parsed as children of an element of <paramref name="parentType"/>.</summary>
-    public static IReadOnlyList<OpenXmlElement> Parse(string? xml, Type parentType)
+    /// <summary>The elements of <paramref name="xml"/>, parsed as children of an element of <typeparamref name="TParent"/>.</summary>
+    public static IReadOnlyList<OpenXmlElement> Parse<TParent>(string? xml)
+        where TParent : OpenXmlCompositeElement, new() => Parse(xml, new TParent());
+
+    /// <summary>
+    /// The elements of <paramref name="xml"/>, parsed as children of <paramref name="holder"/> (an empty element of the parent's
+    /// type; no reflection, so the trimmed app parses the same).
+    /// </summary>
+    private static IReadOnlyList<OpenXmlElement> Parse(string? xml, OpenXmlCompositeElement holder)
     {
         if (string.IsNullOrEmpty(xml))
         {
@@ -133,7 +140,7 @@ internal static class XmlFragments
 
         try
         {
-            var holder = (OpenXmlCompositeElement)Activator.CreateInstance(parentType)!;
+
             holder.InnerXml = xml;
             var children = holder.ChildElements.ToList();
             foreach (var child in children)
@@ -152,7 +159,7 @@ internal static class XmlFragments
     /// <summary>Adds the elements of <paramref name="xml"/> to <paramref name="target"/>, each at its schema position.</summary>
     public static void AddTo(OpenXmlCompositeElement target, string? xml)
     {
-        foreach (var element in Parse(xml, target.GetType()))
+        foreach (var element in Parse(xml, (OpenXmlCompositeElement)target.CloneNode(deep: false)))
         {
             Add(target, element);
         }

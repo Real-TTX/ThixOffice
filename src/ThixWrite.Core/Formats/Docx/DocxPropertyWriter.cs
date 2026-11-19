@@ -240,7 +240,7 @@ internal static class DocxPropertyWriter
     private static W.RunFonts? WriteFonts(CharacterProperties properties)
     {
         if (properties.FontsXml is not null
-            && XmlFragments.Parse(properties.FontsXml, typeof(W.RunProperties)).FirstOrDefault() is W.RunFonts original
+            && XmlFragments.Parse<W.RunProperties>(properties.FontsXml).FirstOrDefault() is W.RunFonts original
             && DocxPropertyReader.InterpretFonts(original) == (properties.FontFamily, properties.FontTheme))
         {
             return original;

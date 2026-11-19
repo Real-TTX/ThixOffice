@@ -109,7 +109,7 @@ public static class DocxWriter
                     body.AppendChild(WriteParagraph(paragraph, context));
                     break;
                 case OpaqueBlock opaque:
-                    foreach (var element in XmlFragments.Parse(opaque.Xml, typeof(W.Body)))
+                    foreach (var element in XmlFragments.Parse<W.Body>(opaque.Xml))
                     {
                         body.AppendChild(element);
                     }
@@ -163,7 +163,7 @@ public static class DocxWriter
                 break;
             case OpaqueInline { IsRunContent: true } opaque:
                 var element = NewRun(opaque.Properties);
-                foreach (var child in XmlFragments.Parse(opaque.Xml, typeof(W.Run)))
+                foreach (var child in XmlFragments.Parse<W.Run>(opaque.Xml))
                 {
                     element.AppendChild(child);
                 }
@@ -171,7 +171,7 @@ public static class DocxWriter
                 yield return element;
                 break;
             case OpaqueInline opaque:
-                foreach (var child in XmlFragments.Parse(opaque.Xml, typeof(W.Paragraph)))
+                foreach (var child in XmlFragments.Parse<W.Paragraph>(opaque.Xml))
                 {
                     yield return child;
                 }

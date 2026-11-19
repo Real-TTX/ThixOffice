@@ -45,6 +45,17 @@ internal static class WriteSelfTest
         Ensure(reopened.Content.ContentEquals(editor.Document.Content), "the docx read back differs from the document written");
         Ensure(reopened.Content.Blocks[0] is Paragraph { Inlines: [TextRun { Properties.Bold: true }, ..] }, "bold is lost in the docx");
 
+        // A Word document with content ThixWrite keeps without showing it (a table): read, warned about, written back.
+        var table = Path.Combine(folder, "Tabelle.docx");
+        WriteDocxWithTable(table);
+        var withTable = DocumentService.Open(table, app.CreateDocument) as WordDocument ?? throw new InvalidOperationException("not a WordDocument");
+        Ensure(withTable.Content.UnsupportedContent.Count > 0, "the table was not reported as unsupported content");
+        DocumentService.Save(withTable);
+        using (var package = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Open(table, false))
+        {
+            Ensure(package.MainDocumentPart?.Document?.Body?.Elements<DocumentFormat.OpenXml.Wordprocessing.Table>().Any() == true, "the table was lost on saving");
+        }
+
         using var bitmap = new SKBitmap((int)editor.Layout.Pages[0].Width, (int)editor.Layout.Pages[0].Height);
         using (var canvas = new SKCanvas(bitmap))
         {
@@ -70,6 +81,24 @@ internal static class WriteSelfTest
         window.Close();
         await Settle();
         return $"{WriteFonts.Default.Body}, {WriteFonts.Families.Count} font families, docx {new FileInfo(path).Length} bytes, PDF {bytes.Length} bytes";
+    }
+
+    /// <summary>A docx as Word writes it, with a paragraph and a 2 × 2 table (Open XML SDK).</summary>
+    private static void WriteDocxWithTable(string path)
+    {
+        using var package = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Create(path, DocumentFormat.OpenXml.WordprocessingDocumentType.Document);
+        var main = package.AddMainDocumentPart();
+        var body = new DocumentFormat.OpenXml.Wordprocessing.Body(
+            new DocumentFormat.OpenXml.Wordprocessing.Paragraph(new DocumentFormat.OpenXml.Wordprocessing.Run(new DocumentFormat.OpenXml.Wordprocessing.Text("Vor der Tabelle"))),
+            new DocumentFormat.OpenXml.Wordprocessing.Table(
+                new DocumentFormat.OpenXml.Wordprocessing.TableRow(Cell("A1"), Cell("B1")),
+                new DocumentFormat.OpenXml.Wordprocessing.TableRow(Cell("A2"), Cell("B2"))),
+            new DocumentFormat.OpenXml.Wordprocessing.Paragraph());
+        main.Document = new DocumentFormat.OpenXml.Wordprocessing.Document(body);
+        main.Document.Save();
+
+        static DocumentFormat.OpenXml.Wordprocessing.TableCell Cell(string text) =>
+            new(new DocumentFormat.OpenXml.Wordprocessing.Paragraph(new DocumentFormat.OpenXml.Wordprocessing.Run(new DocumentFormat.OpenXml.Wordprocessing.Text(text))));
     }
 
     private static void Ensure(bool condition, string message)
