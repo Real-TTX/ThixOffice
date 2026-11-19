@@ -1,6 +1,6 @@
 # ThixOffice – Plan
 
-Stand: 2026-11-18. Dieser Plan ist die Arbeitsgrundlage; er wird mit jedem Meilenstein fortgeschrieben.
+Stand: 2026-11-19. Dieser Plan ist die Arbeitsgrundlage; er wird mit jedem Meilenstein fortgeschrieben.
 
 ## 1. Ziel
 
@@ -143,7 +143,18 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   Seiten-Layout mit Umbruch, Cursor/Auswahl/IME, Zeichen- und Absatzformat, Formatvorlagen,
   Aufzählung/Nummerierung, Rückgängig, Zwischenablage, Suchen/Ersetzen, Seite einrichten,
   docx lesen/schreiben, PDF-Export/Drucken, Zoom. Menüband: Datei, Start, Einfügen, Layout, Ansicht.
-- **1b:** Tabellen, Bilder, Kopf-/Fußzeilen, Seitenzahlen, Seitenumbrüche, Hyperlinks, Tabstopps.
+- **Stand 1a (2026-11-19): erledigt** bis auf das direkte Drucken. Nativer Editor (Seiten als Skia-Bilder, nur sichtbare
+  Seiten gezeichnet, Zoom 10–500 % inkl. Strg+Mausrad / Seitenbreite / Ganze Seite, Papier weiß auch im dunklen Modus),
+  Tastatur mit Windows- und Mac-Konventionen, Maus (Klick, Umschalt+Klick, Ziehen mit Auto-Scroll, Doppel-/Dreifachklick),
+  Eingabemethoden (IME-Client mit Umgebungstext und Cursor-Rechteck), Zwischenablage (eigenes Fragment + Text, „Nur Text
+  einfügen“), Menüband Start / Einfügen / Layout / Ansicht mit Zustand aus der Auswahl, Suchen/Ersetzen-Leiste, Dialoge Seite
+  einrichten und Zoom, Datei › Exportieren (PDF), docx als Standardformat (Dateizuordnung Windows + macOS-Plist als
+  „Alternate“), Hinweis bei nicht unterstützten Inhalten, Statusleiste (Seite X von Y, Wörter), Selbsttest der getrimmten exe.
+  **Lücken (→ 1b):** direktes Drucken (bis dahin PDF), Lineal, Format übertragen, Symbol einfügen, Dialoge Schriftart… /
+  Absatz…, Kontextmenü ohne Format-Einträge, Wort-weises Ziehen nach Doppelklick, IME-Komposition als Überlagerung (nicht im
+  Textfluss), Zwischenablage-Import von HTML/RTF aus anderen Programmen, Formatvorlagen-Galerie mit festen Einträgen.
+- **1b:** Drucken, Tabellen, Bilder, Kopf-/Fußzeilen, Seitenzahlen, Hyperlinks, Tabstopps (Lineal), Dialoge Schriftart/Absatz,
+  HTML/RTF einfügen.
 - **1c:** Inhaltsverzeichnis, Fußnoten, Kommentare, Rechtschreibprüfung, odt; Karten Referenzen/Überprüfen.
 - Danach: Launcher-Eintrag (siehe 6).
 

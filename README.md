@@ -8,37 +8,61 @@ und die aussieht wie die übrigen Thix-Apps.
 
 | Programm | statt | Formate | Stand |
 | --- | --- | --- | --- |
-| **ThixWrite** | Word | docx, später odt | Phase 0: Fundament, Editor folgt |
+| **ThixWrite** | Word | docx, txt, später odt | Meilenstein 1a: nativer Editor, docx, PDF-Export |
 | **ThixCalc** | Excel | xlsx, csv, später ods | Logo |
 | **ThixShow** | PowerPoint | pptx, später odp | Logo |
 
 Der Plan steht in [docs/PLAN.md](docs/PLAN.md).
 
-## ThixWrite – Stand Phase 0
+## ThixWrite – Stand Meilenstein 1a
 
-Das Fenster mit Titelleiste (Logo, Schnellzugriff, Dokumentname, Befehlssuche), Menüband (Start, Einfügen, Ansicht – es
-füllt sich mit dem Editor; Strg+F1 reduziert es, Alt zeigt die Tastaturtipps), Statusleiste mit Zoom und „Datei“ (Neu,
-Öffnen mit „Zuletzt verwendet“, Speichern, Speichern unter, Schließen, Einstellungen, Info) ist fertig. Der Textverarbeitungs-Editor
-selbst entsteht in der nächsten Phase; bis dahin bearbeitet ThixWrite einfache Textdateien (.txt), damit Neu, Öffnen,
-Speichern, „Zuletzt verwendet“, die Wiederherstellung nach einem Absturz und die Frage „Änderungen speichern?“ schon echt
-funktionieren. Word-Dateien (.docx) öffnet ThixWrite erst, wenn es sie lesen kann – vorher werden sie weder angeboten noch
-überschrieben.
+ThixWrite ist eine Textverarbeitung mit eigenem, nativem Editor: Seiten wie auf Papier (weiß, auch im dunklen
+Erscheinungsbild), Zeichen- und Absatzformat, Formatvorlagen, Aufzählung und Nummerierung, Rückgängig/Wiederholen, Zwischenablage
+(mit Formatierung zwischen ThixWrite-Fenstern, „Nur Text einfügen“ mit Strg+Umschalt+V), Suchen und Ersetzen, Seite einrichten,
+Zoom (auch Strg+Mausrad, Seitenbreite, Ganze Seite), Formatierungszeichen und „Als PDF exportieren“. Eingabemethoden (Umlaute,
+Akzente mit Tottasten, Emoji-Panel, chinesisch/japanisch) funktionieren.
+
+Word-Dokumente (.docx) sind das Standardformat; .txt wird als reiner Text gelesen und geschrieben. Inhalte, die ThixWrite noch
+nicht anzeigt (Tabellen, Bilder, Kopf-/Fußzeilen, Kommentare …), bleiben beim Speichern erhalten – beim Öffnen sagt ein Hinweis,
+welche es sind. Direktes Drucken folgt; bis dahin führt der Weg über das PDF.
 
 ![ThixWrite hell](docs/images/thixwrite-main-light.png)
 
 ![ThixWrite dunkel](docs/images/thixwrite-main-dark.png)
 
-| Öffnen | Einstellungen › Speichern |
+| Suchen und Ersetzen (Strg+F, Strg+H) | Layout und Formatierungszeichen |
 | --- | --- |
-| ![Öffnen](docs/images/thixwrite-backstage-open-light.png) | ![Einstellungen](docs/images/thixwrite-backstage-settings-save-light.png) |
-| **Info** (über die Versionsnummer unten links) | **Änderungen speichern?** |
-| ![Info](docs/images/thixwrite-backstage-about-light.png) | ![Änderungen speichern](docs/images/thixwrite-dialog-save-changes-light.png) |
+| ![Suchen und Ersetzen](docs/images/thixwrite-main-find-light.png) | ![Layout](docs/images/thixwrite-main-layout-light.png) |
+| **Seite einrichten** | **Ansicht › Ganze Seite** |
+| ![Seite einrichten](docs/images/thixwrite-dialog-page-setup-light.png) | ![Ganze Seite](docs/images/thixwrite-main-view-dark.png) |
+| **Datei › Exportieren** (PDF) | **Öffnen** |
+| ![Exportieren](docs/images/thixwrite-backstage-export-light.png) | ![Öffnen](docs/images/thixwrite-backstage-open-light.png) |
+| **Einstellungen › Speichern** | **Änderungen speichern?** |
+| ![Einstellungen](docs/images/thixwrite-backstage-settings-save-light.png) | ![Änderungen speichern](docs/images/thixwrite-dialog-save-changes-light.png) |
+
+### Tastenkürzel
+
+Wie im deutschen Word, wo sie nicht kollidieren (unter macOS ⌘ statt Strg, ⌥ für Wort-Bewegungen):
+
+| Kürzel | Befehl |
+| --- | --- |
+| Strg+Umschalt+F / K / U (auch Strg+B / I / U) | Fett / Kursiv / Unterstrichen |
+| Strg+L / E / R / J | Linksbündig / Zentriert / Rechtsbündig / Blocksatz (Strg+B ist Fett, nicht Blocksatz) |
+| Strg+Leertaste (⇧⌘Leertaste) | Formatierung löschen |
+| Strg+F / Strg+H (⌥⌘F) | Suchen / Ersetzen |
+| Strg+A, Strg+C/X/V, Strg+Umschalt+V | Alles markieren, Zwischenablage, Nur Text einfügen |
+| Strg+Eingabe, Umschalt+Eingabe | Seitenumbruch, Zeilenumbruch |
+| Tab / Umschalt+Tab | in Listen: Ebene tiefer / höher |
+| Alt+Umschalt+D | Datum und Uhrzeit |
+| Strg+P | Exportieren (PDF) |
+| Strg+Z / Strg+Y (⇧⌘Z), Strg+S, F12, Strg+F1 | Rückgängig / Wiederholen, Speichern, Speichern unter, Menüband |
 
 ## Installieren
 
 - **Windows:** `ThixWriteSetup.exe` aus dem Release-Kanal herunterladen und starten. Das Programm installiert sich selbst für
   das eigene Benutzerkonto (ohne Administratorrechte) nach `%LocalAppData%\Programs\ThixWrite`, trägt sich im Startmenü, unter
-  „Installierte Apps“ und unter „Öffnen mit“ ein. Entfernen über „Installierte Apps“.
+  „Installierte Apps“ und unter „Öffnen mit“ für Word-Dokumente (.docx) und Textdateien ein – Standardprogramm wird ThixWrite
+  nur, wenn Sie es in den „Standard-Apps“ von Windows wählen. Entfernen über „Installierte Apps“.
 - **macOS:** `ThixWrite-macOS-arm64.dmg` (Apple Silicon) bzw. `-x64.dmg` (Intel) öffnen und ThixWrite in „Programme“ ziehen.
 - Updates kommen automatisch aus dem eigenen Kanal (`release-channel` für main, `nightly-channel` für dev) und werden
   installiert, wenn ThixWrite geschlossen wird – nie mitten in der Arbeit.

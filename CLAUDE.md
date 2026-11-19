@@ -12,11 +12,11 @@ the other Thix apps (MatDesktop, "Apple-like"). Office formats are the default (
 document is a window of its own, all in one process per app (like Word). UI language German (the Office apps say **"Sie"**,
 like "Was möchten Sie tun?"); code, comments and identifiers English.
 
-**Phase 0 (done): the foundation.** The shared core and desktop, the ThixWrite skeleton with a PLACEHOLDER editor ("Editor folgt",
-a plain text box on `.txt`, so that new / open / save / recent / recovery / unsaved prompt / file activation are real), the
-logos of all three apps, CI, and MatDesktop 0.3.0's MatRibbon, MatBackstage, MatStatusBar and MatQuickAccess in the window.
-**Next:** phase 1a, ThixWrite's native editor and docx (it registers the commands `WriteCommandIds` names; the ribbon shows
-them in their places). Do not build ribbon controls of your own and do not grow the placeholder editor.
+**Phase 0 (done): the foundation.** The shared core and desktop, the logos of all three apps, CI, and MatDesktop 0.3.0's
+MatRibbon, MatBackstage, MatStatusBar and MatQuickAccess in the window.
+**Milestone 1a (done): ThixWrite's native editor** on `WordDocument` (docx default, txt), the filled ribbon, find/replace,
+page setup, zoom, PDF export (see "ThixWrite's editor" below; gaps in docs/PLAN.md). **Next:** 1b (tables, images, headers
+and footers, printing …). Do not build ribbon controls of your own.
 
 Stack: **.NET 10** (`global.json` 10.0.100, latestMinor), C#, **Avalonia 11.3.22** with **MatDesktop 0.3.0** (a copy), xunit +
 Avalonia.Headless. Reference apps (sibling folders): ThixCalendar (structure, setup, OTA), ThixNote (document app: file types,
@@ -54,6 +54,7 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
 src/ThixOffice.Desktop     shared Avalonia UI
   MatDesktop/              COPY of MatDesign's desktop toolkit 0.3.0 (never edited here)
   OfficeApplication        base Application of every app: Definition, CreateDocument, CreateEditor, AddCommands, CreateRibbon(window),
+                           CreateBackstageItems(window), SelfTestChecks, SnapshotScenes + ShowSnapshotScene/EndSnapshotScene,
                            FillSampleDocument; start-up (self test, Windows setup modes, single instance forwarding files, recovery,
                            crash reports, theme), NewDocumentWindow, ShowWindow, OpenFilesAsync/OpenFileAsync, HandleActivation,
                            ExitApplication / OnExit (installs a downloaded update); the last window ends the app on Windows, not on
@@ -64,23 +65,40 @@ src/ThixOffice.Desktop     shared Avalonia UI
                            unsaved dot, CommandSearchBox; MatRibbon; message bar; editor; status bar; backstage over it all;
                            keyboard; unsaved prompt; recovery timer), OfficeRibbonBinding + OfficeRibbonItems (see below),
                            OfficeBackstage (MatBackstage with the pages by id; BackstageItem/BackstageContent), OfficeStatusBar
-                           (MatStatusBar: texts by id + zoom), OfficeEditor (the app's part; Zoom 10–500 %), CommandSearchBox,
+                           (MatStatusBar: texts by id + zoom), OfficeEditor (the app's part; Zoom 10–500 %, OpeningWarning, RequestZoomLevel), CommandSearchBox,
                            IFileDialogs + SystemFileDialogs
   Pages/                   NewPage, OpenPage (Durchsuchen + Zuletzt verwendet: search, sort, pin, show, remove), SaveAsPage,
                            SettingsPage (Allgemein | Speichern | Updates | Erweitert), AboutPage
   Dialogs/                 QuestionDialog (+ SaveChangesDialog: Speichern, Abbrechen, gap, Nicht speichern), ProblemReportDialog
   Controls/                ActionBar, IconLabel, InfoBar, FormErrors (from the reference apps)
-src/ThixWrite.Core         ThixWriteApp.Definition; Documents/TextDocument (PHASE 0 ONLY: plain text, typing undo)
-src/ThixWrite              App (OfficeApplication), Program, Editor/PlaceholderEditor (PHASE 0 ONLY), Editor/WriteRibbon
-                           (WriteCommandIds; the ribbon Start | Einfügen | Layout | Ansicht as a MatRibbonDefinition; "Datum und
-                           Uhrzeit"), Assets (rendered by tools/render-icons.js)
+src/ThixOffice.Text        (no UI, no native code) ITextMeasurer, FontSpec/FontMetrics, ShapedText, FixedWidthTextMeasurer (tests),
+                           Drawing/ display lists (GlyphRunItem, RectangleItem, LineItem in points), Unicode/ LineBreaker (UAX 14),
+                           TextBoundaries (graphemes, words)
+src/ThixOffice.Text.Skia   SkiaTextMeasurer (SkiaSharp typefaces + HarfBuzz shaping, font fallback), SkiaPageRenderer (display list
+                           → any SKCanvas), PdfExport (SKDocument.CreatePdf); SkiaSharp 2.88.9 / HarfBuzzSharp 8.3.1.1 = Avalonia's
+src/ThixWrite.Core         (no UI) ThixWriteApp.Definition (.docx Supported + default, .txt Supported, .odt/.rtf Planned);
+                           Model/ (Document of immutable blocks, styles, lists, sections, preserved content), Editing/ (EditingSession:
+                           selection, every command as a reversible transaction, undo, clipboard fragments, find/replace,
+                           GetFormatting), Layout/ (DocumentLayout: incremental line breaking + pagination, hit testing, caret and
+                           selection geometry, display lists), Formats/ (docx with the Open XML SDK, plain text),
+                           Documents/WordDocument (OfficeDocument: Content + Session; LoadedFormat / SaveFormat), BlankDocument +
+                           DocumentFonts (new documents: Aptos → Calibri → Helvetica Neue → Arial, whatever the machine has)
+src/ThixWrite              App (OfficeApplication: WordDocument, WriteEditor, commands, ribbon, backstage page, self test, snapshot
+                           scenes), Program, WriteSelfTest, Editor/ (WriteEditor, DocumentSurface + CaretLayer + WriteInputClient,
+                           PagePictures + PageDrawOperation + FormattingMarks, FindBar, WriteCommands, WriteRibbon + WriteCommandIds,
+                           DocumentPalette, WriteFonts, SampleDocument), Dialogs/ (WriteDialog, PageSetupDialog, ZoomDialog),
+                           Pages/ExportPage (Datei › Exportieren: PDF), Assets (rendered by tools/render-icons.js)
 tests/ThixOffice.Core.Tests     definition, version, settings, policies, recent list, atomic save, recovery, install / file types /
                                 autostart in an in-memory registry (+ the whole setup on Windows), updates, commands, MatCloud copy
 tests/ThixOffice.Desktop.Tests  headless with a small TestOfficeApp: shell, search, backstage, keyboard, unsaved prompt, ribbon
                                 binding, quick access, zoom,
                                 settings + lock, no literal colours, MatDesktop copy
-tests/ThixWrite.Tests           the real ThixWrite headless: new/type/save, open/replace/bring to front, recent list, prompts,
-                                recovery, second start, refusal of docx, commands, snapshots, no literal colours
+tests/ThixWrite.Core.Tests      model, editing engine (random undo/redo symmetry), layout (fixed-width measurer, 300 pages),
+                                docx/txt round trips and fixtures, Unicode rules, Skia measurer and PDF
+tests/ThixWrite.Tests           the real ThixWrite headless, driven by real key / text / pointer events: typing, caret movement,
+                                selection, formatting shortcuts, ribbon state, lists, mouse, clipboard, IME client, virtualization,
+                                zoom, find bar, page setup / zoom dialogs, unsupported-content warning, docx / txt through the
+                                window flow, PDF export, recent list, prompts, recovery, snapshots, no literal colours
 branding/<id>/             logo-icon, logo-small, logo-document(-small), logo-full SVGs + png/ + .ico; branding/launcher/<id>.png
 tools/render-icons.js      renders every app's logos (installed Edge, playwright-core)
 scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoString "<Name> <version>", document types from
@@ -115,6 +133,40 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   `OfficeEditor.Zoom` (10–500 %, `OnZoomChanged`, `ZoomChanged`) follow each other; commands `view.zoomIn/zoomOut/zoom100`.
 - The ribbon's collapsed state is remembered (`AppSettings.IsRibbonCollapsed`, `MatRibbon.CollapsedChanged`).
 
+## ThixWrite's editor
+
+- **Per window:** `WordDocument` (model `Content` + `EditingSession`) → `WriteEditor` (an `OfficeEditor`) makes a
+  `DocumentLayout` (shared `WriteFonts.Measurer`, sets `Session.Navigator`) and a `DocumentSurface` in a ScrollViewer; opening a
+  file into the window makes a new editor. Everything that changes the document goes through the session; the view only listens.
+- **Drawing:** the surface's size is all pages stacked (points × zoom × 96/72, gaps from `LayoutOptions.PageGap`); `Render`
+  draws only the pages in the effective viewport: paper (white `DocumentPalette.Paper`, `Mat.Border` + a shadow from
+  `Mat.Overlay`) through Avalonia, then ONE custom draw operation (`PageDrawOperation`, Skia lease) that replays each page's
+  `SKPicture` (`PagePictures`: recorded from `DocumentLayout.GetDisplayList` with `SkiaPageRenderer`, + `FormattingMarks` when
+  ¶ is on; invalidated from `DocumentLayout.Changed.FirstChangedPage`), then the selection (`Mat.Selection`). Vector pictures
+  stay crisp at any zoom/DPI. The caret and the IME composition are a separate layer (`CaretLayer`): blinking never redraws pages.
+- **Refresh:** session `ContentChanged`/`SelectionChanged` → `ScheduleRefresh` (once, Normal priority): layout update, caret,
+  keep the caret in view (`BringIntoView`), notify the IME client. `StateChanged` → `WriteEditor.ScheduleState` (once per round,
+  Background priority): `Commands.Invalidate()` (ribbon sync through `GetFormatting()`, cached by the session) and the status bar.
+- **Input:** `DocumentSurface.HandleKey` (movement with Shift; Strg/⌥ = word, ⌘←/→ = line, Strg/⌘+Pos1/Ende = document;
+  Backspace/Entf, Enter, Umschalt+Enter, Tab in lists), `OnTextInput` (control characters dropped), `WriteInputClient`
+  (surrounding text = the caret's paragraph, cursor rectangle, preedit shown by the caret layer), pointer (click, Shift+click,
+  drag with auto-scroll, double = word, triple = paragraph, right click keeps a selection, context menu). The window handles
+  every command shortcut first (tunnel); commands with `YieldsToTextField` leave their keys to a focused TextBox.
+- **Clipboard:** `DataFormat.CreateBytesApplicationFormat("ThixWrite.Fragment")` (the core's docx fragment) + text.
+- **Colours:** chrome only Mat tokens; document colours (paper, ink, marks, font/highlight palettes) only in
+  `Editor/DocumentPalette.cs` – the one file the colour rules test exempts.
+
+### Adding a command to ThixWrite
+
+1. An id in `WriteCommandIds` (`write.<name>`; value commands note their value format).
+2. Register it in `WriteCommands.Add` (or `App.AddCommands`): `OfficeCommand` (or `OfficeValueCommand` for a font, size, colour,
+   style, number) with German label, sprite icon, `Shortcut`/`MacShortcut`, `Description`, `Keywords`, `CanExecute`,
+   `IsChecked` reading `Format()` (the session's cached formatting; mixed = unchecked/null). Act on `Editor()` at run time.
+   A shortcut that a text field also uses (copy, select all) gets `YieldsToTextField = true`.
+3. Place it in `WriteRibbon` with `OfficeRibbonItems` (or a Mat item whose id is the command id). Menu entries are commands of
+   their own (`IsSearchable = false`). Ids must be unique in the definition (`Problems()`): a second place needs an alias command.
+4. A test through real input in tests/ThixWrite.Tests; check the snapshots.
+
 ## Build / run / test
 
 - `dotnet build ThixOffice.slnx` – expected: 0 warnings, 0 errors. `dotnet test ThixOffice.slnx` – all green.
@@ -122,12 +174,17 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   recovery in that folder) that never meets the installed one. A development build never runs the setup.
 - **Snapshots:** `dotnet run --project src/ThixWrite -- --snapshot <folder>` draws every window headless in light and dark
   (`thixwrite-main`, `-main-ribbon-collapsed`, `-backstage-{new,open,saveas,settings,settings-save,settings-updates,about}`,
-  `-dialog-save-changes`, `-setup-{welcome,options,update,uninstall}` on Windows): version 0.1.0, ANNA-PC, C:\Users\Anna\Dokumente,
-  a sample recent list – no real path shows. `THIXWRITE_SCREENSHOTS=<folder> dotnet test tests/ThixWrite.Tests` does the same
-  from the tests. LOOK at the pictures after a change of the UI; `docs/images` has the ones of the README.
-- The Windows publish (win-x64) is a **trimmed** single file (`TrimMode=partial`, own assemblies rooted, ~35 MB).
-  `ThixWrite.exe --self-test <report>` checks the published program (settings, documents, recovery, manifest, contract, DPAPI,
-  COM, document icon, every window); CI runs it.
+  `-dialog-save-changes`, `-setup-{welcome,options,update,uninstall}` on Windows, and the app's scenes
+  (`OfficeApplication.SnapshotScenes`; ThixWrite: `-main-layout`, `-main-view`, `-main-find`, `-dialog-page-setup`,
+  `-backstage-export`)): the sample report (`SampleDocument`), version 0.1.0, ANNA-PC, C:\Users\Anna\Dokumente, a sample recent
+  list – no real path shows. `THIXWRITE_SCREENSHOTS=<folder> dotnet test tests/ThixWrite.Tests` does the same from the tests.
+  LOOK at the pictures after a change of the UI; `docs/images` has the ones of the README.
+- The Windows publish (win-x64) is a **trimmed** single file (`TrimMode=partial`, own assemblies + ThixOffice.Text(.Skia) rooted,
+  ~43 MB; Avalonia, SkiaSharp, HarfBuzz and the Open XML SDK are trimmed as libraries that declare themselves trimmable – keep
+  ThixWrite's own code free of reflection: `XmlFragments.Parse<TParent>`, no `Activator`). `ThixWrite.exe --self-test <report>`
+  checks the published program (settings, documents, recovery, manifest, contract, DPAPI, COM, document icon, every window, and
+  the app's `SelfTestChecks`: ThixWrite types into a real editor, formats, saves docx, reopens and compares, keeps a table, draws a
+  page with Skia, exports a PDF); CI runs it.
 - Icons: `cd tools && npm install && node render-icons.js` (`--preview <png>` draws every app at 16–256 px on light and dark – look).
 - **MatDesktop** (`src/ThixOffice.Desktop/MatDesktop/`) is a COPY from MatDesign (0.3.0 from branch `feature/ribbon`,
   `src/MatDesktop`, version in `matdesktop.version`): never edit it here; copy again with `node tools/matdesktop-copy.js
