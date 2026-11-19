@@ -39,6 +39,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ThixOffice.Core\ThixOffice.Core.csproj" />
+    <!-- The pages of every app drawn and exported (printing, the preview, PDF). -->
+    <ProjectReference Include="..\ThixOffice.Text.Skia\ThixOffice.Text.Skia.csproj" />
   </ItemGroup>
 
 </Project>

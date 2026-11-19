@@ -110,7 +110,7 @@ public sealed class FeatureTests
         Assert.Equal("=C1*3", editor.Session.FormulaBarText);
 
         // Text of another program: tab-separated, each field read like typed input.
-        await window.Clipboard.SetTextAsync("Name\tBetrag\r\nMiete\t1.150,50");
+        await window.Clipboard!.SetTextAsync("Name\tBetrag\r\nMiete\t1.150,50");
         editor.Session.Select(new CellAddress(5, 0));
         editor.Surface.CopiedRange = null;
         await editor.Clipboard.PasteAsync(textOnly: true);
