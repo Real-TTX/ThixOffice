@@ -27,7 +27,7 @@ public sealed class PageSetupDialog : WriteDialog
     private bool _isUpdating;
 
     public PageSetupDialog(WriteEditor editor, int tab = MarginsTab)
-        : base("Seite einrichten", 560)
+        : base("Seite einrichten", 520)
     {
         _editor = editor;
         var setup = editor.Document.Content.FinalSection;
@@ -47,7 +47,7 @@ public sealed class PageSetupDialog : WriteDialog
         PaperWidth.ValueChanged += (_, _) => OnPaperSizeTyped();
         PaperHeight.ValueChanged += (_, _) => OnPaperSizeTyped();
 
-        var margins = new Grid { ColumnDefinitions = new ColumnDefinitions("*,16,*"), RowDefinitions = new RowDefinitions("Auto,Auto") };
+        var margins = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,24,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto") };
         Place(margins, Field("Oben (cm)", MarginTop), 0, 0);
         Place(margins, Field("Unten (cm)", MarginBottom), 0, 2);
         Place(margins, Field("Links (cm)", MarginLeft), 1, 0);
@@ -55,7 +55,7 @@ public sealed class PageSetupDialog : WriteDialog
         var orientation = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 20, Children = { _portrait, _landscape } };
         var marginsPage = new StackPanel { Spacing = 12, Margin = new Thickness(0, 14, 0, 0), Children = { margins, Field("Ausrichtung", orientation) } };
 
-        var size = new Grid { ColumnDefinitions = new ColumnDefinitions("*,16,*") };
+        var size = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,24,Auto") };
         Place(size, Field("Breite (cm)", PaperWidth), 0, 0);
         Place(size, Field("Höhe (cm)", PaperHeight), 0, 2);
         var paperPage = new StackPanel { Spacing = 12, Margin = new Thickness(0, 14, 0, 0), Children = { Field("Papierformat", _paper), size } };
@@ -182,7 +182,8 @@ public sealed class PageSetupDialog : WriteDialog
         Increment = 0.1m,
         FormatString = "0.00",
         NumberFormat = German,
-        HorizontalAlignment = HorizontalAlignment.Stretch,
+        Width = 200,
+        HorizontalAlignment = HorizontalAlignment.Left,
     };
 
     private static void Place(Grid grid, Control control, int row, int column)

@@ -15,8 +15,10 @@ namespace ThixWrite.Editor;
 /// <para>
 /// Shortcuts, as in the German Word where they do not collide: Strg+Umschalt+F/K/U fett/kursiv/unterstrichen with Strg+B/I/U as
 /// aliases (Strg+B is therefore not Blocksatz: Blocksatz is Strg+J), Strg+L/E/R links/zentriert/rechts, Strg+F Suchen, Strg+H
-/// Ersetzen (⌥⌘F on the Mac, where ⌘H hides the app), Strg+A, Strg+Eingabe Seitenumbruch, Strg+Leertaste Zeichenformat
-/// löschen, Strg+Umschalt+V Nur Text einfügen, Alt+Umschalt+D Datum und Uhrzeit.
+/// Ersetzen (⌥⌘F on the Mac, where ⌘H hides the app), Strg+A, Strg+Eingabe Seitenumbruch, Strg+Leertaste Formatierung
+/// löschen (⇧⌘Leertaste on the Mac, where ⌘Leertaste is Spotlight), Strg+Umschalt+V Nur Text einfügen, Alt+Umschalt+D Datum
+/// und Uhrzeit, Strg+P Exportieren (until printing exists). Grow/shrink font and the formatting marks have no key: their
+/// German Word keys (Strg+&lt;, Strg+Umschalt+*) depend on the keyboard layout.
 /// </para>
 /// </summary>
 public static class WriteCommands
@@ -116,7 +118,7 @@ public static class WriteCommands
         });
         commands.Add(new OfficeCommand(WriteCommandIds.ClearFormatting, "Formatierung löschen", () => With(session => session.ClearFormatting()))
         {
-            Icon = "clear-format", Shortcut = "Ctrl+Space", CanExecute = HasEditor,
+            Icon = "clear-format", Shortcut = "Ctrl+Space", MacShortcut = "Ctrl+Shift+Space", CanExecute = HasEditor,
             Description = "Entfernt die Formatierung der Auswahl: Standardtext ohne Zeichenformat.", Keywords = ["zurücksetzen", "standard", "entfernen"],
         });
         AddToggle(commands, WriteCommandIds.Bold, "Fett", "bold", "Ctrl+Shift+F", "Ctrl+B", () => With(session => session.ToggleBold()), () => Format()?.Bold.Is(true) == true, HasEditor, "Formatiert die Auswahl fett.");

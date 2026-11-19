@@ -201,7 +201,7 @@ public static class WriteRibbon
     {
         var gallery = Gallery(WriteCommandIds.Styles, StyleEntries);
         gallery.InlineCount = 3;
-        gallery.EntryWidth = 90;
+        gallery.EntryWidth = 80;
         return gallery;
     }
 
