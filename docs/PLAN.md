@@ -257,10 +257,15 @@ Formate, Sortieren/Filtern, Fixieren, bedingte Formatierung, Diagramme, xlsx/csv
   (Tabellenteile neu, geändert, gelöscht; Spaltenformate und berechnete Spalten bleiben). **Lücken:** berechnete Spalten (eine Formel
   füllt nicht von selbst die ganze Spalte), Auswahl der Ergebnisfunktion je Spalte in der Zelle (Dropdown), Tabellenformatvorlagen
   ändern/neu, Datenschnitte, Filter-Schaltflächen verkürzen den Überschriftstext nicht.
-- **Lücken (wichtig für Excel-Umsteiger zuerst):** benutzerdefinierte Filter (Zahlen-/Textfilter; die Werteliste hinter den Filterpfeilen gibt es), Einfügen › Tabelle,
-  Strg+Plus/Minus (Zellen einfügen/löschen), Dialog Inhalte einfügen (nur Menüeinträge), Reihe ausfüllen (Dialog), Blitzvorschau,
-  „Alle suchen“, Fenster teilen, Seitenumbruchvorschau, Textrichtung/Drehung beim Zeichnen, Teilformatierung in einer Zelle, Rückgängig
-  innerhalb der Zellbearbeitung, ods.
+- **Stand Filter und Einfügen (2026-11-19): erledigt.** Zahlen-, Text- und Datumsfilter aus dem Filtermenü (Benutzerdefinierter
+  AutoFilter mit zwei Bedingungen und Und/Oder, Platzhalter * und ?), Top 10 (Elemente/Prozent, oberste/unterste), über/unter dem
+  Durchschnitt; Dialog Inhalte einfügen (Strg+Alt+V) mit Vorgang, Leerzellen überspringen, Transponieren; Strg+Plus/Strg+Minus (auch
+  Ziffernblock); Ausfüllen › Reihe (arithmetisch, geometrisch, Datum: Tag, Wochentag, Monat, Jahr; Inkrement, Endwert); Alle suchen
+  (Liste aller Treffer, Klick springt hin); Rückgängig/Wiederholen innerhalb der Zellbearbeitung (getippte Zeichen als ein Schritt);
+  gedrehter und senkrechter Text, An Zellgröße anpassen; Teilformatierung in Zellen bleibt in xlsx erhalten (Anzeige einheitlich).
+  **Lücken:** Datumsgruppen (Jahr/Monat/Tag) in der Werteliste und dynamische Datumsfilter (Heute, Diesen Monat …), Farbfilter,
+  Teilformatierung anzeigen und bearbeiten, Vorgang für Formeln (nur Konstanten werden verrechnet), gedrehter Text überläuft nicht.
+- **Lücken (wichtig für Excel-Umsteiger zuerst):** Blitzvorschau, Fenster teilen, Seitenumbruchvorschau, ods.
 
 ### Icons für MatDesign
 

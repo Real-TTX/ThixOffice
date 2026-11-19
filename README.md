@@ -73,7 +73,14 @@ Namen: SUMME, SVERWEIS, SUMMEWENNS, XVERWEIS, WENNFEHLER, dynamische Arrays …)
   entfernen, Datenüberprüfung, Gruppieren), Überprüfen (Notizen), Ansicht (Gitternetzlinien, Überschriften, Bearbeitungsleiste, Zoom,
   Fenster fixieren). Dialog **Zellen formatieren** (Strg+1) mit Zahlen | Ausrichtung | Schrift | Rahmen | Ausfüllen.
 - **Zwischenablage:** zwischen ThixCalc-Fenstern exakt (Formeln, Formate), für andere Programme als Text und HTML-Tabelle; Tabellen
-  aus Browsern oder Word und Text werden Zelle für Zelle übernommen.
+  aus Browsern oder Word und Text werden Zelle für Zelle übernommen. **Inhalte einfügen …** (Strg+Alt+V): Werte, Formeln, Formate,
+  Alles außer Rahmen, Werte und Zahlenformate, Vorgang (Addieren, Subtrahieren, Multiplizieren, Dividieren), Leerzellen überspringen,
+  Transponieren.
+- **Filtern:** Werteliste mit Suche, Sortieren aus dem Filtermenü, Zahlen-, Text- und Datumsfilter (Größer als, Zwischen, Beginnt mit,
+  Enthält, Vor, Nach …) im Dialog **Benutzerdefinierter AutoFilter** mit Und/Oder, Top 10 (Elemente oder Prozent), über/unter dem
+  Durchschnitt. **Ausfüllen › Reihe …** (arithmetisch, geometrisch, Datum in Tagen, Wochentagen, Monaten, Jahren; Inkrement, Endwert).
+  **Alle suchen** in der Suchleiste listet jeden Treffer. Rückgängig wirkt auch innerhalb einer gerade bearbeiteten Zelle. Gedrehter
+  Text und „An Zellgröße anpassen“ werden gezeichnet; teilweise formatierter Text in Zellen bleibt beim Speichern erhalten.
 - **Drucken und PDF:** Seite einrichten (Papier, Hoch-/Querformat, Ränder, Skalierung oder „auf N × M Seiten“, Druckbereich,
   Wiederholungszeilen, Gitternetzlinien, Überschriften, Kopf- und Fußzeile mit Seitenzahl), Datei › Drucken mit Vorschau (aktives
   Blatt, ganze Mappe oder Auswahl), Datei › Exportieren als PDF.
@@ -136,6 +143,8 @@ Wie im deutschen Excel (unter macOS ⌘ statt Strg):
 | Strg+Umschalt+L | Filter ein/aus |
 | Strg+K, Umschalt+F2 | Link, Notiz |
 | Strg+T, Strg+L | Tabelle erstellen |
+| Strg+Alt+V | Inhalte einfügen |
+| Strg+Plus, Strg+Minus | Zellen (ganze Zeilen/Spalten, wenn markiert) einfügen, löschen |
 | Umschalt+F3, Strg+F3, F9 | Funktion einfügen, Namens-Manager, Neu berechnen |
 | Strg+Bild ab / auf (Mac: ⌥⌘→ / ⌥⌘←), Umschalt+F11 | nächstes / voriges Blatt, neues Blatt |
 | Strg+9, Strg+0 | Zeilen / Spalten ausblenden |

@@ -52,7 +52,7 @@ public sealed class TableUiTests
         Assert.True(window.RibbonDefinition.FindAll(CalcCommandIds.TableBandedRows).OfType<MatRibbonToggle>().All(toggle => toggle.IsChecked));
 
         // Strg+T in a table does nothing more (the command is off there).
-        Assert.False(window.Commands[CalcCommandIds.InsertTable].CanExecute());
+        Assert.False(window.Commands[CalcCommandIds.InsertTable]!.IsEnabled);
     }
 
     [AvaloniaFact]

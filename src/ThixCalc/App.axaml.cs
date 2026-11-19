@@ -33,10 +33,11 @@ public partial class App : OfficeApplication
     public const string ChartScene = "main-chart";
     public const string ChartDesignScene = "main-chart-design";
     public const string TableScene = "main-table";
+    public const string FilterScene = "dialog-filter";
 
     public override OfficeAppDefinition Definition => ThixCalcApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [FormulaScene, ViewScene, FindScene, FormatCellsScene, FunctionScene, PageSetupScene, PrintScene, ChartScene, ChartDesignScene, TableScene];
+    public override IReadOnlyList<string> SnapshotScenes => [FormulaScene, ViewScene, FindScene, FormatCellsScene, FunctionScene, PageSetupScene, PrintScene, ChartScene, ChartDesignScene, TableScene, FilterScene];
 
     public override string SampleDocumentName => "Haushaltsbudget 2026";
 
@@ -125,6 +126,13 @@ public partial class App : OfficeApplication
 
                 Dispatcher.UIThread.RunJobs();
                 return window;
+            case FilterScene:
+                // Zahlenfilter › Größer als … on the budget's January column.
+                editor.Session.ToggleAutoFilter(new CellRange(1, 0, 12, 9));
+                var filterDialog = CustomFilterDialog.Create(editor, 1, "Januar", 2);
+                filterDialog.FirstValue.Text = "500";
+                _ = filterDialog.ShowAsync(window);
+                return filterDialog;
             case TableScene:
                 // A formatted table with a total row on the second sheet, the tab Tabellenentwurf open.
                 _tableSceneSteps = SampleWorkbook.AddTable(editor.Session);
@@ -166,6 +174,15 @@ public partial class App : OfficeApplication
                 editor.Session.Undo();
                 editor.Session.ScrollTo(new CellAddress(2, 1));
                 editor.Surface.ResetSheet();
+                editor.Session.Select(SampleWorkbook.StartCell);
+                break;
+            case FilterScene:
+                if (shown is Window filterWindow)
+                {
+                    filterWindow.Close();
+                }
+
+                editor.Session.Undo();
                 editor.Session.Select(SampleWorkbook.StartCell);
                 break;
             case TableScene:
