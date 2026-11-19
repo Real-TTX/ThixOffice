@@ -44,6 +44,27 @@ public sealed class CalcDocument : OfficeDocument
     /// <summary>The CSV options a CSV file was read with (written back the same way).</summary>
     public CsvOptions CsvOptions { get; set; } = new();
 
+    /// <summary>The bytes of the CSV file this document was read from (Text-Import reads them again with other choices).</summary>
+    public byte[]? CsvSource { get; private set; }
+
+    /// <summary>What reading the CSV file guessed (separator, encoding) and whether the guess should be confirmed.</summary>
+    public CsvDetection? CsvDetection { get; private set; }
+
+    private string CsvSheetName => Path.GetFileNameWithoutExtension(FilePath) is { Length: > 0 and <= 31 } name ? name : Locale.SheetBaseName + "1";
+
+    /// <summary>Text-Import: reads the CSV file again with another separator or encoding (no undo step, no unsaved change).</summary>
+    public void ReloadCsv(CsvOptions options)
+    {
+        if (CsvSource is not { } source)
+        {
+            return;
+        }
+
+        CsvOptions = options with { Locale = Locale };
+        Attach(CsvFormat.Read(new MemoryStream(source), CsvOptions, CsvSheetName));
+        RaiseChanged();
+    }
+
     public override bool CanUndo => Session.CanUndo;
 
     public override bool CanRedo => Session.CanRedo;
@@ -72,8 +93,10 @@ public sealed class CalcDocument : OfficeDocument
         }
         else
         {
-            CsvOptions = new CsvOptions { Locale = Locale };
-            Attach(CsvFormat.Read(buffer, CsvOptions, Locale.SheetBaseName + "1"));
+            CsvSource = buffer.ToArray();
+            CsvDetection = CsvFormat.Detect(CsvSource, Locale);
+            CsvOptions = new CsvOptions { Locale = Locale, Delimiter = CsvDetection.Delimiter, Encoding = CsvDetection.Encoding };
+            Attach(CsvFormat.Read(new MemoryStream(CsvSource), CsvOptions, CsvSheetName));
             LoadedFormat = WorkbookFileFormat.Csv;
         }
 

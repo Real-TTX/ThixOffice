@@ -239,6 +239,11 @@ public sealed class OfficeWindow : MatWindow
     /// <summary>"Speichern": into the document's file, or "Speichern unter" when it has none. True when it is saved.</summary>
     public async Task<bool> SaveAsync()
     {
+        if (Document.FilePath is { } current && !await _editor.ConfirmSaveAsync(current))
+        {
+            return false;
+        }
+
         if (Document.IsInDrive)
         {
             return await SaveToDriveAsync(() => DriveService.SaveAsync(Document));
@@ -259,6 +264,11 @@ public sealed class OfficeWindow : MatWindow
     /// </summary>
     public async Task<bool> SaveIntoDriveAsync(long? folderId, string fileName)
     {
+        if (!await _editor.ConfirmSaveAsync(fileName))
+        {
+            return false;
+        }
+
         var result = await DriveService.SaveAsAsync(Document, folderId, fileName);
         if (result.Outcome == DriveSaveOutcome.NameTaken)
         {
@@ -448,10 +458,8 @@ public sealed class OfficeWindow : MatWindow
     }
 
     /// <summary>Saves the document as <paramref name="path"/> (the Speichern-unter page, tests). True when it is saved.</summary>
-    public Task<bool> SaveToAsync(string path) => GuardAsync("Speichern unter", () =>
-    {
-        DocumentService.SaveAs(Document, path);
-    });
+    public async Task<bool> SaveToAsync(string path) =>
+        await _editor.ConfirmSaveAsync(path) && await GuardAsync("Speichern unter", () => DocumentService.SaveAs(Document, path));
 
     /// <summary>"Öffnen" → "Durchsuchen": the system's dialog, then every chosen file (each in its window).</summary>
     public async Task OpenWithDialogAsync()

@@ -24,6 +24,9 @@ public sealed record CsvOptions
     public bool WriteByteOrderMark { get; init; } = true;
 }
 
+/// <summary>What <see cref="CsvFormat.Detect"/> found: the separator and encoding reading chooses, whether to ask, the first lines.</summary>
+public sealed record CsvDetection(char Delimiter, Encoding Encoding, bool IsAmbiguous, string Preview);
+
 /// <summary>
 /// CSV and TSV: reading with delimiter and encoding detection, RFC 4180 quoting (quoted fields with separators, quotes and
 /// line breaks), type recognition in the locale (1.234,56 and 31.12.2024 in German); writing the displayed values of a sheet
@@ -173,6 +176,32 @@ public static class CsvFormat
     }
 
     /// <summary>The separator that splits the first lines into the most consistent number of fields (ties: the locale's).</summary>
+    /// <summary>
+    /// What reading would choose for <paramref name="bytes"/> and whether that is a guess worth asking about: the encoding was not
+    /// marked (no BOM) and is not valid UTF-8 (Windows-1252 assumed), or a second separator splits the lines as consistently
+    /// as the chosen one. <see cref="CsvDetection.Preview"/> holds the first lines (for the import dialog).
+    /// </summary>
+    public static CsvDetection Detect(byte[] bytes, CalcLocale locale)
+    {
+        var (encoding, offset) = DetectEncoding(bytes, null);
+        var text = encoding.GetString(bytes, offset, Math.Min(bytes.Length - offset, 64 * 1024));
+        var delimiter = DetectDelimiter(text, locale);
+        var sample = string.Join("\n", Parse(text, '\u0001').Take(20).Select(fields => fields.Count > 0 ? fields[0].Text : string.Empty));
+        var consistent = Candidates.Where(candidate =>
+        {
+            var counts = Parse(sample, candidate).Take(20).Select(fields => fields.Count).ToList();
+            return counts.Count > 1 && counts.Min() > 1 && counts.Distinct().Count() == 1;
+        }).ToList();
+        var ambiguousSeparator = consistent.Count > 1 && consistent.Contains(delimiter);
+        var unmarkedEncoding = offset == 0 && encoding is not UTF8Encoding;
+        var preview = string.Join("\n", text.Split('\n').Take(8)).TrimEnd('\r', '\n');
+        return new CsvDetection(delimiter, encoding, ambiguousSeparator || unmarkedEncoding, preview);
+    }
+
+    /// <summary>The first <paramref name="count"/> records of CSV text as fields (the import dialog's preview).</summary>
+    public static IReadOnlyList<IReadOnlyList<string>> PreviewRows(string text, char delimiter, int count = 6) =>
+        [.. Parse(text, delimiter).Take(count).Select(fields => (IReadOnlyList<string>)[.. fields.Select(field => field.Text)])];
+
     internal static char DetectDelimiter(string text, CalcLocale locale)
     {
         var lines = Parse(text, '\u0001').Take(20).Select(fields => fields.Count > 0 ? fields[0].Text : string.Empty).ToList();

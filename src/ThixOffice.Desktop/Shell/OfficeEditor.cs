@@ -54,6 +54,12 @@ public abstract class OfficeEditor
     /// <summary>A click on the percentage of the status bar: the editor's zoom dialog (the default goes back to 100 %).</summary>
     public virtual void RequestZoomLevel() => Zoom = 100;
 
+    /// <summary>
+    /// Saving is about to write <paramref name="path"/> (its type by the extension): the editor ends an edit in progress and may
+    /// warn about what the type cannot keep (ThixCalc: CSV keeps one sheet's values). False cancels the save.
+    /// </summary>
+    public virtual Task<bool> ConfirmSaveAsync(string path) => Task.FromResult(true);
+
     /// <summary>Puts the keyboard into the document (after the backstage, the search, opening).</summary>
     public virtual void FocusDocument() => View.Focus();
 

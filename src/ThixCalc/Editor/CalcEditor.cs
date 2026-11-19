@@ -102,6 +102,7 @@ public sealed class CalcEditor : OfficeEditor
         Attach();
         document.ContentReplaced += OnContentReplaced;
         window.StatusBar.View.ContextMenu = StatusMenu();
+        AskAboutCsv();
         Zoom = Session.ActiveSheet.View.Zoom;
     }
 
@@ -263,6 +264,59 @@ public sealed class CalcEditor : OfficeEditor
 
         return menu;
     }
+
+    private bool _csvConfirmed;
+
+    /// <summary>
+    /// Before a save: the input of a cell ends; CSV is confirmed once (it keeps only the active sheet's values), and a workbook
+    /// with macros saved as .xlsx is warned that the macros stay behind (Excel's question).
+    /// </summary>
+    public override async Task<bool> ConfirmSaveAsync(string path)
+    {
+        if (!Editing.Commit())
+        {
+            return false;
+        }
+
+        var extension = Path.GetExtension(path).ToLowerInvariant();
+        var workbook = Document.Workbook;
+        if (extension == ".csv" && !_csvConfirmed && (workbook.Sheets.Count > 1 || workbook.Sheets.Any(sheet => sheet.GetCells().Any(entry => entry.Cell.HasFormula || entry.Cell.StyleId != 0))))
+        {
+            var keep = await QuestionDialog.AskAsync(_window, "Als CSV speichern",
+                $"Eine CSV-Datei enthält nur das aktive Blatt „{Session.ActiveSheet.Name}“ und nur dessen Werte. Formeln, Formate und weitere Blätter gehen in dieser Datei verloren. Möchten Sie im CSV-Format speichern?",
+                new DialogChoice("Als CSV speichern", "save", "MatButton.Primary", IsDefault: true),
+                new DialogChoice("Abbrechen", "x", IsCancel: true));
+            if (keep != 0)
+            {
+                return false;
+            }
+
+            _csvConfirmed = true;
+        }
+
+        if (extension == ".xlsx" && workbook.HasMacros)
+        {
+            var save = await QuestionDialog.AskAsync(_window, "Makros gehen verloren",
+                "Diese Arbeitsmappe enthält Makros. Eine .xlsx-Datei kann sie nicht speichern – wählen Sie „Excel-Arbeitsmappe mit Makros (.xlsm)“, um sie zu behalten.",
+                new DialogChoice("Ohne Makros speichern", "save", "MatButton.Primary"),
+                new DialogChoice("Abbrechen", "x", IsDefault: true, IsCancel: true));
+            return save == 0;
+        }
+
+        return true;
+    }
+
+    /// <summary>A CSV file whose separator or encoding was a guess: the Textimport shows once it is open.</summary>
+    private void AskAboutCsv()
+    {
+        if (Document.CsvDetection is { IsAmbiguous: true } && !_csvAsked)
+        {
+            _csvAsked = true;
+            Dispatcher.UIThread.Post(() => _ = Dialogs.CsvImportDialog.ShowAsync(_window, Document), DispatcherPriority.Background);
+        }
+    }
+
+    private bool _csvAsked;
 
     // ===== Running =====
 
