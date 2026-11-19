@@ -6,10 +6,16 @@ using ThixCalc.Core.Model;
 namespace ThixCalc.Core.Calculation;
 
 /// <summary>An Excel error raised inside a function (caught where the function is called and returned as its value).</summary>
-internal sealed class CalcErrorException(CellError error) : Exception(CellErrors.NameOf(error))
+internal class CalcErrorException(CellError error) : Exception(CellErrors.NameOf(error))
 {
     public CellError Error { get; } = error;
 }
+
+/// <summary>
+/// A function ThixCalc cannot compute offline (STOCKHISTORY, CUBE…, RTD, IMAGE …): a cell keeps the value its file had; outside a
+/// cell (or without such a value) it is #DATEN_ABRUFEN.
+/// </summary>
+internal sealed class UnavailableFunctionException() : CalcErrorException(CellError.GettingData);
 
 /// <summary>
 /// Excel's conversions between value kinds: to a number (blank 0, TRUE 1, numeric text in the locale incl. dates, percent,

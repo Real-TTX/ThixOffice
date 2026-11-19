@@ -100,6 +100,33 @@ internal static class EngineeringFunctions
         r.Add("IMLOG2", 1, 1, call => FormatComplex(Complex.Log(NonZero(ParseComplex(call, 0))) / Math.Log(2)));
         r.Add("IMSIN", 1, 1, call => FormatComplex(Complex.Sin(ParseComplex(call, 0))));
         r.Add("IMCOS", 1, 1, call => FormatComplex(Complex.Cos(ParseComplex(call, 0))));
+        r.Add("IMTAN", 1, 1, call => FormatComplex(Complex.Tan(ParseComplex(call, 0))));
+        r.Add("IMCOT", 1, 1, call => FormatComplex(Complex.One / NonZero(Complex.Tan(ParseComplex(call, 0)))));
+        r.Add("IMSEC", 1, 1, call => FormatComplex(Complex.One / NonZero(Complex.Cos(ParseComplex(call, 0)))));
+        r.Add("IMCSC", 1, 1, call => FormatComplex(Complex.One / NonZero(Complex.Sin(ParseComplex(call, 0)))));
+        r.Add("IMSINH", 1, 1, call => FormatComplex(Complex.Sinh(ParseComplex(call, 0))));
+        r.Add("IMCOSH", 1, 1, call => FormatComplex(Complex.Cosh(ParseComplex(call, 0))));
+        r.Add("IMSECH", 1, 1, call => FormatComplex(Complex.One / NonZero(Complex.Cosh(ParseComplex(call, 0)))));
+        r.Add("IMCSCH", 1, 1, call => FormatComplex(Complex.One / NonZero(Complex.Sinh(ParseComplex(call, 0)))));
+
+        // Bessel functions of whole order n ≥ 0.
+        r.Add("BESSELJ", 2, 2, call => Result(Bessel.J(BesselOrder(call), call.Number(0))));
+        r.Add("BESSELI", 2, 2, call => Result(Bessel.I(BesselOrder(call), call.Number(0))));
+        r.Add("BESSELK", 2, 2, call => Result(Bessel.K(BesselOrder(call), Positive(call.Number(0)))));
+        r.Add("BESSELY", 2, 2, call => Result(Bessel.Y(BesselOrder(call), Positive(call.Number(0)))));
+    }
+
+    private static int BesselOrder(FunctionCall call)
+    {
+        var order = Math.Truncate(call.Number(1));
+        Require(order >= 0 && order <= 1000);
+        return (int)order;
+    }
+
+    private static double Positive(double x)
+    {
+        Require(x > 0);
+        return x;
     }
 
     // ---------------------------------------------------------------- number bases

@@ -153,7 +153,14 @@ public sealed record ReferenceNode(SheetReference? Sheet, AreaReference Area) : 
 public sealed record ReferenceErrorNode(SheetReference? Sheet) : FormulaNode;
 
 /// <summary>A defined name, a LET/LAMBDA variable or a table name; <see cref="SheetId"/> when qualified (Tabelle1!Name).</summary>
-public sealed record NameNode(string Name, int? SheetId = null) : FormulaNode;
+public sealed record NameNode(string Name, int? SheetId = null) : FormulaNode
+{
+    /// <summary>
+    /// The canonical function when the name is one (an eta lambda: =BYROW(A1:C3; SUMME), =GRUPPIERENNACH(A:A; B:B; MITTELWERT)) –
+    /// unless a variable or defined name of that name is in scope. The file writes it as _xleta.SUM.
+    /// </summary>
+    public string? EtaFunction { get; init; }
+}
 
 /// <summary>
 /// A function call. <see cref="Name"/> is canonical (upper case, without _xlfn./_xlws.); <see cref="Function"/> is null for

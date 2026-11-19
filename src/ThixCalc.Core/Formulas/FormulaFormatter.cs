@@ -144,15 +144,26 @@ public static class FormulaFormatter
                         WriteSheet(SheetReference.Single(sheetId));
                     }
 
-                    if (syntax.IsFileFormat && _bound.Contains(name.Name))
+                    if (_bound.Contains(name.Name))
                     {
-                        _builder.Append("_xlpm.");
+                        _builder.Append(syntax.IsFileFormat ? "_xlpm." + name.Name : name.Name);
                     }
-
-                    _builder.Append(name.Name);
+                    else if (name.EtaFunction is { } eta && workbook?.FindName(name.Name, null) is null)
+                    {
+                        _builder.Append(syntax.IsFileFormat ? "_xleta." + eta : _locale.FunctionName(eta));
+                    }
+                    else
+                    {
+                        _builder.Append(name.Name);
+                    }
                     break;
                 case FunctionNode function:
                     WriteFunction(function);
+                    break;
+                case UnaryNode { Operator: UnaryOperator.ImplicitIntersection } single when syntax.IsFileFormat:
+                    _builder.Append("_xlfn.SINGLE(");
+                    Write(single.Operand, 0);
+                    _builder.Append(')');
                     break;
                 case UnaryNode unary:
                     _builder.Append(unary.Operator switch

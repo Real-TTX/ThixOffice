@@ -173,8 +173,6 @@ internal static class TextFunctions
                 Enumerable.Range(0, array.Columns).Select(column => ValueToText(array[row, column], true, call))));
             return "{" + string.Join(call.Context.Locale.ArrayRowSeparator.ToString(), rows) + "}";
         }, [ArgumentKind.Array, ArgumentKind.Value]);
-        r.Add("ASC", 1, 1, call => call.Text(0));
-        r.Add("DBCS", 1, 1, call => call.Text(0));
         r.Add("ENCODEURL", 1, 1, call => Uri.EscapeDataString(call.Text(0)));
     }
 

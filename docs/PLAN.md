@@ -319,6 +319,20 @@ Formate, Sortieren/Filtern, Fixieren, bedingte Formatierung, Diagramme, xlsx/csv
   gedrehter und senkrechter Text, An Zellgröße anpassen; Teilformatierung in Zellen bleibt in xlsx erhalten (Anzeige einheitlich).
   **Lücken:** Datumsgruppen (Jahr/Monat/Tag) in der Werteliste und dynamische Datumsfilter (Heute, Diesen Monat …), Farbfilter,
   Teilformatierung anzeigen und bearbeiten, Vorgang für Formeln (nur Konstanten werden verrechnet), gedrehter Text überläuft nicht.
+- **Stand Funktionen (2026-11-20): vollständig.** Prüfung „wie ein Excel-Nutzer“ ergab: die Engine konnte SVERWEIS & Co. längst, aber
+  man fand sie nicht – „Was möchten Sie tun?“ kannte keine Funktion, die Kategorie-Menüs zeigten höchstens 16 Funktionen, ~350
+  Funktionen hatten keine deutsche Hilfe („Argument1“), es gab keinen Dialog Funktionsargumente, und „=SVERWEIS(10,A1:B3,2,FALSCH)“
+  wurde abgelehnt. Behoben: deutsche Hilfe für alle Funktionen, alle Funktionen in den Menüs (+ Kompatibilität, Web, Cube) und in der
+  Suche, Funktionsargumente mit Live-Werten, englische Zeichensetzung wird verstanden. Bibliothek gegen die Liste aller 520
+  Excel-Funktionen (tests/ThixCalc.Core.Tests/Functions/ExcelFunctions.tsv, Coverage-Test): 506 rechnen, 14 „nicht unterstützt“
+  (CUBEKPIELEMENT, CUBEELEMENT, CUBEELEMENTEIGENSCHAFT, CUBERANGELEMENT, CUBEMENGE, CUBEMENGENANZAHL, CUBEWERT, RTD, BÖRSENHISTORIE,
+  FELDWERT, BILD, ÜBERSETZEN, SPRACHEERKENNEN, COPILOT: Wert aus der Datei bleibt, Formel wird unverändert geschrieben, neu
+  eingegeben #DATEN_ABRUFEN); WEBDIENST gibt ohne Netz #WERT!. Neu u. a. Wertpapiere (KURS, RENDITE, DURATION, ZINSTERM…,
+  UNREGER/UNREGLE…, AMORDEGRK/AMORLINEARK), BESSEL…, IM-Trigonometrie, REGEX…, GRUPPIERENNACH/PIVOTMIT, PROGNOSE.ETS… (additives
+  Holt-Winters; Excel dokumentiert seinen Optimierer nicht, die Werte stimmen in Trend und Saison, nicht auf die letzte Stelle),
+  XMLFILTERN (offline), GESTUTZTBEREICH, PROZENTVON, INFO, BAHTTEXT, JIS/ASC; Eta-Lambdas (=NACHZEILE(A1:C3;SUMME), Datei
+  `_xleta.SUM`), `@` als `_xlfn.SINGLE` in der Datei. **Unsicher** (deutsche Namen ohne Prüfung in einem deutschen Excel):
+  GESTUTZTBEREICH (TRIMRANGE), UMBRUCHSPALTEN/-ZEILEN, ZUORDNEN (MAP), Argumentnamen von GRUPPIERENNACH/PIVOTMIT/REGEX….
 - **Lücken (wichtig für Excel-Umsteiger zuerst):** Blitzvorschau, Fenster teilen, Seitenumbruchvorschau.
 - **ods erledigt (2026-11-19):** OpenDocument-Tabelle lesen und schreiben ohne neue Abhängigkeit, auf den gemeinsamen ODF-Bausteinen
   in ThixOffice.Core/Formats/Odf (auch odt nutzt sie): Blätter (Reihenfolge, ausgeblendet, Registerfarbe, Schutz ohne Kennwort), Werte

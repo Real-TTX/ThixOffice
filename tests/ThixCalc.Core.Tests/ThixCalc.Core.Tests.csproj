@@ -24,6 +24,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="Functions\ExcelFunctions.tsv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\ThixOffice.Text\ThixOffice.Text.csproj" />
     <ProjectReference Include="..\..\src\ThixCalc.Core\ThixCalc.Core.csproj" />
   </ItemGroup>

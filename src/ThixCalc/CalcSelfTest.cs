@@ -56,6 +56,12 @@ internal static class CalcSelfTest
         editor.Session.Select(new CellAddress(6, 1));
         Type(editor, "=SUMMEWENN(B2:B4;\">10\";C2:C4)");
         Press(editor, Key.Enter);
+        editor.Session.Select(new CellAddress(7, 1));
+        Type(editor, "=XVERWEIS(\"Kiwis\";A2:A4;C2:C4;\"fehlt\")");
+        Press(editor, Key.Enter);
+        editor.Session.Select(new CellAddress(8, 1));
+        Type(editor, "=GRUPPIERENNACH(A2:A4;B2:B4;SUMME;0;0)");
+        Press(editor, Key.Enter);
         await Settle();
 
         var sheet = editor.Session.ActiveSheet;
@@ -63,6 +69,8 @@ internal static class CalcSelfTest
         Ensure(sheet.GetValue(4, 1).Number == 39, $"SUMME is {sheet.GetValue(4, 1)}");
         Ensure(Math.Abs(sheet.GetValue(5, 1).Number - 0.6) < 1e-9, $"SVERWEIS is {sheet.GetValue(5, 1)}");
         Ensure(Math.Abs(sheet.GetValue(6, 1).Number - 0.7) < 1e-9, $"SUMMEWENN is {sheet.GetValue(6, 1)}");
+        Ensure(sheet.GetValue(7, 1).IsNumber, $"XVERWEIS is {sheet.GetValue(7, 1)}");
+        Ensure(sheet.GetValue(8, 1).IsText && sheet.GetValue(8, 2).IsNumber, $"GRUPPIERENNACH is {sheet.GetValue(8, 1)} {sheet.GetValue(8, 2)}");
 
         editor.Session.Select(new CellRange(0, 0, 0, 2));
         await window.Commands[CalcCommandIds.Bold].ExecuteAsync();

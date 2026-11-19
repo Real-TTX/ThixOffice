@@ -85,11 +85,25 @@ internal static class Evaluator
         return new ReferenceValue(sheets.Select(sheet => new SheetArea(sheet, range.Value)).ToArray());
     }
 
+    /// <summary>A function used as a LAMBDA (SUMME in =BYROW(A1:C3; SUMME)): as many parameters as it requires (at least one).</summary>
+    private static Operand EtaLambda(FunctionDefinition function)
+    {
+        var count = Math.Clamp(function.MinArguments, 1, 3);
+        var parameters = Enumerable.Range(1, count).Select(index => "eta" + index).ToImmutableArray();
+        var body = new FunctionNode(function.Name, function, [.. parameters.Select(parameter => (FormulaNode)new NameNode(parameter))]);
+        return Operand.From(new LambdaValue(parameters, body, null));
+    }
+
     private static Operand EvaluateName(NameNode name, EvaluationContext context)
     {
         if (name.SheetId is null && context.Scope is { } scope && scope.TryFind(name.Name, out var variable))
         {
             return variable;
+        }
+
+        if (name.EtaFunction is { } eta && FunctionRegistry.Find(eta) is { } function && context.Workbook.FindName(name.Name, context.Sheet) is null)
+        {
+            return EtaLambda(function);
         }
 
         var sheet = name.SheetId is { } id ? context.Workbook.GetSheetById(id) : context.Sheet;
@@ -537,7 +551,7 @@ internal static class Evaluator
         {
             return call.Definition.Body(call);
         }
-        catch (CalcErrorException error)
+        catch (CalcErrorException error) when (error is not UnavailableFunctionException)
         {
             return Operand.Error(error.Error);
         }

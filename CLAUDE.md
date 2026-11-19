@@ -133,7 +133,7 @@ src/ThixOffice.Text.Skia   SkiaTextMeasurer (SkiaSharp typefaces + HarfBuzz shap
 src/ThixCalc.Core          (no UI) ThixCalcApp.Definition (.xlsx default, .xlsm, .csv, .ods; cloud id calc); Model/ (Workbook, Worksheet,
                            sparse CellStore, styles, rows/columns, merges, names, validation, conditional formats, PageSetup), Calculation/
                            + Formulas/ (parser, dependency graph, spills; FormulaTokens: the editor's scanner – colours, point mode, F4,
-                           argument position), Functions/ (library + FunctionHelp: German descriptions and argument names), Formatting/,
+                           argument position), Functions/ (library + FunctionHelp/FunctionHelpTexts: German descriptions and argument names), Formatting/,
                            Globalization/ (de-DE, en-US), Formats/ (xlsx with the Open XML SDK incl. page setup, Ods/ (OpenDocument), csv with Detect, Html/
                            HtmlTables for the clipboard), Editing/ (EditingSession: every command undoable – input, array formulas,
                            styles, borders, AutoSumme, sort, filter, find, duplicates, text to columns, conditional presets, page setup,
@@ -487,6 +487,12 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   selection, Strg+Eingabe fills the selection, Strg+Umschalt+Eingabe makes an array formula, Esc cancels; Excel closes open
   parentheses. A `BusinessException` (bad formula, validation) is explained and the cell stays open. Commands that change cells call
   `Editing.Commit()` first. The grid and the fields implement `ITextField` so the window's undo/copy keys reach the field while editing.
+  A formula that fails in German punctuation is read with "," and "." (`CalcLocale.AlternatePunctuation`, `EditingSession.ParseInput`).
+- **Functions for the user:** fx / Umschalt+F3 → `InsertFunctionDialog` (search by German/English name and description) →
+  `FunctionArgumentsDialog` (a field per argument, live values through `EditingSession.PreviewExpression/PreviewFormula`, the result;
+  `FunctionCallText` splits/joins the call); fx on a cell holding one call opens Funktionsargumente on it. Every function is a command
+  `calc.function.<NAME>` (searchable with `SearchPenalty` 3, so ordinary commands rank first) in the Formeln tab's category menus
+  (main categories + Weitere Funktionen; each ends with Funktion einfügen …).
 - **Keys** (Bereit): arrows, Strg+arrows (data edge), Umschalt extends, Pos1, Strg+Pos1/Ende, Bild auf/ab (Alt: sideways), Tab/Eingabe
   within the selection, F2, Entf, Rücktaste, Strg/Umschalt+Leertaste; command shortcuts are listed in `CalcCommands`' summary (German
   Excel: Strg+Umschalt+F/K/U, Strg+1, Strg+U/R fill, Strg+Umschalt+4/5/1 formats, Strg+Bild ab/auf sheets, Umschalt+F3, Strg+F3, F9 …;
@@ -575,10 +581,16 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 ### Adding a function
 
 1. In ThixCalc.Core/Functions (the thematic file): `registry.Add("NAME", min, max, kinds, body)`; the German name in
-   `GermanFunctionNames`; newer than Excel 2007 → `FutureFunctions` (written with _xlfn.).
-2. Its help in `FunctionHelp.German` (description, argument names as German Excel names them, `[optional]`, repeats).
-3. Tests in tests/ThixCalc.Core.Tests/Functions; the function then shows in the list while typing, the argument tip, Funktion einfügen
-   and the Formeln tab's category menu (the most used per category).
+   `GermanFunctionNames`; newer than Excel 2007 → `FutureFunctions` (written with _xlfn.). A function that cannot run offline
+   (CUBE…, RTD, STOCKHISTORY, IMAGE, TRANSLATE, COPILOT …) goes to `UnsupportedFunctions` (`unsupported: true`: the body throws
+   `UnavailableFunctionException`, a cell keeps the value of its file, a new one shows #DATEN_ABRUFEN). A function name without
+   parentheses is an eta lambda (`NameNode.EtaFunction`, file `_xleta.SUM`).
+2. Its help in `FunctionHelpTexts.German` (`FunctionHelp.German` for the most used ones, which come first in the lists):
+   description and argument names as German Excel names them, `[optional]`, repeats.
+3. Tests in tests/ThixCalc.Core.Tests/Functions with Microsoft's documented results. `FunctionCoverageTests` hold the library
+   against `ExcelFunctions.tsv` (every Excel function: English, German, category, since): implemented or unsupported, the German
+   name, German help. The function then shows in the list while typing, the argument tip, Funktion einfügen, Funktionsargumente,
+   the Formeln tab's category menu (ALL functions of a category) and "Was möchten Sie tun?" (by German or English name).
 
 ## ThixShow's editor
 

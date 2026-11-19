@@ -554,5 +554,10 @@ internal static class FunctionHelpTexts
             ["VARP"] = ("Berechnet die Varianz auf der Basis der Grundgesamtheit (logische Werte und Text werden ignoriert).", ["Zahl1", "[Zahl2]"], true),
             ["WEIBULL"] = ("Gibt Wahrscheinlichkeiten einer weibullverteilten Zufallsvariablen zurück.", ["x", "Alpha", "Beta", "Kumuliert"], false),
             ["ZTEST"] = ("Gibt den einseitigen P-Wert eines Gauß-Tests (Normalverteilung) zurück.", ["Matrix", "x", "[Sigma]"], false),
+
+            ["JIS"] = ("Wandelt halbbreite (Single-Byte-)Zeichen in einem Text in vollbreite (Double-Byte-)Zeichen um.", ["Text"], false),
+
+            // Cloud
+            ["COPILOT"] = ("Fragt Copilot mit einer Eingabeaufforderung und optionalen Bezügen (nicht verfügbar).", ["Eingabeaufforderung", "[Kontext1]"], true),
         };
 }

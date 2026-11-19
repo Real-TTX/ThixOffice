@@ -335,6 +335,13 @@ public sealed class CalcEngine
         {
             result = Evaluator.Finish(Evaluator.Evaluate(cell.Formula.Root, context), context);
         }
+        catch (UnavailableFunctionException) when (!cell.Value.IsBlank && !cell.Value.Equals(CellValue.FromError(CellError.GettingData)))
+        {
+            // Not computable offline: the value the file had stays (and so do its spilled values).
+            cell.State = FormulaState.Clean;
+            _computed++;
+            return;
+        }
         catch (CalcErrorException error)
         {
             result = Operand.Error(error.Error);

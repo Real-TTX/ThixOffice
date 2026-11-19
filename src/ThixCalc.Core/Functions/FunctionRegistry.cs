@@ -28,10 +28,16 @@ public static class FunctionRegistry
         "SEQUENCE", "RANDARRAY", "SORTBY", "UNIQUE", "XLOOKUP", "XMATCH", "LET", "LAMBDA", "MAP", "REDUCE", "SCAN", "MAKEARRAY",
         "BYROW", "BYCOL", "ISOMITTED", "CHOOSECOLS", "CHOOSEROWS", "DROP", "EXPAND", "HSTACK", "VSTACK", "TAKE", "TOCOL", "TOROW",
         "WRAPCOLS", "WRAPROWS", "BINOM.DIST.RANGE", "ANCHORARRAY", "TEXTAFTER", "TEXTBEFORE", "TEXTSPLIT", "VALUETOTEXT", "ARRAYTOTEXT",
+        "STOCKHISTORY", "FIELDVALUE", "IMAGE", "TRANSLATE", "DETECTLANGUAGE", "COPILOT", "GROUPBY", "PIVOTBY", "PERCENTOF", "TRIMRANGE",
+        "REGEXTEST", "REGEXEXTRACT", "REGEXREPLACE", "FORECAST.ETS", "FORECAST.ETS.CONFINT", "FORECAST.ETS.SEASONALITY", "FORECAST.ETS.STAT",
+        "IMCOSH", "IMCOT", "IMCSC", "IMCSCH", "IMSEC", "IMSECH", "IMSINH", "IMTAN", "FILTERXML", "WEBSERVICE", "SINGLE",
     };
 
     /// <summary>Functions written as "_xlfn._xlws." (worksheet-only dynamic array functions).</summary>
     private static readonly HashSet<string> WorksheetFunctions = new(StringComparer.OrdinalIgnoreCase) { "FILTER", "SORT" };
+
+    /// <summary>Whether the function is one ThixCalc names but cannot compute offline (STOCKHISTORY, CUBE…, RTD …).</summary>
+    public static bool IsUnsupported(string name) => Find(name)?.IsUnsupported == true;
 
     public static FunctionDefinition? Find(string name) => Functions.Value.TryGetValue(name, out var definition) ? definition : null;
 
@@ -54,6 +60,10 @@ public static class FunctionRegistry
         DatabaseFunctions.Register(registrar);
         EngineeringFunctions.Register(registrar);
         DistributionFunctions.Register(registrar);
+        SecurityFunctions.Register(registrar);
+        ModernFunctions.Register(registrar);
+        AnalysisFunctions.Register(registrar);
+        UnsupportedFunctions.Register(registrar);
         foreach (var definition in registrar.Functions.Values)
         {
             if (CompatibilityFunctions.Contains(definition.Name))
@@ -105,7 +115,8 @@ internal sealed class FunctionRegistrar
         bool returnsReference = false,
         bool lazy = false,
         bool array = false,
-        int repeatGroup = 1)
+        int repeatGroup = 1,
+        bool unsupported = false)
     {
         var definition = new FunctionDefinition(name, min, max, kinds ?? [ArgumentKind.Value], body)
         {
@@ -116,6 +127,7 @@ internal sealed class FunctionRegistrar
             FilePrefix = FunctionRegistry.PrefixOf(name),
             Category = Category,
             RepeatGroup = repeatGroup,
+            IsUnsupported = unsupported,
         };
         Functions[name] = definition;
         return definition;

@@ -72,8 +72,11 @@ Hinweis, welche es sind.
 
 ## ThixCalc – erstes Release
 
-ThixCalc ist eine Tabellenkalkulation mit eigenem, nativem Raster und eigener Formel-Engine (über 400 Funktionen mit deutschen
-Namen: SUMME, SVERWEIS, SUMMEWENNS, XVERWEIS, WENNFEHLER, dynamische Arrays …). Das Raster scrollt pixelgenau und bleibt auch bei
+ThixCalc ist eine Tabellenkalkulation mit eigenem, nativem Raster und eigener Formel-Engine: alle 520 Funktionen des aktuellen
+Excel mit deutschen Namen und deutscher Hilfe (SUMME, SVERWEIS, XVERWEIS, SUMMEWENNS, FILTER, GRUPPIERENNACH, PIVOTMIT, LAMBDA,
+REGEXEXTRACT, die Wertpapierfunktionen KURS/RENDITE/DURATION …); 506 davon rechnen, 14 brauchen das Internet oder einen OLAP-Server
+(CUBE…, RTD, BÖRSENHISTORIE, BILD, ÜBERSETZEN, COPILOT …) und behalten den Wert aus der Datei. Englische Namen (VLOOKUP) und
+Kommas als Trennzeichen werden beim Tippen verstanden. Das Raster scrollt pixelgenau und bleibt auch bei
 100.000 Zeilen flüssig; Linien sind bei jedem Zoom und jeder Bildschirmskalierung scharf.
 
 - **Eingeben wie in Excel:** Tippen ersetzt (*Eingeben*), F2 oder Doppelklick bearbeitet (*Bearbeiten*), in Formeln zeigen Pfeiltasten
@@ -83,7 +86,10 @@ Namen: SUMME, SVERWEIS, SUMMEWENNS, XVERWEIS, WENNFEHLER, dynamische Arrays …)
   Strg+Eingabe füllt alle markierten Zellen, Strg+Umschalt+Eingabe gibt eine Matrixformel ein. Eingabemethoden (Umlaute, Tottasten,
   CJK) funktionieren direkt in der Zelle.
 - **Bearbeitungsleiste** mit Namenfeld (Zelle, Bereich, „Tabelle2!B4“ oder Name eingeben und Eingabe; ein neuer Name wird definiert),
-  fx (Funktion einfügen mit Suche, Kategorien und Argumenthilfe), aufklappbar für lange Formeln.
+  fx (Funktion einfügen mit Suche nach deutschem oder englischem Namen und Beschreibung, dann **Funktionsargumente** wie in Excel: ein
+  Feld je Argument, daneben sein aktueller Wert, darunter das Formelergebnis; fx auf einer Zelle mit einer Funktion öffnet ihre
+  Argumente), aufklappbar für lange Formeln. Formeln › Funktionsbibliothek listet je Kategorie alle Funktionen, „Was möchten Sie
+  tun?“ findet jede Funktion („SVERWEIS“, „vlookup“).
 - **Maus:** markieren, Umschalt/Strg-Klick, Zeilen- und Spaltenköpfe, Spaltenbreite und Zeilenhöhe ziehen (Doppelklick: optimal),
   Ausfüllkästchen ziehen (Reihen: 1, 2, 3 …, Monate, Wochentage, Datumswerte), Kontextmenüs für Zellen, Zeilen, Spalten und Blätter.
 - **Blätter** unten links: neu, umbenennen per Doppelklick, ziehen zum Verschieben, Registerfarbe, ausblenden/einblenden, verschieben

@@ -633,7 +633,14 @@ public sealed class FormulaParser
             throw Error("Ungültiger Bezug.");
         }
 
-        return new NameNode(StripPrefix(name, "_xlpm."));
+        var plain = StripPrefix(StripPrefix(name, "_xlpm."), "_xleta.");
+        var function = _locale.CanonicalFunctionName(plain);
+        if (FunctionRegistry.Find(function) is { IsLazy: false } && _workbook?.FindName(plain, null) is null && !name.StartsWith("_xlpm.", StringComparison.OrdinalIgnoreCase))
+        {
+            return new NameNode(plain) { EtaFunction = function };
+        }
+
+        return new NameNode(plain);
     }
 
     private string ReadName()
@@ -1055,6 +1062,12 @@ public sealed class FormulaParser
         var raw = written;
         var name = StripPrefix(StripPrefix(StripPrefix(raw, "_xlfn."), "_xlws."), "_xlfn.");
         var canonical = _locale.CanonicalFunctionName(name);
+        if (canonical == "SINGLE" && arguments.Length == 1)
+        {
+            // The file's form of the implicit intersection operator: _xlfn.SINGLE(A1:A3) is @A1:A3.
+            return new UnaryNode(UnaryOperator.ImplicitIntersection, arguments[0]);
+        }
+
         var definition = FunctionRegistry.Find(canonical);
         FormulaNode call = definition is not null
             ? new FunctionNode(definition.Name, definition, arguments)

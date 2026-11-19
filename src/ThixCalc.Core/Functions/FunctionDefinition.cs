@@ -80,6 +80,9 @@ public sealed class FunctionDefinition
     /// <summary>A function of dynamic arrays (FILTER, SORT, SEQUENCE …).</summary>
     public bool IsArrayFunction { get; internal init; }
 
+    /// <summary>Not computable offline ("nicht unterstützt"): cells keep the value of their file, the formula is written back unchanged.</summary>
+    public bool IsUnsupported { get; internal init; }
+
     /// <summary>"_xlfn." (or "_xlfn._xlws.") for functions newer than Excel 2007, as the file format writes them.</summary>
     public string? FilePrefix { get; internal init; }
 
