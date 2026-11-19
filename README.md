@@ -10,7 +10,7 @@ und die aussieht wie die übrigen Thix-Apps.
 | --- | --- | --- | --- |
 | **ThixWrite** | Word | docx, txt, später odt | Meilenstein 1b; Dokumente in ThixDrive (Phase 2) |
 | **ThixCalc** | Excel | xlsx, xlsm, csv, später ods | erstes Release (Phase 3), Arbeitsmappen in ThixDrive |
-| **ThixShow** | PowerPoint | pptx, später odp | Logo |
+| **ThixShow** | PowerPoint | pptx, pptm, später odp | erste Version (Phase 4), Präsentationen in ThixDrive |
 
 Der Plan steht in [docs/PLAN.md](docs/PLAN.md).
 
@@ -152,10 +152,81 @@ Wie im deutschen Excel (unter macOS ⌘ statt Strg):
 | Strg+Mausrad | Zoom |
 | Diagramm gewählt: Pfeile (Strg: weiter), Entf, Esc | verschieben, löschen, zurück zu den Zellen |
 
+## ThixShow – erste Version
+
+ThixShow ist das Präsentationsprogramm der Suite – aufgebaut wie PowerPoint: links die Folienminiaturen, in der Mitte die Folie,
+darunter die Notizen, unten die Statusleiste mit „Folie 3 von 12“, Notizen, den Ansichten und dem Zoom.
+
+- **Folien:** Neue Folie (Strg+M) mit der Layout-Galerie, Layout ändern, Zurücksetzen, duplizieren (Strg+D), löschen, ausblenden,
+  **Abschnitte** (hinzufügen, umbenennen, entfernen; in den Miniaturen auf- und zuklappbar). In den Miniaturen: Klick, Strg-/Umschalt-Klick,
+  ziehen zum Umordnen, Pfeiltasten, Entf, Eingabe (neue Folie), Rechtsklick für das Folienmenü. **Foliensortierung** als Raster.
+- **Auf der Folie:** markieren mit Klick, Strg/Umschalt oder Rahmen aufziehen; verschieben, Größe ändern (Umschalt: Seitenverhältnis),
+  drehen (Umschalt: 15°-Schritte), gelbe Ziehpunkte formen die Form; **intelligente Führungslinien** rasten an Kanten und Mitten anderer
+  Formen und der Folie ein (Alt: frei); Pfeiltasten verschieben um 0,2 cm (Strg: 1 pt); Strg+Ziehen dupliziert; Doppelklick öffnet eine
+  Gruppe. **Text** in Platzhaltern („Titel durch Klicken hinzufügen“), Textfeldern, Formen und Tabellenzellen: direkt hineinklicken
+  und tippen, Tab/Umschalt+Tab ändern die Listenebene, Eingabemethoden (Umlaute, Tottasten, CJK) funktionieren, AutoAnpassen.
+- **Einfügen:** Formen aus der Galerie (Linien, Rechtecke, Standardformen, Blockpfeile, Formelformen, Flussdiagramm, Sterne und Banner,
+  Legenden – auswählen und auf der Folie aufziehen), Textfelder, Bilder (Datei, Zwischenablage, auf die Folie ziehen), Tabellen (Raster),
+  **Diagramme** (Säule, Balken, Linie, Kreis, Ring, Fläche, Punkt, Verbund – mit Beispieldaten, die „Daten bearbeiten“ als kleine
+  Tabelle ändert; Diagramme aus PowerPoint-Dateien werden gezeichnet und bleiben unverändert erhalten), Links, Symbole.
+- **Menüband wie im deutschen PowerPoint:** Start (Zwischenablage, Folien, Schriftart, Absatz, Zeichnen mit Anordnen,
+  Schnellformatvorlagen, Fülleffekt, Formkontur, Schatten; Suchen, Ersetzen, Markieren), Einfügen, **Entwurf** (sechs Designs mit
+  ihren Farben, Foliengröße 4:3/16:9/benutzerdefiniert mit „Passend skalieren“ oder „Maximieren“, Hintergrund), **Übergänge**
+  (Verblassen, Schieben, Wischen, Teilen, Aufdecken, Bedecken, Zoom mit Effektoptionen, Dauer, Auf alle anwenden, nach Mausklick
+  oder Zeit), **Animationen** (Eingang, Hervorgehoben, Beenden, Pfade; Effektoptionen, Start, Dauer, Verzögerung, **Animationsbereich**
+  zum Umordnen und Entfernen, Vorschau), Bildschirmpräsentation, Ansicht. Die Kontextkarten **Formformat**, **Bildformat**,
+  **Tabellenentwurf** und **Layout** sowie **Diagrammentwurf** erscheinen mit der Auswahl.
+- **Bildschirmpräsentation** (F5 von Beginn an, Umschalt+F5 ab der aktuellen Folie) im Vollbild mit Übergängen und Animationen; sie
+  zeichnet nur, solange sich etwas bewegt. Weiter mit Leertaste, Pfeiltasten, Bild ab, Klick oder Mausrad; Nummer + Eingabe springt zur
+  Folie, B/W schwarzer/weißer Bildschirm, Esc beendet; Rechtsklick für das Menü (Gehe zu Folie …). Mit zwei Bildschirmen erscheint die
+  **Referentenansicht**: aktuelle Folie, nächste Folie bzw. „Nächster Schritt“, Notizen (Schrift größer/kleiner), Zeitgeber und Uhrzeit,
+  „Alle Folien“, Bildschirm schwarz, Präsentation beenden. Den Bildschirm wählen Sie unter *Bildschirmpräsentation › Bildschirm*.
+  Die **Leseansicht** spielt die Präsentation im Fenster.
+- **Drucken und PDF:** *Datei › Drucken* (Strg+P) mit Ganzseitige Folien, Notizenseiten und Handzettel (1, 2, 3 mit Linien, 4, 6, 9
+  Folien pro Seite), Farbe oder Graustufen, Vorschau; *Datei › Exportieren* als PDF.
+- **Dateien:** PowerPoint-Präsentationen (.pptx) sind Standard; .pptm wird mit seinen Makros gelesen und geschrieben (Makros laufen nie;
+  vor dem Speichern als .pptx fragt ThixShow). Was ThixShow noch nicht bearbeitet (SmartArt, OLE-Objekte, Kommentare …), bleibt beim
+  Speichern erhalten – ein Hinweis nennt es beim Öffnen. Präsentationen in ThixDrive wie bei den anderen Apps.
+
+![ThixShow hell](docs/images/thixshow-main-light.png)
+
+![ThixShow dunkel](docs/images/thixshow-main-content-dark.png)
+
+| Diagramm auf der Folie | Formen-Galerie |
+| --- | --- |
+| ![Diagramm](docs/images/thixshow-main-content-light.png) | ![Formen](docs/images/thixshow-main-shapes-light.png) |
+| **Entwurf: Designs** | **Übergänge** |
+| ![Designs](docs/images/thixshow-main-design-light.png) | ![Übergänge](docs/images/thixshow-main-transitions-light.png) |
+| **Animationen mit Animationsbereich** | **Foliensortierung** |
+| ![Animationen](docs/images/thixshow-main-animations-light.png) | ![Foliensortierung](docs/images/thixshow-main-sorter-light.png) |
+| **Referentenansicht** | **Datei › Drucken** |
+| ![Referentenansicht](docs/images/thixshow-presenter-dark.png) | ![Drucken](docs/images/thixshow-backstage-print-light.png) |
+
+### Tastenkürzel in ThixShow
+
+Wie im deutschen PowerPoint (unter macOS ⌘ statt Strg):
+
+| Kürzel | Befehl |
+| --- | --- |
+| Strg+M, Strg+D | Neue Folie, Duplizieren (Formen oder Folien) |
+| F5 / Umschalt+F5 (⇧⌘↩ / ⌘↩) | Bildschirmpräsentation von Beginn an / ab aktueller Folie |
+| Strg+Umschalt+F / K / U (auch Strg+B / I / U) | Fett / Kursiv / Unterstrichen |
+| Strg+L / E / R / J | Linksbündig / Zentriert / Rechtsbündig / Blocksatz |
+| Strg+Umschalt+. / , | Schriftgrad vergrößern / verkleinern |
+| Strg+Leertaste | Zeichenformatierung löschen |
+| Tab / Umschalt+Tab, Alt+Umschalt+→ / ← | Listenebene tiefer / höher |
+| Strg+G / Strg+Umschalt+G | Gruppieren / Gruppierung aufheben |
+| Strg+Umschalt++ / Strg+Umschalt+- | In den Vordergrund / In den Hintergrund |
+| Pfeiltasten (Strg: fein), Entf, Tab, Eingabe/F2, Esc | Formen verschieben, löschen, nächste Form, Text bearbeiten, Auswahl aufheben |
+| Strg+A, Strg+C/X/V, Strg+Umschalt+V | Alles markieren, Zwischenablage, Nur den Text übernehmen |
+| Strg+F / Strg+H, Strg+K, Strg+P | Suchen / Ersetzen, Link, Drucken |
+| Präsentation: Leertaste, →, ↓, Bild ab, N / Rücktaste, ←, ↑, Bild auf, P | Weiter / Zurück |
+| Präsentation: Nummer + Eingabe, Pos1, Ende, B, W, Esc | Zu Folie, erste/letzte Folie, schwarzer/weißer Bildschirm, beenden |
+
 ## ThixCloud und ThixDrive
 
-ThixWrite und ThixCalc öffnen und speichern Dokumente direkt in **ThixDrive**, der Ablage Ihrer **ThixCloud** (MatCloud) – auf jedem
-Computer und im Browser. ThixShow bekommt dasselbe, sobald es sie gibt.
+ThixWrite, ThixCalc und ThixShow öffnen und speichern Dokumente direkt in **ThixDrive**, der Ablage Ihrer **ThixCloud** (MatCloud) – auf
+jedem Computer und im Browser.
 
 **Verbinden:**
 
@@ -210,7 +281,7 @@ Wie im deutschen Word, wo sie nicht kollidieren (unter macOS ⌘ statt Strg, ⌥
 
 ## Installieren
 
-- **Windows:** `ThixWriteSetup.exe` bzw. `ThixCalcSetup.exe` aus dem Release-Kanal herunterladen und starten. Das Programm installiert sich selbst für
+- **Windows:** `ThixWriteSetup.exe`, `ThixCalcSetup.exe` bzw. `ThixShowSetup.exe` aus dem Release-Kanal herunterladen und starten. Das Programm installiert sich selbst für
   das eigene Benutzerkonto (ohne Administratorrechte) nach `%LocalAppData%\Programs\ThixWrite`, trägt sich im Startmenü, unter
   „Installierte Apps“ und unter „Öffnen mit“ für Word-Dokumente (.docx) und Textdateien ein – Standardprogramm wird ThixWrite
   nur, wenn Sie es in den „Standard-Apps“ von Windows wählen. Entfernen über „Installierte Apps“.
@@ -236,6 +307,7 @@ dotnet test ThixOffice.slnx
 dotnet run --project src/ThixWrite                      # mit THIXWRITE_DATA_DIR=<Ordner> eine eigene Instanz
 dotnet run --project src/ThixWrite -- --snapshot shots  # alle Fenster hell und dunkel als PNG
 dotnet run --project src/ThixCalc                       # ThixCalc (THIXCALC_DATA_DIR=<Ordner>, --snapshot <Ordner> ebenso)
+dotnet run --project src/ThixShow                       # ThixShow (THIXSHOW_DATA_DIR=<Ordner>, --snapshot <Ordner> ebenso)
 cd tools && npm install && node render-icons.js         # Logos rendern
 ```
 

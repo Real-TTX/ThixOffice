@@ -293,6 +293,15 @@ fehlen (Name → wo, Platzhalter heute):
 | `select-data` | Diagrammentwurf › Daten auswählen | `table` |
 | `bring-forward`, `send-backward` | Format › Anordnen (vier Befehle) | `layers` |
 | `chart-legend`, `chart-gridlines`, `chart-axes`, `chart-data-labels` | Diagrammelement hinzufügen (Untermenüs) | `list`, `grid`, `chart-line`, `tag` |
+| `slide-layout` | ThixShow: Start › Layout, Neue Folie mit Layout (`show.layout`) | `template` |
+| `slide-sorter`, `reading-view`, `normal-view` | ThixShow: Statusleiste und Ansicht (`show.view.*`) | `grid`, `book`, `sidebar` |
+| `transition-*` (je Übergang) | ThixShow: Übergänge-Galerie (`show.transition`) | `transition` |
+| `animation-entrance`, `animation-emphasis`, `animation-exit`, `motion-path` | ThixShow: Animationen-Galerie (`show.animation`) | `sparkles`, `star`, `logout`, `route` |
+| `slide-size` | ThixShow: Entwurf › Foliengröße | `orientation` |
+| `flip-horizontal`, `flip-vertical`, `rotate-left`, `distribute-horizontal`, `distribute-vertical` | ThixShow: Anordnen | `columns`, `line-spacing`, `undo` |
+| `align-top`, `align-middle`, `align-bottom` | ThixShow: Text ausrichten, Formen ausrichten | `arrow-up`, `minus`, `arrow-down` |
+| `shape-outline`, `shape-effects` (Schatten), `section` | ThixShow: Formkontur, Formeffekte, Abschnitt | `edit`, `layers`, `list` |
+| `presenter-view`, `blank-screen` | ThixShow: Referentenansicht, Bildschirm schwarz | `monitor`, `moon` |
 
 ### Phase 4 – ThixShow
 Folienmodell, Layouts/Designs, Formen/Text/Bilder/Tabellen, Folienübersicht, Übergänge/Animationen,
@@ -308,6 +317,25 @@ Präsentations- und Referentenansicht, pptx, danach odp.
   **Lücken:** Diagramme zeichnet erst der gemeinsame Diagrammkern (Naht `IChartRenderer`), SmartArt/OLE als Platzhalter, Morphen und
   p14-Übergänge als Verblassen, Absatz-Animationen bewegen die ganze Form, Effekte in Gruppen bewegen die ganze Gruppe, Schriftgrößen
   skalieren beim Ändern der Foliengröße nicht mit, Diagramme zwischen Präsentationen kopieren, odp (Naht: `Formats/`).
+- **Stand (2026-11-19): erste Version der App ThixShow (src/ThixShow, dev).** Eine Zeichenschicht für alle Apps (`VectorPath`/`VectorPathItem`,
+  `TransformBeginItem(Matrix2D)`, ein Renderer `SkiaPageRenderer`); Diagramme in pptx zeichnet ThixOffice.Charts (`SharedChartRenderer`),
+  neue Diagramme bekommen einen eigenen Teil, kopierte Diagramme behalten ihre Daten. Normalansicht wie PowerPoint (Miniaturen mit
+  Abschnitten, Folie mit Arbeitsfläche und Zoom „An Fenster anpassen“, Notizen, Statusleiste mit Ansichten), Foliensortierung,
+  Leseansicht; auf der Folie markieren, Rahmen, verschieben/Größe/drehen/Ziehpunkte, intelligente Führungslinien, Pfeiltasten,
+  Strg+Ziehen, Gruppen öffnen, Formen aufziehen, Text in Platzhaltern/Formen/Zellen mit Eingabemethoden; Bilder (Datei, Ablage,
+  Ziehen), Tabellen, Diagramme mit Beispieldaten und „Daten bearbeiten“, Links, Symbole; Menüband Start, Einfügen, Entwurf, Übergänge,
+  Animationen (mit Animationsbereich), Bildschirmpräsentation, Ansicht und die Kontextkarten Formformat, Bildformat, Tabellenentwurf,
+  Layout, Diagrammentwurf; Bildschirmpräsentation im Vollbild (60 fps nur bei Bewegung) mit Referentenansicht auf dem zweiten
+  Bildschirm; Drucken (Folien, Notizenseiten, Handzettel 1–9, Graustufen) und PDF; pptx/pptm mit Makro-Frage; Selbsttest, Bilder,
+  UI-Tests; 200 Folien: Folienwechsel ≈ 9 ms, Miniaturen-Scrollen ≈ 5 ms je Schritt.
+  In die gemeinsamen Projekte gehoben: `SelectionHandles` (Ziehpunkte von ThixWrite-Bildern, ThixCalc-Diagrammen, ThixShow-Formen),
+  `OfficeFonts`, `TablePicker`, `RibbonFlyoutButton`, Druckseite mit zweiter Wahl und Graustufen.
+  **Lücken gegenüber PowerPoint:** keine Rechtschreibprüfung (Überprüfen fehlt), kein Folienmaster-Bearbeiten, keine Kopf- und
+  Fußzeile/Foliennummer/Datum einfügen (Kern fehlt), Notizen nur als einfacher Text, Diagrammdaten nur als kleine Tabelle (keine
+  eingebettete Arbeitsmappe, Diagrammelemente/Formatierung nicht bearbeitbar), kein Bild zuschneiden in der Oberfläche, keine
+  Laserpointer/Stift, keine Notizenseiten-Ansicht, Lineal/Gitternetzlinien nicht sichtbar (nur Am Raster ausrichten), Bilder als
+  PNG exportieren fehlt, Größen in verschachtelten gedrehten Gruppen nur angenähert, Einfügen aus ThixWrite/ThixCalc nur als Text,
+  Bildschirmwahl/Referentenansicht/Schleife gelten für den Prozess (nicht gespeichert).
 
 ### Phase 5 – ODF-Nachzug und Feinschliff
 Rundreise-Tests gegen LibreOffice-Dateien, Druckqualität, Barrierefreiheit, Englisch als zweite Sprache.

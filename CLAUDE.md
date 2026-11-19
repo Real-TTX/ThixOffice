@@ -20,7 +20,10 @@ tab stops, the dialogs Schriftart/Absatz, format painter, symbols, HTML paste (s
 **Phase 2, ThixOffice side (done):** ThixCloud sign-in and documents in ThixDrive for every app (section "ThixCloud and ThixDrive").
 **Phase 3, first release of ThixCalc (done):** the grid, cell and formula editing, sheet tabs, the German Excel ribbon and dialogs,
 find/replace, clipboard, page setup, printing and PDF, CSV/xlsx/xlsm flows (section "ThixCalc's editor"; gaps in docs/PLAN.md).
-**ThixCalc charts (done):** the shared `ThixOffice.Charts` (section "Charts"). **Next:** ThixCalc tables; ThixWrite 1c (table of contents, footnotes, comments, spelling, odt). Do not build ribbon controls of your own.
+**ThixCalc charts (done):** the shared `ThixOffice.Charts` (section "Charts"). **Phase 4, first version of ThixShow (done):** the
+slide editor, thumbnails, sorter, show and presenter view, the German PowerPoint ribbon, printing/PDF (section "ThixShow's editor";
+gaps in docs/PLAN.md). **Next:** ThixWrite 1c (table of contents, footnotes, comments, spelling, odt). Do not build ribbon controls of
+your own (a picture gallery is a `RibbonFlyoutButton` through `CreateRibbonContent`).
 
 Stack: **.NET 10** (`global.json` 10.0.100, latestMinor), C#, **Avalonia 11.3.22** with **MatDesktop 0.3.1** (a copy), xunit +
 Avalonia.Headless. Reference apps (sibling folders): ThixCalendar (structure, setup, OTA), ThixNote (document app: file types,
@@ -75,7 +78,8 @@ src/ThixOffice.Desktop     shared Avalonia UI
                            ExitApplication / OnExit (installs a downloaded update); the last window ends the app on Windows, not on
                            macOS (LastWindowEndsApp; ⌘Q ends it, the Dock icon opens a new document); FileDialogs (swappable)
   Rendering/               SkiaDrawOperation (the Skia lease of every editor surface; device-pixel mode for the grid), PrintablePages
-                           (display lists → print bands / PDF on the app's paper colour)
+                           (display lists → print bands / PDF on the app's paper colour, Grayscale), OfficeFonts (THE measurer of the
+                           process: Skia + a cache for the UI thread; CalcFonts/WriteFonts are names for it)
   OfficeProgram            Main helper: Run<TApp>(args, definition); BuildAvaloniaApp<TApp>()
   OfficeSelfTest, OfficeSnapshot, OfficeSetup (MatSetupWindow), UpdateCoordinator, UiWatchdog, Ui (helpers)
   Shell/                   OfficeWindow (MatWindow per document: title bar with logo, word mark, MatQuickAccess, document name +
@@ -92,7 +96,12 @@ src/ThixOffice.Desktop     shared Avalonia UI
   Dialogs/                 OfficeDialog (heading, body, OK · Abbrechen; every app's dialogs), QuestionDialog (+ SaveChangesDialog: Speichern, Abbrechen, gap, Nicht speichern), DriveDialogs (conflict,
                            replace, pending upload), TextInputDialog, ProblemReportDialog
   Controls/                ActionBar, IconLabel, InfoBar, FormErrors (from the reference apps), CloudSignInPanel, FindBarBase
-                           (the Suchen/Ersetzen bar of every app), ITextField (a text field that is no TextBox keeps undo/copy keys)
+                           (the Suchen/Ersetzen bar of every app), ITextField (a text field that is no TextBox keeps undo/copy keys),
+                           SelectionHandles (the eight handles 0–7 clockwise from the top left: positions, hit, Resize math with
+                           proportions, cursors turned with the frame, drawing of frames/handles in the accent – ThixWrite's pictures,
+                           ThixCalc's charts, ThixShow's shapes), TablePicker (Einfügen › Tabelle's grid; the app's insert callback),
+                           RibbonFlyoutButton (a ribbon button whose flyout the app builds on opening: picture galleries)
+  Pages/OfficePrintPage    IPrintSource may add a second choice (Variants/Variant/VariantLabel: ThixShow's Farbe/Graustufen)
 src/ThixOffice.Text        (no UI, no native code) ITextMeasurer, FontSpec/FontMetrics, ShapedText, FixedWidthTextMeasurer (tests),
                            Drawing/ display lists in points: DisplayList.cs (RgbColor, GlyphRunItem, RectangleItem, LineItem, ImageItem,
                            ClipBegin/End) + VectorItems.cs = THE vector layer of every app (VectorPath + VectorPathBuilder with arcs as
@@ -147,8 +156,21 @@ src/ThixShow.Core          (no UI) ThixShowApp.Definition (.pptx default, .pptm,
                            (PptxReader/PptxWriter: the original package is kept, only changed parts/elements are rewritten; unchanged elements
                            are written as read and relinked), Editing/ (EditingSession: every command one undo step – the presentation before
                            and after –, typing/nudging groups, Group(label, action), PresentationChanged per slide/shape; Snapping, TextEdits,
-                           ShowFragment = clipboard), Show/ (SlideTimeline: build steps; EffectEvaluator; SlideShow: clicks + clock → ShowFrame
-                           layers with opacity/transform/clip, presenter view), Documents/ShowDocument
+                           ShowFragment = clipboard; charts travel with their model: EmbedCharts), Show/ (SlideTimeline: build steps;
+                           EffectEvaluator; SlideShow: clicks + clock → ShowFrame layers with opacity/transform/clip, presenter view),
+                           Documents/ShowDocument; Layout/TextGeometry (a text body placed on the slide: CaretLine, HitTest, SelectionQuads,
+                           TargetAt for shapes and table cells), Model/ShapeCatalog (the shapes gallery by PowerPoint's categories),
+                           SlideTitles; GraphicFrame.Chart = a chart made/changed in ThixShow (written into a part of its own:
+                           IPartWriter.ChartId), EditingSession.InsertChart/SetChart, CountMatches
+src/ThixShow               App, Program, ShowSelfTest, Editor/ (ShowEditor: normal view = SlideListView pane | SlideCanvas + SlideOverlay over
+                           the pasteboard | NotesPane, AnimationPane at the right; sorter = SlideListView in grid mode; ReadingView;
+                           SlideCanvas(.Input/.Keys: pointer drags, snapping, draw mode, text keys, IME via SlideInputClient),
+                           SlidePictures (SKPicture per slide), ShowCommands + ShowDrawingCommands + ShowDesignCommands +
+                           ShowContextCommands (contextual tabs, context menus, table/size commands) + ShowChartCommands (+ ChartDataDialog),
+                           ShowCommandIds, ShowRibbon, ShowGalleries (layouts, designs strip, shapes, table picker), ShowClipboard,
+                           ShowFindBar, ShowPalette, SampleDeck), Show/ (ShowController: SlideShow on a clock, 60 fps timer only while
+                           animating; ShowSurface; ShowNavigation: PowerPoint's keys; SlideShowWindow; PresenterWindow), Pages/ (ShowPages:
+                           print layouts, ShowPrintPage, ShowExportPage), Dialogs/ (Zoom, Link, Abschnitt)
 src/ThixWrite              App (OfficeApplication: WordDocument, WriteEditor, commands, ribbon, backstage page, self test, snapshot
                            scenes), Program, WriteSelfTest, Editor/ (WriteEditor, DocumentSurface + CaretLayer + WriteInputClient,
                            PagePictures + PageDrawOperation + FormattingMarks, FindBar, WriteCommands, WriteRibbon + WriteCommandIds,
@@ -168,6 +190,9 @@ tests/ThixCalc.Tests            the real ThixCalc headless through keys/text/poi
 tests/ThixShow.Core.Tests       colours against documented Office values, preset formulas against known paths, inheritance, rendering
                                 (fixed-width measurer, Skia pixels, PDF), pptx round trips + validator + preservation fixtures, editing
                                 (random undo/redo), show engine timelines and frames, 200-slide performance
+tests/ThixShow.Tests            the real ThixShow headless through keys/text/pointer: placeholder text, drawing, snapping, sizing, nudge,
+                                duplicate, marquee, contextual tabs, charts, thumbnails, sorter, show keys and idling, presenter view,
+                                print layouts, find/replace, pptx/pptm flows, 200 slides, snapshots, no literal colours
 tests/ThixWrite.Core.Tests      model, editing engine (random undo/redo symmetry), layout (fixed-width measurer, 300 pages),
                                 docx/txt round trips and fixtures, Unicode rules, Skia measurer and PDF
 tests/ThixWrite.Tests           the real ThixWrite headless, driven by real key / text / pointer events: typing, caret movement,
@@ -178,8 +203,8 @@ branding/<id>/             logo-icon, logo-small, logo-document(-small), logo-fu
 tools/render-icons.js      renders every app's logos (installed Edge, playwright-core)
 scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoString "<Name> <version>", document types from
                            scripts/macos-document-types/<id>.plist, icns, ad-hoc signature), zip + dmg
-.github/workflows/         _desktop.yml (reusable: version → windows → macos → publish), thixwrite.yml and thixcalc.yml (callers, own
-                           path filters: shared projects trigger both, one app's projects only its own)
+.github/workflows/         _desktop.yml (reusable: version → windows → macos → publish), thixwrite.yml, thixcalc.yml and thixshow.yml
+                           (callers, own path filters: shared projects trigger all, one app's projects only its own)
 ```
 
 ## The ribbon, the backstage, the status bar
@@ -450,6 +475,54 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 3. Tests in tests/ThixCalc.Core.Tests/Functions; the function then shows in the list while typing, the argument tip, Funktion einfügen
    and the Formeln tab's category menu (the most used per category).
 
+## ThixShow's editor
+
+- **Per window:** `ShowDocument` (Presentation + EditingSession) → `ShowEditor` (an `OfficeEditor`): the normal view is a grid of the
+  thumbnail pane (`SlideListView`, own drawing, virtualized: only thumbnails in the scroll viewer's view are drawn; sections collapse),
+  the slide (`SlideCanvas` in a ScrollViewer, the `SlideOverlay` above it) and the notes (`NotesPane`, plain text committed as one step
+  on leaving it / switching slides / saving), the `AnimationPane` at the right; the sorter is a second `SlideListView` (grid); the
+  reading view and the full-screen show share `ShowController` + `ShowSurface`. `FocusedArea` (Slide / Slides / Notes) decides where
+  Entf, Kopieren, Strg+A act. Status bar: "Folie X von Y" (`ShowEditor.SlideItem`), Notizen, the views, Bildschirmpräsentation,
+  "An Fenster anpassen" (`FitsWindow` keeps the zoom fitted until a zoom is chosen).
+- **Drawing:** slides are recorded once per slide instance into `SKPicture`s (`SlidePictures`: editor with prompts, thumbnails
+  without; a design or order change records anew) from `SlideRenderer` display lists in points and drawn scaled (crisp at any zoom/DPI).
+  Selection, handles, guides, caret and text selection are chrome on the overlay (Mat tokens, `SelectionHandles`); the caret blinks
+  without redrawing the slide. Vorschau plays the slide on the canvas through a `ShowController`.
+- **Pointer (`SlideCanvas.Input.cs`):** a press finds a handle of a selected shape (resize 0–7, rotate at a fixed screen distance,
+  adjust, line ends), else text being edited, else the shape under it (`SlideHitTesting.HitTest`; double click opens a group): text shapes
+  get the caret at once (a press on the frame band moves), others select and move. Drags keep slide-point coordinates and snap through
+  `Snapping.Snap/SnapPoint` (Alt frees); release = ONE session command (`SetBounds`, `MoveShapes`, `Rotate`, `DragAdjustHandle`;
+  Strg+drag = `DuplicateShapes` + move in a `Group`). Resizing a rotated shape works along its own axes; children of groups map back
+  into the child space. Formen/Textfeld set `PendingShape`: the next drag draws it.
+- **Text (`SlideCanvas.Keys.cs`):** `TextGeometry.Of` lays the edited body out where the renderer draws it (`PlacedTextLayout`): caret line,
+  hit test, selection quads; ↑/↓ by lines through the layout; typing, Rücktaste/Entf, Eingabe, Umschalt+Eingabe, Tab levels, Esc go to the
+  session. `SlideInputClient` gives the IME the caret's rectangle and paragraph (preedit drawn by the overlay).
+- **Commands:** `ShowCommands` (+ Drawing/Design/Context/Chart files) register on the window; aliases (`AddAliases`) give second ribbon
+  places and the custom controls their commands. Contextual tabs follow the selection in `ShowContextMenus.UpdateContextTabs` (contexts
+  `shape`, `picture`, `table`, `chart`). Galleries with pictures are `RibbonFlyoutButton`s / `DesignStrip` made in
+  `ShowGalleries.Create` (`App.CreateRibbonContent`); plain galleries (Übergänge, Animationen, Schnellformatvorlagen) are `MatRibbonGallery`
+  bound to value commands. German PowerPoint shortcuts are listed in `ShowCommands`' summary and the README.
+- **Show:** `ShowController` runs the core's `SlideShow` on a `Stopwatch`; its `DispatcherTimer` (60 fps) runs only while
+  `IsAnimating` (`IsTicking` for tests). `SlideShowWindow` (borderless, full screen on the audience's screen: `ShowSettings.AudienceScreen`
+  or the non-primary one) + `PresenterWindow` (on the other screen when there are two and `UsePresenterView`); `ShowNavigation` holds the
+  keys, wheel and menu. Esc/end closes both and selects the slide the show was on in the editor.
+- **Colours:** chrome Mat tokens only; document colours (paper, the show's black/white, palettes of the theme, the sample picture) only in
+  `Editor/ShowPalette.cs` – the file the colour rules test exempts.
+- **Files:** `ShowEditor.ConfirmSaveAsync` asks before .pptx drops macros; `OpeningWarning` lists `UnsupportedContent` and macros.
+- **Snapshots** (`-- --snapshot <folder>`, `THIXSHOW_SCREENSHOTS` for the tests): the shell's scenes plus `main-content` (chart selected),
+  `main-design`, `main-shapes` (gallery open), `main-transitions`, `main-animations` (pane open), `main-sorter`, `presenter`,
+  `backstage-print` on `SampleDeck` ("Nordlicht Reisen – Jahresrückblick 2026"). Self test: design, typed title, slide, shape, picture,
+  table, chart, transition, animation, pptx round trip, Skia slide, show engine, PDF, the sample through pptx.
+
+### Adding a command to ThixShow
+
+1. An id in `ShowCommandIds` (`show.<name>`; entries of a menu `show.<menu>.<entry>`; value commands note their value).
+2. Register it in `ShowCommands` (or the Drawing/Design/Context/Chart file of its tab): German label, sprite icon, `Shortcut`/`MacShortcut`,
+   `Description`, `CanExecute` (what it needs: a slide, shapes, text, a table cell, a chart), `IsChecked` from `Session.GetFormatting()` or the
+   slide. Act through `run(label, editor => editor.Session.…)` – the logic belongs in ThixShow.Core's `EditingSession` (undoable, UI-free).
+3. Place it in `ShowRibbon` (a second place needs an alias in `AddAliases`) and in `ShowContextMenus` when it belongs to a right click.
+4. A test through real input in tests/ThixShow.Tests; look at the snapshots.
+
 ## Build / run / test
 
 - `dotnet build ThixOffice.slnx` – expected: 0 warnings, 0 errors. `dotnet test ThixOffice.slnx` – all green.
@@ -459,6 +532,8 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   tests/ThixCalc.Tests` (also every chart type into `<folder>/charts`: `ChartPictureTests`); its trimmed publish (~46 MB) runs
   `--self-test` (typed values and German formulas incl. SVERWEIS/SUMMEWENN, format, sort, a chart through the ribbon command, xlsx round
   trip with the chart, a Skia frame and a chart picture, the sample with its charts, PDF, GDI print).
+- ThixShow the same way: `dotnet run --project src/ThixShow` (`THIXSHOW_DATA_DIR`), snapshots and self test as above (its trimmed publish
+  ≈ 45 MB runs the self test in CI).
 - Run: `dotnet run --project src/ThixWrite`; with `THIXWRITE_DATA_DIR=<folder>` an instance of its own (settings, recent list,
   recovery in that folder) that never meets the installed one. A development build never runs the setup.
 - **Snapshots:** `dotnet run --project src/ThixWrite -- --snapshot <folder>` draws every window headless in light and dark
