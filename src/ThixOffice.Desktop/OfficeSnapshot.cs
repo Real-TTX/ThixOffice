@@ -6,6 +6,9 @@ using Avalonia.Threading;
 using MatDesktop;
 using ThixOffice.Core.Business;
 using ThixOffice.Core.Infrastructure;
+using ThixOffice.Core.Models;
+using ThixOffice.Core.Platform;
+using ThixOffice.Desktop.Controls;
 using ThixOffice.Desktop.Dialogs;
 using ThixOffice.Desktop.Pages;
 using ThixOffice.Desktop.Shell;
@@ -41,14 +44,20 @@ public static class OfficeSnapshot
 
     private static readonly string[] SetupPictures = ["setup-welcome", "setup-options", "setup-update", "setup-uninstall"];
 
+    /// <summary>The pictures of ThixCloud and ThixDrive (an app with a cloud id): drawn against the sample cloud in memory.</summary>
+    private static readonly string[] CloudPictures =
+    [
+        "backstage-open-signin", "backstage-open-drive", "backstage-saveas-drive", "backstage-settings-cloud", "main-drive-pending", "dialog-drive-conflict",
+    ];
+
     /// <summary>Every file a snapshot writes, by app id: thixwrite-main-light.png …</summary>
-    public static IReadOnlyList<string> FileNames(string appId) => FileNames(appId, []);
+    public static IReadOnlyList<string> FileNames(string appId) => FileNames(appId, [], hasCloud: false);
 
     /// <summary>Every file a snapshot of <paramref name="app"/> writes, its own scenes (<see cref="OfficeApplication.SnapshotScenes"/>) included.</summary>
-    public static IReadOnlyList<string> FileNames(OfficeApplication app) => FileNames(app.Definition.Id, app.SnapshotScenes);
+    public static IReadOnlyList<string> FileNames(OfficeApplication app) => FileNames(app.Definition.Id, app.SnapshotScenes, app.Definition.HasCloud);
 
-    private static IReadOnlyList<string> FileNames(string appId, IEnumerable<string> scenes) =>
-        [.. WindowPictures.Concat(scenes).Concat(SetupPictures).SelectMany(name => Themes.Select(theme => $"{appId}-{name}-{theme}.png"))];
+    private static IReadOnlyList<string> FileNames(string appId, IEnumerable<string> scenes, bool hasCloud) =>
+        [.. WindowPictures.Concat(scenes).Concat(hasCloud ? CloudPictures : []).Concat(SetupPictures).SelectMany(name => Themes.Select(theme => $"{appId}-{name}-{theme}.png"))];
 
     /// <summary>The command: sets Avalonia up headless, draws every picture into the folder, ends with 0 (all written) or 1.</summary>
     public static int Run<TApp>(string[] args)
@@ -171,6 +180,10 @@ public static class OfficeSnapshot
             Settle(window);
             Save(window, target, $"{id}-backstage-about-{theme}.png", written);
             window.Backstage.Close();
+            if (application.Definition.HasCloud)
+            {
+                RenderCloud(application, window, target, theme, written);
+            }
 
             _ = SaveChangesDialog.AskAsync(window, window.Document.Title);
             Settle(window);
@@ -184,6 +197,79 @@ public static class OfficeSnapshot
             DocumentService.DiscardRecovery(window.Document);
             Settle(window);
         }
+    }
+
+    /// <summary>
+    /// ThixCloud and ThixDrive against the sample cloud in memory: the sign-in in the place ThixDrive (not signed in yet), then signed in
+    /// the place ThixDrive of Öffnen and of Speichern unter, Einstellungen › Cloud, a document whose save waits for its upload (the title
+    /// bar says "Nicht hochgeladen") and the question after a conflict.
+    /// </summary>
+    private static void RenderCloud(OfficeApplication app, OfficeWindow window, string folder, string theme, SnapshotReport report)
+    {
+        var id = app.Definition.Id;
+        SettingsService.UpdateCloud(_ => new CloudSettings { ServerUrl = SampleCloud.ServerUrl, UserName = SampleCloud.UserName, DeviceName = MachineName });
+        CloudService.ShowStatusForSnapshot(null);
+        window.Backstage.Open(OfficeWindow.OpenPageId);
+        ((OpenPage)window.Backstage.CurrentPage!).ShowPlace(DocumentPlace.Drive);
+        Settle(window);
+        Save(window, folder, $"{id}-backstage-open-signin-{theme}.png", report);
+
+        Wait(Task.Run(() => CloudService.ConnectAsync(SampleCloud.ServerUrl, SampleCloud.UserName, SampleCloud.Password, MachineName)));
+        window.Backstage.Open(OfficeWindow.OpenPageId);
+        var open = (OpenPage)window.Backstage.CurrentPage!;
+        open.ShowPlace(DocumentPlace.Drive);
+        Wait(open.Drive!.LoadTask);
+        open.Drive.Select("Quartalsbericht" + app.Definition.SaveType.Extension);
+        Settle(window, waitLonger: true);
+        Save(window, folder, $"{id}-backstage-open-drive-{theme}.png", report);
+
+        window.Backstage.Open(OfficeWindow.SaveAsPageId);
+        var saveAs = (SaveAsPage)window.Backstage.CurrentPage!;
+        saveAs.ShowPlace(DocumentPlace.Drive);
+        Wait(saveAs.Drive!.LoadTask);
+        Settle(window, waitLonger: true);
+        Save(window, folder, $"{id}-backstage-saveas-drive-{theme}.png", report);
+
+        window.ShowSettings(SettingsPage.CloudTab);
+        Settle(window, waitLonger: true);
+        Save(window, folder, $"{id}-backstage-settings-cloud-{theme}.png", report);
+        window.Backstage.Close();
+
+        var document = window.Document;
+        var name = document.Title;
+        document.SetDrive(new DriveOrigin { ServerUrl = SampleCloud.ServerUrl, UserName = SampleCloud.UserName, ItemId = 4711, Name = name, Location = "/Projekte", IsUploadPending = true }, DriveSyncState.NotUploaded);
+        CloudService.ShowStatusForSnapshot(new CloudStatus(CloudState.Offline, "Offline – die ThixCloud ist nicht erreichbar"));
+        window.ShowMessage($"„{name}“ ist auf diesem Computer gespeichert, aber noch nicht in ThixDrive: Die ThixCloud ist nicht erreichbar. Es wird hochgeladen, sobald sie wieder erreichbar ist.", InfoSeverity.Warning, isClosable: true);
+        Settle(window, waitLonger: true);
+        Save(window, folder, $"{id}-main-drive-pending-{theme}.png", report);
+        window.ShowMessage(null);
+
+        _ = DriveDialogs.AskConflictAsync(window, name, $"„{name}“ wurde in ThixDrive inzwischen geändert (von „LAPTOP-BERT“).");
+        Settle(window);
+        var dialog = window.OwnedWindows.OfType<QuestionDialog>().Single();
+        Settle(dialog);
+        Save(dialog, folder, $"{id}-dialog-drive-conflict-{theme}.png", report);
+        dialog.Close();
+        Settle(window);
+
+        document.SetDrive(null, DriveSyncState.Uploaded);
+        Wait(Task.Run(CloudService.DisconnectAsync));
+        SettingsService.UpdateCloud(_ => new CloudSettings());
+        CloudService.ShowStatusForSnapshot(null);
+        Settle(window);
+    }
+
+    /// <summary>Waits for a task while the dispatcher runs (its continuations need the UI thread).</summary>
+    private static void Wait(Task task)
+    {
+        var until = DateTime.UtcNow.AddSeconds(20);
+        while (!task.IsCompleted && DateTime.UtcNow < until)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(10);
+        }
+
+        task.GetAwaiter().GetResult();
     }
 
     private static void RenderSetup(OfficeApplication app, string folder, string theme, SnapshotReport report)
@@ -242,6 +328,9 @@ public static class OfficeSnapshot
         AppInfo.Pin(Version, Channel, buildNumber: 0, MachineName);
         AccessPolicy.UsePolicyReaderForTests(_ => false);
         PrintService.System = new Core.Platform.SamplePrinterSystem(); // no printer of this machine in a picture
+        var cloud = SampleCloud.WithSampleDrive();
+        CloudService.HandlerForTests = () => cloud; // a cloud in memory: no account, no network in a picture
+        TokenStore.UseMemoryForTests(true);
         var missing = Path.Combine(Documents, "Archiv", "Entwurf alt" + extension);
         FileSystemProbe.UseForSnapshots(path => path != missing, folder => folder.StartsWith(Documents, StringComparison.OrdinalIgnoreCase), Documents);
         var now = DateTimeOffset.Now;
@@ -251,6 +340,11 @@ public static class OfficeSnapshot
         RecentDocuments.Add(Path.Combine(Documents, "Angebot Müller GmbH" + extension), now.AddDays(-1).AddHours(-3));
         RecentDocuments.Add(Path.Combine(Documents, "Projektbericht" + extension), now.AddMinutes(-12));
         RecentDocuments.Pin(Path.Combine(Documents, "Vereinsfest Einladung" + extension), pinned: true);
+        if (app.Definition.HasCloud)
+        {
+            var workingCopy = Path.Combine(@"C:UsersAnnaAppDataLocal", app.Definition.Name, "drive", "4f1c2a9b0d3e7f61", "103", "Quartalsbericht" + extension);
+            RecentDocuments.AddDrive(workingCopy, new DriveOrigin { ServerUrl = SampleCloud.ServerUrl, UserName = SampleCloud.UserName, ItemId = 103, Name = "Quartalsbericht" + extension, Location = "/" }, now.AddHours(-5));
+        }
         app.KeepsRunningWithoutWindows = true;
         return new Restore(() =>
         {
@@ -258,6 +352,8 @@ public static class OfficeSnapshot
             FileSystemProbe.UseForSnapshots(null, null, null);
             AccessPolicy.UsePolicyReaderForTests(null);
             PrintService.System = null!;
+            TokenStore.UseMemoryForTests(false);
+            CloudService.ResetForTests();
             AppInfo.Pin(null);
         });
     }

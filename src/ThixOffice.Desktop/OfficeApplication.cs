@@ -228,30 +228,94 @@ public abstract class OfficeApplication : Application
 
         try
         {
-            var document = DocumentService.Open(path, CreateDocument);
-            var target = into ?? _windows.LastOrDefault(window => window.IsActive) ?? _windows.LastOrDefault();
-            if (target is not null && target.Document.IsPristine)
-            {
-                target.ReplaceDocument(document);
-                target.BringToFront();
-                return target;
-            }
-
-            return ShowWindow(document);
+            return Place(DocumentService.Open(path, CreateDocument), into);
         }
         catch (BusinessException exception)
         {
-            var owner = into ?? _windows.LastOrDefault();
-            if (owner is not null)
-            {
-                await QuestionDialog.ShowMessageAsync(owner, "Öffnen nicht möglich", exception.Message);
-            }
-            else
-            {
-                MatNotification.Show("Öffnen nicht möglich", exception.Message, isWarning: true);
-            }
-
+            await ShowOpenProblemAsync(into, exception);
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Opens a file of ThixDrive (downloaded into its working copy): a window that has it already comes to the front; otherwise like
+    /// <see cref="OpenFileAsync"/>. Null when it could not be opened (the reason was shown).
+    /// </summary>
+    public async Task<OfficeWindow?> OpenFromDriveAsync(long itemId, OfficeWindow? into = null)
+    {
+        if (WindowOfDriveItem(itemId) is { } open)
+        {
+            open.BringToFront();
+            return open;
+        }
+
+        try
+        {
+            return Place(await DriveService.OpenAsync(itemId, CreateDocument), into);
+        }
+        catch (BusinessException exception)
+        {
+            await ShowOpenProblemAsync(into, exception);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Opens an entry of "Zuletzt verwendet": a file of this computer, or a ThixDrive document – from the Drive, or from its working
+    /// copy when the cloud cannot be reached.
+    /// </summary>
+    public async Task<OfficeWindow?> OpenRecentAsync(RecentDocument entry, OfficeWindow? into = null)
+    {
+        if (entry.Drive is not { } drive)
+        {
+            return await OpenFileAsync(entry.Path, into);
+        }
+
+        if ((WindowOfDriveItem(drive.ItemId) ?? WindowOf(entry.Path)) is { } open)
+        {
+            open.BringToFront();
+            return open;
+        }
+
+        try
+        {
+            return Place(await DriveService.OpenRecentAsync(entry, CreateDocument), into);
+        }
+        catch (BusinessException exception)
+        {
+            await ShowOpenProblemAsync(into, exception);
+            return null;
+        }
+    }
+
+    /// <summary>The window that has this ThixDrive item open, or null.</summary>
+    public OfficeWindow? WindowOfDriveItem(long itemId) =>
+        _windows.FirstOrDefault(window => window.Document.Drive is { } drive && drive.ItemId == itemId && CloudService.IsSignedInTo(drive.ServerUrl, drive.UserName));
+
+    /// <summary>An opened document goes into <paramref name="into"/> when that window holds an untouched new document, else into a window of its own.</summary>
+    private OfficeWindow Place(OfficeDocument document, OfficeWindow? into)
+    {
+        var target = into ?? _windows.LastOrDefault(window => window.IsActive) ?? _windows.LastOrDefault();
+        if (target is not null && target.Document.IsPristine)
+        {
+            target.ReplaceDocument(document);
+            target.BringToFront();
+            return target;
+        }
+
+        return ShowWindow(document);
+    }
+
+    private async Task ShowOpenProblemAsync(OfficeWindow? into, BusinessException exception)
+    {
+        var owner = into ?? _windows.LastOrDefault();
+        if (owner is not null)
+        {
+            await QuestionDialog.ShowMessageAsync(owner, "Öffnen nicht möglich", exception.Message);
+        }
+        else
+        {
+            MatNotification.Show("Öffnen nicht möglich", exception.Message, isWarning: true);
         }
     }
 
@@ -430,6 +494,29 @@ public abstract class OfficeApplication : Application
         }
 
         UpdateCoordinator.Start();
+        _ = Task.Run(ConnectCloudAtStartAsync);
+    }
+
+    /// <summary>
+    /// ThixCloud at the start, in the background and silent: the sign-in ThixLauncher left is redeemed (when the app is not signed in),
+    /// then the account is asked once (the state: online, offline, signed out by the cloud, switched off).
+    /// </summary>
+    private static async Task ConnectCloudAtStartAsync()
+    {
+        if (!AppInfo.Definition.HasCloud)
+        {
+            return;
+        }
+
+        try
+        {
+            await CloudService.ConnectFromLauncherAsync();
+            await CloudService.RefreshAccountAsync();
+        }
+        catch (BusinessException exception)
+        {
+            Log.Warning($"ThixCloud at the start: {exception.Message}");
+        }
     }
 
     /// <summary>What a crash left behind comes back as unsaved documents, each in its window; returns how many.</summary>

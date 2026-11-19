@@ -18,6 +18,7 @@ public partial class SettingsPage : UserControl
 {
     public const string GeneralTab = "general";
     public const string SaveTab = "save";
+    public const string CloudTab = "cloud";
     public const string UpdatesTab = "updates";
     public const string AdvancedTab = "advanced";
 
@@ -53,6 +54,7 @@ public partial class SettingsPage : UserControl
 
         UpdateCoordinator.Changed += OnUpdateChanged;
         DetachedFromVisualTree += (_, _) => UpdateCoordinator.Changed -= OnUpdateChanged;
+        AttachCloud();
         Load();
     }
 
@@ -60,13 +62,14 @@ public partial class SettingsPage : UserControl
     public void ShowTab(string tab) => Tabs.SelectedItem = tab switch
     {
         SaveTab => SaveTabItem,
+        CloudTab when CloudTabItem.IsVisible => CloudTabItem,
         UpdatesTab => UpdatesTabItem,
         AdvancedTab => AdvancedTabItem,
         _ => GeneralTabItem,
     };
 
     /// <summary>The tab shown (tests).</summary>
-    public string CurrentTab => Tabs.SelectedItem == SaveTabItem ? SaveTab : Tabs.SelectedItem == UpdatesTabItem ? UpdatesTab : Tabs.SelectedItem == AdvancedTabItem ? AdvancedTab : GeneralTab;
+    public string CurrentTab => Tabs.SelectedItem == SaveTabItem ? SaveTab : Tabs.SelectedItem == CloudTabItem ? CloudTab : Tabs.SelectedItem == UpdatesTabItem ? UpdatesTab : Tabs.SelectedItem == AdvancedTabItem ? AdvancedTab : GeneralTab;
 
     private void Load()
     {
@@ -115,6 +118,7 @@ public partial class SettingsPage : UserControl
 
         DataFolderRow.Description = AppPaths.DataDirectory;
         PoliciesRow.Description = $"{AccessPolicy.Location} – {string.Join(", ", AccessPolicy.Names)} (1 = an).";
+        LoadCloud();
         RefreshUpdate();
         _isLoading = false;
     }

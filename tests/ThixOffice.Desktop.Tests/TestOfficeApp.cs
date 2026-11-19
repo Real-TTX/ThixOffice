@@ -40,6 +40,7 @@ public sealed class TestOfficeApp : OfficeApplication
         ])
     {
         UntitledBaseName = "Test",
+        CloudAppId = MatCloud.Contract.CloudApps.Write,
     };
 
     public const string ShoutCommand = "test.shout";
@@ -217,6 +218,9 @@ public sealed class TestData : IDisposable
         DocumentService.ResetUntitledCountForTests();
         OfficeApplication.FileDialogs = Dialogs;
         Ui.OpenExternalForTests = Opened.Add;
+        TokenStore.UseMemoryForTests(true);
+        CloudService.ResetForTests();
+        MatCloud.Contract.CloudHandoff.Folder = Path.Combine(Folder, "handoff");
     }
 
     public string Folder { get; }
@@ -249,6 +253,9 @@ public sealed class TestData : IDisposable
         App.Size = "11";
         OfficeApplication.FileDialogs = new SystemFileDialogs();
         Ui.OpenExternalForTests = null;
+        CloudService.ResetForTests();
+        TokenStore.UseMemoryForTests(false);
+        MatCloud.Contract.CloudHandoff.Folder = MatCloud.Contract.CloudHandoff.DefaultFolder();
         AccessPolicy.UsePolicyReaderForTests(null);
         UserRegistry.UseForTests(null);
         SettingsService.ResetCache();

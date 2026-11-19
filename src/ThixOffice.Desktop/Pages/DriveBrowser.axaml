@@ -1,0 +1,102 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mat="using:MatDesktop"
+             xmlns:controls="using:ThixOffice.Desktop.Controls"
+             x:Class="ThixOffice.Desktop.Pages.DriveBrowser">
+  <!--
+    The place ThixDrive of Öffnen and Speichern unter (one control, two modes), by the house rules for lists: the toolbar ABOVE (search
+    across the Drive, the type filter – the app's documents by default –, the order), the breadcrumbs, the list of folders and files
+    (type icon, name, modified, size; a double click opens a folder or the file), "Weitere laden" below the list, then – in the save
+    mode – the file name and type, and the actions left-aligned from positive to negative: Öffnen / Speichern, Neuer Ordner,
+    Umbenennen, and set apart In den Papierkorb. Not signed in: the compact sign-in instead of the list.
+  -->
+  <Panel>
+    <ScrollViewer x:Name="SignInPlace" IsVisible="False" VerticalScrollBarVisibility="Auto">
+      <controls:CloudSignInPanel x:Name="SignIn" IsCompact="True" Margin="0,4,16,0" />
+    </ScrollViewer>
+
+    <DockPanel x:Name="BrowserPlace">
+      <!-- Toolbar above the list: search, type, order -->
+      <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
+        <TextBox x:Name="SearchBox" Theme="{StaticResource MatSearchBox}" Watermark="In ThixDrive suchen"
+                 AutomationProperties.Name="In ThixDrive suchen" Width="320" HorizontalAlignment="Left" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0">
+          <mat:MatIcon Icon="filter" Size="16" Foreground="{DynamicResource Mat.TextMuted}" VerticalAlignment="Center" />
+          <ComboBox x:Name="TypeChoice" AutomationProperties.Name="Dateityp" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0">
+          <mat:MatIcon Icon="sort" Size="16" Foreground="{DynamicResource Mat.TextMuted}" VerticalAlignment="Center" />
+          <ComboBox x:Name="SortChoice" MinWidth="130" AutomationProperties.Name="Sortieren">
+            <ComboBoxItem Content="Name" />
+            <ComboBoxItem Content="Zuletzt geändert" />
+            <ComboBoxItem Content="Größe" />
+            <ComboBoxItem Content="Typ" />
+          </ComboBox>
+        </StackPanel>
+      </Grid>
+
+      <!-- Where the list is: ThixDrive › Projekte › 2026, or the search -->
+      <WrapPanel DockPanel.Dock="Top" x:Name="Crumbs" Margin="0,0,0,6" />
+
+      <!-- Below the list: more, the name to save as, the message, the actions -->
+      <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+        <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,8">
+          <Button x:Name="MoreButton" Theme="{StaticResource MatButton.Ghost}" Click="OnMoreClick" IsVisible="False">
+            <controls:IconLabel Icon="chevron-down" Text="Weitere laden" />
+          </Button>
+          <TextBlock Grid.Column="1" x:Name="CountText" Theme="{StaticResource MatText.Muted}" VerticalAlignment="Center" Margin="12,0,0,0" />
+        </Grid>
+        <Grid x:Name="SaveFields" ColumnDefinitions="*,Auto" IsVisible="False">
+          <mat:MatFormField Label="Dateiname" controls:FormErrors.Field="FileName">
+            <TextBox x:Name="FileNameBox" AutomationProperties.Name="Dateiname" />
+          </mat:MatFormField>
+          <mat:MatFormField Grid.Column="1" Label="Dateityp" Margin="12,0,0,0">
+            <ComboBox x:Name="SaveTypeChoice" MinWidth="230" AutomationProperties.Name="Speichern als Dateityp" />
+          </mat:MatFormField>
+        </Grid>
+        <controls:InfoBar x:Name="Message" />
+        <ProgressBar x:Name="Progress" IsIndeterminate="True" Height="4" Margin="0,0,0,10" IsVisible="False" />
+        <controls:ActionBar>
+          <Button x:Name="PrimaryButton" Theme="{StaticResource MatButton.Primary}" Click="OnPrimaryClick">
+            <controls:IconLabel x:Name="PrimaryLabel" Icon="folder-open" Text="Öffnen" />
+          </Button>
+          <Button x:Name="NewFolderButton" Click="OnNewFolderClick">
+            <controls:IconLabel Icon="plus" Text="Neuer Ordner" />
+          </Button>
+          <Button x:Name="RenameButton" Click="OnRenameClick">
+            <controls:IconLabel Icon="edit" Text="Umbenennen" />
+          </Button>
+          <Button x:Name="TrashButton" Theme="{StaticResource MatButton.Danger}" controls:ActionBar.Separated="True" Click="OnTrashClick">
+            <controls:IconLabel Icon="trash" Text="In den Papierkorb" />
+          </Button>
+        </controls:ActionBar>
+      </StackPanel>
+
+      <!-- The column heads -->
+      <Grid DockPanel.Dock="Top" ColumnDefinitions="40,*,150,90" Margin="12,0,14,4">
+        <TextBlock Grid.Column="1" Text="Name" Theme="{StaticResource MatText.Muted}" />
+        <TextBlock Grid.Column="2" Text="Geändert" Theme="{StaticResource MatText.Muted}" />
+        <TextBlock Grid.Column="3" Text="Größe" Theme="{StaticResource MatText.Muted}" HorizontalAlignment="Right" />
+      </Grid>
+
+      <Panel>
+        <TextBlock x:Name="EmptyText" Theme="{StaticResource MatText.Muted}" TextWrapping="Wrap" Margin="12,10" IsVisible="False" />
+        <ListBox x:Name="List" Theme="{StaticResource MatList}" ItemContainerTheme="{StaticResource MatChoiceRow}" AutomationProperties.Name="ThixDrive">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <Grid ColumnDefinitions="40,*,150,90" Margin="0,6">
+                <mat:MatIcon Icon="{Binding Icon}" Size="20" Foreground="{DynamicResource Mat.Accent}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                  <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding Location}" Theme="{StaticResource MatText.Muted}" TextTrimming="CharacterEllipsis" IsVisible="{Binding ShowsLocation}" />
+                </StackPanel>
+                <TextBlock Grid.Column="2" Text="{Binding Modified}" Theme="{StaticResource MatText.Muted}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="3" Text="{Binding Size}" Theme="{StaticResource MatText.Muted}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Panel>
+    </DockPanel>
+  </Panel>
+</UserControl>

@@ -1,0 +1,78 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mat="using:MatDesktop"
+             xmlns:controls="using:ThixOffice.Desktop.Controls"
+             x:Class="ThixOffice.Desktop.Controls.CloudSignInPanel">
+  <!--
+    The sign-in at ThixCloud, the same in Einstellungen › Cloud and in the place ThixDrive of Öffnen / Speichern unter (compact: a heading,
+    no device name). The first way is the browser (every account, also MatIdentity): the code big in a card, "Bestätigen Sie den Code
+    im Browser", Seite erneut öffnen, Abbrechen. The second way is user name and password of a local account. The address first.
+  -->
+  <StackPanel MaxWidth="520" HorizontalAlignment="Left">
+    <StackPanel x:Name="Heading" Spacing="4" Margin="0,0,0,14">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <mat:MatIcon Icon="cloud" Size="22" Foreground="{DynamicResource Mat.Accent}" VerticalAlignment="Center" />
+        <TextBlock Text="Bei ThixCloud anmelden" Theme="{StaticResource MatText.SectionTitle}" VerticalAlignment="Center" />
+      </StackPanel>
+      <TextBlock x:Name="HeadingText" Theme="{StaticResource MatText.Muted}" TextWrapping="Wrap" />
+    </StackPanel>
+    <controls:InfoBar x:Name="Message" />
+
+    <mat:MatFormField Label="Adresse der ThixCloud" controls:FormErrors.Field="ServerUrl" Hint="z. B. https://cloud.example.com – ThixLauncher meldet die App beim Installieren schon an.">
+      <TextBox x:Name="ServerUrlBox" Watermark="https://" AutomationProperties.Name="Adresse der ThixCloud" />
+    </mat:MatFormField>
+    <mat:MatFormField x:Name="DeviceNameField" Label="Name dieses Geräts" controls:FormErrors.Field="DeviceName" Hint="So erscheint dieser Computer in der ThixCloud unter „Geräte“.">
+      <TextBox x:Name="DeviceNameBox" AutomationProperties.Name="Name dieses Geräts" />
+    </mat:MatFormField>
+
+    <!-- The first way: in the browser -->
+    <StackPanel x:Name="BrowserSignIn" Margin="0,6,0,0">
+      <TextBlock x:Name="BrowserText" Theme="{StaticResource MatText.Muted}" TextWrapping="Wrap" Margin="0,0,0,12" />
+      <controls:ActionBar>
+        <Button x:Name="BrowserConnectButton" Theme="{StaticResource MatButton.Primary}" Click="OnBrowserConnectClick">
+          <controls:IconLabel Icon="globe" Text="Im Browser anmelden" />
+        </Button>
+        <Button x:Name="ShowPasswordSignInButton" Click="OnShowPasswordSignInClick">
+          <controls:IconLabel Icon="key" Text="Mit Benutzername und Passwort" />
+        </Button>
+      </controls:ActionBar>
+    </StackPanel>
+
+    <!-- Waiting for the browser: the code to compare -->
+    <Border x:Name="BrowserCode" Theme="{StaticResource MatCard}" IsVisible="False" Margin="0,6,0,0">
+      <StackPanel Spacing="10">
+        <TextBlock Text="Ihr Code" Theme="{StaticResource MatText.Muted}" />
+        <SelectableTextBlock x:Name="BrowserCodeText" FontFamily="{DynamicResource Mat.Mono}" FontSize="{DynamicResource Mat.FontSize3xl}"
+                             FontWeight="SemiBold" LetterSpacing="3" Foreground="{DynamicResource Mat.AccentText}" AutomationProperties.Name="Code" />
+        <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" Text="Bestätigen Sie den Code im Browser." />
+        <TextBlock x:Name="BrowserCodeHint" Theme="{StaticResource MatText.Muted}" TextWrapping="Wrap" />
+        <controls:ActionBar Margin="0,4,0,0">
+          <Button x:Name="OpenLinkButton" Click="OnOpenLinkClick">
+            <controls:IconLabel Icon="external" Text="Seite erneut öffnen" />
+          </Button>
+          <Button x:Name="CancelLinkButton" Click="OnCancelLinkClick">
+            <controls:IconLabel Icon="x" Text="Abbrechen" />
+          </Button>
+        </controls:ActionBar>
+      </StackPanel>
+    </Border>
+
+    <!-- The second way: user name and password of a local account -->
+    <StackPanel x:Name="PasswordSignIn" IsVisible="False" Margin="0,6,0,0">
+      <mat:MatFormField Label="Benutzername" controls:FormErrors.Field="UserName">
+        <TextBox x:Name="UserNameBox" AutomationProperties.Name="Benutzername" />
+      </mat:MatFormField>
+      <mat:MatFormField Label="Passwort" controls:FormErrors.Field="Password" Hint="Wird nur für die Anmeldung gebraucht und nicht gespeichert.">
+        <TextBox x:Name="PasswordBox" PasswordChar="●" AutomationProperties.Name="Passwort" />
+      </mat:MatFormField>
+      <controls:ActionBar Margin="0,6,0,0">
+        <Button x:Name="ConnectButton" Theme="{StaticResource MatButton.Primary}" Click="OnConnectClick">
+          <controls:IconLabel Icon="login" Text="Anmelden" />
+        </Button>
+        <Button Click="OnShowBrowserSignInClick">
+          <controls:IconLabel Icon="globe" Text="Im Browser anmelden" />
+        </Button>
+      </controls:ActionBar>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

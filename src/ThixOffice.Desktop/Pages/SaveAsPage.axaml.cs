@@ -10,7 +10,11 @@ using ThixOffice.Desktop.Shell;
 
 namespace ThixOffice.Desktop.Pages;
 
-/// <summary>Datei › Speichern unter: the document's place and format, "Durchsuchen", and recent folders as starting points.</summary>
+/// <summary>
+/// Datei › Speichern unter: the places "Zuletzt verwendet" (recent folders as starting points of the system's dialog), "ThixDrive"
+/// (<see cref="DriveBrowser"/> in its save mode) and "Dieser PC" (the document's place and format, Durchsuchen). A ThixDrive document
+/// starts in ThixDrive, any other in "Zuletzt verwendet".
+/// </summary>
 public partial class SaveAsPage : UserControl
 {
     private const int FolderCount = 6;
@@ -29,19 +33,55 @@ public partial class SaveAsPage : UserControl
         _window = window;
         var document = window.Document;
         NameText.Text = DocumentService.SuggestedFileName(document);
-        LocationText.Text = document.FilePath is { } path ? Path.GetDirectoryName(path) : "Noch nicht gespeichert";
+        LocationText.Text = document.IsInDrive ? document.LocationText : document.FilePath is { } path ? Path.GetDirectoryName(path) : "Noch nicht gespeichert";
         var type = document.FileType ?? AppInfo.Definition.SaveType;
         FormatText.Text = $"{type.Description} ({type.Extension})";
 
         var folders = RecentDocuments.RecentFolders(FolderCount);
-        FoldersSection.IsVisible = folders.Count > 0;
-        Folders.ItemsSource = folders.Select(FolderButton).ToList();
+        NoFoldersText.IsVisible = folders.Count == 0;
+        Folders.ItemsSource = folders.Select(folder => FolderButton(folder, $"Speichern in {folder}", () => SaveInAsync(folder))).ToList();
+
+        DrivePlaceItem.IsVisible = CloudService.IsAvailable;
+        Places.SelectionChanged += (_, _) => ShowPlace(ReferenceEquals(Places.SelectedItem, DrivePlaceItem) ? DocumentPlace.Drive
+            : ReferenceEquals(Places.SelectedItem, ComputerPlaceItem) ? DocumentPlace.Computer : DocumentPlace.Recent);
+        ShowPlace(document.IsInDrive ? DocumentPlace.Drive : DocumentPlace.Recent);
     }
 
     /// <summary>The folders offered (tests, snapshots).</summary>
     public IReadOnlyList<string> FolderPaths => (Folders.ItemsSource as IEnumerable<Button>)?.Select(button => (string)button.Tag!).ToList() ?? [];
 
-    private Button FolderButton(string folder)
+    /// <summary>The place shown.</summary>
+    public DocumentPlace Place { get; private set; }
+
+    /// <summary>The ThixDrive place once it was shown (tests, snapshots).</summary>
+    public DriveBrowser? Drive => DrivePlace.Content as DriveBrowser;
+
+    /// <summary>Shows a place (the list of places follows).</summary>
+    public void ShowPlace(DocumentPlace place)
+    {
+        if (place == DocumentPlace.Drive && !DrivePlaceItem.IsVisible)
+        {
+            place = DocumentPlace.Recent;
+        }
+
+        Place = place;
+        Places.SelectedItem = place switch
+        {
+            DocumentPlace.Drive => DrivePlaceItem,
+            DocumentPlace.Computer => ComputerPlaceItem,
+            _ => RecentPlaceItem,
+        };
+        RecentPlace.IsVisible = place == DocumentPlace.Recent;
+        ComputerPlace.IsVisible = place == DocumentPlace.Computer;
+        DrivePlace.IsVisible = place == DocumentPlace.Drive;
+        if (place == DocumentPlace.Drive && DrivePlace.Content is null && _window is not null)
+        {
+            DrivePlace.Content = new DriveBrowser(_window, DriveBrowserMode.Save);
+        }
+    }
+
+    /// <summary>A folder as a row to click (name, full path, folder icon) – recent folders of Öffnen and Speichern unter.</summary>
+    internal static Button FolderButton(string folder, string automationName, Func<Task> click)
     {
         var name = new TextBlock { Text = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar)) is { Length: > 0 } leaf ? leaf : folder, FontWeight = Avalonia.Media.FontWeight.SemiBold };
         var full = new TextBlock { Text = folder, TextTrimming = Avalonia.Media.TextTrimming.PrefixCharacterEllipsis }.Use(TextBlock.ForegroundProperty, "Mat.TextMuted");
@@ -58,8 +98,8 @@ public partial class SaveAsPage : UserControl
             MinWidth = 420,
             Padding = new Thickness(10, 8),
         };
-        AutomationProperties.SetName(button, $"Speichern in {folder}");
-        button.Click += async (_, _) => await SaveInAsync(folder);
+        AutomationProperties.SetName(button, automationName);
+        button.Click += async (_, _) => await click();
         return button;
     }
 

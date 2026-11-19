@@ -51,8 +51,13 @@ public sealed class OfficeWindow : MatWindow
     private readonly TextBlock _documentName = new() { FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 260 };
     private readonly Ellipse _unsavedMarker = new() { Width = 8, Height = 8, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 1, 0, 0) };
     private readonly DispatcherTimer _recoveryTimer = new();
+    private readonly DispatcherTimer _uploadRetryTimer = new() { Interval = TimeSpan.FromSeconds(30) };
+    private readonly CloudIndicator _cloudIndicator = new();
     private readonly List<(KeyGesture Gesture, OfficeCommand Command)> _shortcuts = [];
     private OfficeEditor _editor;
+    private Task<bool>? _upload;
+    private DriveSaveResult? _conflict;
+    private bool _driveMessageShown;
     private bool _closeConfirmed;
     private bool _isAsking;
     private bool _keepRecovery;
@@ -144,10 +149,15 @@ public sealed class OfficeWindow : MatWindow
         _recoveryTimer.Tick += (_, _) => WriteRecovery();
         ConfigureRecoveryTimer(settings);
         SettingsService.Changed += OnSettingsChanged;
+        CloudService.StatusChanged += OnCloudStatusChanged;
+        _cloudIndicator.Click += async (_, _) => await OnCloudIndicatorClickAsync();
+        _uploadRetryTimer.Tick += async (_, _) => await RetryUploadQuietlyAsync();
         Closed += (_, _) =>
         {
             SettingsService.Changed -= OnSettingsChanged;
+            CloudService.StatusChanged -= OnCloudStatusChanged;
             _recoveryTimer.Stop();
+            _uploadRetryTimer.Stop();
             _editor.Detach();
             Document.Changed -= OnDocumentChanged;
         };
@@ -194,6 +204,12 @@ public sealed class OfficeWindow : MatWindow
     /// <summary>The message under the ribbon (a recovered document, a problem), for tests.</summary>
     public InfoBar MessageBar => _messageBar;
 
+    /// <summary>The state of ThixCloud and of a ThixDrive document at the right of the title bar.</summary>
+    public CloudIndicator CloudIndicator => _cloudIndicator;
+
+    /// <summary>The upload that runs or ran last (tests, closing waits for it).</summary>
+    public Task<bool>? Upload => _upload;
+
     /// <summary>
     /// Runs a command from any control of a document window (the ribbon, the search, a page) and shows a refusal of the
     /// business layer in a message; false when it could not run.
@@ -223,6 +239,11 @@ public sealed class OfficeWindow : MatWindow
     /// <summary>"Speichern": into the document's file, or "Speichern unter" when it has none. True when it is saved.</summary>
     public async Task<bool> SaveAsync()
     {
+        if (Document.IsInDrive)
+        {
+            return await SaveToDriveAsync(() => DriveService.SaveAsync(Document));
+        }
+
         if (Document.FilePath is null)
         {
             return await SaveAsAsync();
@@ -230,6 +251,194 @@ public sealed class OfficeWindow : MatWindow
 
         return await GuardAsync("Speichern", () => DocumentService.Save(Document));
     }
+
+    /// <summary>
+    /// "Speichern unter" › ThixDrive: the document as <paramref name="fileName"/> into a folder of the Drive (null: the top). A taken name
+    /// asks "Ersetzen?"; false when it was not saved (the person chose another name). Refusals (a bad name, offline) are thrown for
+    /// the page to show at its field.
+    /// </summary>
+    public async Task<bool> SaveIntoDriveAsync(long? folderId, string fileName)
+    {
+        var result = await DriveService.SaveAsAsync(Document, folderId, fileName);
+        if (result.Outcome == DriveSaveOutcome.NameTaken)
+        {
+            if (!await DriveDialogs.AskReplaceAsync(this, DriveService.TargetName(fileName)))
+            {
+                return false;
+            }
+
+            result = await DriveService.SaveAsAsync(Document, folderId, fileName, result.Current);
+        }
+
+        if (result.Outcome == DriveSaveOutcome.ChangedMeanwhile)
+        {
+            throw new BusinessException($"{result.Message} Bitte versuchen Sie es noch einmal.");
+        }
+
+        ShowDriveMessage(null);
+        return result.IsUploaded;
+    }
+
+    /// <summary>Uploads a ThixDrive document that was saved but not uploaded (the title bar's "Nicht hochgeladen", the timer, closing).</summary>
+    public Task<bool> RetryUploadAsync() =>
+        Document.IsInDrive ? SaveToDriveAsync(() => DriveService.UploadAsync(Document)) : Task.FromResult(true);
+
+    /// <summary>The question after a conflict (also from the title bar's "Konflikt"): Als Kopie speichern, Später entscheiden, Überschreiben.</summary>
+    public async Task<bool> ResolveConflictAsync()
+    {
+        if (_conflict is not { } conflict || Document.Drive is not { } drive)
+        {
+            return true;
+        }
+
+        switch (await DriveDialogs.AskConflictAsync(this, drive.Name, conflict.Message))
+        {
+            case DriveConflictChoice.SaveCopy:
+                return await SaveToDriveAsync(() => DriveService.SaveCopyAsync(Document));
+            case DriveConflictChoice.Overwrite:
+                return await SaveToDriveAsync(() => DriveService.OverwriteAsync(Document, conflict.Current));
+            default:
+                ShowDriveMessage($"„{drive.Name}“ ist auf diesem Computer gespeichert. Die Fassung in ThixDrive wurde inzwischen geändert – „Konflikt“ oben rechts fragt erneut.");
+                return true;
+        }
+    }
+
+    /// <summary>
+    /// Runs a save into ThixDrive (one at a time) and follows its outcome: uploaded – done; not uploaded – a message, the retry
+    /// timer; changed in between – the conflict question. True when the document is saved (here at least).
+    /// </summary>
+    private async Task<bool> SaveToDriveAsync(Func<Task<DriveSaveResult>> save)
+    {
+        if (_upload is { IsCompleted: false } running)
+        {
+            await running;
+        }
+
+        _conflict = null;
+        var task = RunDriveSaveAsync(save);
+        _upload = task;
+        var saved = await task;
+        return _conflict is not null && Document.DriveState == DriveSyncState.Conflict ? await ResolveConflictAsync() : saved;
+    }
+
+    private async Task<bool> RunDriveSaveAsync(Func<Task<DriveSaveResult>> save)
+    {
+        DriveSaveResult result;
+        try
+        {
+            result = await save();
+        }
+        catch (BusinessException exception)
+        {
+            RefreshDocumentState();
+            await QuestionDialog.ShowMessageAsync(this, "Hochladen nicht möglich", exception.Message);
+            UpdateRetryTimer();
+            return !Document.IsDirty;
+        }
+
+        RefreshDocumentState();
+        switch (result.Outcome)
+        {
+            case DriveSaveOutcome.ChangedMeanwhile:
+                _conflict = result; // asked once this upload is over (the answer starts the next one)
+                UpdateRetryTimer();
+                return true;
+            case DriveSaveOutcome.NotUploaded:
+                ShowDriveMessage(result.Message, InfoSeverity.Warning);
+                UpdateRetryTimer();
+                return true;
+            default:
+                _conflict = null;
+                ShowDriveMessage(null);
+                UpdateRetryTimer();
+                return true;
+        }
+    }
+
+    /// <summary>The timer tries a waiting upload again every 30 seconds while signed in (never a conflict: the person decides that).</summary>
+    private async Task RetryUploadQuietlyAsync()
+    {
+        if (Document.DriveState != DriveSyncState.NotUploaded || _upload is { IsCompleted: false } || !CloudService.IsConnected)
+        {
+            return;
+        }
+
+        var task = QuietUploadAsync();
+        _upload = task;
+        await task;
+    }
+
+    private async Task<bool> QuietUploadAsync()
+    {
+        try
+        {
+            var result = await DriveService.UploadAsync(Document);
+            if (result.Outcome == DriveSaveOutcome.ChangedMeanwhile)
+            {
+                _conflict = result;
+            }
+            else if (result.IsUploaded)
+            {
+                ShowDriveMessage(null);
+            }
+        }
+        catch (BusinessException exception)
+        {
+            ShowDriveMessage(exception.Message, InfoSeverity.Warning);
+        }
+
+        UpdateRetryTimer();
+        RefreshDocumentState();
+        return Document.DriveState == DriveSyncState.Uploaded;
+    }
+
+    private void UpdateRetryTimer()
+    {
+        if (Document.DriveState == DriveSyncState.NotUploaded)
+        {
+            _uploadRetryTimer.Start();
+        }
+        else
+        {
+            _uploadRetryTimer.Stop();
+        }
+    }
+
+    /// <summary>The message bar for the upload (null hides it again – but only a message the upload put there).</summary>
+    private void ShowDriveMessage(string? text, InfoSeverity severity = InfoSeverity.Info)
+    {
+        if (text is null)
+        {
+            if (_driveMessageShown)
+            {
+                ShowMessage(null);
+                _driveMessageShown = false;
+            }
+
+            return;
+        }
+
+        ShowMessage(text, severity, isClosable: true);
+        _driveMessageShown = true;
+    }
+
+    private async Task OnCloudIndicatorClickAsync()
+    {
+        switch (_cloudIndicator.Kind)
+        {
+            case CloudIndicatorKind.NotUploaded:
+                await RetryUploadAsync();
+                break;
+            case CloudIndicatorKind.Conflict:
+                await ResolveConflictAsync();
+                break;
+            default:
+                ShowSettings(SettingsPage.CloudTab);
+                break;
+        }
+    }
+
+    private void OnCloudStatusChanged(object? sender, CloudStatus status) => Ui.Post(RefreshDocumentState);
 
     /// <summary>"Speichern unter": the system's dialog, then the save. True when it is saved.</summary>
     public async Task<bool> SaveAsAsync()
@@ -336,12 +545,14 @@ public sealed class OfficeWindow : MatWindow
         var search = Search;
         search.VerticalAlignment = VerticalAlignment.Center;
         search.HorizontalAlignment = HorizontalAlignment.Center;
-        var center = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*") };
+        var center = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto") };
         Grid.SetColumn(name, 1);
         Grid.SetColumn(search, 2);
+        Grid.SetColumn(_cloudIndicator, 3);
         center.Children.Add(QuickAccess);
         center.Children.Add(name);
         center.Children.Add(search);
+        center.Children.Add(_cloudIndicator);
         return center;
     }
 
@@ -358,8 +569,8 @@ public sealed class OfficeWindow : MatWindow
         {
             Icon = "folder-open",
             Shortcut = "Ctrl+O",
-            Description = "Öffnet ein Dokument – zuletzt verwendet oder auf diesem Computer.",
-            Keywords = ["laden", "datei", "zuletzt"],
+            Description = "Öffnet ein Dokument – zuletzt verwendet, aus ThixDrive oder auf diesem Computer.",
+            Keywords = ["laden", "datei", "zuletzt", "cloud", "thixdrive"],
         });
         Commands.Add(new OfficeCommand(CommonCommandIds.Save, "Speichern", SaveAsync)
         {
@@ -509,11 +720,17 @@ public sealed class OfficeWindow : MatWindow
         {
             ShowMessage(warning, InfoSeverity.Warning, isClosable: true);
         }
+        else if (document.DriveState == DriveSyncState.NotUploaded)
+        {
+            ShowDriveMessage("Dieses Dokument hat Änderungen, die noch nicht in ThixDrive sind. Sie werden hochgeladen, sobald die ThixCloud erreichbar ist.", InfoSeverity.Warning);
+            Dispatcher.UIThread.Post(() => _ = RetryUploadQuietlyAsync(), DispatcherPriority.Background);
+        }
         else
         {
             ShowMessage(null);
         }
 
+        UpdateRetryTimer();
         RefreshDocumentState();
     }
 
@@ -523,8 +740,9 @@ public sealed class OfficeWindow : MatWindow
     {
         _documentName.Text = Document.Title;
         _unsavedMarker.IsVisible = Document.IsDirty;
-        ToolTip.SetTip(_documentName, Document.FilePath ?? "Noch nicht gespeichert");
+        ToolTip.SetTip(_documentName, Document.LocationText);
         Title = $"{(Document.IsDirty ? "● " : "")}{Document.Title} – {AppInfo.ProductName}";
+        _cloudIndicator.Refresh(Document, CloudService.Status, AppInfo.Definition.HasCloud && !AccessPolicy.IsCloudDisabled);
         Commands.Invalidate();
         _editor.UpdateStatus(StatusBar);
     }
@@ -601,7 +819,7 @@ public sealed class OfficeWindow : MatWindow
 
     private async void OnClosing(object? sender, WindowClosingEventArgs e)
     {
-        if (_closeConfirmed || !Document.IsDirty)
+        if (_closeConfirmed || (!Document.IsDirty && !HasUploadToFinish))
         {
             Finish();
             return;
@@ -617,13 +835,22 @@ public sealed class OfficeWindow : MatWindow
         try
         {
             Backstage.Close();
-            var choice = await SaveChangesDialog.AskAsync(this, Document.Title);
-            var close = choice switch
+            var close = true;
+            if (Document.IsDirty)
             {
-                SaveChoice.Save => await SaveAsync(),
-                SaveChoice.DontSave => true,
-                _ => false,
-            };
+                close = await SaveChangesDialog.AskAsync(this, Document.Title) switch
+                {
+                    SaveChoice.Save => await SaveAsync(),
+                    SaveChoice.DontSave => true,
+                    _ => false,
+                };
+            }
+
+            if (close && HasUploadToFinish)
+            {
+                close = await FinishUploadAsync();
+            }
+
             if (close)
             {
                 _closeConfirmed = true;
@@ -634,6 +861,44 @@ public sealed class OfficeWindow : MatWindow
         {
             _isAsking = false;
         }
+    }
+
+    /// <summary>A ThixDrive document whose save is being uploaded or waits (saved here, not in the Drive yet).</summary>
+    private bool HasUploadToFinish => Document.IsInDrive && !Document.IsDirty &&
+                                      (_upload is { IsCompleted: false } || Document.DriveState is DriveSyncState.NotUploaded or DriveSyncState.Conflict);
+
+    /// <summary>
+    /// Closing a ThixDrive document: a running upload is waited for; one that waits (offline, conflict) is asked about – Erneut
+    /// versuchen, Abbrechen, Trotzdem schließen (the working copy keeps the changes; they go up when the document is opened again).
+    /// </summary>
+    private async Task<bool> FinishUploadAsync()
+    {
+        if (_upload is { IsCompleted: false } running)
+        {
+            ShowMessage("Das Dokument wird noch in ThixDrive hochgeladen – das Fenster schließt danach.", InfoSeverity.Info);
+            await running;
+        }
+
+        while (Document.DriveState is DriveSyncState.NotUploaded or DriveSyncState.Conflict)
+        {
+            var isConflict = Document.DriveState == DriveSyncState.Conflict;
+            var message = isConflict ? "Die Fassung in ThixDrive wurde inzwischen geändert." : "";
+            switch (await DriveDialogs.AskPendingUploadAsync(this, Document.Drive!.Name, message))
+            {
+                case PendingUploadChoice.Retry when isConflict:
+                    await ResolveConflictAsync();
+                    break;
+                case PendingUploadChoice.Retry:
+                    await RetryUploadAsync();
+                    break;
+                case PendingUploadChoice.CloseAnyway:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>The window really closes: remember its size, drop the recovery file (unless the setup asked to keep it).</summary>

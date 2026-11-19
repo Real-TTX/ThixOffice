@@ -138,6 +138,11 @@ public static class OfficeSelfTest
             return "";
         });
 
+        if (definition.HasCloud)
+        {
+            await Check("ThixCloud and ThixDrive (a cloud in memory)", () => CheckCloudAsync(app, folder));
+        }
+
         foreach (var (name, check) in app.SelfTestChecks())
         {
             await Check(name, check);
@@ -159,6 +164,55 @@ public static class OfficeSelfTest
         }
 
         return failures == 0 ? 0 : 1;
+    }
+
+    /// <summary>
+    /// Signs in at a ThixCloud in memory (the JSON of the contract, the token protected for real), saves the app's sample document into
+    /// ThixDrive, opens it again in a window, saves a new version with If-Match, meets a version saved in between and overwrites it,
+    /// saves while offline (kept in the working copy) and uploads it afterwards, signs out.
+    /// </summary>
+    private static async Task<string> CheckCloudAsync(OfficeApplication app, string folder)
+    {
+        var cloud = Core.Platform.SampleCloud.WithSampleDrive();
+        Core.Business.CloudService.HandlerForTests = () => cloud;
+        try
+        {
+            await CloudService.ConnectAsync(Core.Platform.SampleCloud.ServerUrl, Core.Platform.SampleCloud.UserName, Core.Platform.SampleCloud.Password, "SELBSTTEST");
+            Ensure(CloudService.IsConnected && await CloudService.RefreshAccountAsync() is { UserName: Core.Platform.SampleCloud.UserName }, "not signed in");
+            var listing = await DriveService.ListAsync(null);
+            Ensure(listing.Items.Count > 0, "the Drive lists nothing");
+
+            var document = app.CreateSampleDocument(Path.Combine(folder, "Selbsttest-Drive" + app.Definition.SaveType.Extension));
+            var saved = await DriveService.SaveAsAsync(document, listing.Items.First(item => item.Kind == MatCloud.Contract.Drive.DriveItemKind.Folder).Id, "Selbsttest");
+            Ensure(saved.IsUploaded && document.Drive is not null, $"save as into ThixDrive: {saved.Message}");
+            var itemId = document.Drive!.ItemId;
+            var workingCopy = await File.ReadAllBytesAsync(document.FilePath!);
+            Ensure(cloud.ContentOf(itemId).SequenceEqual(workingCopy), "the Drive has other bytes than the working copy");
+
+            var window = await app.OpenFromDriveAsync(itemId);
+            Ensure(window is { Document.IsInDrive: true, Document.IsDirty: false }, "the ThixDrive document did not open in a window");
+            await Settle();
+            var opened = window!.Document;
+            Ensure((await DriveService.SaveAsync(opened)).IsUploaded, "saving a new version failed");
+
+            cloud.SaveElsewhere(itemId, cloud.ContentOf(itemId));
+            var conflict = await DriveService.SaveAsync(opened);
+            Ensure(conflict.Outcome == DriveSaveOutcome.ChangedMeanwhile, "a version saved in between was not noticed");
+            Ensure((await DriveService.OverwriteAsync(opened, conflict.Current)).IsUploaded, "overwrite failed");
+
+            cloud.IsOffline = true;
+            Ensure((await DriveService.SaveAsync(opened)).Outcome == DriveSaveOutcome.NotUploaded && DriveService.PendingUploads().Count == 1, "offline save not kept");
+            cloud.IsOffline = false;
+            Ensure((await DriveService.UploadAsync(opened)).IsUploaded && DriveService.PendingUploads().Count == 0, "the waiting upload did not go up");
+            window.Close();
+            await Settle();
+            return $"{listing.Total} items, {cloud.Requests.Count} requests";
+        }
+        finally
+        {
+            await CloudService.DisconnectAsync();
+            CloudService.HandlerForTests = null;
+        }
     }
 
     private static void Ensure(bool condition, string message)

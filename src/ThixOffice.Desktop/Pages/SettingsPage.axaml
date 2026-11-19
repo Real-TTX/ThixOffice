@@ -75,6 +75,45 @@
         </ScrollViewer>
       </TabItem>
 
+      <!-- ===== Cloud (ThixCloud and ThixDrive); hidden for an app without the cloud ===== -->
+      <TabItem x:Name="CloudTabItem" Header="Cloud">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel MaxWidth="760" HorizontalAlignment="Left" Margin="0,0,16,0">
+            <TextBlock x:Name="CloudIntro" Theme="{StaticResource MatText.Muted}" TextWrapping="Wrap" Margin="0,0,0,16" />
+            <controls:InfoBar x:Name="CloudMessage" Margin="0,0,0,12" />
+
+            <!-- Not signed in: the sign-in (address, device name, browser first, password second) -->
+            <controls:CloudSignInPanel x:Name="CloudSignIn" IsCompact="False" />
+
+            <!-- Signed in: the account, the device, the state, the space; Im Browser öffnen, and set apart Abmelden -->
+            <StackPanel x:Name="CloudConnected" IsVisible="False" Spacing="16">
+              <Border Theme="{StaticResource MatCard}" MaxWidth="560" HorizontalAlignment="Left">
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                  <TextBlock Text="ThixCloud" Theme="{StaticResource MatText.Muted}" Margin="0,4,24,4" />
+                  <SelectableTextBlock Grid.Column="1" x:Name="CloudServerText" Margin="0,4" />
+                  <TextBlock Grid.Row="1" Text="Konto" Theme="{StaticResource MatText.Muted}" Margin="0,4,24,4" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" x:Name="CloudAccountText" Margin="0,4" />
+                  <TextBlock Grid.Row="2" Text="Dieses Gerät" Theme="{StaticResource MatText.Muted}" Margin="0,4,24,4" />
+                  <TextBlock Grid.Row="2" Grid.Column="1" x:Name="CloudDeviceText" Margin="0,4" />
+                  <TextBlock Grid.Row="3" Text="Status" Theme="{StaticResource MatText.Muted}" Margin="0,4,24,4" />
+                  <TextBlock Grid.Row="3" Grid.Column="1" x:Name="CloudStateText" Margin="0,4" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="4" x:Name="CloudQuotaLabel" Text="ThixDrive" Theme="{StaticResource MatText.Muted}" Margin="0,4,24,4" IsVisible="False" />
+                  <TextBlock Grid.Row="4" Grid.Column="1" x:Name="CloudQuotaText" Margin="0,4" IsVisible="False" />
+                </Grid>
+              </Border>
+              <controls:ActionBar>
+                <Button Theme="{StaticResource MatButton.Primary}" Click="OnOpenCloudClick">
+                  <controls:IconLabel Icon="external" Text="ThixDrive im Browser öffnen" />
+                </Button>
+                <Button x:Name="DisconnectButton" Theme="{StaticResource MatButton.Danger}" controls:ActionBar.Separated="True" Click="OnDisconnectClick">
+                  <controls:IconLabel Icon="logout" Text="Abmelden" />
+                </Button>
+              </controls:ActionBar>
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
       <!-- ===== Updates ===== -->
       <TabItem x:Name="UpdatesTabItem" Header="Updates">
         <ScrollViewer VerticalScrollBarVisibility="Auto">

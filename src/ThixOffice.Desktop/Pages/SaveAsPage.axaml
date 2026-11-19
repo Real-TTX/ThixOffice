@@ -4,8 +4,9 @@
              xmlns:controls="using:ThixOffice.Desktop.Controls"
              x:Class="ThixOffice.Desktop.Pages.SaveAsPage">
   <!--
-    Datei › Speichern unter: where the document is now, "Durchsuchen" (the system's dialog, starting in the document's
-    folder or the default save folder) and the folders of recently used documents as quick starts.
+    Datei › Speichern unter with places like Word: "Zuletzt verwendet" (the folders of recently used documents: the system's dialog
+    starts there), "ThixDrive" (the DriveBrowser in its save mode: folders, file name and type, Speichern; hidden for an app without
+    the cloud or under the policy DisableCloud) and "Dieser PC" (where the document is now, its format, Durchsuchen).
   -->
   <UserControl.Styles>
     <Style Selector="Button.tile">
@@ -14,44 +15,72 @@
       <Setter Property="HorizontalContentAlignment" Value="Left" />
     </Style>
   </UserControl.Styles>
-  <ScrollViewer VerticalScrollBarVisibility="Auto">
-    <StackPanel Margin="32,26,32,26" Spacing="16" HorizontalAlignment="Left" MaxWidth="900">
-      <TextBlock Text="Speichern unter" Theme="{StaticResource MatText.PageTitle}" />
+  <DockPanel Margin="32,26,32,22">
+    <TextBlock DockPanel.Dock="Top" Text="Speichern unter" Theme="{StaticResource MatText.PageTitle}" Margin="0,0,0,14" />
 
-      <Border Theme="{StaticResource MatCard}" HorizontalAlignment="Left" MinWidth="420">
-        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto">
-          <TextBlock Text="Dokument" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
-          <TextBlock Grid.Column="1" x:Name="NameText" FontWeight="SemiBold" Margin="0,3" />
-          <TextBlock Grid.Row="1" Text="Speicherort" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
-          <SelectableTextBlock Grid.Row="1" Grid.Column="1" x:Name="LocationText" TextWrapping="Wrap" Margin="0,3" />
-          <TextBlock Grid.Row="2" Text="Format" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
-          <TextBlock Grid.Row="2" Grid.Column="1" x:Name="FormatText" Margin="0,3" />
-        </Grid>
-      </Border>
+    <ListBox x:Name="Places" DockPanel.Dock="Top" Theme="{StaticResource MatList}" ItemContainerTheme="{StaticResource MatChoiceRow}"
+             AutomationProperties.Name="Orte" HorizontalAlignment="Left" Margin="0,0,0,14">
+      <ListBox.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Orientation="Horizontal" Spacing="8" />
+        </ItemsPanelTemplate>
+      </ListBox.ItemsPanel>
+      <ListBoxItem x:Name="RecentPlaceItem" AutomationProperties.Name="Zuletzt verwendet">
+        <controls:IconLabel Icon="clock" Text="Zuletzt verwendet" />
+      </ListBoxItem>
+      <ListBoxItem x:Name="DrivePlaceItem" AutomationProperties.Name="ThixDrive">
+        <controls:IconLabel Icon="cloud" Text="ThixDrive" />
+      </ListBoxItem>
+      <ListBoxItem x:Name="ComputerPlaceItem" AutomationProperties.Name="Dieser PC">
+        <controls:IconLabel Icon="monitor" Text="Dieser PC" />
+      </ListBoxItem>
+    </ListBox>
 
-      <WrapPanel ItemSpacing="16" LineSpacing="16">
-        <Button x:Name="BrowseButton" Classes="tile" Click="OnBrowseClick" AutomationProperties.Name="Durchsuchen">
-          <Grid ColumnDefinitions="Auto,*">
-            <mat:MatIcon Icon="folder-open" Size="28" Foreground="{DynamicResource Mat.Accent}" Margin="0,0,14,0" VerticalAlignment="Center" />
-            <StackPanel Grid.Column="1" Spacing="2">
-              <TextBlock Text="Durchsuchen" FontWeight="SemiBold" />
-              <TextBlock Text="Ort und Namen auf diesem Computer wählen" Theme="{StaticResource MatText.Muted}" />
-            </StackPanel>
-          </Grid>
-        </Button>
-      </WrapPanel>
+    <Panel>
+      <!-- Zuletzt verwendet: folders as starting points -->
+      <ScrollViewer x:Name="RecentPlace" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="8" HorizontalAlignment="Left" MaxWidth="900">
+          <TextBlock Text="Zuletzt verwendete Ordner" Theme="{StaticResource MatText.SectionTitle}" Margin="0,0,0,2" />
+          <TextBlock x:Name="NoFoldersText" Theme="{StaticResource MatText.Muted}" TextWrapping="Wrap" IsVisible="False"
+                     Text="Noch keine Ordner. Wo Sie Dokumente öffnen oder speichern, erscheint hier." />
+          <ItemsControl x:Name="Folders">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Spacing="6" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+          </ItemsControl>
+        </StackPanel>
+      </ScrollViewer>
 
-      <StackPanel x:Name="FoldersSection" Spacing="8">
-        <TextBlock Text="Zuletzt verwendete Ordner" Theme="{StaticResource MatText.SectionTitle}" Margin="0,8,0,2" />
-        <ItemsControl x:Name="Folders">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Spacing="6" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-        </ItemsControl>
-      </StackPanel>
-      <controls:InfoBar x:Name="Message" />
-    </StackPanel>
-  </ScrollViewer>
+      <!-- ThixDrive: the browser is made when the place is chosen -->
+      <ContentControl x:Name="DrivePlace" IsVisible="False" />
+
+      <!-- Dieser PC: where the document is now, Durchsuchen -->
+      <ScrollViewer x:Name="ComputerPlace" IsVisible="False" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="16" HorizontalAlignment="Left" MaxWidth="900">
+          <Border Theme="{StaticResource MatCard}" HorizontalAlignment="Left" MinWidth="420">
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto">
+              <TextBlock Text="Dokument" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
+              <TextBlock Grid.Column="1" x:Name="NameText" FontWeight="SemiBold" Margin="0,3" />
+              <TextBlock Grid.Row="1" Text="Speicherort" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
+              <SelectableTextBlock Grid.Row="1" Grid.Column="1" x:Name="LocationText" TextWrapping="Wrap" Margin="0,3" />
+              <TextBlock Grid.Row="2" Text="Format" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
+              <TextBlock Grid.Row="2" Grid.Column="1" x:Name="FormatText" Margin="0,3" />
+            </Grid>
+          </Border>
+          <Button x:Name="BrowseButton" Classes="tile" Click="OnBrowseClick" AutomationProperties.Name="Durchsuchen" HorizontalAlignment="Left">
+            <Grid ColumnDefinitions="Auto,*">
+              <mat:MatIcon Icon="folder-open" Size="28" Foreground="{DynamicResource Mat.Accent}" Margin="0,0,14,0" VerticalAlignment="Center" />
+              <StackPanel Grid.Column="1" Spacing="2">
+                <TextBlock Text="Durchsuchen" FontWeight="SemiBold" />
+                <TextBlock Text="Ort und Namen auf diesem Computer wählen" Theme="{StaticResource MatText.Muted}" />
+              </StackPanel>
+            </Grid>
+          </Button>
+          <controls:InfoBar x:Name="Message" />
+        </StackPanel>
+      </ScrollViewer>
+    </Panel>
+  </DockPanel>
 </UserControl>

@@ -8,18 +8,29 @@ using ThixOffice.Desktop.Shell;
 
 namespace ThixOffice.Desktop.Pages;
 
-/// <summary>A row of "Zuletzt verwendet" as the list shows it.</summary>
-public sealed record RecentRow(string Path, string FileName, string Folder, string State, bool IsPinned, bool Exists)
+/// <summary>A row of "Zuletzt verwendet" as the list shows it (a ThixDrive document has a cloud for its icon).</summary>
+public sealed record RecentRow(string Path, string FileName, string Folder, string State, bool IsPinned, bool Exists, bool IsInDrive = false)
 {
-    public string Icon => Exists ? "file-text" : "alert";
+    public string Icon => !Exists ? "alert" : IsInDrive ? "cloud" : "file-text";
+}
+
+/// <summary>The places of Öffnen and Speichern unter.</summary>
+public enum DocumentPlace
+{
+    Recent,
+    Drive,
+    Computer,
 }
 
 /// <summary>
-/// Datei › Öffnen: "Durchsuchen" and "Zuletzt verwendet" (search, sort, pin, show in the folder, remove from the list,
-/// remove the ones that are gone). Every change of the list goes through <see cref="RecentDocuments"/>.
+/// Datei › Öffnen: the places "Zuletzt verwendet" (search, sort, pin, show in the folder, remove from the list, remove the ones that
+/// are gone; ThixDrive documents open from the Drive), "ThixDrive" (<see cref="DriveBrowser"/>) and "Dieser PC" (Durchsuchen, recent
+/// folders). Every change of the list goes through <see cref="RecentDocuments"/>.
 /// </summary>
 public partial class OpenPage : UserControl
 {
+    private const int FolderCount = 6;
+
     private readonly OfficeWindow? _window;
 
     /// <summary>For the XAML previewer.</summary>
@@ -47,14 +58,53 @@ public partial class OpenPage : UserControl
         };
         RecentDocuments.Changed += OnRecentChanged;
         DetachedFromVisualTree += (_, _) => RecentDocuments.Changed -= OnRecentChanged;
+        DrivePlaceItem.IsVisible = CloudService.IsAvailable;
+        Places.SelectionChanged += (_, _) => ShowPlace(PlaceOf(Places.SelectedItem));
+        var folders = RecentDocuments.RecentFolders(FolderCount);
+        FoldersSection.IsVisible = folders.Count > 0;
+        Folders.ItemsSource = folders.Select(folder => SaveAsPage.FolderButton(folder, $"Öffnen aus {folder}", () => BrowseAsync(folder))).ToList();
         Refresh();
+        Places.SelectedItem = RecentPlaceItem;
     }
 
     /// <summary>The rows shown (tests).</summary>
     public IReadOnlyList<RecentRow> Rows { get; private set; } = [];
 
+    /// <summary>The place shown.</summary>
+    public DocumentPlace Place { get; private set; }
+
+    /// <summary>The ThixDrive place once it was shown (tests, snapshots).</summary>
+    public DriveBrowser? Drive => DrivePlace.Content as DriveBrowser;
+
     /// <summary>Chooses the row of <paramref name="path"/> (tests, snapshots).</summary>
     public void Select(string path) => List.SelectedItem = Rows.FirstOrDefault(row => row.Path == path);
+
+    /// <summary>Shows a place (the list of places follows).</summary>
+    public void ShowPlace(DocumentPlace place)
+    {
+        if (place == DocumentPlace.Drive && !DrivePlaceItem.IsVisible)
+        {
+            place = DocumentPlace.Recent;
+        }
+
+        Place = place;
+        Places.SelectedItem = place switch
+        {
+            DocumentPlace.Drive => DrivePlaceItem,
+            DocumentPlace.Computer => ComputerPlaceItem,
+            _ => RecentPlaceItem,
+        };
+        RecentPlace.IsVisible = place == DocumentPlace.Recent;
+        ComputerPlace.IsVisible = place == DocumentPlace.Computer;
+        DrivePlace.IsVisible = place == DocumentPlace.Drive;
+        if (place == DocumentPlace.Drive && DrivePlace.Content is null && _window is not null)
+        {
+            DrivePlace.Content = new DriveBrowser(_window, DriveBrowserMode.Open);
+        }
+    }
+
+    private DocumentPlace PlaceOf(object? item) =>
+        ReferenceEquals(item, DrivePlaceItem) ? DocumentPlace.Drive : ReferenceEquals(item, ComputerPlaceItem) ? DocumentPlace.Computer : DocumentPlace.Recent;
 
     private RecentRow? Selected => List.SelectedItem as RecentRow;
 
@@ -81,7 +131,8 @@ public partial class OpenPage : UserControl
         var selected = Selected;
         OpenButton.IsEnabled = selected is { Exists: true };
         PinButton.IsEnabled = selected is not null;
-        RevealButton.IsEnabled = selected is { Exists: true };
+        RevealButton.IsEnabled = selected is { Exists: true, IsInDrive: false };
+        RevealButton.IsVisible = selected is not { IsInDrive: true };
         RemoveButton.IsEnabled = selected is not null;
         PinLabel.Text = selected?.IsPinned == true ? "Lösen" : "Anheften";
     }
@@ -90,28 +141,45 @@ public partial class OpenPage : UserControl
         item.Document.Path,
         item.Document.FileName,
         item.Document.Folder,
-        item.Exists ? Ui.FormatDateTime(item.Document.LastOpened) : "Nicht gefunden",
+        item.Exists ? Ui.FormatDateTime(item.Document.LastOpened) : item.Document.IsInDrive ? "Nicht angemeldet" : "Nicht gefunden",
         item.Document.IsPinned,
-        item.Exists);
+        item.Exists,
+        item.Document.IsInDrive);
 
     private async Task OpenSelectedAsync()
     {
-        if (Selected is not { Exists: true } row || _window is null)
+        if (Selected is not { Exists: true } row || _window is null || RecentDocuments.Find(row.Path) is not { } entry)
         {
             return;
         }
 
-        _window.Backstage.Close();
-        await OfficeApplication.Instance.OpenFilesAsync([row.Path], _window);
-    }
-
-    private async void OnBrowseClick(object? sender, RoutedEventArgs e)
-    {
-        if (_window is not null)
+        if (!entry.IsInDrive)
         {
-            await _window.OpenWithDialogAsync();
+            _window.Backstage.Close();
+        }
+
+        if (await OfficeApplication.Instance.OpenRecentAsync(entry, _window) is not null)
+        {
+            _window.Backstage.Close();
         }
     }
+
+    private async Task BrowseAsync(string? folder)
+    {
+        if (_window is null)
+        {
+            return;
+        }
+
+        var files = await OfficeApplication.FileDialogs.PickFilesToOpenAsync(_window, folder ?? DocumentService.SuggestedFolder(_window.Document));
+        if (files.Count > 0)
+        {
+            _window.Backstage.Close();
+            await OfficeApplication.Instance.OpenFilesAsync(files, _window);
+        }
+    }
+
+    private async void OnBrowseClick(object? sender, RoutedEventArgs e) => await BrowseAsync(null);
 
     private async void OnOpenClick(object? sender, RoutedEventArgs e) => await OpenSelectedAsync();
 
@@ -125,7 +193,7 @@ public partial class OpenPage : UserControl
 
     private void OnRevealClick(object? sender, RoutedEventArgs e)
     {
-        if (Selected is { Exists: true } row)
+        if (Selected is { Exists: true, IsInDrive: false } row)
         {
             Ui.RevealFile(row.Path);
         }
@@ -136,7 +204,9 @@ public partial class OpenPage : UserControl
         if (Selected is { } row)
         {
             RecentDocuments.Remove(row.Path);
-            Message.Show($"„{row.FileName}“ steht nicht mehr in der Liste. Die Datei selbst bleibt, wo sie ist.", InfoSeverity.Info);
+            Message.Show(row.IsInDrive
+                ? $"„{row.FileName}“ steht nicht mehr in der Liste. In ThixDrive bleibt es, wo es ist."
+                : $"„{row.FileName}“ steht nicht mehr in der Liste. Die Datei selbst bleibt, wo sie ist.", InfoSeverity.Info);
         }
     });
 

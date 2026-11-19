@@ -231,7 +231,7 @@ internal sealed class SampleCloud : HttpMessageHandler
             case ("GET", DriveContract.Recent):
                 return Page(_recent.AsEnumerable().Reverse().Select(id => _items[id].Item).Where(item => !item.IsTrashed), query);
             case ("GET", DriveContract.Quota):
-                return Json(new DriveQuota(_items.Values.Sum(entry => (long)entry.Content.Length), 5L * 1024 * 1024 * 1024, 0, 0, 2L * 1024 * 1024 * 1024, DriveContract.MaxSimpleUploadBytes, DriveContract.ChunkBytes));
+                return Json(new DriveQuota(_items.Values.Sum(entry => entry.Item.Size), 5L * 1024 * 1024 * 1024, 0, 0, 2L * 1024 * 1024 * 1024, DriveContract.MaxSimpleUploadBytes, DriveContract.ChunkBytes));
             case ("POST", DriveContract.Folders):
                 var folder = Read<DriveFolderRequest>(body);
                 return Taken(folder.ParentId, folder.Name) is { } taken
