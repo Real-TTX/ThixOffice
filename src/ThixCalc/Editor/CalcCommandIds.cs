@@ -168,6 +168,14 @@ public static class CalcCommandIds
     public const string ZoomDialog = "calc.zoom";
     public const string ZoomSelection = "calc.zoomSelection";
 
+    // Inhalte einfügen …, Reihe …, Strg+Plus / Strg+Minus
+    public const string PasteSpecial = "calc.paste.special";
+    public const string FillSeries = "calc.fill.series";
+    public const string InsertByKey = "calc.cells.insertByKey";
+    public const string InsertByKeyPad = "calc.cells.insertByKeyPad";
+    public const string DeleteByKey = "calc.cells.deleteByKey";
+    public const string DeleteByKeyPad = "calc.cells.deleteByKeyPad";
+
     // Einfügen – Tabellen; Start – Als Tabelle formatieren (value: the style name)
     public const string InsertTable = "calc.table.insert";
     public const string InsertTableAlias = "calc.table.insertAlias";

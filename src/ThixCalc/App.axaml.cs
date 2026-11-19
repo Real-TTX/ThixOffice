@@ -59,6 +59,7 @@ public partial class App : OfficeApplication
         CalcPageCommands.Add(window);
         CalcChartCommands.Add(window);
         CalcTableCommands.Add(window);
+        CalcEditCommands.Add(window);
     }
 
     public override IEnumerable<BackstageItem> CreateBackstageItems(OfficeWindow window) => [CalcPrintPage.Item(window), CalcExportPage.Item(window)];

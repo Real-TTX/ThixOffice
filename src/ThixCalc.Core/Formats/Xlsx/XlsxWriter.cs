@@ -226,8 +226,15 @@ public static class XlsxWriter
             writer.WriteStartElement("sst", XlsxNamespaces.Main);
             writer.WriteAttributeString("count", context.StringUses.ToString(System.Globalization.CultureInfo.InvariantCulture));
             writer.WriteAttributeString("uniqueCount", context.Strings.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            foreach (var text in context.Strings)
+            for (var index = 0; index < context.Strings.Count; index++)
             {
+                var text = context.Strings[index];
+                if (context.RichXml.TryGetValue(index, out var rich))
+                {
+                    writer.WriteRaw(rich);
+                    continue;
+                }
+
                 writer.WriteStartElement("si", XlsxNamespaces.Main);
                 writer.WriteStartElement("t", XlsxNamespaces.Main);
                 if (text.Length > 0 && (char.IsWhiteSpace(text[0]) || char.IsWhiteSpace(text[^1])))
@@ -306,9 +313,29 @@ internal sealed class WriteContext(Workbook workbook, WorkbookPart workbookPart,
 
     public long StringUses { get; private set; }
 
-    public int StringIndex(string text)
+    /// <summary>The si elements of rich texts by string index (written as read).</summary>
+    public Dictionary<int, string> RichXml { get; } = [];
+
+    private readonly Dictionary<string, int> _richIndex = new(StringComparer.Ordinal);
+
+    /// <summary>The index of a shared string; <paramref name="richXml"/>: the text's formatted si (a string of its own).</summary>
+    public int StringIndex(string text, string? richXml = null)
     {
         StringUses++;
+        if (richXml is not null)
+        {
+            if (_richIndex.TryGetValue(richXml, out var richIndex))
+            {
+                return richIndex;
+            }
+
+            richIndex = Strings.Count;
+            Strings.Add(text);
+            RichXml[richIndex] = richXml;
+            _richIndex[richXml] = richIndex;
+            return richIndex;
+        }
+
         if (_stringIndex.TryGetValue(text, out var index))
         {
             return index;

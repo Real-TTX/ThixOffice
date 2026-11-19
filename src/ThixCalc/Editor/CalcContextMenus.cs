@@ -10,7 +10,7 @@ internal static class CalcContextMenus
     private static readonly OfficeCommandMenu.Submenu PasteSpecial = new("Inhalte einfügen", "paste",
     [
         CalcCommandIds.PasteValues, CalcCommandIds.PasteFormulas, CalcCommandIds.PasteFormats, CalcCommandIds.PasteValuesAndFormats,
-        CalcCommandIds.PasteNoBorders, CalcCommandIds.PasteTranspose,
+        CalcCommandIds.PasteNoBorders, CalcCommandIds.PasteTranspose, null, CalcCommandIds.PasteSpecial,
     ]);
 
     private static readonly OfficeCommandMenu.Submenu SortMenu = new("Sortieren", "sort",

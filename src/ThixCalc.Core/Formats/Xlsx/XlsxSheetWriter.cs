@@ -566,7 +566,8 @@ internal static class XlsxSheetWriter
                 writer.WriteElementString("v", XlsxNamespaces.Main, value.Number.ToString("R", CultureInfo.InvariantCulture));
                 break;
             case CellValueKind.Text when formula is null:
-                writer.WriteElementString("v", XlsxNamespaces.Main, context.StringIndex(value.Text).ToString(CultureInfo.InvariantCulture));
+                var rich = sheet.RichText.TryGetValue(address, out var kept) && kept.Text == value.Text ? kept.Xml : null;
+                writer.WriteElementString("v", XlsxNamespaces.Main, context.StringIndex(value.Text, rich).ToString(CultureInfo.InvariantCulture));
                 break;
             case CellValueKind.Text:
                 writer.WriteElementString("v", XlsxNamespaces.Main, XlsxWriter.Escape(value.Text));

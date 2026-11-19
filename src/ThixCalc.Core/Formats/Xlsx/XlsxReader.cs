@@ -169,7 +169,8 @@ public static class XlsxReader
                 var item = (X.SharedStringItem)reader.LoadCurrentElement()!;
                 if (item.Elements<X.Run>().Any())
                 {
-                    context.Note("Formatierter Text in Zellen (wird als einfacher Text gespeichert)");
+                    context.Note("Teilweise formatierter Text in Zellen (bleibt erhalten, wird einheitlich angezeigt)");
+                    context.RichStrings[strings.Count] = item.OuterXml;
                 }
 
                 strings.Add(TextOf(item));
@@ -324,6 +325,9 @@ internal sealed class ReadContext(Workbook workbook, WorkbookPart workbookPart)
     public int[] StyleMap { get; set; } = [0];
 
     public string[] SharedStrings { get; set; } = [];
+
+    /// <summary>The shared strings with runs (index → the si element), kept for the cells that use them.</summary>
+    public Dictionary<int, string> RichStrings { get; } = [];
 
     public HashSet<uint> DynamicArrayMetadata { get; set; } = [];
 

@@ -42,7 +42,7 @@ public static class CalcRibbon
                 [
                     Button(CalcCommandIds.PasteValues), Button(CalcCommandIds.PasteFormulas), Button(CalcCommandIds.PasteFormats),
                     Button(CalcCommandIds.PasteValuesAndFormats), Button(CalcCommandIds.PasteNoBorders), Button(CalcCommandIds.PasteTranspose),
-                    new MatRibbonSeparator("paste-separator"), Button(CalcCommandIds.PasteText),
+                    new MatRibbonSeparator("paste-separator"), Button(CalcCommandIds.PasteText), Button(CalcCommandIds.PasteSpecial),
                 ]) { Size = MatRibbonSize.Large, MinSize = MatRibbonSize.Large },
                 Button(CalcCommandIds.Cut),
                 Button(CalcCommandIds.Copy),
@@ -127,7 +127,7 @@ public static class CalcRibbon
             new MatRibbonGroup("editing", "Bearbeiten") { Icon = "search", ShrinkOrder = 7 }.Add(
                 new MatRibbonStack("editing-left",
                     new MatRibbonSplitButton(CalcCommandIds.AutoSum, "", menu: [.. CalcCommands.AutoSumFunctions.Select(entry => Button($"{CalcCommandIds.AutoSum}.{entry.Function.ToLowerInvariant()}"))]),
-                    new MatRibbonMenuButton(CalcCommandIds.Fill, "", null, Button(CalcCommandIds.FillDown), Button(CalcCommandIds.FillRight)),
+                    new MatRibbonMenuButton(CalcCommandIds.Fill, "", null, Button(CalcCommandIds.FillDown), Button(CalcCommandIds.FillRight), Button(CalcCommandIds.FillSeries)),
                     new MatRibbonMenuButton(CalcCommandIds.Clear, "", null,
                         Button(CalcCommandIds.ClearAll), Button(CalcCommandIds.ClearFormats), Button(CalcCommandIds.ClearContents),
                         Button(CalcCommandIds.ClearComments), Button(CalcCommandIds.ClearLinks))),

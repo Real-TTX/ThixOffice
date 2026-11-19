@@ -18,14 +18,17 @@ internal sealed class CalcFindBar : FindBarBase
             new ComboBox { ItemsSource = new[] { "Blatt", "Arbeitsmappe" }, SelectedIndex = 0, MinWidth = 130 },
             new ComboBox { ItemsSource = new[] { "Formeln", "Werte" }, SelectedIndex = 0, MinWidth = 110 },
             new CheckBox { Content = "Groß-/Kleinschreibung" },
-            new CheckBox { Content = "Gesamten Zellinhalt vergleichen" })
+            new CheckBox { Content = "Gesamten Zellinhalt vergleichen" },
+            new Button { Content = new ThixOffice.Desktop.Controls.IconLabel { Icon = "list", Text = "Alle suchen" } })
     {
     }
 
-    private CalcFindBar(CalcEditor editor, ComboBox within, ComboBox lookIn, CheckBox matchCase, CheckBox wholeCell)
-        : base("Suchen nach", Labelled("Innerhalb:", within), Labelled("Suchen in:", lookIn), matchCase, wholeCell)
+    private CalcFindBar(CalcEditor editor, ComboBox within, ComboBox lookIn, CheckBox matchCase, CheckBox wholeCell, Button findAll)
+        : base("Suchen nach", Labelled("Innerhalb:", within), Labelled("Suchen in:", lookIn), matchCase, wholeCell, findAll)
     {
         _editor = editor;
+        FindAllButton = findAll;
+        findAll.Click += (_, _) => ShowAll();
         Within = within;
         LookIn = lookIn;
         MatchCase = matchCase;
@@ -45,6 +48,57 @@ internal sealed class CalcFindBar : FindBarBase
     public CheckBox MatchCase { get; }
 
     public CheckBox WholeCell { get; }
+
+    public Button FindAllButton { get; }
+
+    /// <summary>The list of "Alle suchen" (sheet, cell, value, formula), filled by <see cref="ShowAll"/>.</summary>
+    public ListBox Results { get; } = new() { MaxHeight = 280, MinWidth = 460 };
+
+    /// <summary>Alle suchen: every hit in a list under the button (Blatt, Zelle, Wert, Formel); choosing one goes there.</summary>
+    public void ShowAll()
+    {
+        if (SearchText is not { } text)
+        {
+            return;
+        }
+
+        var session = _editor.Session;
+        var hits = session.FindAll(text, Options());
+        Results.ItemsSource = hits.Select(hit =>
+        {
+            var formula = hit.Sheet.GetFormula(hit.Cell.Row, hit.Cell.Column) is { } parsed
+                ? "=" + Core.Formulas.FormulaFormatter.Format(parsed, session.Workbook, hit.Cell, session.Syntax)
+                : string.Empty;
+            var value = Core.Formatting.NumberFormatter.Format(hit.Sheet.GetValue(hit.Cell), hit.Sheet.GetStyle(hit.Cell.Row, hit.Cell.Column).NumberFormat, session.Locale, session.Workbook.Date1904).Text;
+            return new FindHit(hit.Sheet, hit.Cell, $"{hit.Sheet.Name}   {hit.Cell}   {value}{(formula.Length > 0 ? "   " + formula : string.Empty)}");
+        }).ToList();
+        Results.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<FindHit>((hit, _) => new TextBlock { Text = hit?.Text });
+        Results.SelectionChanged -= OnResultChosen;
+        Results.SelectionChanged += OnResultChosen;
+        SetCount(hits.Count == 1 ? "1 Zelle gefunden" : $"{hits.Count} Zellen gefunden");
+        if (Results.Parent is null)
+        {
+            FindAllButton.Flyout = new Flyout { Content = Results, Placement = PlacementMode.BottomEdgeAlignedRight };
+        }
+
+        FindAllButton.Flyout?.ShowAt(FindAllButton);
+    }
+
+    private void OnResultChosen(object? sender, SelectionChangedEventArgs e)
+    {
+        if (Results.SelectedItem is not FindHit hit)
+        {
+            return;
+        }
+
+        var session = _editor.Session;
+        session.ActivateSheet(hit.Sheet.Index);
+        session.Select(hit.Cell);
+        _editor.ScrollIntoView();
+    }
+
+    /// <summary>A hit of Alle suchen.</summary>
+    public sealed record FindHit(Core.Model.Worksheet Sheet, Core.Model.CellAddress Cell, string Text);
 
     private static StackPanel Labelled(string label, Control control) => new()
     {

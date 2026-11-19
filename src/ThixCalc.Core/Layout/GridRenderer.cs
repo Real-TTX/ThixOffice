@@ -469,11 +469,29 @@ public static class GridRenderer
         var measurer = metrics.Measurer;
         var fontMetrics = measurer.GetMetrics(font);
 
+        var alignment = display.Style.Alignment;
+        if (alignment.ShrinkToFit && !display.Wrap && !display.CannotShow && text.Length > 0)
+        {
+            // An zelle anpassen: the font shrinks until the text fits (never grows).
+            var natural = measurer.Shape(text.Replace('\n', ' '), font).Width;
+            if (natural > available && available > 0)
+            {
+                font = font.WithSize(Math.Max(1, font.Size * available / natural));
+                fontMetrics = measurer.GetMetrics(font);
+            }
+        }
+
+        if (alignment.TextRotation != 0 && !display.CannotShow && text.Length > 0)
+        {
+            RenderRotated(items, cell, pane, text.Replace('\n', ' '), font, fontMetrics, measurer, display, alignment.TextRotation);
+            return;
+        }
+
         if (display.CannotShow)
         {
             text = Hashes(measurer, font, available);
         }
-        else if (display.IsNumeric && !display.Wrap)
+        else if (display.IsNumeric && !display.Wrap && !alignment.ShrinkToFit)
         {
             var width = measurer.Shape(text, font).Width;
             if (width > available)
@@ -555,6 +573,43 @@ public static class GridRenderer
                 var y = baseline - fontMetrics.StrikeoutPosition;
                 items.Add(new LineItem(x, y, x + shaped.Width, y, display.TextColor, Math.Max(1, fontMetrics.StrikeoutThickness)));
             }
+        }
+
+        items.Add(ClipEndItem.Instance);
+    }
+
+    /// <summary>
+    /// Text at an angle (Ausrichtung › Orientierung): 1–90 counter-clockwise, 91–180 clockwise, 255 letters stacked; turned
+    /// around the cell's centre and kept inside the cell.
+    /// </summary>
+    private static void RenderRotated(List<DisplayItem> items, PixelRect cell, PixelRect pane, string text, FontSpec font, FontMetrics fontMetrics,
+        ITextMeasurer measurer, CellDisplay display, int rotation)
+    {
+        var clipX = Math.Max(cell.X, pane.X);
+        var clipWidth = Math.Min(cell.Right, pane.Right) - clipX;
+        if (clipWidth <= 0)
+        {
+            return;
+        }
+
+        items.Add(new ClipBeginItem(clipX, cell.Y, clipWidth, cell.Height));
+        if (rotation == 255)
+        {
+            var lineHeight = fontMetrics.LineHeight;
+            var top = cell.Y + Math.Max(0, (cell.Height - lineHeight * text.Length) / 2);
+            for (var index = 0; index < text.Length; index++)
+            {
+                var letter = measurer.Shape(text[index].ToString(), font);
+                AddRun(items, cell.X + (cell.Width - letter.Width) / 2, top + index * lineHeight + fontMetrics.Ascent, letter, display.TextColor);
+            }
+        }
+        else
+        {
+            var degrees = rotation <= 90 ? -rotation : rotation - 90;
+            var shaped = measurer.Shape(text, font);
+            items.Add(new TransformBeginItem(cell.X + cell.Width / 2, cell.Y + cell.Height / 2, degrees));
+            AddRun(items, -shaped.Width / 2, fontMetrics.Ascent - fontMetrics.LineHeight / 2, shaped, display.TextColor);
+            items.Add(TransformEndItem.Instance);
         }
 
         items.Add(ClipEndItem.Instance);

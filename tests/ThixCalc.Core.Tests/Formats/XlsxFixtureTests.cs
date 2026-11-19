@@ -135,7 +135,7 @@ public class XlsxFixtureTests
         Assert.Contains("Bilder", workbook.UnsupportedContent);
         Assert.Contains("Makros (werden beibehalten, aber nie ausgeführt)", workbook.UnsupportedContent);
         Assert.Contains("Sparklines", workbook.UnsupportedContent);
-        Assert.Contains("Formatierter Text in Zellen (wird als einfacher Text gespeichert)", workbook.UnsupportedContent);
+        Assert.Contains("Teilweise formatierter Text in Zellen (bleibt erhalten, wird einheitlich angezeigt)", workbook.UnsupportedContent);
 
         // Nothing was recalculated on load: the unknown function keeps its cached value until a recalculation.
         Assert.False(workbook.Calculation.NeedsRecalculation);

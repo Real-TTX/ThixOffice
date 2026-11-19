@@ -148,6 +148,12 @@ public sealed class Worksheet
 
     public List<TableDefinition> Tables { get; } = [];
 
+    /// <summary>
+    /// Text with formatted parts (rich text runs) as read: the plain text and the si element. Written back as it was while the
+    /// cell still holds that text; drawn in the cell's own format.
+    /// </summary>
+    internal Dictionary<CellAddress, (string Text, string Xml)> RichText { get; } = [];
+
     /// <summary>The charts floating over the sheet, back to front.</summary>
     public List<SheetChart> Charts { get; } = [];
 

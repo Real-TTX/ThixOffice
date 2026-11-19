@@ -20,8 +20,18 @@ public enum PasteMode : byte
     AllExceptBorders,
 }
 
+/// <summary>Inhalte einfügen › Vorgang: what pasted numbers do with the numbers already there.</summary>
+public enum PasteOperation : byte
+{
+    None,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+}
+
 /// <summary>Options of Inhalte einfügen.</summary>
-public sealed record PasteOptions(PasteMode Mode = PasteMode.All, bool Transpose = false, bool SkipBlanks = false);
+public sealed record PasteOptions(PasteMode Mode = PasteMode.All, bool Transpose = false, bool SkipBlanks = false, PasteOperation Operation = PasteOperation.None);
 
 /// <summary>
 /// Copied or cut cells: a snapshot of the source range (values, formulas, styles, merges, column widths) and its text for
@@ -158,7 +168,8 @@ public sealed partial class EditingSession
                             }
 
                             var origin = new CellAddress(content.Range.FirstRow + row, content.Range.FirstColumn + column);
-                            SetCell(sheet, address.Row, address.Column, PastedCell(sheet, address, source, origin, content, options, sameWorkbook));
+                            var pasted = PastedCell(sheet, address, source, origin, content, options, sameWorkbook);
+                            SetCell(sheet, address.Row, address.Column, Operate(sheet.GetCell(address), pasted, options.Operation));
                         }
                     }
 
@@ -179,6 +190,27 @@ public sealed partial class EditingSession
 
             SetSelection(first, [area]);
         });
+    }
+
+    /// <summary>Vorgang: a pasted number combined with the number (or blank) already in the cell; anything else is pasted as it is.</summary>
+    private static Cell Operate(Cell existing, Cell pasted, PasteOperation operation)
+    {
+        if (operation == PasteOperation.None || pasted.Formula is not null || !pasted.Value.IsNumber
+            || existing.Formula is not null || !(existing.Value.IsNumber || existing.Value.IsBlank))
+        {
+            return operation == PasteOperation.None || !pasted.Value.IsBlank ? pasted : existing;
+        }
+
+        var old = existing.Value.IsNumber ? existing.Value.Number : 0;
+        var number = pasted.Value.Number;
+        var result = operation switch
+        {
+            PasteOperation.Add => CellValue.FromNumber(old + number),
+            PasteOperation.Subtract => CellValue.FromNumber(old - number),
+            PasteOperation.Multiply => CellValue.FromNumber(old * number),
+            _ => number == 0 ? CellValue.FromError(CellError.DivisionByZero) : CellValue.FromNumber(old / number),
+        };
+        return pasted with { Value = result };
     }
 
     private Cell PastedCell(Worksheet sheet, CellAddress address, Cell source, CellAddress origin, ClipboardContent content, PasteOptions options, bool sameWorkbook)

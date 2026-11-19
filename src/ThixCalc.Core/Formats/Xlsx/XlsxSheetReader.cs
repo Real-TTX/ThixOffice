@@ -120,6 +120,12 @@ internal static class XlsxSheetReader
     {
         var style = context.Style(cell.StyleIndex?.Value);
         var value = ReadValue(cell, context);
+        if (cell.DataType?.Value == X.CellValues.SharedString && context.RichStrings.Count > 0
+            && int.TryParse(cell.CellValue?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var stringIndex)
+            && context.RichStrings.TryGetValue(stringIndex, out var rich))
+        {
+            sheet.RichText[address] = (value.Text, rich);
+        }
         var formulaElement = cell.CellFormula;
         if (formulaElement is null)
         {

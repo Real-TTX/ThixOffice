@@ -22,9 +22,12 @@ namespace ThixCalc.Editor;
 internal sealed class FormulaTextBox : Control, ITextField
 {
     private readonly DispatcherTimer _blink = new() { Interval = TimeSpan.FromMilliseconds(530) };
+    private readonly Stack<(string Text, int Caret, int Anchor)> _undo = new();
+    private readonly Stack<(string Text, int Caret, int Anchor)> _redo = new();
     private string _text = string.Empty;
     private int _caret;
     private int _anchor;
+    private bool _typing;
     private string? _preedit;
     private TextLayout? _layout;
     private double _offsetX;
@@ -145,6 +148,9 @@ internal sealed class FormulaTextBox : Control, ITextField
     /// <summary>Sets the text and puts the caret (and the anchor) somewhere, without raising <see cref="TextEdited"/>.</summary>
     public void SetText(string text, int caret, int? anchor = null)
     {
+        _undo.Clear();
+        _redo.Clear();
+        _typing = false;
         _text = text ?? string.Empty;
         _caret = Math.Clamp(caret, 0, _text.Length);
         _anchor = Math.Clamp(anchor ?? _caret, 0, _text.Length);
@@ -163,6 +169,7 @@ internal sealed class FormulaTextBox : Control, ITextField
     public void InsertText(string text)
     {
         _preedit = null;
+        Remember(typing: text.Length == 1 && SelectionStart == SelectionEnd && !char.IsWhiteSpace(text[0]));
         var start = SelectionStart;
         _text = _text[..start] + text + _text[SelectionEnd..];
         _caret = _anchor = start + text.Length;
@@ -174,6 +181,7 @@ internal sealed class FormulaTextBox : Control, ITextField
     {
         start = Math.Clamp(start, 0, _text.Length);
         length = Math.Clamp(length, 0, _text.Length - start);
+        Remember(typing: false);
         _text = _text[..start] + text + _text[(start + length)..];
         _caret = _anchor = start + text.Length;
         Changed(edited: true);
@@ -254,6 +262,13 @@ internal sealed class FormulaTextBox : Control, ITextField
             case Key.A when command:
                 Select(0, _text.Length);
                 return true;
+            case Key.Z when command && !shift:
+                Undo();
+                return true;
+            case Key.Z when command && shift:
+            case Key.Y when command && !OperatingSystem.IsMacOS():
+                Redo();
+                return true;
             case Key.C when command:
                 _ = CopyAsync(cut: false);
                 return true;
@@ -285,6 +300,63 @@ internal sealed class FormulaTextBox : Control, ITextField
             InsertText(text);
             e.Handled = true;
         }
+    }
+
+    /// <summary>Whether the edit has something to undo (Rückgängig inside the cell before the input ends).</summary>
+    public bool CanUndo => _undo.Count > 0;
+
+    /// <summary>Rückgängig while the cell is edited: the text before the last edit (a run of typed characters is one step).</summary>
+    public void Undo()
+    {
+        if (_undo.Count == 0)
+        {
+            return;
+        }
+
+        _redo.Push((_text, _caret, _anchor));
+        Restore(_undo.Pop());
+    }
+
+    public void Redo()
+    {
+        if (_redo.Count == 0)
+        {
+            return;
+        }
+
+        _undo.Push((_text, _caret, _anchor));
+        Restore(_redo.Pop());
+    }
+
+    private void Restore((string Text, int Caret, int Anchor) state)
+    {
+        _typing = false;
+        _preedit = null;
+        _text = state.Text;
+        _caret = Math.Clamp(state.Caret, 0, _text.Length);
+        _anchor = Math.Clamp(state.Anchor, 0, _text.Length);
+        Changed(edited: true);
+    }
+
+    /// <summary>Keeps the state before an edit; typed characters in a row share one state.</summary>
+    private void Remember(bool typing)
+    {
+        if (!(typing && _typing))
+        {
+            _undo.Push((_text, _caret, _anchor));
+            if (_undo.Count > 200)
+            {
+                var kept = _undo.Reverse().Skip(_undo.Count - 200).ToList();
+                _undo.Clear();
+                foreach (var state in kept)
+                {
+                    _undo.Push(state);
+                }
+            }
+        }
+
+        _typing = typing;
+        _redo.Clear();
     }
 
     private int SelectionCollapsedOr(bool shift, int collapsed, int moved) => !shift && SelectionStart != SelectionEnd ? collapsed : Math.Clamp(moved, 0, _text.Length);
