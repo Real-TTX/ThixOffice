@@ -18,7 +18,7 @@ MatRibbon, MatBackstage, MatStatusBar and MatQuickAccess in the window.
 page setup, zoom, PDF export (see "ThixWrite's editor" below; gaps in docs/PLAN.md). **Next:** 1b (tables, images, headers
 and footers, printing …). Do not build ribbon controls of your own.
 
-Stack: **.NET 10** (`global.json` 10.0.100, latestMinor), C#, **Avalonia 11.3.22** with **MatDesktop 0.3.0** (a copy), xunit +
+Stack: **.NET 10** (`global.json` 10.0.100, latestMinor), C#, **Avalonia 11.3.22** with **MatDesktop 0.3.1** (a copy), xunit +
 Avalonia.Headless. Reference apps (sibling folders): ThixCalendar (structure, setup, OTA), ThixNote (document app: file types,
 update on exit), ThixClip (`--snapshot`), ThixFred (CI that publishes Windows even when macOS fails). Never use, reference or
 copy anything from MatOffice.
@@ -52,7 +52,7 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
   Platform/Windows/        ShellLink (.lnk through generated COM)
   MatCloud/                COPY of the MatCloud contract (never edited here); cloud sign-in comes in a later phase
 src/ThixOffice.Desktop     shared Avalonia UI
-  MatDesktop/              COPY of MatDesign's desktop toolkit 0.3.0 (never edited here)
+  MatDesktop/              COPY of MatDesign's desktop toolkit 0.3.1 (never edited here)
   OfficeApplication        base Application of every app: Definition, CreateDocument, CreateEditor, AddCommands, CreateRibbon(window),
                            CreateBackstageItems(window), SelfTestChecks, SnapshotScenes + ShowSnapshotScene/EndSnapshotScene,
                            FillSampleDocument; start-up (self test, Windows setup modes, single instance forwarding files, recovery,
@@ -112,23 +112,28 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   NEW definition per window (its items carry the window's state). Item id = command id; build items with `OfficeRibbonItems`
   (`Button(id, size)`, `Toggle(id, groupName, size)`, `ComboBox(id, width, isEditable, options)`, `Number(id, min, max, …)`,
   `ColorPicker(id, palette)`, `Gallery(id, entries)`) or with Mat items whose id is a command id; do not give a bound item a
-  callback of its own. `OfficeRibbonBinding.Bind(definition, commands, ribbon, extraItems)` (the window does it): fills label /
+  callback of its own. `OfficeRibbonBinding.Bind(definition, commands, ribbon)` (the window does it after the quick access put its items into
+  `definition.QuickAccess`): fills label /
   icon / shortcut (`Ui.ShortcutText` of `CurrentShortcut`) / tooltip (`Description`) from the command; LEAVES OUT items whose
   command the window does not have and that have no callback, then empty rows, stacks, groups and tabs (`MissingCommandIds`);
   routes `MatRibbonDefinition.Invoked` to `OfficeWindow.RunCommandAsync` (value items – combo, number, colour, gallery – to
   `OfficeValueCommand.ApplyAsync(value)`, numbers invariant); on `OfficeCommandRegistry.StateChanged` and after each use it pushes
-  `IsEnabled`, toggle `IsChecked` (= `Checked`) and the values into the items; `Reveal(id)` puts the keyboard into an item (the
+  `IsEnabled`, toggle `IsChecked` (= `Checked`) and the values into every item of the id (the definition's
+  `SetEnabled`/`SetChecked`); `Reveal(id)` puts the keyboard into an item (the
   search does that for a value command). Contextual tabs: the app calls `RibbonDefinition.ShowContext/HideContext`.
   The definition stays in the app project (not in `<App>.Core`): `MatRibbonModel.cs` is System-only but lives in
   ThixOffice.Desktop's MatDesktop copy and uses `MatText`; Core cannot reference it without a second copy of MatDesktop types.
 - **Quick access**: `MatQuickAccess` with three items bound like the ribbon's (Speichern, Rückgängig, Wiederholen; icons save /
   undo / redo).
-- **Keys**: the window handles every command shortcut first (tunnel handler registered before the ribbon attaches; `Ctrl` = ⌘ on
+- **Keys**: the window handles every command shortcut first (tunnel handler; `MatRibbon.HandlesCollapseKey = false`, so Strg+F1
+  is only the ToggleRibbon command's; `Ctrl` = ⌘ on
   macOS, `MacShortcut` where the Mac differs: Wiederholen ⇧⌘Z, Speichern unter ⇧⌘S, Menüband ⌥⌘R); the ribbon handles only
   Alt / F10, the key tips and its arrow keys (not while the backstage is open). Undo/redo in a ribbon field stay the field's.
 - **Backstage**: `OfficeBackstage` (MatBackstage below the title bar): `Open(pageId)`, `Close()`, `IsOpen`, `CurrentPageId`,
   `CurrentPage`, `OpenChanged`; pages are made anew each time they show. Page ids `OfficeWindow.NewPageId` … `AboutPageId`; Info
-  has no entry, the version at the foot opens it.
+  has no entry, the version at the foot opens it (`MatBackstage.ShowPage`). `Open(pageId, byKeyboard)` shows the focus ring only
+  when the keyboard opened it (`MatRibbonFileEventArgs.ByKeyboard`; commands open it through `OfficeWindow.ShowBackstage`, which
+  knows whether a shortcut ran them).
 - **Status bar**: `OfficeStatusBar` (MatStatusBar): `SetItem(id, text, side)`, `RemoveItem`, `TextOf`; its zoom and
   `OfficeEditor.Zoom` (10–500 %, `OnZoomChanged`, `ZoomChanged`) follow each other; commands `view.zoomIn/zoomOut/zoom100`.
 - The ribbon's collapsed state is remembered (`AppSettings.IsRibbonCollapsed`, `MatRibbon.CollapsedChanged`).
@@ -186,7 +191,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   the app's `SelfTestChecks`: ThixWrite types into a real editor, formats, saves docx, reopens and compares, keeps a table, draws a
   page with Skia, exports a PDF); CI runs it.
 - Icons: `cd tools && npm install && node render-icons.js` (`--preview <png>` draws every app at 16–256 px on light and dark – look).
-- **MatDesktop** (`src/ThixOffice.Desktop/MatDesktop/`) is a COPY from MatDesign (0.3.0 from branch `feature/ribbon`,
+- **MatDesktop** (`src/ThixOffice.Desktop/MatDesktop/`) is a COPY from MatDesign (0.3.1 from branch `feature/ribbon`,
   `src/MatDesktop`, version in `matdesktop.version`): never edit it here; copy again with `node tools/matdesktop-copy.js
   <path>/ThixOffice/src/ThixOffice.Desktop` in MatDesign. `RulesTests.The_copy_of_MatDesktop_is_unchanged` holds it. Icons the
   sprite lacks go into MatDesign's sprite first.

@@ -56,6 +56,7 @@ public sealed class OfficeWindow : MatWindow
     private bool _closeConfirmed;
     private bool _isAsking;
     private bool _keepRecovery;
+    private bool _runningShortcut;
 
     public OfficeWindow(OfficeApplication app, OfficeDocument document)
     {
@@ -85,26 +86,22 @@ public sealed class OfficeWindow : MatWindow
         StatusBar.View.ZoomLevelRequested += (_, _) => _editor.RequestZoomLevel(); // the editor's zoom dialog
 
         // The ribbon: the app's definition (made for this window: its items carry this window's state), bound to the commands.
-        Ribbon = new MatRibbon { IsCollapsed = settings.IsRibbonCollapsed };
-        Ribbon.FileRequested += (_, _) => Backstage.Open();
+        // Strg+F1 / ⌥⌘R is the ToggleRibbon command's (the window's shortcuts); the ribbon keeps Alt, F10 and the key tips.
+        Ribbon = new MatRibbon { IsCollapsed = settings.IsRibbonCollapsed, HandlesCollapseKey = false };
+        Ribbon.FileRequested += (_, e) => Backstage.Open(byKeyboard: e.ByKeyboard);
         Ribbon.CollapsedChanged += (_, collapsed) =>
         {
             SettingsService.Remember(current => current with { IsRibbonCollapsed = collapsed });
             Commands.Invalidate();
         };
         RibbonDefinition = app.CreateRibbon(this);
-        MatRibbonItem[] quickItems =
-        [
-            OfficeRibbonItems.Button(CommonCommandIds.Save),
-            OfficeRibbonItems.Button(CommonCommandIds.Undo),
-            OfficeRibbonItems.Button(CommonCommandIds.Redo),
-        ];
-        RibbonBinding = OfficeRibbonBinding.Bind(RibbonDefinition, Commands, Ribbon, quickItems);
         QuickAccess = new MatQuickAccess(RibbonDefinition);
-        foreach (var item in quickItems.OfType<MatRibbonButton>())
+        foreach (var id in new[] { CommonCommandIds.Save, CommonCommandIds.Undo, CommonCommandIds.Redo })
         {
-            QuickAccess.Add(item);
+            QuickAccess.Add(OfficeRibbonItems.Button(id)); // items of their own, sharing the id (and the state) with the ribbon's
         }
+
+        RibbonBinding = OfficeRibbonBinding.Bind(RibbonDefinition, Commands, Ribbon);
 
         TitleBar = new MatTitleBar
         {
@@ -299,13 +296,16 @@ public sealed class OfficeWindow : MatWindow
     /// <summary>Gives the keyboard to the document.</summary>
     public void FocusDocument() => Dispatcher.UIThread.Post(() => _editor.FocusDocument(), DispatcherPriority.Input);
 
-    /// <summary>Opens the backstage on a page (Einstellungen › Updates from a notification …).</summary>
-    public void ShowBackstage(string pageId) => Backstage.Open(pageId);
+    /// <summary>
+    /// Opens the backstage on a page (null: the first; Einstellungen › Updates from a notification …); opened by a shortcut,
+    /// the entry shows the focus ring.
+    /// </summary>
+    public void ShowBackstage(string? pageId) => Backstage.Open(pageId, byKeyboard: _runningShortcut);
 
     /// <summary>Opens Einstellungen on a tab (SettingsPage.GeneralTab …).</summary>
     public void ShowSettings(string tab)
     {
-        Backstage.Open(SettingsPageId);
+        ShowBackstage(SettingsPageId);
         (Backstage.CurrentPage as SettingsPage)?.ShowTab(tab);
     }
 
@@ -353,7 +353,7 @@ public sealed class OfficeWindow : MatWindow
             Description = "Erstellt ein neues, leeres Dokument in einem eigenen Fenster.",
             Keywords = ["leer", "erstellen", "anlegen", "dokument"],
         });
-        Commands.Add(new OfficeCommand(CommonCommandIds.Open, "Öffnen", () => Backstage.Open(OpenPageId))
+        Commands.Add(new OfficeCommand(CommonCommandIds.Open, "Öffnen", () => ShowBackstage(OpenPageId))
         {
             Icon = "folder-open",
             Shortcut = "Ctrl+O",
@@ -399,7 +399,7 @@ public sealed class OfficeWindow : MatWindow
             Keywords = ["wiederherstellen"],
             YieldsToTextField = true,
         });
-        Commands.Add(new OfficeCommand(CommonCommandIds.Backstage, "Datei", () => Backstage.Open())
+        Commands.Add(new OfficeCommand(CommonCommandIds.Backstage, "Datei", () => ShowBackstage(null))
         {
             Icon = "file",
             IsSearchable = false,
@@ -433,13 +433,13 @@ public sealed class OfficeWindow : MatWindow
             Description = "Zeigt das Dokument in Originalgröße.",
             Keywords = ["zoom", "originalgröße", "hundert"],
         });
-        Commands.Add(new OfficeCommand(CommonCommandIds.Settings, "Einstellungen", () => Backstage.Open(SettingsPageId))
+        Commands.Add(new OfficeCommand(CommonCommandIds.Settings, "Einstellungen", () => ShowBackstage(SettingsPageId))
         {
             Icon = "settings",
             Description = "Erscheinungsbild, Speichern, Updates.",
             Keywords = ["optionen", "erscheinungsbild", "dunkel", "hell", "speicherort", "autostart"],
         });
-        Commands.Add(new OfficeCommand(CommonCommandIds.About, "Info", () => Backstage.Open(AboutPageId))
+        Commands.Add(new OfficeCommand(CommonCommandIds.About, "Info", () => ShowBackstage(AboutPageId))
         {
             Icon = "info",
             Description = $"Version und Kanal von {AppInfo.ProductName}.",
@@ -581,7 +581,16 @@ public sealed class OfficeWindow : MatWindow
                 }
 
                 e.Handled = true;
-                await RunCommandAsync(this, command);
+                _runningShortcut = true;
+                try
+                {
+                    await RunCommandAsync(this, command);
+                }
+                finally
+                {
+                    _runningShortcut = false;
+                }
+
                 return;
             }
         }

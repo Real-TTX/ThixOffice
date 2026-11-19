@@ -1,4 +1,4 @@
-// MatDesktop 0.3.0 – a copy from MatDesign, do not edit here
+// MatDesktop 0.3.1 – a copy from MatDesign, do not edit here
 // Plain C#, only System: the definition of a ribbon, which any front end can draw (MatRibbon in Avalonia; a web app the same definition).
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -66,7 +66,10 @@ public abstract class MatRibbonItem : INotifyPropertyChanged
     /// <inheritdoc />
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    /// <summary>The id, unique in the ribbon (<c>bold</c>, <c>font-size</c>): what a program finds the item by (<see cref="MatRibbonDefinition.Find"/>).</summary>
+    /// <summary>
+    /// The id, unique in the ribbon (<c>bold</c>, <c>font-size</c>): what a program finds the item by (<see cref="MatRibbonDefinition.Find"/>). An item of the quick access shares the id of
+    /// the ribbon's item of the same command (<see cref="MatRibbonDefinition.QuickAccess"/>).
+    /// </summary>
     public string Id { get; }
 
     /// <summary>The label (sentence case, <c>Fett</c>); also the name for a screen reader and the first line of the tooltip.</summary>
@@ -536,23 +539,38 @@ public sealed class MatRibbonTab(string id, string label)
 }
 
 /// <summary>
-/// The definition of a ribbon, free of any user interface: the tabs, their groups, their items, and the contexts that are shown. A front end draws it (<c>MatRibbon</c>) and acts through
-/// <see cref="Invoke"/>, <see cref="Choose"/>, <see cref="Commit"/> and <see cref="ChangeValue"/>, which run the item's callback and raise <see cref="Invoked"/>: a program may route every
-/// command by its id there instead. Change the state on the items (<see cref="SetEnabled"/>, <see cref="SetChecked"/> or the item itself); after a change of the structure call <see cref="Reindex"/>.
+/// The definition of a ribbon, free of any user interface: the tabs, their groups, their items, the items of the quick access, and the contexts that are shown. A front end draws it
+/// (<c>MatRibbon</c>) and acts through <see cref="Invoke"/>, <see cref="Choose"/>, <see cref="Commit"/> and <see cref="ChangeValue"/>, which run the item's callback and raise
+/// <see cref="Invoked"/>: a program may route every command by its id there instead. Change the state on the items (<see cref="SetEnabled"/>, <see cref="SetChecked"/> or the item itself);
+/// after a change of the structure call <see cref="Reindex"/>.
+/// <para>
+/// An id is unique inside the ribbon (<see cref="Problems"/> names one that is there twice). The quick access shares ids with the ribbon on purpose: its Speichern is the ribbon's Speichern,
+/// as the same item or as an item of its own with the same id (<see cref="QuickAccess"/>). The state setters reach every item with the id, in the ribbon and in the quick access;
+/// <see cref="Find"/> and <see cref="Get{T}"/> return one of them (the ribbon's first), <see cref="FindAll"/> all of them.
+/// </para>
 /// </summary>
 public sealed class MatRibbonDefinition
 {
     private readonly HashSet<string> _contexts = new(StringComparer.Ordinal);
-    private Dictionary<string, MatRibbonItem>? _index;
+    private Dictionary<string, List<MatRibbonItem>>? _index;
 
-    /// <summary>The label of the first tab, which opens the backstage (<c>Datei</c>); null takes the text of MatDesktop.</summary>
+    /// <summary>
+    /// The label of the first tab, which opens the backstage (<c>Datei</c>), or null: then the front end shows its own word in the language of the program (<c>MatRibbon</c>: <c>Datei</c> or
+    /// <c>File</c>). The definition itself knows no language.
+    /// </summary>
     public string? FileLabel { get; set; }
 
-    /// <summary>The key tip of that tab, or null: <c>D</c> in German, <c>F</c> in English.</summary>
+    /// <summary>The key tip of that tab, or null: then the front end gives its own (<c>MatRibbon</c>: <c>D</c> in German, <c>F</c> in English).</summary>
     public string? FileKeyTip { get; set; }
 
     /// <summary>The tabs, in their order (contextual tabs after the others).</summary>
     public List<MatRibbonTab> Tabs { get; } = [];
+
+    /// <summary>
+    /// The items of the quick access (the buttons of the title bar: Speichern, Rückgängig), in their order: the same items as in the ribbon or items of their own that share an id with one of
+    /// the ribbon. <c>MatQuickAccess</c> adds its items here; after changing the list by hand call <see cref="Reindex"/>.
+    /// </summary>
+    public List<MatRibbonItem> QuickAccess { get; } = [];
 
     /// <summary>The contexts shown now.</summary>
     public IReadOnlyCollection<string> ActiveContexts => _contexts;
@@ -570,9 +588,6 @@ public sealed class MatRibbonDefinition
         _index = null;
         return this;
     }
-
-    /// <summary>The label of the file tab in force.</summary>
-    public string FileText => string.IsNullOrWhiteSpace(FileLabel) ? MatText.Get("ribbon.file") : FileLabel;
 
     /// <summary>The tabs shown now: those without a context and those of an active context.</summary>
     public IEnumerable<MatRibbonTab> VisibleTabs => Tabs.Where(t => t.Context is null || _contexts.Contains(t.Context));
@@ -595,38 +610,44 @@ public sealed class MatRibbonDefinition
         }
     }
 
-    /// <summary>Every item of the ribbon, those inside stacks, rows and menus included.</summary>
+    /// <summary>Every item of the ribbon, those inside stacks, rows and menus included (not those of the quick access that are not in the ribbon).</summary>
     public IEnumerable<MatRibbonItem> AllItems() => Tabs.SelectMany(t => t.Groups).SelectMany(g => g.Items).SelectMany(Walk);
 
-    /// <summary>The item with this id, or null.</summary>
-    public MatRibbonItem? Find(string id)
-    {
-        _index ??= AllItems().GroupBy(i => i.Id, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
-        return _index.GetValueOrDefault(id);
-    }
+    /// <summary>
+    /// The item with this id, or null. When several items have it (the ribbon's and the quick access's of the same command), the first of the ribbon in the order of its tabs, else the first
+    /// of the quick access.
+    /// </summary>
+    public MatRibbonItem? Find(string id) => Index().TryGetValue(id, out var items) ? items[0] : null;
 
-    /// <summary>The item with this id as a <typeparamref name="T"/>; throws when there is none.</summary>
+    /// <summary>
+    /// The item with this id as a <typeparamref name="T"/>; throws when there is none. When several items have the id, the first one that is a <typeparamref name="T"/> (in the order of
+    /// <see cref="Find"/>).
+    /// </summary>
     public T Get<T>(string id)
-        where T : MatRibbonItem => Find(id) as T ?? throw new KeyNotFoundException($"The ribbon has no {typeof(T).Name} {id}.");
+        where T : MatRibbonItem => FindAll(id).OfType<T>().FirstOrDefault() ?? throw new KeyNotFoundException($"The ribbon has no {typeof(T).Name} {id}.");
 
-    /// <summary>Builds the index of the ids again after items were added or removed.</summary>
+    /// <summary>Every item with this id: those of the ribbon in the order of its tabs, then those of the quick access (each item once); empty when there is none.</summary>
+    public IReadOnlyList<MatRibbonItem> FindAll(string id) => Index().TryGetValue(id, out var items) ? items : [];
+
+    /// <summary>Builds the index of the ids again after items were added or removed (in the ribbon or in <see cref="QuickAccess"/>).</summary>
     public void Reindex() => _index = null;
 
-    /// <summary>Turns an item on or off.</summary>
-    public void SetEnabled(string id, bool enabled) => Get<MatRibbonItem>(id).IsEnabled = enabled;
+    /// <summary>Turns every item with this id on or off (the ribbon's and the quick access's); throws when there is none.</summary>
+    public void SetEnabled(string id, bool enabled) => SetAll<MatRibbonItem>(id, i => i.IsEnabled = enabled);
 
-    /// <summary>Sets the state of a toggle.</summary>
-    public void SetChecked(string id, bool isChecked) => Get<MatRibbonToggle>(id).IsChecked = isChecked;
+    /// <summary>Sets the state of every toggle with this id; throws when there is none.</summary>
+    public void SetChecked(string id, bool isChecked) => SetAll<MatRibbonToggle>(id, t => t.IsChecked = isChecked);
 
-    /// <summary>Sets the value of a combo box.</summary>
-    public void SetText(string id, string? text) => Get<MatRibbonComboBox>(id).Text = text;
+    /// <summary>Sets the value of every combo box with this id; throws when there is none.</summary>
+    public void SetText(string id, string? text) => SetAll<MatRibbonComboBox>(id, c => c.Text = text);
 
-    /// <summary>Sets the value of a number field.</summary>
-    public void SetValue(string id, double value) => Get<MatRibbonNumber>(id).Value = value;
+    /// <summary>Sets the value of every number field with this id; throws when there is none.</summary>
+    public void SetValue(string id, double value) => SetAll<MatRibbonNumber>(id, n => n.Value = value);
 
     /// <summary>
     /// What a press of the item does: a button runs its command, a toggle changes its state (one of a choice is checked and the others not; the checked one of a choice stays checked) and
-    /// tells <see cref="MatRibbonToggle.Toggled"/>, a colour button applies its colour; then <see cref="Invoked"/>. A turned-off item does nothing.
+    /// tells <see cref="MatRibbonToggle.Toggled"/>, a colour button applies its colour; then <see cref="Invoked"/>. A turned-off item does nothing. A new state (checked, a colour, a value,
+    /// an entry) goes to every item with the same id, so that the ribbon and the quick access stay alike.
     /// </summary>
     public void Invoke(MatRibbonItem item)
     {
@@ -663,6 +684,7 @@ public sealed class MatRibbonDefinition
         }
 
         picker.Color = color;
+        Twins(picker, p => p.Color = color);
         picker.ColorChosen?.Invoke(color);
         Invoked?.Invoke(this, picker);
     }
@@ -677,6 +699,7 @@ public sealed class MatRibbonDefinition
         }
 
         gallery.SelectedId = entryId;
+        Twins(gallery, g => g.SelectedId = entryId);
         gallery.Chosen?.Invoke(entryId);
         Invoked?.Invoke(this, gallery);
     }
@@ -691,6 +714,7 @@ public sealed class MatRibbonDefinition
         }
 
         combo.Text = text;
+        Twins(combo, c => c.Text = text);
         combo.Committed?.Invoke(text);
         Invoked?.Invoke(this, combo);
     }
@@ -705,13 +729,14 @@ public sealed class MatRibbonDefinition
         }
 
         number.Value = Math.Clamp(Math.Round(value, number.Decimals), number.Minimum, number.Maximum);
+        Twins(number, n => n.Value = number.Value);
         number.Changed?.Invoke(number.Value);
         Invoked?.Invoke(this, number);
     }
 
     /// <summary>
-    /// What is wrong with the definition, as sentences (empty when nothing is): an id twice, an item without a label (but separators, stacks and rows), a tab without groups, a key tip twice in
-    /// the same place, a colour of a palette that is not <c>#rrggbb</c>.
+    /// What is wrong with the definition, as sentences (empty when nothing is): an id twice in the ribbon, an item without a label (but separators, stacks and rows), a tab without groups, a key
+    /// tip twice in the same place, a colour of a palette that is not <c>#rrggbb</c>. The quick access sharing an id with the ribbon is meant (<see cref="QuickAccess"/>), not a problem.
     /// </summary>
     public IReadOnlyList<string> Problems()
     {
@@ -761,14 +786,43 @@ public sealed class MatRibbonDefinition
     private void Check(MatRibbonToggle toggle, bool isChecked)
     {
         toggle.IsChecked = isChecked;
+        Twins(toggle, t => t.IsChecked = isChecked);
         if (!isChecked || toggle.GroupName is null)
         {
             return;
         }
 
-        foreach (var other in AllItems().OfType<MatRibbonToggle>().Where(t => t != toggle && t.GroupName == toggle.GroupName))
+        foreach (var other in Everything().OfType<MatRibbonToggle>().Where(t => t.Id != toggle.Id && t.GroupName == toggle.GroupName))
         {
             other.IsChecked = false;
+        }
+    }
+
+    /// <summary>The items of the ribbon, then those of the quick access, each once.</summary>
+    private IEnumerable<MatRibbonItem> Everything() => AllItems().Concat(QuickAccess.SelectMany(Walk)).Distinct();
+
+    private Dictionary<string, List<MatRibbonItem>> Index() =>
+        _index ??= Everything().GroupBy(i => i.Id, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
+
+    private void SetAll<T>(string id, Action<T> set)
+        where T : MatRibbonItem
+    {
+        var items = FindAll(id).OfType<T>().ToList();
+        if (items.Count == 0)
+        {
+            throw new KeyNotFoundException($"The ribbon has no {typeof(T).Name} {id}.");
+        }
+
+        items.ForEach(set);
+    }
+
+    /// <summary>Gives the other items with the id of <paramref name="item"/> (of its kind) its new state.</summary>
+    private void Twins<T>(T item, Action<T> set)
+        where T : MatRibbonItem
+    {
+        foreach (var twin in FindAll(item.Id).OfType<T>().Where(t => t != item))
+        {
+            set(twin);
         }
     }
 

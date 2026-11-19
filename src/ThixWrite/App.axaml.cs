@@ -47,7 +47,7 @@ public partial class App : OfficeApplication
     public override void AddCommands(OfficeWindow window)
     {
         WriteCommands.Add(window);
-        window.Commands.Add(new ThixOffice.Core.Commands.OfficeCommand(WriteCommandIds.ExportPdf, "Als PDF exportieren", () => window.Backstage.Open(ExportPage.PageId))
+        window.Commands.Add(new ThixOffice.Core.Commands.OfficeCommand(WriteCommandIds.ExportPdf, "Als PDF exportieren", () => window.ShowBackstage(ExportPage.PageId))
         {
             Icon = "export",
             Shortcut = "Ctrl+P",
@@ -91,7 +91,7 @@ public partial class App : OfficeApplication
                 _ = dialog.ShowAsync(window);
                 return dialog;
             case ExportScene:
-                window.Backstage.Open(ExportPage.PageId);
+                window.ShowBackstage(ExportPage.PageId);
                 return window;
             default:
                 return window;

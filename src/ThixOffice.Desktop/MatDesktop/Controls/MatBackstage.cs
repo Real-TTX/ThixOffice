@@ -1,4 +1,4 @@
-// MatDesktop 0.3.0 – a copy from MatDesign, do not edit here
+// MatDesktop 0.3.1 – a copy from MatDesign, do not edit here
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -13,7 +13,8 @@ namespace MatDesktop;
 /// The backstage of a document program: what the file tab of <see cref="MatRibbon"/> opens, over the whole window (docs/DESKTOP.md, "Document programs"). At the left a column like the menu
 /// (<see cref="MatNav"/>): the arrow back at the top, the entries with icon and label (the current one tinted, COLOR-08: <c>Neu</c>, <c>Öffnen</c>, <c>Speichern</c> …), a line and the lower
 /// entries (<c>Konto</c>, <c>Optionen</c>), and at the foot the program's own (<see cref="Foot"/>) and the version (<c>Version 1.4.2 · release</c>, SETUP-07), which opens About. At the right
-/// the page of the current entry. An entry is a page (<see cref="AddPage"/>) or a command that closes the backstage (<see cref="AddCommand"/>). Escape and the arrow close it.
+/// the page of the current entry. An entry is a page (<see cref="AddPage"/>) or a command that closes the backstage (<see cref="AddCommand"/>); a page without an entry (About) is shown by
+/// <see cref="ShowPage"/>. Escape and the arrow close it.
 /// Put it over the content of the window (the last child of a <see cref="Panel"/> that holds the title bar, the ribbon and the document); it is hidden until <see cref="Open"/>.
 /// </summary>
 public sealed class MatBackstage : Border
@@ -168,8 +169,11 @@ public sealed class MatBackstage : Border
         return Add(item, lower);
     }
 
-    /// <summary>Shows the backstage with the page of <paramref name="item"/> (or the current one, or the first page) and puts the focus on its entry.</summary>
-    public void Open(MatNavItem? item = null)
+    /// <summary>
+    /// Shows the backstage with the page of <paramref name="item"/> (or the current one, or the first page) and puts the focus on its entry. <paramref name="byKeyboard"/> says that the
+    /// keyboard opened it (Alt, F; Enter on the file tab; a shortcut): only then the entry shows the focus ring (<see cref="MatRibbonFileEventArgs.ByKeyboard"/>).
+    /// </summary>
+    public void Open(MatNavItem? item = null, bool byKeyboard = false)
     {
         var page = item is not null && _pages.ContainsKey(item) ? item : Current ?? _upper.Concat(_lowerItems).FirstOrDefault(_pages.ContainsKey);
         if (page is not null)
@@ -177,13 +181,23 @@ public sealed class MatBackstage : Border
             Select(page);
         }
 
-        var wasOpen = IsVisible;
-        IsVisible = true;
-        (page ?? (Control)_back).Focus(NavigationMethod.Tab);
-        if (!wasOpen)
+        Show(page ?? (Control)_back, byKeyboard);
+    }
+
+    /// <summary>
+    /// Shows a page that has no entry in the column (About, opened by the version at the foot; a page a link of another page leads to) and opens the backstage when it is closed. No entry is
+    /// current; the focus goes to the arrow back, and the arrow and Escape close the backstage as always. <see cref="Open"/> or a click on an entry shows the pages of the entries again.
+    /// </summary>
+    public void ShowPage(Control page, bool byKeyboard = false)
+    {
+        ArgumentNullException.ThrowIfNull(page);
+        foreach (var each in _upper.Concat(_lowerItems))
         {
-            Opened?.Invoke(this, EventArgs.Empty);
+            each.IsCurrent = false;
         }
+
+        _page.Content = page;
+        Show(_back, byKeyboard);
     }
 
     /// <summary>Hides the backstage.</summary>
@@ -213,6 +227,18 @@ public sealed class MatBackstage : Border
         }
 
         _page.Content = page;
+    }
+
+    /// <summary>Makes the backstage visible and focuses <paramref name="focus"/>, with the focus ring only for the keyboard.</summary>
+    private void Show(Control focus, bool byKeyboard)
+    {
+        var wasOpen = IsVisible;
+        IsVisible = true;
+        focus.Focus(byKeyboard ? NavigationMethod.Tab : NavigationMethod.Pointer);
+        if (!wasOpen)
+        {
+            Opened?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     private MatNavItem Add(MatNavItem item, bool lower)

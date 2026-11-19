@@ -144,7 +144,8 @@ public sealed class ShellTests
         Assert.Equal(OfficeWindow.AboutPageId, window.Backstage.CurrentPageId);
         Assert.Equal(["Neu", "Öffnen", "Speichern", "Speichern unter", "Schließen"], backstage.Items.Select(item => item.Label));
         Assert.Equal(["file-new", "folder-open", "save", "save-as", "x"], backstage.Items.Select(item => item.Icon));
-        Assert.Equal(["Einstellungen"], backstage.LowerItems.Where(item => item.IsVisible).Select(item => item.Label));
+        Assert.Equal(["Einstellungen"], backstage.LowerItems.Select(item => item.Label)); // Info is a page without an entry
+        Assert.Null(backstage.Current);
         Assert.StartsWith("Version ", backstage.VersionButton.GetVisualDescendants().OfType<TextBlock>().First().Text);
 
         window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);

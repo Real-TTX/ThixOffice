@@ -1,4 +1,4 @@
-// MatDesktop 0.3.0 – a copy from MatDesign, do not edit here
+// MatDesktop 0.3.1 – a copy from MatDesign, do not edit here
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -21,6 +21,13 @@ public enum MatRibbonKeyTipMode
 
     /// <summary>The key tips of the commands of the chosen tab.</summary>
     Items,
+}
+
+/// <summary>How the file tab was chosen (<see cref="MatRibbon.FileRequested"/>): by the keyboard (Enter, Space, its key tip) or by the mouse.</summary>
+public sealed class MatRibbonFileEventArgs(bool byKeyboard) : EventArgs
+{
+    /// <summary>True when the keyboard chose it: the backstage shows the focus ring (<c>backstage.Open(byKeyboard: e.ByKeyboard)</c>).</summary>
+    public bool ByKeyboard { get; } = byKeyboard;
 }
 
 /// <summary>
@@ -90,6 +97,7 @@ public sealed class MatRibbon : Border
     private string _typed = string.Empty;
     private bool _altAlone;
     private bool _syncingTabs;
+    private bool _fileByPointer;
 
     static MatRibbon()
     {
@@ -111,7 +119,15 @@ public sealed class MatRibbon : Border
         AutomationProperties.SetName(this, MatText.Get("ribbon.name"));
         AutomationProperties.SetName(_tabs, MatText.Get("ribbon.tabs"));
 
-        _file.Click += (_, _) => RequestFile();
+        // a click of the mouse opens the backstage without the focus ring, Enter, Space (and a screen reader) with it
+        _file.AddHandler(PointerPressedEvent, (_, _) => _fileByPointer = true, RoutingStrategies.Tunnel, handledEventsToo: true);
+        _file.AddHandler(KeyDownEvent, (_, _) => _fileByPointer = false, RoutingStrategies.Tunnel, handledEventsToo: true);
+        _file.Click += (_, _) =>
+        {
+            var byKeyboard = !_fileByPointer;
+            _fileByPointer = false;
+            RequestFile(byKeyboard);
+        };
         _file.DoubleTapped += (_, e) => e.Handled = true;
         _expand.Content = new MatIcon { Icon = "chevron-down", Size = 16 };
         _expand.Click += (_, _) => IsCollapsed = false;
@@ -146,8 +162,11 @@ public sealed class MatRibbon : Border
         RefreshCollapse();
     }
 
-    /// <summary>The file tab was chosen (by click or key tip): open the backstage (<see cref="MatBackstage.Open"/>).</summary>
-    public event EventHandler? FileRequested;
+    /// <summary>
+    /// The file tab was chosen (by click, Enter or Space, or its key tip): open the backstage, with the focus ring only when it was the keyboard
+    /// (<c>backstage.Open(byKeyboard: e.ByKeyboard)</c>, <see cref="MatBackstage.Open"/>).
+    /// </summary>
+    public event EventHandler<MatRibbonFileEventArgs>? FileRequested;
 
     /// <summary>Another tab was chosen.</summary>
     public event EventHandler<MatRibbonTab>? SelectedTabChanged;
@@ -192,8 +211,23 @@ public sealed class MatRibbon : Border
         set => SetValue(TrailingContentProperty, value);
     }
 
-    /// <summary>True (the default) lets the ribbon handle the keys of its window: the shortcut that folds it, Alt and the key tips. A program that routes every key itself sets false and calls <see cref="ShowKeyTips"/>.</summary>
+    /// <summary>
+    /// True (the default) lets the ribbon handle the keys of its window: the shortcut that folds it (<see cref="HandlesCollapseKey"/>), Alt, F10 and the key tips. A program that routes every
+    /// key itself sets false and calls <see cref="ShowKeyTips"/> and <see cref="ToggleCollapsed"/>.
+    /// </summary>
     public bool HandlesWindowKeys { get; set; } = true;
+
+    /// <summary>
+    /// True (the default) lets the ribbon fold itself on <see cref="CollapseGesture"/> (Ctrl+F1, ⌥⌘R) while it handles the keys of its window. A program that owns that key itself (its own
+    /// table of commands) sets false and calls <see cref="ToggleCollapsed"/>; Alt, F10 and the key tips stay the ribbon's. <see cref="CollapseShortcut"/> is still named in the tooltips.
+    /// </summary>
+    public bool HandlesCollapseKey { get; set; } = true;
+
+    /// <summary>The label of the file tab in force: <see cref="MatRibbonDefinition.FileLabel"/>, or the word of MatDesktop in the language of the program (<c>Datei</c>, <c>File</c>).</summary>
+    public string FileText => string.IsNullOrWhiteSpace(_definition.FileLabel) ? MatText.Get("ribbon.file") : _definition.FileLabel.Trim();
+
+    /// <summary>The key tip of the file tab in force: <see cref="MatRibbonDefinition.FileKeyTip"/>, or that of MatDesktop (<c>D</c>, <c>F</c>).</summary>
+    public string FileKeyTip => string.IsNullOrWhiteSpace(_definition.FileKeyTip) ? MatText.Get("ribbon.fileKeyTip") : _definition.FileKeyTip.Trim().ToUpperInvariant();
 
     /// <summary>The key that folds and opens the ribbon: Ctrl+F1, on macOS ⌥⌘R.</summary>
     public KeyGesture CollapseGesture { get; set; } = OperatingSystem.IsMacOS() ? new KeyGesture(Key.R, KeyModifiers.Meta | KeyModifiers.Alt) : new KeyGesture(Key.F1, KeyModifiers.Control);
@@ -319,9 +353,9 @@ public sealed class MatRibbon : Border
         _pageHost.Child = null;
         _definition.Reindex();
 
-        _file.Content = _definition.FileText;
-        AutomationProperties.SetName(_file, _definition.FileText);
-        ToolTip.SetTip(_file, _definition.FileText);
+        _file.Content = FileText;
+        AutomationProperties.SetName(_file, FileText);
+        ToolTip.SetTip(_file, FileText);
         var contextLineAdded = false;
         foreach (var tab in _definition.Tabs)
         {
@@ -448,7 +482,7 @@ public sealed class MatRibbon : Border
         base.OnDetachedFromVisualTree(e);
     }
 
-    private void RequestFile()
+    private void RequestFile(bool byKeyboard)
     {
         HideKeyTips();
         if (_popup.IsOpen)
@@ -456,7 +490,7 @@ public sealed class MatRibbon : Border
             _popup.IsOpen = false;
         }
 
-        FileRequested?.Invoke(this, EventArgs.Empty);
+        FileRequested?.Invoke(this, new MatRibbonFileEventArgs(byKeyboard));
     }
 
     private void Select(MatRibbonTab tab)
@@ -582,7 +616,7 @@ public sealed class MatRibbon : Border
             return;
         }
 
-        if (CollapseGesture.Matches(e))
+        if (HandlesCollapseKey && CollapseGesture.Matches(e))
         {
             ToggleCollapsed();
             e.Handled = true;
@@ -725,7 +759,7 @@ public sealed class MatRibbon : Border
         {
             ShowTips(MatRibbonKeyTipMode.None);
             _focusBefore = null;
-            RequestFile();
+            RequestFile(byKeyboard: true);
             return;
         }
 
@@ -780,7 +814,7 @@ public sealed class MatRibbon : Border
         {
             var targets = new List<(string Id, string Label, string? KeyTip, Control Target)>
             {
-                (FileId, _definition.FileText, _definition.FileKeyTip ?? MatText.Get("ribbon.fileKeyTip"), _file),
+                (FileId, FileText, FileKeyTip, _file),
             };
             targets.AddRange(_definition.VisibleTabs.Select(t => (t.Id, t.Label, t.KeyTip, (Control)_tabButtons[t])));
             Badges(targets, tall: true);

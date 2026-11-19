@@ -45,6 +45,8 @@ public sealed class OfficeBackstage
         View.AboutRequested += (_, _) => Open(_content?.About.Id);
     }
 
+    private Control? _aboutPage;
+
     /// <summary>Opened (true) or closed (false): the window gives the focus back to the document.</summary>
     public event EventHandler<bool>? OpenChanged;
 
@@ -57,7 +59,9 @@ public sealed class OfficeBackstage
     public string? CurrentPageId { get; private set; }
 
     /// <summary>The page shown (tests, snapshots).</summary>
-    public Control? CurrentPage => CurrentPageId is not null && _entries.TryGetValue(CurrentPageId, out var entry) ? entry.Host.Content as Control : null;
+    public Control? CurrentPage => CurrentPageId is null ? null
+        : CurrentPageId == _content?.About.Id ? _aboutPage
+        : _entries.TryGetValue(CurrentPageId, out var entry) ? entry.Host.Content as Control : null;
 
     public void Configure(BackstageContent content)
     {
@@ -72,15 +76,25 @@ public sealed class OfficeBackstage
 
         Add(content.Settings, lower: true);
 
-        // Info has no entry of its own: the version at the foot opens it (house rule).
-        Add(content.About, lower: true).NavItem.IsVisible = false;
+        // Info has no entry of its own: the version at the foot opens it (house rule), shown by MatBackstage.ShowPage.
     }
 
-    /// <summary>Opens on the page with this id (null: the first page); an action id runs the action instead.</summary>
-    public void Open(string? pageId = null)
+    /// <summary>
+    /// Opens on the page with this id (null: the first page); an action id runs the action instead. <paramref name="byKeyboard"/>:
+    /// the keyboard opened it (the file tab by Enter or its key tip, a shortcut) – only then the entry shows the focus ring.
+    /// </summary>
+    public void Open(string? pageId = null, bool byKeyboard = false)
     {
         if (_content is null)
         {
+            return;
+        }
+
+        if (pageId == _content.About.Id)
+        {
+            _aboutPage = _content.About.CreatePage!();
+            CurrentPageId = pageId;
+            View.ShowPage(_aboutPage, byKeyboard);
             return;
         }
 
@@ -93,12 +107,7 @@ public sealed class OfficeBackstage
         }
 
         Show(entry);
-        View.Open(entry.NavItem);
-        if (!entry.NavItem.IsVisible)
-        {
-            // Info has no entry to stand on: the version that opens it takes the keyboard (no ring, it was chosen, not tabbed to).
-            View.VersionButton.Focus(Avalonia.Input.NavigationMethod.Pointer);
-        }
+        View.Open(entry.NavItem, byKeyboard);
     }
 
     public void Close() => View.Close();

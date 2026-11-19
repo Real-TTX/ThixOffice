@@ -1,4 +1,4 @@
-// MatDesktop 0.3.0 – a copy from MatDesign, do not edit here
+// MatDesktop 0.3.1 – a copy from MatDesign, do not edit here
 using System.ComponentModel;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -33,10 +33,19 @@ public sealed class MatQuickAccess : StackPanel
     /// <summary>The buttons, by the id of their item.</summary>
     public IReadOnlyDictionary<string, Button> Buttons => _buttons.ToDictionary(p => p.Key.Id, p => p.Value, StringComparer.Ordinal);
 
-    /// <summary>Adds the button of an item at the end.</summary>
+    /// <summary>
+    /// Adds the button of an item at the end: an item of the ribbon, or one of its own that shares the id of the ribbon's (Speichern). It joins <see cref="MatRibbonDefinition.QuickAccess"/>,
+    /// so that <see cref="MatRibbonDefinition.SetEnabled"/> and the other setters of the definition reach it too.
+    /// </summary>
     public void Add(MatRibbonButton item)
     {
         ArgumentNullException.ThrowIfNull(item);
+        if (!_definition.QuickAccess.Contains(item))
+        {
+            _definition.QuickAccess.Add(item);
+            _definition.Reindex();
+        }
+
         var button = new Button { Content = new MatIcon { Icon = item.Icon, Size = 16 } }.Themed("MatButton.Quick");
         button.Click += (_, _) => _definition.Invoke(item);
         _buttons[item] = button;

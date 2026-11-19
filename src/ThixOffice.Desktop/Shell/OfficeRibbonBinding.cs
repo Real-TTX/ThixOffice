@@ -59,6 +59,7 @@ public sealed class OfficeRibbonBinding
     private readonly MatRibbon _ribbon;
     private readonly List<(MatRibbonItem Item, OfficeCommand Command)> _bound = [];
     private readonly List<string> _missing = [];
+    private readonly List<OfficeCommand> _commandsBound = [];
 
     private OfficeRibbonBinding(MatRibbonDefinition definition, OfficeCommandRegistry commands, MatRibbon ribbon)
     {
@@ -71,14 +72,14 @@ public sealed class OfficeRibbonBinding
     public IReadOnlyList<string> MissingCommandIds => _missing;
 
     /// <summary>
-    /// Binds <paramref name="definition"/> (and <paramref name="extraItems"/> outside its tabs, e.g. the quick access) to
+    /// Binds <paramref name="definition"/> (its tabs and its <see cref="MatRibbonDefinition.QuickAccess"/>) to
     /// <paramref name="commands"/>, leaves out what has no command, and sets it into <paramref name="ribbon"/>.
     /// </summary>
-    public static OfficeRibbonBinding Bind(MatRibbonDefinition definition, OfficeCommandRegistry commands, MatRibbon ribbon, params MatRibbonItem[] extraItems)
+    public static OfficeRibbonBinding Bind(MatRibbonDefinition definition, OfficeCommandRegistry commands, MatRibbon ribbon)
     {
         var binding = new OfficeRibbonBinding(definition, commands, ribbon);
         binding.Prune();
-        foreach (var item in definition.AllItems().Concat(extraItems.SelectMany(Walk)))
+        foreach (var item in definition.AllItems().Concat(definition.QuickAccess.SelectMany(Walk)))
         {
             binding.Attach(item);
         }
@@ -126,23 +127,32 @@ public sealed class OfficeRibbonBinding
         return _ribbon.ViewOf(commandId) is { IsEffectivelyVisible: true } view && view.Focus(NavigationMethod.Tab);
     }
 
-    /// <summary>Pushes enabled, checked and the values of the commands into their items.</summary>
+    /// <summary>
+    /// Pushes enabled, checked and the values of the commands into their items – through the definition's setters, which
+    /// reach every item of the id (the ribbon's and the quick access's).
+    /// </summary>
     public void Sync()
     {
-        foreach (var (item, command) in _bound)
+        foreach (var command in _commandsBound)
         {
-            item.IsEnabled = command.IsEnabled;
-            if (item is MatRibbonToggle toggle)
+            var items = _definition.FindAll(command.Id);
+            _definition.SetEnabled(command.Id, command.IsEnabled);
+            if (items.Any(item => item is MatRibbonToggle))
             {
-                toggle.IsChecked = command.Checked;
+                _definition.SetChecked(command.Id, command.Checked);
             }
 
-            if (command is not OfficeValueCommand valueCommand)
+            if (command is OfficeValueCommand valueCommand)
             {
-                continue;
+                SyncValue(items, valueCommand.Value);
             }
+        }
+    }
 
-            var value = valueCommand.Value;
+    private static void SyncValue(IReadOnlyList<MatRibbonItem> items, string? value)
+    {
+        foreach (var item in items)
+        {
             switch (item)
             {
                 case MatRibbonComboBox combo:
@@ -216,6 +226,10 @@ public sealed class OfficeRibbonBinding
         }
 
         _bound.Add((item, command));
+        if (!_commandsBound.Contains(command))
+        {
+            _commandsBound.Add(command);
+        }
     }
 
     // ===== Leaving out what has no command =====
