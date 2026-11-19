@@ -61,10 +61,14 @@ public sealed class StyleResolver(Document document)
     private const int CacheLimit = 20_000;
     private const char TableKeySeparator = '\u0001';
 
+    private const char ConditionSeparator = '\u0002';
+
     private readonly Dictionary<string, (ParagraphProperties Paragraph, CharacterProperties Character)> _paragraphStyles = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CharacterProperties> _characterStyles = new(StringComparer.Ordinal);
     private readonly Dictionary<(string ParagraphStyle, CharacterProperties Run), EffectiveCharacterFormat> _runs = [];
     private readonly Dictionary<(ParagraphProperties Properties, string? TableStyle), EffectiveParagraphFormat> _paragraphs = [];
+    private System.Runtime.CompilerServices.ConditionalWeakTable<Table, Dictionary<int, int>> _masks = new();
+
     private StyleSheet? _styles;
     private NumberingDefinitions? _numbering;
     private Theme? _theme;
@@ -88,7 +92,7 @@ public sealed class StyleResolver(Document document)
     public EffectiveParagraphFormat ResolveParagraph(Paragraph paragraph)
     {
         Refresh();
-        var tableStyle = TableStyleId(paragraph);
+        var tableStyle = TableKey(paragraph);
         if (_paragraphs.TryGetValue((paragraph.Properties, tableStyle), out var cached))
         {
             return cached;
@@ -99,7 +103,12 @@ public sealed class StyleResolver(Document document)
         var merged = Document.Styles.ParagraphDefaults;
         if (tableStyle is not null)
         {
-            merged = merged.Merge(StyleChain(tableStyle).Paragraph);
+            var (tableStyleId, mask) = SplitTableKey(tableStyle);
+            merged = merged.Merge(StyleChain(tableStyleId).Paragraph);
+            foreach (var condition in ConditionsOf(tableStyleId, mask))
+            {
+                merged = merged.Merge(condition.Paragraph);
+            }
         }
 
         merged = merged.Merge(styleProperties);
@@ -149,7 +158,7 @@ public sealed class StyleResolver(Document document)
 
     /// <summary>The key of <paramref name="paragraph"/>'s text: its style, in a table cell with the table style.</summary>
     public string StyleKeyOf(Paragraph paragraph) =>
-        TableStyleId(paragraph) is { } table ? ParagraphStyleId(paragraph) + TableKeySeparator + table : ParagraphStyleId(paragraph);
+        TableKey(paragraph) is { } table ? ParagraphStyleId(paragraph) + TableKeySeparator + table : ParagraphStyleId(paragraph);
 
     /// <summary>The table style a cell paragraph gets its defaults from (the table's or the default table style), null outside tables.</summary>
     public string? TableStyleId(Paragraph paragraph)
@@ -207,7 +216,13 @@ public sealed class StyleResolver(Document document)
         var merged = Document.Styles.CharacterDefaults;
         if (separator >= 0)
         {
-            merged = merged.Merge(StyleChain(paragraphStyleId[(separator + 1)..]).Character);
+            var (tableStyleId, mask) = SplitTableKey(paragraphStyleId[(separator + 1)..]);
+            merged = merged.Merge(StyleChain(tableStyleId).Character);
+            foreach (var condition in ConditionsOf(tableStyleId, mask))
+            {
+                merged = merged.Merge(condition.Character);
+            }
+
             paragraphStyleId = paragraphStyleId[..separator];
         }
 
@@ -218,6 +233,119 @@ public sealed class StyleResolver(Document document)
         }
 
         return merged;
+    }
+
+    /// <summary>The table style and the conditional formats that apply to a cell paragraph: "style" or "style + mask"; null outside tables.</summary>
+    private string? TableKey(Paragraph paragraph)
+    {
+        if (TableStyleId(paragraph) is not { } style || paragraph.Cell is not { } cell)
+        {
+            return null;
+        }
+
+        var mask = ConditionMask(cell.Table, cell.Row, cell.Cell);
+        return mask == 0 ? style : style + ConditionSeparator + mask.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static (string Style, int Mask) SplitTableKey(string key)
+    {
+        var separator = key.IndexOf(ConditionSeparator);
+        return separator < 0 ? (key, 0) : (key[..separator], int.Parse(key[(separator + 1)..], System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    /// <summary>
+    /// The conditional formats of a table style that format cell <paramref name="cell"/> of row <paramref name="row"/>, as a bit mask
+    /// of <see cref="TableConditionKind"/>: the whole table, row and column bands (not in a heading or total row/column), first/last
+    /// row and column as the table's "Tabellenformatoptionen" (w:tblLook) switch them on, and the corner cells. 0 when the table's
+    /// style has no conditional formats.
+    /// </summary>
+    public int ConditionMask(Table table, int row, int cell)
+    {
+        Refresh();
+        var masks = _masks.GetOrCreateValue(table);
+        var key = (row << 16) | cell;
+        if (masks.TryGetValue(key, out var known))
+        {
+            return known;
+        }
+
+        var computed = ComputeConditionMask(table, row, cell);
+        masks[key] = computed;
+        return computed;
+    }
+
+    private int ComputeConditionMask(Table table, int row, int cell)
+    {
+        var properties = ResolveTable(table);
+        if (properties.StyleId is not { } styleId || Document.Styles.Chain(styleId).All(link => link.Conditions.Count == 0))
+        {
+            return 0;
+        }
+
+        var look = properties.Look ?? TableLook.Default;
+        var columns = Math.Max(1, table.ColumnCount);
+        var firstColumn = table.GridColumnOf(row, cell);
+        var lastColumn = firstColumn + Math.Max(1, table.CellAt(row, cell).GridSpan) - 1;
+        var isFirstRow = look.FirstRow && row == 0;
+        var isLastRow = look.LastRow && row == table.RowCount - 1;
+        var isFirstColumn = look.FirstColumn && firstColumn == 0;
+        var isLastColumn = look.LastColumn && lastColumn >= columns - 1;
+        var mask = 1 << (int)TableConditionKind.WholeTable;
+        if (look.BandedColumns && !isFirstColumn && !isLastColumn)
+        {
+            var band = (firstColumn - (look.FirstColumn ? 1 : 0)) / Math.Max(1, properties.ColumnBandSize ?? 1);
+            mask |= 1 << (int)(band % 2 == 0 ? TableConditionKind.Band1Vertical : TableConditionKind.Band2Vertical);
+        }
+
+        if (look.BandedRows && !isFirstRow && !isLastRow)
+        {
+            var band = (row - (look.FirstRow ? 1 : 0)) / Math.Max(1, properties.RowBandSize ?? 1);
+            mask |= 1 << (int)(band % 2 == 0 ? TableConditionKind.Band1Horizontal : TableConditionKind.Band2Horizontal);
+        }
+
+        void Set(bool on, TableConditionKind kind)
+        {
+            if (on)
+            {
+                mask |= 1 << (int)kind;
+            }
+        }
+
+        Set(isFirstColumn, TableConditionKind.FirstColumn);
+        Set(isLastColumn, TableConditionKind.LastColumn);
+        Set(isFirstRow, TableConditionKind.FirstRow);
+        Set(isLastRow, TableConditionKind.LastRow);
+        Set(isFirstRow && isLastColumn, TableConditionKind.TopRightCell);
+        Set(isFirstRow && isFirstColumn, TableConditionKind.TopLeftCell);
+        Set(isLastRow && isLastColumn, TableConditionKind.BottomRightCell);
+        Set(isLastRow && isFirstColumn, TableConditionKind.BottomLeftCell);
+        return mask;
+    }
+
+    /// <summary>The conditional formats of <paramref name="styleId"/>'s chain that <paramref name="mask"/> selects, in Word's order (the base style's before the style's own).</summary>
+    public IReadOnlyList<TableStyleCondition> ConditionsOf(string? styleId, int mask)
+    {
+        if (mask == 0)
+        {
+            return [];
+        }
+
+        var chain = Document.Styles.Chain(styleId).Reverse().ToList();
+        var result = new List<TableStyleCondition>();
+        foreach (var kind in Enum.GetValues<TableConditionKind>())
+        {
+            if ((mask & (1 << (int)kind)) == 0)
+            {
+                continue;
+            }
+
+            foreach (var style in chain)
+            {
+                result.AddRange(style.Conditions.Where(condition => condition.Kind == kind));
+            }
+        }
+
+        return result;
     }
 
     /// <summary>The list level a paragraph shows (direct or from its style), or null when it is not in a list.</summary>
@@ -311,6 +439,7 @@ public sealed class StyleResolver(Document document)
         _characterStyles.Clear();
         _runs.Clear();
         _paragraphs.Clear();
+        _masks = new();
     }
 
     private static void Remember<TKey, TValue>(Dictionary<TKey, TValue> cache, TKey key, TValue value)

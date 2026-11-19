@@ -105,6 +105,7 @@ public sealed partial class DocumentLayout
                 var own = cellProperties.Borders ?? BorderSet.Empty;
                 var lastRow = row + rowSpan - 1 >= table.RowCount - 1;
                 var (first, last) = span.BlocksOf(row, cell);
+                var conditional = ConditionalCell(properties.StyleId, table, row, cell, column, end, widths.Length, lastRow);
                 cells[row][cell] = new CellBox
                 {
                     Row = row,
@@ -118,13 +119,13 @@ public sealed partial class DocumentLayout
                     Margins = margins,
                     Borders =
                     [
-                        own.Top ?? (row == 0 ? borders.Top : borders.InsideHorizontal),
-                        own.Left ?? (column == 0 ? borders.Left : borders.InsideVertical),
-                        own.Bottom ?? (lastRow ? borders.Bottom : borders.InsideHorizontal),
-                        own.Right ?? (end >= widths.Length ? borders.Right : borders.InsideVertical),
+                        own.Top ?? conditional.Borders[0] ?? (row == 0 ? borders.Top : borders.InsideHorizontal),
+                        own.Left ?? conditional.Borders[1] ?? (column == 0 ? borders.Left : borders.InsideVertical),
+                        own.Bottom ?? conditional.Borders[2] ?? (lastRow ? borders.Bottom : borders.InsideHorizontal),
+                        own.Right ?? conditional.Borders[3] ?? (end >= widths.Length ? borders.Right : borders.InsideVertical),
                     ],
-                    Fill = (cellProperties.Shading ?? properties.Shading)?.VisibleFill,
-                    Alignment = cellProperties.VerticalAlignment ?? CellVerticalAlignment.Top,
+                    Fill = (cellProperties.Shading ?? conditional.Shading ?? properties.Shading)?.VisibleFill,
+                    Alignment = cellProperties.VerticalAlignment ?? conditional.Alignment ?? CellVerticalAlignment.Top,
                 };
                 LayoutCell(cells[row][cell]);
             }
@@ -138,6 +139,44 @@ public sealed partial class DocumentLayout
             RowHeights = RowHeights(table, cells),
             HeaderRows = table.HeaderRowCount < table.RowCount ? table.HeaderRowCount : 0,
         };
+    }
+
+    /// <summary>
+    /// What the conditional formats of the table style give a cell (Überschrift, Bänder, erste Spalte …): its four borders (top, left,
+    /// bottom, right – a format's outer lines where the cell is at the edge of that part, its inside lines elsewhere), shading and
+    /// vertical alignment, later formats over earlier ones.
+    /// </summary>
+    private (BorderLine?[] Borders, Shading? Shading, CellVerticalAlignment? Alignment) ConditionalCell(string? styleId, Table table, int row, int cell, int column, int end, int columns, bool lastRow)
+    {
+        var result = (Borders: new BorderLine?[4], Shading: (Shading?)null, Alignment: (CellVerticalAlignment?)null);
+        var resolver = _context.Resolver;
+        foreach (var condition in resolver.ConditionsOf(styleId, resolver.ConditionMask(table, row, cell)))
+        {
+            result.Shading = condition.Shading ?? result.Shading;
+            result.Alignment = condition.VerticalAlignment ?? result.Alignment;
+            if (condition.Borders is not { } lines)
+            {
+                continue;
+            }
+
+            var kind = condition.Kind;
+            var rows = kind is TableConditionKind.FirstRow or TableConditionKind.LastRow or TableConditionKind.Band1Horizontal or TableConditionKind.Band2Horizontal;
+            var cols = kind is TableConditionKind.FirstColumn or TableConditionKind.LastColumn or TableConditionKind.Band1Vertical or TableConditionKind.Band2Vertical;
+            var corner = kind >= TableConditionKind.TopRightCell;
+            BorderLine?[] sides =
+            [
+                rows || corner ? lines.Top : row == 0 ? lines.Top : lines.InsideHorizontal,
+                cols || corner ? lines.Left : column == 0 ? lines.Left : lines.InsideVertical,
+                rows || corner ? lines.Bottom : lastRow ? lines.Bottom : lines.InsideHorizontal,
+                cols || corner ? lines.Right : end >= columns ? lines.Right : lines.InsideVertical,
+            ];
+            for (var side = 0; side < 4; side++)
+            {
+                result.Borders[side] = sides[side] ?? result.Borders[side];
+            }
+        }
+
+        return result;
     }
 
     /// <summary>

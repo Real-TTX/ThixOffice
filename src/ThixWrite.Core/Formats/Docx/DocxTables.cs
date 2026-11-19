@@ -51,6 +51,15 @@ internal static class DocxTables
                 case "shd" when child.NamespaceUri == DocxValues.WordNamespace:
                     result = result with { Shading = ReadShading(child) };
                     break;
+                case "tblLook" when child.NamespaceUri == DocxValues.WordNamespace:
+                    result = result with { Look = ReadLook(child) };
+                    break;
+                case "tblStyleRowBandSize" when child.NamespaceUri == DocxValues.WordNamespace:
+                    result = result with { RowBandSize = (int?)DocxValues.ParseInteger(value) is > 0 and var rows ? rows : null };
+                    break;
+                case "tblStyleColBandSize" when child.NamespaceUri == DocxValues.WordNamespace:
+                    result = result with { ColumnBandSize = (int?)DocxValues.ParseInteger(value) is > 0 and var columns ? columns : null };
+                    break;
                 default:
                     unknown.Add(child);
                     break;
@@ -58,6 +67,74 @@ internal static class DocxTables
         }
 
         return result with { UnknownXml = XmlFragments.Join(unknown) };
+    }
+
+    /// <summary>w:tblLook: the attributes Word 2010+ writes, else the bit mask of w:val (0020 first row … 0400 no vertical bands).</summary>
+    public static TableLook ReadLook(OpenXmlElement element)
+    {
+        var mask = int.TryParse(DocxValues.AttributeValue(element, "val"), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var bits) ? bits : 0x04A0;
+        bool Flag(string name, int bit, bool inverted = false)
+        {
+            var on = DocxValues.AttributeValue(element, name) is { } text ? text.Trim() is "1" or "true" or "on" : (mask & bit) != 0;
+            return inverted ? !on : on;
+        }
+
+        return new TableLook(Flag("firstRow", 0x20), Flag("lastRow", 0x40), Flag("firstColumn", 0x80), Flag("lastColumn", 0x100), Flag("noHBand", 0x200, inverted: true), Flag("noVBand", 0x400, inverted: true));
+    }
+
+    /// <summary>A conditional format of a table style (w:tblStylePr): its type, w:pPr, w:rPr and the cell part of w:tcPr.</summary>
+    public static TableStyleCondition? ReadCondition(OpenXmlElement element)
+    {
+        TableConditionKind? kind = DocxValues.AttributeValue(element, "type") switch
+        {
+            "wholeTable" => TableConditionKind.WholeTable,
+            "band1Vert" => TableConditionKind.Band1Vertical,
+            "band2Vert" => TableConditionKind.Band2Vertical,
+            "band1Horz" => TableConditionKind.Band1Horizontal,
+            "band2Horz" => TableConditionKind.Band2Horizontal,
+            "firstCol" => TableConditionKind.FirstColumn,
+            "lastCol" => TableConditionKind.LastColumn,
+            "firstRow" => TableConditionKind.FirstRow,
+            "lastRow" => TableConditionKind.LastRow,
+            "neCell" => TableConditionKind.TopRightCell,
+            "nwCell" => TableConditionKind.TopLeftCell,
+            "seCell" => TableConditionKind.BottomRightCell,
+            "swCell" => TableConditionKind.BottomLeftCell,
+            _ => null,
+        };
+        if (kind is null)
+        {
+            return null;
+        }
+
+        var condition = new TableStyleCondition(kind.Value, ParagraphProperties.Empty, CharacterProperties.Empty);
+        foreach (var child in element.ChildElements)
+        {
+            switch (child.LocalName)
+            {
+                case "pPr":
+                    condition = condition with { Paragraph = DocxPropertyReader.ReadParagraph(child) };
+                    break;
+                case "rPr":
+                    condition = condition with { Character = DocxPropertyReader.ReadCharacter(child) };
+                    break;
+                case "tcPr":
+                    foreach (var cell in child.ChildElements)
+                    {
+                        condition = cell.LocalName switch
+                        {
+                            "tcBorders" => condition with { Borders = ReadBorders(cell) },
+                            "shd" => condition with { Shading = ReadShading(cell) },
+                            "vAlign" => condition with { VerticalAlignment = DocxValues.AttributeValue(cell, "val") switch { "center" => CellVerticalAlignment.Center, "bottom" => CellVerticalAlignment.Bottom, _ => CellVerticalAlignment.Top } },
+                            _ => condition,
+                        };
+                    }
+
+                    break;
+            }
+        }
+
+        return condition;
     }
 
     public static TableRowProperties ReadRow(W.TableRow row)
@@ -284,6 +361,27 @@ internal static class DocxTables
         if (properties.CellMargins is { } margins && WriteTableMargins(margins) is { } cellMargins)
         {
             XmlFragments.Add(target, cellMargins);
+        }
+
+        if (properties.RowBandSize is { } rowBand)
+        {
+            XmlFragments.Add(target, DocxPropertyWriter.Element<W.TableStyleRowBandSize>(("val", rowBand.ToString(CultureInfo.InvariantCulture))));
+        }
+
+        if (properties.ColumnBandSize is { } columnBand)
+        {
+            XmlFragments.Add(target, DocxPropertyWriter.Element<W.TableStyleColumnBandSize>(("val", columnBand.ToString(CultureInfo.InvariantCulture))));
+        }
+
+        if (properties.Look is { } look)
+        {
+            // Word 2010+: the bit mask and the same flags as attributes.
+            var mask = (look.FirstRow ? 0x20 : 0) | (look.LastRow ? 0x40 : 0) | (look.FirstColumn ? 0x80 : 0) | (look.LastColumn ? 0x100 : 0)
+                       | (look.BandedRows ? 0 : 0x200) | (look.BandedColumns ? 0 : 0x400);
+            static string Flag(bool on) => on ? "1" : "0";
+            XmlFragments.Add(target, DocxPropertyWriter.Element<W.TableLook>(("val", mask.ToString("X4", CultureInfo.InvariantCulture)), ("firstRow", Flag(look.FirstRow)),
+                ("lastRow", Flag(look.LastRow)), ("firstColumn", Flag(look.FirstColumn)), ("lastColumn", Flag(look.LastColumn)), ("noHBand", Flag(!look.BandedRows)),
+                ("noVBand", Flag(!look.BandedColumns))));
         }
 
         return target.HasChildren ? target : null;

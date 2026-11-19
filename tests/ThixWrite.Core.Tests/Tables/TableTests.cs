@@ -332,7 +332,7 @@ public class TableTests
         var span = TableSpan.At(document, 0)!;
         Assert.Equal(4, span.BlockCount);
         Assert.True(span.Table.Rows[0].Properties.CantSplit);
-        Assert.Contains("tblLook", span.Table.Properties.UnknownXml);
+        Assert.NotNull(span.Table.Properties.Look); // w:tblLook is read into the model
         Assert.Contains("noWrap", span.Table.CellAt(0, 0).UnknownXml);
         Assert.Contains(document.ParagraphAt(0)!.Inlines, inline => inline is OpaqueInline { Kind: PreservedKind.Bookmark });
         Assert.Contains(document.Blocks, block => block is OpaqueBlock { Kind: PreservedKind.Table });

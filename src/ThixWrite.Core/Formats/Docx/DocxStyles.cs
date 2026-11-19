@@ -218,6 +218,14 @@ internal static class DocxStyles
                 case W.StyleTableProperties table:
                     style = style with { Table = DocxTables.ReadTable(table) };
                     break;
+                case W.TableStyleProperties condition:
+                    if (DocxTables.ReadCondition(condition) is { } read)
+                    {
+                        style = style with { Conditions = new EquatableArray<TableStyleCondition>([.. style.Conditions, read]) };
+                    }
+
+                    unknown.Add(child); // written back as read
+                    break;
                 default:
                     unknown.Add(child);
                     break;

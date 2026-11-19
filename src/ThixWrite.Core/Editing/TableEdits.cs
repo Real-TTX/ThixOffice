@@ -38,7 +38,7 @@ internal static class TableEdits
             {
                 StyleId = styleId,
                 Width = TableWidth.Auto,
-                UnknownXml = "<w:tblLook w:val=\"04a0\" xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\" />", // as the SDK writes it back
+                Look = TableLook.Default, // what Word gives a new table (04A0)
             },
             Grid = [.. Enumerable.Repeat(columnWidth, columns)],
         };

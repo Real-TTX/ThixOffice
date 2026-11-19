@@ -54,6 +54,9 @@ public sealed record Style
     /// <summary>The table properties of a table style (borders, cell margins …; w:tblPr), or null.</summary>
     public TableProperties? Table { get; init; }
 
+    /// <summary>The conditional formats of a table style (Überschrift, Bänder …), read from its w:tblStylePr (which stay in <see cref="UnknownXml"/>).</summary>
+    public EquatableArray<TableStyleCondition> Conditions { get; init; } = EquatableArray<TableStyleCondition>.Empty;
+
     /// <summary>Style children ThixWrite does not model (conditional table formats w:tblStylePr, w:trPr, w:tcPr, w:rsid …), as XML.</summary>
     public string? UnknownXml { get; init; }
 }

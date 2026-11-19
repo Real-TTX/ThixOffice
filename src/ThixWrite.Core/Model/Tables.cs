@@ -121,7 +121,7 @@ public sealed record Shading(string? Fill, string Pattern = "clear", string? Col
 
 /// <summary>
 /// The properties of a table (w:tblPr): style, alignment, indent, preferred width, layout, borders, default cell margins,
-/// shading; everything else (w:tblLook, w:tblCaption, floating position …) is kept as <see cref="UnknownXml"/>.
+/// shading, Tabellenformatoptionen (w:tblLook), band sizes of a style; everything else (w:tblCaption, floating position …) is kept as <see cref="UnknownXml"/>.
 /// </summary>
 public sealed record TableProperties
 {
@@ -144,6 +144,15 @@ public sealed record TableProperties
 
     public Shading? Shading { get; init; }
 
+    /// <summary>Which conditional formats of the table style apply (w:tblLook), null = Word's default.</summary>
+    public TableLook? Look { get; init; }
+
+    /// <summary>Rows per band of a table style (w:tblStyleRowBandSize), null = 1.</summary>
+    public int? RowBandSize { get; init; }
+
+    /// <summary>Columns per band of a table style (w:tblStyleColBandSize), null = 1.</summary>
+    public int? ColumnBandSize { get; init; }
+
     public string? UnknownXml { get; init; }
 
     /// <summary>These properties with the ones set in <paramref name="other"/> taken from it (style chain, direct formatting).</summary>
@@ -157,6 +166,9 @@ public sealed record TableProperties
         Borders = (Borders ?? BorderSet.Empty).Merge(other.Borders),
         CellMargins = (CellMargins ?? new CellMargins()).Merge(other.CellMargins),
         Shading = other.Shading ?? Shading,
+        Look = other.Look ?? Look,
+        RowBandSize = other.RowBandSize ?? RowBandSize,
+        ColumnBandSize = other.ColumnBandSize ?? ColumnBandSize,
         UnknownXml = other.UnknownXml ?? UnknownXml,
     };
 }
@@ -336,3 +348,42 @@ public readonly record struct CellRef(Table Table, int Row, int Cell)
 
     public override string ToString() => $"R{Row + 1}C{Cell + 1}";
 }
+
+/// <summary>The parts of a table a conditional format of a table style (w:tblStylePr) formats, in the order Word applies them (later wins).</summary>
+public enum TableConditionKind
+{
+    WholeTable,
+    Band1Vertical,
+    Band2Vertical,
+    Band1Horizontal,
+    Band2Horizontal,
+    FirstColumn,
+    LastColumn,
+    FirstRow,
+    LastRow,
+    TopRightCell,
+    TopLeftCell,
+    BottomRightCell,
+    BottomLeftCell,
+}
+
+/// <summary>
+/// "Tabellenformatoptionen" (w:tblLook): which conditional formats of the style a table shows – Überschrift, Ergebniszeile, erste und
+/// letzte Spalte, gebänderte Zeilen und Spalten. <see cref="Default"/> is what Word gives a new table (04A0).
+/// </summary>
+public sealed record TableLook(bool FirstRow, bool LastRow, bool FirstColumn, bool LastColumn, bool BandedRows, bool BandedColumns)
+{
+    public static readonly TableLook Default = new(true, false, true, false, true, false);
+}
+
+/// <summary>
+/// One conditional format of a table style (w:tblStylePr): paragraph and character properties for the text, cell borders, shading
+/// and alignment for the cells of that part. Read for the display; the XML stays in <see cref="Style.UnknownXml"/> for the round trip.
+/// </summary>
+public sealed record TableStyleCondition(
+    TableConditionKind Kind,
+    ParagraphProperties Paragraph,
+    CharacterProperties Character,
+    BorderSet? Borders = null,
+    Shading? Shading = null,
+    CellVerticalAlignment? VerticalAlignment = null);
