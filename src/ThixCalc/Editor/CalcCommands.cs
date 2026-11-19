@@ -534,11 +534,11 @@ public static class CalcCommands
         // ===== Blätter =====
         commands.Add(new OfficeCommand(CalcCommandIds.NextSheet, "Nächstes Blatt", () => With(session => session.ActivateSheet(NextVisible(session, 1))))
         {
-            Icon = "chevron-right", Shortcut = "Ctrl+PageDown", MacShortcut = "Alt+Right", CanExecute = Ready,
+            Icon = "chevron-right", Shortcut = "Ctrl+PageDown", MacShortcut = "Ctrl+Alt+Right", CanExecute = Ready,
         });
         commands.Add(new OfficeCommand(CalcCommandIds.PreviousSheet, "Vorheriges Blatt", () => With(session => session.ActivateSheet(NextVisible(session, -1))))
         {
-            Icon = "chevron-left", Shortcut = "Ctrl+PageUp", MacShortcut = "Alt+Left", CanExecute = Ready,
+            Icon = "chevron-left", Shortcut = "Ctrl+PageUp", MacShortcut = "Ctrl+Alt+Left", CanExecute = Ready,
         });
 
         CalcDataCommands.Add(window);

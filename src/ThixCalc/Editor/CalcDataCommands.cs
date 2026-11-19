@@ -147,11 +147,11 @@ public static class CalcDataCommands
         });
         commands.Add(new OfficeCommand(CalcCommandIds.Group, "Gruppieren", () => With(Group))
         {
-            Icon = "layers", Shortcut = "Alt+Shift+Right", CanExecute = Ready, Keywords = ["gliederung", "gruppe"],
+            Icon = "layers", Shortcut = "Alt+Shift+Right", MacShortcut = "Ctrl+Shift+K", CanExecute = Ready, Keywords = ["gliederung", "gruppe"],
         });
         commands.Add(new OfficeCommand(CalcCommandIds.Ungroup, "Gruppierung aufheben", () => With(session => Group(session, group: false)))
         {
-            Icon = "layers", Shortcut = "Alt+Shift+Left", CanExecute = Ready,
+            Icon = "layers", Shortcut = "Alt+Shift+Left", MacShortcut = "Ctrl+Shift+J", CanExecute = Ready,
         });
     }
 

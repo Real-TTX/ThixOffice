@@ -30,7 +30,14 @@ public sealed class FeatureTests
         Assert.Equal(2, editor.Tabs.Tabs.Count);
 
         // Strg+Bild auf goes back; the tab's double click renames in place.
-        await PressAsync(window, PhysicalKey.PageUp, CommandKey);
+        if (OperatingSystem.IsMacOS())
+        {
+            await PressAsync(window, PhysicalKey.ArrowLeft, CommandKey | RawInputModifiers.Alt); // ⌥⌘← on the Mac
+        }
+        else
+        {
+            await PressAsync(window, PhysicalKey.PageUp, CommandKey);
+        }
         Assert.Equal(0, editor.Session.Workbook.ActiveSheetIndex);
         editor.Tabs.RenameActive();
         await SettleAsync();
@@ -54,7 +61,14 @@ public sealed class FeatureTests
         await TypeAsync(window, "fett");
         await PressAsync(window, PhysicalKey.Enter);
         await PressAsync(window, PhysicalKey.ArrowUp);
-        await PressAsync(window, PhysicalKey.F, CommandKey | RawInputModifiers.Shift);
+        if (OperatingSystem.IsMacOS())
+        {
+            await PressAsync(window, PhysicalKey.B, CommandKey); // ⌘B on the Mac
+        }
+        else
+        {
+            await PressAsync(window, PhysicalKey.F, CommandKey | RawInputModifiers.Shift); // Strg+Umschalt+F, German Excel
+        }
         await SettleAsync();
         Assert.True(EditorOf(window).Session.ActiveStyle.Font.Bold);
         Assert.True(window.RibbonDefinition.FindAll(CalcCommandIds.Bold).OfType<MatRibbonToggle>().All(toggle => toggle.IsChecked));
