@@ -356,6 +356,10 @@ fehlen (Name → wo, Platzhalter heute):
 | `align-top`, `align-middle`, `align-bottom` | ThixShow: Text ausrichten, Formen ausrichten | `arrow-up`, `minus`, `arrow-down` |
 | `shape-outline`, `shape-effects` (Schatten), `section` | ThixShow: Formkontur, Formeffekte, Abschnitt | `edit`, `layers`, `list` |
 | `presenter-view`, `blank-screen` | ThixShow: Referentenansicht, Bildschirm schwarz | `monitor`, `moon` |
+| `endnote` | ThixWrite: Referenzen › Endnote einfügen (`write.endnote`) | `list-ordered` |
+| `word-count` | ThixWrite: Überprüfen › Wörter zählen (`write.wordCount`) | `file-text` |
+| `next-footnote` | ThixWrite: Referenzen › Nächste Fußnote (`write.nextNote`) | `arrow-down` |
+| `navigation-pane` | ThixWrite: Ansicht › Navigationsbereich (`write.navigationPane`) | `sidebar` |
 
 ### Phase 4 – ThixShow
 Folienmodell, Layouts/Designs, Formen/Text/Bilder/Tabellen, Folienübersicht, Übergänge/Animationen,

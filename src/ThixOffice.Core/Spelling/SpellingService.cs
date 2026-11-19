@@ -91,11 +91,15 @@ public static class SpellingService
     /// <summary>The German name of a language tag ("Deutsch (Deutschland)").</summary>
     public static string DisplayName(string tag)
     {
+        var parts = tag.Split('-', '_');
+        if (GermanLanguage(parts[0]) is { } language)
+        {
+            return language + Region(parts.Length > 1 ? parts[1] : null);
+        }
+
         try
         {
-            var culture = CultureInfo.GetCultureInfo(tag);
-            var german = CultureInfo.GetCultureInfo("de-DE");
-            return culture.DisplayName is { Length: > 0 } name && !culture.Name.Equals(name, StringComparison.OrdinalIgnoreCase) ? German(culture, german) : tag;
+            return CultureInfo.GetCultureInfo(tag).NativeName is { Length: > 0 } native && !native.Equals(tag, StringComparison.OrdinalIgnoreCase) ? native : tag;
         }
         catch (CultureNotFoundException)
         {
@@ -154,28 +158,47 @@ public static class SpellingService
 
     private static string Primary(string tag) => tag.Split('-', '_')[0];
 
-    /// <summary>The name in German when .NET has it (invariant globalization: the English name).</summary>
-    private static string German(CultureInfo culture, CultureInfo german) => culture.Name switch
+    /// <summary>German names of the common languages (not from .NET's culture data, which an invariant build does not have).</summary>
+    private static string? GermanLanguage(string language) => language.ToLowerInvariant() switch
     {
-        _ when culture.Name.StartsWith("de", StringComparison.OrdinalIgnoreCase) => "Deutsch" + Region(culture),
-        _ when culture.Name.StartsWith("en", StringComparison.OrdinalIgnoreCase) => "Englisch" + Region(culture),
-        _ when culture.Name.StartsWith("fr", StringComparison.OrdinalIgnoreCase) => "Französisch" + Region(culture),
-        _ when culture.Name.StartsWith("es", StringComparison.OrdinalIgnoreCase) => "Spanisch" + Region(culture),
-        _ when culture.Name.StartsWith("it", StringComparison.OrdinalIgnoreCase) => "Italienisch" + Region(culture),
-        _ when culture.Name.StartsWith("nl", StringComparison.OrdinalIgnoreCase) => "Niederländisch" + Region(culture),
-        _ => culture.NativeName,
+        "de" => "Deutsch",
+        "en" => "Englisch",
+        "fr" => "Französisch",
+        "es" => "Spanisch",
+        "it" => "Italienisch",
+        "nl" => "Niederländisch",
+        "pt" => "Portugiesisch",
+        "pl" => "Polnisch",
+        "da" => "Dänisch",
+        "sv" => "Schwedisch",
+        "nb" or "no" or "nn" => "Norwegisch",
+        "fi" => "Finnisch",
+        "cs" => "Tschechisch",
+        "tr" => "Türkisch",
+        "ru" => "Russisch",
+        "uk" => "Ukrainisch",
+        _ => null,
     };
 
-    private static string Region(CultureInfo culture) => culture.Name.Split('-') is [_, var region, ..] ? region.ToUpperInvariant() switch
+    private static string Region(string? region) => region?.ToUpperInvariant() switch
     {
+        null or "" => "",
         "DE" => " (Deutschland)",
         "AT" => " (Österreich)",
         "CH" => " (Schweiz)",
+        "LI" => " (Liechtenstein)",
+        "LU" => " (Luxemburg)",
         "US" => " (USA)",
         "GB" => " (Großbritannien)",
+        "AU" => " (Australien)",
+        "CA" => " (Kanada)",
         "FR" => " (Frankreich)",
+        "BE" => " (Belgien)",
+        "ES" => " (Spanien)",
+        "IT" => " (Italien)",
+        "NL" => " (Niederlande)",
         _ => $" ({region})",
-    } : "";
+    };
 
     /// <summary>A checker that leaves out the words of "Alle ignorieren".</summary>
     private sealed class IgnoringChecker(ISpellChecker inner) : ISpellChecker
