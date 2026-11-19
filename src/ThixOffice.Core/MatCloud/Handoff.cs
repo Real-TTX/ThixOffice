@@ -1,4 +1,4 @@
-// MatCloud.Contract 1.3.0 – a copy from MatCloud, do not edit here
+// MatCloud.Contract 1.4.0 – a copy from MatCloud, do not edit here
 using System.Text.Json;
 
 namespace MatCloud.Contract;

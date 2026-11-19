@@ -1,4 +1,4 @@
-// MatCloud.Contract 1.3.0 – a copy from MatCloud, do not edit here
+// MatCloud.Contract 1.4.0 – a copy from MatCloud, do not edit here
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -11,7 +11,8 @@ namespace MatCloud.Contract;
 ///
 /// A device belongs to ONE app (<see cref="DeviceLoginRequest.App"/>): its token reads and writes only the data of that app. Apps with a module in
 /// MatCloud (ThixClip: <see cref="Clip.ClipContract"/>) have routes of their own; every other app keeps its data in the general sync
-/// (<see cref="SyncContract"/>).
+/// (<see cref="SyncContract"/>). The one exception is granted by a module, explicitly: the Drive lets the office apps in
+/// (<see cref="Drive.DriveContract.GuestApps"/>: a device of ThixWrite, ThixCalc or ThixShow reaches the Drive of its account).
 /// </summary>
 public static class CloudContract
 {
@@ -76,6 +77,19 @@ public static class CloudApps
     public const string Clip = "clip";
     public const string Note = "note";
     public const string Calendar = "calendar";
+
+    /// <summary>ThixDrive: the files of the account (<see cref="Drive.DriveContract"/>), also reached by <see cref="Write"/>, <see cref="Calc"/> and <see cref="Show"/>.</summary>
+    public const string Drive = "drive";
+
+    /// <summary>ThixWrite (word processing): opens and saves its documents in the Drive (<see cref="Drive.DriveContract.GuestApps"/>).</summary>
+    public const string Write = "write";
+
+    /// <summary>ThixCalc (spreadsheets): opens and saves its workbooks in the Drive.</summary>
+    public const string Calc = "calc";
+
+    /// <summary>ThixShow (presentations): opens and saves its presentations in the Drive.</summary>
+    public const string Show = "show";
+
     public const string Tunnel = "tunnel";
     public const string Launcher = "launcher";
     public const string Fred = "fred";
@@ -85,6 +99,10 @@ public static class CloudApps
         new(Clip, "ThixClip", "Der Zwischenablage-Verlauf auf allen Geräten"),
         new(Note, "ThixNote", "Notizen auf allen Geräten"),
         new(Calendar, "ThixCalendar", "Kalender und Termine auf allen Geräten und im Browser"),
+        new(Drive, "ThixDrive", "Deine Dateien und Dokumente – im Browser und in ThixWrite, ThixCalc und ThixShow"),
+        new(Write, "ThixWrite", "Textverarbeitung: Dokumente in der Ablage öffnen und speichern"),
+        new(Calc, "ThixCalc", "Tabellenkalkulation: Arbeitsmappen in der Ablage öffnen und speichern"),
+        new(Show, "ThixShow", "Präsentationen: Foliensätze in der Ablage öffnen und speichern"),
         new(Tunnel, "ThixTunnel", "Verbindungen und Profile auf allen Geräten"),
         new(Launcher, "ThixLauncher", "Die Thix-Apps und ihre Einstellungen"),
         new(Fred, "ThixFred", "Der Launcher: Einstellungen, Themes, Websuchen, Skripte und Plugins"),
