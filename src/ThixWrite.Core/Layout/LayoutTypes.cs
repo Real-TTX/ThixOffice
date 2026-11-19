@@ -1,0 +1,264 @@
+using ThixOffice.Text;
+using ThixWrite.Core.Editing;
+using ThixWrite.Core.Formatting;
+using ThixWrite.Core.Model;
+
+namespace ThixWrite.Core.Layout;
+
+/// <summary>Options of the layout.</summary>
+public sealed record LayoutOptions
+{
+    public static readonly LayoutOptions Default = new();
+
+    /// <summary>The gap between pages in the stacked "document" coordinates (the editor's continuous view).</summary>
+    public double PageGap { get; init; } = 12;
+}
+
+/// <summary>Something laid out on a line, x relative to the start of the line's text area (the page's left margin).</summary>
+public abstract record LayoutItem(int Start, int End, double X, double Width);
+
+/// <summary>
+/// Text in one format: characters [Start, End) of the paragraph, taken from <see cref="Shaped"/> starting at
+/// <see cref="ShapedStart"/>; every space (U+0020) is widened by <see cref="SpaceExtra"/> (justification).
+/// </summary>
+public sealed record TextItem(
+    int Start,
+    int End,
+    double X,
+    double Width,
+    ShapedText Shaped,
+    int ShapedStart,
+    EffectiveCharacterFormat Format,
+    FontSpec Font,
+    FontMetrics Metrics,
+    double BaselineShift,
+    double SpaceExtra) : LayoutItem(Start, End, X, Width);
+
+/// <summary>The space a tab character takes (up to its stop).</summary>
+public sealed record TabItem(int Start, double X, double Width, TabLeader Leader, EffectiveCharacterFormat Format, FontSpec Font)
+    : LayoutItem(Start, Start + 1, X, Width);
+
+/// <summary>An inline object: a placeholder box (images) or its non-editable text (field results, tracked insertions).</summary>
+public sealed record ObjectItem(
+    int Start,
+    double X,
+    double Width,
+    double Height,
+    OpaqueInline Inline,
+    ShapedText? Shaped,
+    EffectiveCharacterFormat Format,
+    FontSpec Font,
+    FontMetrics Metrics) : LayoutItem(Start, Start + 1, X, Width);
+
+/// <summary>The label of a list item ("1.", "•").</summary>
+public sealed record LabelItem(double X, double Width, ShapedText Shaped, EffectiveCharacterFormat Format, FontSpec Font, FontMetrics Metrics)
+    : LayoutItem(0, 0, X, Width);
+
+/// <summary>
+/// One line of a paragraph: characters [<see cref="Start"/>, <see cref="End"/>) (with trailing spaces and the break character),
+/// its height (line spacing included) and baseline, its items and the caret stops (offsets with their x).
+/// </summary>
+public sealed class LineLayout
+{
+    internal LineLayout(
+        int start,
+        int end,
+        double height,
+        double baseline,
+        double ascent,
+        double descent,
+        IReadOnlyList<LayoutItem> items,
+        int[] stops,
+        double[] stopX,
+        LineEnding ending,
+        bool isFirst,
+        bool isLast,
+        double markWidth)
+    {
+        Start = start;
+        End = end;
+        Height = height;
+        Baseline = baseline;
+        Ascent = ascent;
+        Descent = descent;
+        Items = items;
+        Stops = stops;
+        StopX = stopX;
+        Ending = ending;
+        IsFirst = isFirst;
+        IsLast = isLast;
+        MarkWidth = markWidth;
+    }
+
+    public int Start { get; }
+
+    public int End { get; }
+
+    /// <summary>The height of the line box, line spacing included.</summary>
+    public double Height { get; }
+
+    /// <summary>The baseline, from the top of the line box.</summary>
+    public double Baseline { get; }
+
+    /// <summary>The ascent of the tallest font on the line (the caret's height is Ascent + Descent).</summary>
+    public double Ascent { get; }
+
+    public double Descent { get; }
+
+    public IReadOnlyList<LayoutItem> Items { get; }
+
+    /// <summary>The caret positions on this line (paragraph offsets), ascending.</summary>
+    public int[] Stops { get; }
+
+    /// <summary>The x of every stop, relative to the text area's left edge.</summary>
+    public double[] StopX { get; }
+
+    public LineEnding Ending { get; }
+
+    public bool IsFirst { get; }
+
+    public bool IsLast { get; }
+
+    /// <summary>The width a selection shows for the paragraph mark / break at the end of the line.</summary>
+    public double MarkWidth { get; }
+
+    /// <summary>The x of the caret at <paramref name="offset"/> (clamped to the line).</summary>
+    public double XOf(int offset)
+    {
+        var index = Array.BinarySearch(Stops, offset);
+        if (index >= 0)
+        {
+            return StopX[index];
+        }
+
+        index = ~index;
+        if (index == 0)
+        {
+            return StopX[0];
+        }
+
+        return StopX[Math.Min(index - 1, StopX.Length - 1)];
+    }
+
+    /// <summary>The stop nearest to <paramref name="x"/>.</summary>
+    public int OffsetAt(double x)
+    {
+        var best = 0;
+        var bestDistance = double.MaxValue;
+        for (var index = 0; index < Stops.Length; index++)
+        {
+            var distance = Math.Abs(StopX[index] - x);
+            if (distance < bestDistance)
+            {
+                best = index;
+                bestDistance = distance;
+            }
+        }
+
+        return Stops[best];
+    }
+
+    public override string ToString() => $"Line [{Start}, {End}) h={Height:0.##} {Ending}";
+}
+
+/// <summary>How a line ends.</summary>
+public enum LineEnding
+{
+    /// <summary>A soft wrap: the next line continues the paragraph.</summary>
+    Wrap,
+    /// <summary>A manual line break (Shift+Enter).</summary>
+    LineBreak,
+    /// <summary>A page break: the next line starts a new page.</summary>
+    PageBreak,
+    /// <summary>The end of the paragraph.</summary>
+    Paragraph,
+}
+
+/// <summary>
+/// A laid-out block, independent of the page: its lines, spacing and keep rules. Preserved blocks get lines too (their text,
+/// framed). Reused as long as the block instance, the width and the list label are the same.
+/// </summary>
+public sealed class ParagraphLayout
+{
+    internal ParagraphLayout(Block block, double width, string? label, EffectiveParagraphFormat format, IReadOnlyList<LineLayout> lines)
+    {
+        Block = block;
+        Width = width;
+        Label = label;
+        Format = format;
+        Lines = lines;
+        Height = lines.Sum(line => line.Height);
+    }
+
+    public Block Block { get; }
+
+    public double Width { get; }
+
+    public string? Label { get; }
+
+    public EffectiveParagraphFormat Format { get; }
+
+    public IReadOnlyList<LineLayout> Lines { get; }
+
+    /// <summary>The height of all lines (without spacing before / after).</summary>
+    public double Height { get; }
+
+    public bool IsPreserved => Block is OpaqueBlock;
+}
+
+/// <summary>A line placed on a page: its block, its index in the block's layout, the top (page y) and the left of the text area (page x).</summary>
+public sealed record PlacedLine(int Block, int LineIndex, double Top, double Left, LineLayout Line, ParagraphLayout Paragraph);
+
+/// <summary>One page: size, margins (from its section) and the lines on it in order.</summary>
+public sealed class PageLayout
+{
+    private readonly List<PlacedLine> _lines = [];
+
+    internal PageLayout(int index, SectionInfo section)
+    {
+        Index = index;
+        Section = section;
+    }
+
+    public int Index { get; }
+
+    public SectionInfo Section { get; }
+
+    public double Width => Section.Properties.PageWidth;
+
+    public double Height => Section.Properties.PageHeight;
+
+    public IReadOnlyList<PlacedLine> Lines => _lines;
+
+    /// <summary>The first block with a line on this page (-1 for an empty page).</summary>
+    public int FirstBlock => _lines.Count == 0 ? -1 : _lines[0].Block;
+
+    public int LastBlock => _lines.Count == 0 ? -1 : _lines[^1].Block;
+
+    internal List<PlacedLine> MutableLines => _lines;
+
+    public override string ToString() => $"Page {Index + 1}: {_lines.Count} lines, blocks {FirstBlock}–{LastBlock}";
+}
+
+/// <summary>Where the caret is drawn: page, x, top and height (points, page coordinates).</summary>
+public readonly record struct CaretGeometry(int Page, double X, double Top, double Height);
+
+/// <summary>A rectangle on a page (selection highlight, find results).</summary>
+public readonly record struct PageRect(int Page, double X, double Y, double Width, double Height);
+
+/// <summary>The result of a hit test: the caret place, and the preserved block when the point is on one.</summary>
+public readonly record struct HitResult(CaretPlace Place, int Page, int? PreservedBlock = null)
+{
+    public DocumentPosition Position => Place.Position;
+}
+
+/// <summary>What the last <see cref="DocumentLayout.Update"/> did (for diagnostics and the performance test).</summary>
+public readonly record struct LayoutUpdateInfo(int ParagraphsLaidOut, int FirstPage, int PageCount, TimeSpan Duration);
+
+/// <summary>Raised after the layout changed: pages from <see cref="FirstChangedPage"/> on may look different.</summary>
+public sealed class LayoutChangedEventArgs(int firstChangedPage, int pageCount) : EventArgs
+{
+    public int FirstChangedPage { get; } = firstChangedPage;
+
+    public int PageCount { get; } = pageCount;
+}
