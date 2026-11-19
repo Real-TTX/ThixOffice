@@ -390,7 +390,7 @@ Präsentations- und Referentenansicht, pptx, danach odp.
   Hilfslinien, Zwischenablage, Suchen/Ersetzen, Bildschirmpräsentation als Zustandsmaschine mit Ebenen je Bild und Referentenansicht.
   **Lücken:** Diagramme zeichnet erst der gemeinsame Diagrammkern (Naht `IChartRenderer`), SmartArt/OLE als Platzhalter, Morphen und
   p14-Übergänge als Verblassen, Absatz-Animationen bewegen die ganze Form, Effekte in Gruppen bewegen die ganze Gruppe, Schriftgrößen
-  skalieren beim Ändern der Foliengröße nicht mit, Diagramme zwischen Präsentationen kopieren, odp (Naht: `Formats/`).
+  skalieren beim Ändern der Foliengröße nicht mit, Diagramme zwischen Präsentationen kopieren, odp (Naht: `Formats/`; **offen, zurückgestellt (2026-11-19)** zugunsten der Word-/Excel-Treue – die gemeinsamen ODF-Bausteine in ThixOffice.Core/Formats/Odf (Paket, Manifest, Einheiten, Farben, OdfFont) stehen bereit, .odp bleibt bis dahin „geplant“).
 - **Stand (2026-11-19): erste Version der App ThixShow (src/ThixShow, dev).** Eine Zeichenschicht für alle Apps (`VectorPath`/`VectorPathItem`,
   `TransformBeginItem(Matrix2D)`, ein Renderer `SkiaPageRenderer`); Diagramme in pptx zeichnet ThixOffice.Charts (`SharedChartRenderer`),
   neue Diagramme bekommen einen eigenen Teil, kopierte Diagramme behalten ihre Daten. Normalansicht wie PowerPoint (Miniaturen mit
