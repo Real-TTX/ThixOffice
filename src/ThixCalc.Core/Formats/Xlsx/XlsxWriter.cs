@@ -286,6 +286,22 @@ internal sealed class WriteContext(Workbook workbook, WorkbookPart workbookPart,
 
     public bool UsesDynamicArrays { get; set; }
 
+    private HashSet<uint>? _tableIds;
+
+    /// <summary>A table id unique in the workbook: <paramref name="preferred"/> when it is free, else the next one.</summary>
+    public uint NextTableId(uint preferred)
+    {
+        _tableIds ??= WorkbookPart.WorksheetParts.SelectMany(part => part.TableDefinitionParts).Select(part => part.Table?.Id?.Value ?? 0).ToHashSet();
+        if (preferred != 0 && _tableIds.Add(preferred))
+        {
+            return preferred;
+        }
+
+        var id = _tableIds.DefaultIfEmpty(0u).Max() + 1;
+        _tableIds.Add(id);
+        return id;
+    }
+
     public List<string> Strings { get; } = [];
 
     public long StringUses { get; private set; }

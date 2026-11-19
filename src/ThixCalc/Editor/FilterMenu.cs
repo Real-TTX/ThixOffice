@@ -32,7 +32,7 @@ internal sealed class FilterMenu : Border
         Padding = new Thickness(8);
         MinWidth = 240;
         var session = editor.Session;
-        var filter = session.ActiveSheet.AutoFilter!;
+        var filter = session.ActiveFilter ?? new AutoFilter(session.Selection, []);
         var current = filter.Columns.FirstOrDefault(column => column.ColumnOffset == columnOffset);
         foreach (var value in session.FilterValues(columnOffset))
         {
@@ -139,7 +139,7 @@ internal sealed class FilterMenu : Border
     {
         Close();
         var session = _editor.Session;
-        var range = session.ActiveSheet.AutoFilter!.Range;
+        var range = session.ActiveFilter?.Range ?? session.Selection;
         _ = _editor.RunAsync("Sortieren", () => session.Sort(range, [new SortKey(_offset, descending)], new SortOptions(HasHeader: true)));
     }
 }

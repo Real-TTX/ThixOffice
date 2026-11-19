@@ -179,7 +179,7 @@ public static class FormulaFormatter
                     WriteArray(array);
                     break;
                 case StructuredReferenceNode structured:
-                    _builder.Append(structured.TableName).Append(structured.Specifier);
+                    _builder.Append(structured.TableName).Append(StructuredSpecifiers.ToLocal(structured.Specifier, _locale.ListSeparator));
                     break;
                 case ExternalReferenceNode external:
                     _builder.Append(external.Text);

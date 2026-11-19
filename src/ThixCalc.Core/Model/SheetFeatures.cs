@@ -283,15 +283,50 @@ public sealed record Hyperlink(CellRange Range, string? Target, string? Location
 public sealed record CellComment(string Author, string Text, bool Visible = false);
 
 /// <summary>
-/// A table (Einfügen › Tabelle) read from a file: the part stays as it is; the model knows its name, range and columns, so
-/// structured references (Tabelle1[Umsatz]) evaluate and its range follows inserted and deleted rows.
+/// A table (Einfügen › Tabelle, Strg+T): its name, range and column names (structured references like Tabelle1[Umsatz]
+/// evaluate against them), the header and total rows, the look (a table style with its options: banded rows/columns, first and
+/// last column, the filter buttons), the total row's function per column, and its own filter. Its range follows inserted and
+/// deleted rows; typing right below or beside it extends it.
 /// </summary>
 public sealed record TableDefinition(string Name, CellRange Range, IReadOnlyList<string> Columns, int HeaderRowCount = 1, int TotalsRowCount = 0)
 {
     /// <summary>The part of the table in the package (for the writer).</summary>
     internal string? PartUri { get; init; }
 
+    /// <summary>The id of the table in the file (unique in the workbook).</summary>
+    internal uint FileId { get; init; }
+
+    /// <summary>The table style ("TableStyleMedium2", Excel's default), or null for none.</summary>
+    public string? Style { get; init; } = TableStyles.DefaultStyle;
+
+    public bool BandedRows { get; init; } = true;
+
+    public bool BandedColumns { get; init; }
+
+    public bool FirstColumn { get; init; }
+
+    public bool LastColumn { get; init; }
+
+    /// <summary>The arrows of the header row (Schaltfläche "Filter").</summary>
+    public bool ShowFilterButton { get; init; } = true;
+
+    /// <summary>The total row's function per column ("sum", "average", "count", "countNums", "max", "min", "stdDev", "var", "custom") or null.</summary>
+    public IReadOnlyList<string?> TotalsFunctions { get; init; } = [];
+
+    /// <summary>The total row's label per column (the first one: "Ergebnis"), or null.</summary>
+    public IReadOnlyList<string?> TotalsLabels { get; init; } = [];
+
+    /// <summary>The filter of the header row's arrows (its range: header and data rows), or null.</summary>
+    public AutoFilter? Filter { get; init; }
+
     public CellRange DataRange => new(Range.FirstRow + HeaderRowCount, Range.FirstColumn, Range.LastRow - TotalsRowCount, Range.LastColumn);
+
+    /// <summary>The header and data rows (what the filter covers).</summary>
+    public CellRange FilterRange => new(Range.FirstRow, Range.FirstColumn, Range.LastRow - TotalsRowCount, Range.LastColumn);
+
+    public bool HasHeader => HeaderRowCount > 0;
+
+    public bool HasTotals => TotalsRowCount > 0;
 }
 
 /// <summary>

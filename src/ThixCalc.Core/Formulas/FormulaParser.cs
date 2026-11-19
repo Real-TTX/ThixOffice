@@ -614,7 +614,7 @@ public sealed class FormulaParser
 
         if (Peek() == '[')
         {
-            return new StructuredReferenceNode(name, ReadBracketed());
+            return new StructuredReferenceNode(name, StructuredSpecifiers.ToCanonical(ReadBracketed()));
         }
 
         if (IsTrue(name))
@@ -724,7 +724,7 @@ public sealed class FormulaParser
             throw Error("Ungültiger Bezug.");
         }
 
-        return new StructuredReferenceNode(null, bracket);
+        return new StructuredReferenceNode(null, StructuredSpecifiers.ToCanonical(bracket));
     }
 
     private FormulaNode ReadExternalRest(string prefix)

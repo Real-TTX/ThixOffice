@@ -108,9 +108,10 @@ public static class GridRenderer
             formatted = new FormattedValue(string.Empty);
         }
 
+        var table = sheet.Tables.Count > 0 ? TableStyles.LookAt(sheet, row, column) : null;
         var font = style.Font with
         {
-            Bold = look?.Bold ?? style.Font.Bold,
+            Bold = look?.Bold ?? (style.Font.Bold || table?.Bold == true),
             Italic = look?.Italic ?? style.Font.Italic,
             Strikethrough = look?.Strikethrough ?? style.Font.Strikethrough,
             Underline = look?.Underline is { } underline ? (underline ? UnderlineKind.Single : UnderlineKind.None) : style.Font.Underline,
@@ -129,6 +130,16 @@ public static class GridRenderer
             fill = style.Fill.Pattern == FillPattern.Solid
                 ? (style.Fill.Foreground ?? style.Fill.Background)?.Resolve(workbook.Theme, RgbColor.White)
                 : (style.Fill.Background ?? style.Fill.Foreground)?.Resolve(workbook.Theme, RgbColor.White);
+        }
+
+        // A table's style comes after the cell's own format (direct formatting wins, as in Excel).
+        if (table is { } tableLook)
+        {
+            fill ??= tableLook.Fill;
+            if (tableLook.Text is { } tableText && formatted.Color is null && font.Color is null && look?.FontColor is null)
+            {
+                textColor = tableText;
+            }
         }
 
         var horizontal = style.Alignment.Horizontal;
@@ -220,7 +231,8 @@ public static class GridRenderer
             foreach (var column in columns)
             {
                 var address = new CellAddress(row.Index, column.Index);
-                if (!displays.ContainsKey(address) && (sheet.Rows[row.Index].StyleId is not null || sheet.Columns[column.Index].StyleId is not null || conditional is not null))
+                if (!displays.ContainsKey(address) && (sheet.Rows[row.Index].StyleId is not null || sheet.Columns[column.Index].StyleId is not null || conditional is not null
+                    || (sheet.Tables.Count > 0 && sheet.Tables.Any(table => table.Range.Contains(address)))))
                 {
                     var display = Present(sheet, row.Index, column.Index, metrics, conditional, options.Text);
                     if (display.Fill is not null || display.Conditional is not null)
@@ -327,17 +339,24 @@ public static class GridRenderer
             }
         }
 
-        // The arrows of an autofilter in its header row.
-        if (sheet.AutoFilter is { } filter && filter.Range.FirstRow >= range.FirstRow && filter.Range.FirstRow <= range.LastRow)
+        RenderTableLines(items, viewport, sheet, range);
+
+        // The arrows of an autofilter or a table in its header row.
+        foreach (var (headerRow, firstColumn, lastColumn, filter) in FilterHeaders(sheet))
         {
-            for (var column = Math.Max(filter.Range.FirstColumn, range.FirstColumn); column <= Math.Min(filter.Range.LastColumn, range.LastColumn); column++)
+            if (headerRow < range.FirstRow || headerRow > range.LastRow)
             {
-                if (FilterButtonRect(viewport, column) is not { } button)
+                continue;
+            }
+
+            for (var column = Math.Max(firstColumn, range.FirstColumn); column <= Math.Min(lastColumn, range.LastColumn); column++)
+            {
+                if (FilterButtonRect(viewport, new CellAddress(headerRow, column)) is not { } button)
                 {
                     continue;
                 }
 
-                var active = filter.Columns.Any(entry => entry.ColumnOffset == column - filter.Range.FirstColumn);
+                var active = filter is not null && filter.Columns.Any(entry => entry.ColumnOffset == column - firstColumn);
                 items.Add(new RectangleItem(button.X, button.Y, button.Width, button.Height, options.FilterButton, options.FilterButtonLine, 1));
                 var middle = Math.Round(button.X + button.Width / 2);
                 var top = Math.Round(button.Y + button.Height * 0.38);
@@ -355,15 +374,50 @@ public static class GridRenderer
         }
     }
 
-    /// <summary>The arrow button of an autofilter column in its header cell (pixels of the viewport), or null when the column has none.</summary>
-    public static PixelRect? FilterButtonRect(GridViewport viewport, int column)
+    /// <summary>The header rows with filter arrows: the sheet's autofilter and the tables that show their buttons (row, columns, filter).</summary>
+    public static IEnumerable<(int Row, int FirstColumn, int LastColumn, AutoFilter? Filter)> FilterHeaders(Worksheet sheet)
     {
-        if (viewport.Layout.Sheet.AutoFilter is not { } filter || column < filter.Range.FirstColumn || column > filter.Range.LastColumn)
+        if (sheet.AutoFilter is { } autoFilter)
+        {
+            yield return (autoFilter.Range.FirstRow, autoFilter.Range.FirstColumn, autoFilter.Range.LastColumn, autoFilter);
+        }
+
+        foreach (var table in sheet.Tables)
+        {
+            if (table.HasHeader && table.ShowFilterButton)
+            {
+                yield return (table.Range.FirstRow, table.Range.FirstColumn, table.Range.LastColumn, table.Filter);
+            }
+        }
+    }
+
+    /// <summary>The filter column (offset in its range) whose arrow sits in <paramref name=cell/>, or null.</summary>
+    public static int? FilterColumnAt(Worksheet sheet, CellAddress cell)
+    {
+        foreach (var (row, first, last, _) in FilterHeaders(sheet))
+        {
+            if (cell.Row == row && cell.Column >= first && cell.Column <= last)
+            {
+                return cell.Column - first;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The arrow button of the sheet's autofilter column in its header cell (pixels of the viewport), or null.</summary>
+    public static PixelRect? FilterButtonRect(GridViewport viewport, int column) =>
+        viewport.Layout.Sheet.AutoFilter is { } filter ? FilterButtonRect(viewport, new CellAddress(filter.Range.FirstRow, column)) : null;
+
+    /// <summary>The arrow button in a filter header cell (autofilter or table), or null when the cell has none.</summary>
+    public static PixelRect? FilterButtonRect(GridViewport viewport, CellAddress address)
+    {
+        if (FilterColumnAt(viewport.Layout.Sheet, address) is null)
         {
             return null;
         }
 
-        var cell = viewport.CellRect(new CellAddress(filter.Range.FirstRow, column));
+        var cell = viewport.CellRect(address);
         var size = Math.Round(Math.Min(cell.Height - 3, 16 * viewport.Zoom));
         if (size < 6 || cell.Width < size + 2)
         {
@@ -371,6 +425,33 @@ public static class GridRenderer
         }
 
         return new PixelRect(cell.Right - size - 2, cell.Bottom - size - 2, size, size);
+    }
+
+    /// <summary>The lines of table styles: under the header (light styles) and above the total row.</summary>
+    private static void RenderTableLines(List<DisplayItem> items, GridViewport viewport, Worksheet sheet, CellRange pane)
+    {
+        foreach (var table in sheet.Tables)
+        {
+            if (!table.Range.Intersects(pane) || TableStyles.Resolve(table.Style, sheet.Workbook.Theme) is not { } look)
+            {
+                continue;
+            }
+
+            var left = viewport.ColumnX(Math.Max(table.Range.FirstColumn, pane.FirstColumn)) - 1;
+            var right = viewport.ColumnX(Math.Min(table.Range.LastColumn, pane.LastColumn) + 1) - 1;
+            if (look.HeaderLine && table.HasHeader && pane.Contains(table.Range.FirstRow, pane.FirstColumn))
+            {
+                var y = viewport.RowY(table.Range.FirstRow + 1) - 0.5;
+                items.Add(new LineItem(left, y, right, y, look.Line, 1));
+            }
+
+            if (table.HasTotals && pane.Contains(table.Range.LastRow, pane.FirstColumn))
+            {
+                var y = viewport.RowY(table.Range.LastRow) - 0.5;
+                items.Add(new LineItem(left, y - 2, right, y - 2, look.Line, 1));
+                items.Add(new LineItem(left, y, right, y, look.Line, 1));
+            }
+        }
     }
 
     private static FontSpec PixelFont(CellFont font, double zoom) => new(font.Name, font.Size * 96 / 72 * zoom, font.Bold, font.Italic);

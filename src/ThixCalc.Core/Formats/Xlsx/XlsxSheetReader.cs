@@ -64,7 +64,7 @@ internal static class XlsxSheetReader
         }
 
         ReadComments(sheet, part);
-        ReadTables(sheet, part);
+        XlsxTables.Read(sheet, part);
     }
 
     private static void ReadSheetData(OpenXmlReader reader, Worksheet sheet, ReadContext context, Dictionary<uint, Formula> sharedFormulas,
@@ -473,22 +473,4 @@ internal static class XlsxSheetReader
         sheet.OriginalCommentAddresses = sheet.Comments.Keys.ToHashSet();
     }
 
-    private static void ReadTables(Worksheet sheet, WorksheetPart part)
-    {
-        foreach (var tablePart in part.TableDefinitionParts)
-        {
-            var table = tablePart.Table;
-            if (table?.Reference?.Value is not { } reference || CellRange.TryParse(reference) is not { } range)
-            {
-                continue;
-            }
-
-            var columns = table.TableColumns?.Elements<X.TableColumn>().Select(column => column.Name?.Value ?? string.Empty).ToList() ?? [];
-            sheet.Tables.Add(new TableDefinition(table.DisplayName?.Value ?? table.Name?.Value ?? "Tabelle", range, columns,
-                (int)(table.HeaderRowCount?.Value ?? 1), (int)(table.TotalsRowCount?.Value ?? 0))
-            {
-                PartUri = tablePart.Uri.ToString(),
-            });
-        }
-    }
 }

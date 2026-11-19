@@ -395,6 +395,8 @@ public sealed partial class EditingSession
             foreach (var cell in targets)
             {
                 EnterInto(sheet, cell, text);
+                RenameColumnFor(sheet, cell, text);
+                GrowTableFor(sheet, cell, text);
             }
         });
     }

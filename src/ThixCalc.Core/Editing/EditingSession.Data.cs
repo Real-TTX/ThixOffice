@@ -143,6 +143,13 @@ public sealed partial class EditingSession
     public void ToggleAutoFilter(CellRange? range = null)
     {
         var sheet = ActiveSheet;
+        if (range is null && ActiveTable is { } table)
+        {
+            // In a table, Filtern switches its arrows.
+            SetTableOptions(table.Name, current => current with { ShowFilterButton = !current.ShowFilterButton }, "Filtern");
+            return;
+        }
+
         Execute("Filtern", () =>
         {
             if (sheet.AutoFilter is { } existing)
@@ -161,11 +168,12 @@ public sealed partial class EditingSession
     public void SetFilter(int columnOffset, FilterColumn? filter)
     {
         var sheet = ActiveSheet;
-        if (sheet.AutoFilter is not { } autoFilter)
+        if (FilterTarget() is not { } target)
         {
             throw new BusinessException("Auf diesem Blatt ist kein Filter aktiv.");
         }
 
+        var autoFilter = target.Filter;
         Execute("Filtern", () =>
         {
             var columns = autoFilter.Columns.Where(column => column.ColumnOffset != columnOffset).ToList();
@@ -175,7 +183,7 @@ public sealed partial class EditingSession
             }
 
             var updated = autoFilter with { Columns = columns.OrderBy(column => column.ColumnOffset).ToList() };
-            ChangeSheetState(sheet, () => sheet.AutoFilter = updated);
+            ChangeSheetState(sheet, () => target.Set(updated));
             ApplyFilter(sheet, updated);
         });
     }
@@ -184,14 +192,15 @@ public sealed partial class EditingSession
     public void ClearFilters()
     {
         var sheet = ActiveSheet;
-        if (sheet.AutoFilter is not { } autoFilter)
+        if (FilterTarget() is not { } target)
         {
             return;
         }
 
+        var autoFilter = target.Filter;
         Execute("Filter löschen", () =>
         {
-            ChangeSheetState(sheet, () => sheet.AutoFilter = autoFilter with { Columns = [] });
+            ChangeSheetState(sheet, () => target.Set(autoFilter with { Columns = [] }));
             ShowAllRows(sheet, autoFilter.Range);
         });
     }
@@ -200,7 +209,7 @@ public sealed partial class EditingSession
     public IReadOnlyList<string> FilterValues(int columnOffset)
     {
         var sheet = ActiveSheet;
-        if (sheet.AutoFilter is not { } filter)
+        if (ActiveFilter is not { } filter)
         {
             return [];
         }
@@ -213,6 +222,32 @@ public sealed partial class EditingSession
         }
 
         return values.ToList();
+    }
+
+    /// <summary>
+    /// The filter the arrows and the filter commands act on: the table's around the active cell (its range: header and data
+    /// rows), else the sheet's autofilter; null when there is none.
+    /// </summary>
+    public AutoFilter? ActiveFilter => FilterTarget()?.Filter;
+
+    private (AutoFilter Filter, Action<AutoFilter> Set)? FilterTarget()
+    {
+        var sheet = ActiveSheet;
+        if (ActiveTable is { HasHeader: true, ShowFilterButton: true } table)
+        {
+            var name = table.Name;
+            var filter = (table.Filter ?? new AutoFilter(table.FilterRange, [])) with { Range = table.FilterRange };
+            return (filter, updated =>
+            {
+                var index = sheet.Tables.FindIndex(entry => entry.Name == name);
+                if (index >= 0)
+                {
+                    sheet.Tables[index] = sheet.Tables[index] with { Filter = updated };
+                }
+            });
+        }
+
+        return sheet.AutoFilter is { } autoFilter ? (autoFilter, updated => sheet.AutoFilter = updated) : null;
     }
 
     private string DisplayText(Worksheet sheet, int row, int column) =>

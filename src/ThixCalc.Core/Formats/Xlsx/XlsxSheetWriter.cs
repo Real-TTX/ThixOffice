@@ -29,7 +29,7 @@ internal static class XlsxSheetWriter
         var hyperlinkIds = WriteHyperlinkRelationships(sheet, part);
         var legacyDrawingId = WriteComments(sheet, part);
         var drawing = XlsxDrawings.Write(sheet, part, context);
-        UpdateTables(sheet, part);
+        XlsxTables.Write(sheet, part, context);
         var shared = SharedFormulaGroups(sheet, context);
 
         using var stream = new MemoryStream();
@@ -681,34 +681,6 @@ internal static class XlsxSheetWriter
         }
 
         writer.WriteEndElement();
-    }
-
-    /// <summary>Tables whose range moved (rows inserted/deleted) get their new ref.</summary>
-    private static void UpdateTables(Worksheet sheet, WorksheetPart part)
-    {
-        foreach (var tablePart in part.TableDefinitionParts)
-        {
-            var model = sheet.Tables.FirstOrDefault(table => table.PartUri == tablePart.Uri.ToString());
-            var table = tablePart.Table;
-            if (model is null || table is null)
-            {
-                continue;
-            }
-
-            var reference = model.Range.ToString();
-            if (table.Reference?.Value == reference)
-            {
-                continue;
-            }
-
-            table.Reference = reference;
-            if (table.AutoFilter is { } filter)
-            {
-                filter.Reference = new CellRange(model.Range.FirstRow, model.Range.FirstColumn, model.Range.LastRow - model.TotalsRowCount, model.Range.LastColumn).ToString();
-            }
-
-            table.Save();
-        }
     }
 
     /// <summary>Writes the notes part (and VML shapes when the noted cells changed); returns the legacyDrawing relationship id.</summary>

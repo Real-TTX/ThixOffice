@@ -972,7 +972,8 @@ public sealed class CalcEngine
                         : sheet.Tables.Where(candidate => candidate.Range.Contains(origin)).Select(candidate => ((Worksheet, TableDefinition)?)(sheet, candidate)).FirstOrDefault();
                     if (found is { } tableFound)
                     {
-                        visit(tableFound.Item1, tableFound.Item2.Range);
+                        // Only the cells it names: a total row or a [@Spalte] formula inside the table is no circle.
+                        visit(tableFound.Item1, StructuredReferences.ResolveRange(tableFound.Item2, structured.Specifier, origin.Row) ?? tableFound.Item2.Range);
                     }
 
                     break;

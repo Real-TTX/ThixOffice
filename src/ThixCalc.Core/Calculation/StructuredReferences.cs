@@ -51,6 +51,12 @@ internal static class StructuredReferences
         foreach (var raw in items)
         {
             var item = raw.Trim();
+            if (item.Length > 2 && item[0] == '[' && item[^1] == ']' && item[1] is '#' or '@')
+            {
+                // [[#Headers],[Name]]: the special item in its own brackets.
+                item = item[1..^1];
+            }
+
             if (item.StartsWith('@'))
             {
                 (firstRow, lastRow) = (row, row);

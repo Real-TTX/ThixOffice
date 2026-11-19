@@ -92,7 +92,7 @@ public class RandomEditTests(Xunit.Abstractions.ITestOutputHelper output)
         var cell = CellAddress.Parse(Cell());
         session.ActivateSheet(random.Next(session.Workbook.Sheets.Count));
         session.Select(cell);
-        switch (random.Next(20))
+        switch (random.Next(22))
         {
             case 0:
                 session.EnterInput(random.Next(100).ToString(System.Globalization.CultureInfo.InvariantCulture));
@@ -161,6 +161,13 @@ public class RandomEditTests(Xunit.Abstractions.ITestOutputHelper output)
             case 18 when session.ActiveSheet.Charts.Count > 0:
                 session.DeleteChart(session.ActiveSheet.Charts[random.Next(session.ActiveSheet.Charts.Count)].Id);
                 return true;
+            case 19:
+                session.CreateTable(new CellRange(cell, cell.Offset(random.Next(1, 4), random.Next(0, 3))), random.Next(2) == 0, ThixCalc.Core.Model.TableStyles.Gallery[random.Next(8)].Id);
+                return true;
+            case 20 when session.ActiveSheet.Tables.Count > 0:
+                var table = session.ActiveSheet.Tables[0];
+                session.SetTotalsRow(table.Name, !table.HasTotals);
+                return true;
             default:
                 session.RenameSheet(random.Next(session.Workbook.Sheets.Count), "Blatt" + random.Next(100));
                 return true;
@@ -206,6 +213,7 @@ public class RandomEditTests(Xunit.Abstractions.ITestOutputHelper output)
             builder.Append(" merges ").Append(CellRange.FormatList(sheet.Merges.Ranges));
             builder.Append(" rows ").Append(string.Join(",", sheet.Rows.Entries));
             builder.Append(" columns ").Append(string.Join(",", sheet.Columns.Entries));
+            builder.Append(" tables ").Append(string.Join(",", sheet.Tables.Select(table => table.Name + "@" + table.Range + ":" + string.Join("|", table.Columns) + ":" + table.TotalsRowCount)));
             builder.Append(" charts ").Append(string.Join(",", sheet.Charts.Select(chart => chart.Id + "@" + chart.Anchor + ":" + ThixOffice.Charts.ChartTemplates.Of(chart.Chart)?.Id + ":" + string.Join("|", ThixOffice.Charts.ChartEdits.References(chart.Chart)))));
         }
 
