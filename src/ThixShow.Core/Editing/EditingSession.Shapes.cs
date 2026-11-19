@@ -174,6 +174,36 @@ public sealed partial class EditingSession
         return id;
     }
 
+    /// <summary>
+    /// Inserts a chart (the shared chart model; its data are the chart's own values, kept as the cached values of its part) centred on
+    /// the slide in PowerPoint's default size, or into <paramref name="bounds"/>.
+    /// </summary>
+    public int InsertChart(ThixOffice.Charts.Chart chart, EmuRect? bounds = null)
+    {
+        var slideId = RequireSlide();
+        var id = NextShapeId(CurrentSlide!);
+        var size = Presentation.SlideSize;
+        var target = bounds ?? new EmuRect(size.Width / 6, size.Height / 6, size.Width * 2 / 3, size.Height * 2 / 3);
+        AddShape("Diagramm einfügen", slideId, new GraphicFrame
+        {
+            Id = id,
+            Name = $"Diagramm {id - 1}",
+            Kind = GraphicKind.Chart,
+            Chart = chart,
+            GraphicUri = "http://schemas.openxmlformats.org/drawingml/2006/chart",
+            Transform = Transform2D.Of(target),
+        });
+        return id;
+    }
+
+    /// <summary>Gives a chart frame another chart (new data, type or elements): written into a part of its own from then on.</summary>
+    public void SetChart(int shapeId, ThixOffice.Charts.Chart chart)
+    {
+        var slideId = RequireSlide();
+        Apply("Diagramm ändern", presentation => WithShape(presentation, slideId, shapeId, shape =>
+            shape is GraphicFrame { Kind: GraphicKind.Chart } frame ? frame with { Chart = chart, ChartPartUri = null, Source = null, References = [] } : shape));
+    }
+
     private void AddShape(string label, uint slideId, SlideElement shape) =>
         Apply(label, presentation => WithSlide(presentation, slideId, slide => slide with { Shapes = InsertIntoEnteredGroup(slide.Shapes, shape) }),
             _ => Selection with { Shapes = [shape.Id], Text = null });

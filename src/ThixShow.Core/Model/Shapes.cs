@@ -268,6 +268,12 @@ public sealed record GraphicFrame : SlideElement
     /// <summary>The chart part ("/ppt/charts/chart1.xml") of a chart frame.</summary>
     public string? ChartPartUri { get; init; }
 
+    /// <summary>
+    /// The chart of a frame made or changed in ThixShow (or pasted from another presentation): drawn from this model and written into
+    /// a chart part of its own. Null for a chart read from the file – its part stays as it is and is drawn from there.
+    /// </summary>
+    public ThixOffice.Charts.Chart? Chart { get; init; }
+
     /// <summary>The fallback picture of an OLE object or other content (when the file has one) – drawn in its place.</summary>
     public ImageData? Fallback { get; init; }
 

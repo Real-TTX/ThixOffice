@@ -7,6 +7,9 @@ namespace ThixShow.Core.Formats.Pptx;
 /// <summary>The writer's side of a part: links for new content, and remapping of relationship ids in kept XML.</summary>
 internal interface IPartWriter : IWriteLinks
 {
+    /// <summary>A new chart part with the chart's XML; its relationship id.</summary>
+    string ChartId(ThixOffice.Charts.Chart chart);
+
     /// <summary>Points the relationship ids inside <paramref name="element"/> (kept XML) at this part's relationships.</summary>
     XElement Relink(XElement element, ValueList<PartReference> references);
 }
@@ -535,6 +538,13 @@ internal static class ShapeXml
         if (frame.Table is { } table)
         {
             var graphic = new XElement(A + "graphic", new XElement(A + "graphicData", new XAttribute("uri", TableUri), WriteTable(table, writer)));
+            element.Place(graphic, order, A + "graphic");
+        }
+        else if (frame.Kind == GraphicKind.Chart && frame.Chart is { } chart)
+        {
+            XNamespace c = ChartUri;
+            var graphic = new XElement(A + "graphic", new XElement(A + "graphicData", new XAttribute("uri", ChartUri),
+                new XElement(c + "chart", new XAttribute(XNamespace.Xmlns + "c", ChartUri), new XAttribute(XNamespace.Xmlns + "r", R.NamespaceName), new XAttribute(R + "id", writer.ChartId(chart)))));
             element.Place(graphic, order, A + "graphic");
         }
 

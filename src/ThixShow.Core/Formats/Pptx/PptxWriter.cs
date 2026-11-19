@@ -209,6 +209,19 @@ public static class PptxWriter
                 return IdOf(target);
             }
 
+            public string ChartId(ThixOffice.Charts.Chart chart)
+            {
+                var target = Part.AddNewPart<ChartPart>();
+                using (var stream = target.GetStream(FileMode.Create, FileAccess.Write))
+                using (var text = new StreamWriter(stream, new System.Text.UTF8Encoding(false)))
+                {
+                    text.Write(ThixOffice.Charts.Formats.ChartXmlWriter.Write(chart));
+                }
+
+                writer.Register(target);
+                return IdOf(target);
+            }
+
             private string IdOf(OpenXmlPart target)
             {
                 var existing = Part.Parts.FirstOrDefault(pair => pair.OpenXmlPart == target);

@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml.Packaging;
 using ThixOffice.Charts;
 using ThixOffice.Charts.Formats;
 using ThixOffice.Text.Drawing;
+using ThixShow.Core.Editing;
 using ThixShow.Core.Layout;
 using ThixShow.Core.Model;
 using static ThixShow.Core.Tests.Formats.PptxTestSupport;
@@ -79,6 +80,50 @@ public class ChartSeamTests
         var written = Write(changed);
 
         Assert.Equal(ChartPartBytes(original), ChartPartBytes(written));
+    }
+
+    private static Chart SampleChart() => ChartFactory.Create(ChartTemplates.Find("column")!, [
+        new SeriesSpec(ChartText.Of("Umsatz"), ChartDataRef.LiteralText(["Nord", "Süd"]), ChartDataRef.Literal([5, 7])),
+    ]);
+
+    [Fact]
+    public void An_inserted_chart_is_drawn_written_into_a_part_of_its_own_and_read_back()
+    {
+        var session = new EditingSession(TestDecks.Blank());
+        session.GoToSlide(session.Presentation.Slides[0].Id);
+        var id = session.InsertChart(SampleChart());
+
+        var drawn = SlideRenderer.Render(session.Presentation, session.CurrentSlide!, TestDecks.Measurer).Items;
+        Assert.Contains(drawn.OfType<GlyphRunItem>(), run => run.Text == "Nord");
+
+        var bytes = Write(session.Presentation);
+        AssertValid(bytes);
+        var read = Read(bytes);
+        var frame = Assert.Single(ShapeTree.All(read.Slides[0].Shapes).OfType<GraphicFrame>(), shape => shape.Id == id);
+        Assert.Equal(GraphicKind.Chart, frame.Kind);
+        Assert.NotNull(frame.ChartPartUri);
+        Assert.Equal(2, SharedChartRenderer.ChartOf(frame, read)!.AllSeries.Single().Values.Cache!.Count);
+    }
+
+    [Fact]
+    public void A_chart_copied_into_another_presentation_keeps_its_data()
+    {
+        var source = Read(DeckWithChart());
+        var copy = new EditingSession(source);
+        var frame = ShapeTree.All(source.Slides[0].Shapes).OfType<GraphicFrame>().Single();
+        copy.GoToSlide(source.Slides[0].Id);
+        copy.SelectShapes([frame.Id]);
+        var fragment = ShowFragment.FromBytes(copy.Copy()!.ToBytes())!;
+
+        var target = new EditingSession(TestDecks.Blank());
+        target.GoToSlide(target.Presentation.Slides[0].Id);
+        target.Paste(fragment);
+
+        var pasted = ShapeTree.All(target.CurrentSlide!.Shapes).OfType<GraphicFrame>().Single();
+        Assert.NotNull(pasted.Chart);
+        var written = Read(Write(target.Presentation));
+        var back = ShapeTree.All(written.Slides[0].Shapes).OfType<GraphicFrame>().Single();
+        Assert.Equal(3, SharedChartRenderer.ChartOf(back, written)!.AllSeries.Single().Values.Cache!.Count);
     }
 
     private static byte[] ChartPartBytes(byte[] package)

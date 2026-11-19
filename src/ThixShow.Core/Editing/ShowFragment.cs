@@ -70,6 +70,7 @@ public sealed partial class EditingSession
         }
 
         var shell = Presentation with { Slides = default, Sections = default, OriginalSlides = null, UnsupportedContent = default };
+        Presentation Embedded(Presentation fragment) => EmbedCharts(fragment with { Package = Presentation.Package });
         if (Selection.Text is { IsCollapsed: false } text && TextBodyOf(text.Target) is { } body)
         {
             var box = new AutoShape
@@ -92,12 +93,27 @@ public sealed partial class EditingSession
             var shapes = ids.Select(slide.FindShape).OfType<SlideElement>()
                 .Select(shape => shape.Transform is null ? shape with { Transform = ShapeResolver.Resolve(context, shape).Transform } : shape)
                 .ToList();
-            return new ShowFragment(FragmentKind.Shapes, shell with { Slides = [new Slide { Id = 256, LayoutId = slide.LayoutId, Shapes = shapes }] });
+            return new ShowFragment(FragmentKind.Shapes, Embedded(shell with { Slides = [new Slide { Id = 256, LayoutId = slide.LayoutId, Shapes = shapes }] }));
         }
 
         var slides = Selection.Slides.Select(Presentation.FindSlide).OfType<Slide>().OrderBy(item => Presentation.IndexOf(item.Id)).ToList();
-        return slides.Count == 0 ? null : new ShowFragment(FragmentKind.Slides, shell with { Slides = slides });
+        return slides.Count == 0 ? null : new ShowFragment(FragmentKind.Slides, Embedded(shell with { Slides = slides }));
     }
+
+    /// <summary>
+    /// Charts of a presentation's slides with their model (read from the presentation's kept parts): a chart then travels with its
+    /// frame into a fragment and another presentation, where it gets a part of its own.
+    /// </summary>
+    internal static Presentation EmbedCharts(Presentation presentation) =>
+        presentation with { Slides = [.. presentation.Slides.Select(slide => slide with { Shapes = [.. slide.Shapes.Select(shape => EmbedChart(shape, presentation))] })] };
+
+    private static SlideElement EmbedChart(SlideElement shape, Presentation presentation) => shape switch
+    {
+        GraphicFrame { Kind: GraphicKind.Chart, Chart: null } frame when Layout.SharedChartRenderer.ChartOf(frame, presentation) is { } chart =>
+            frame with { Chart = chart, ChartPartUri = null, Source = null, References = [] },
+        GroupShape group => group with { Children = [.. group.Children.Select(child => EmbedChart(child, presentation))] },
+        _ => shape,
+    };
 
     /// <summary>Copies and deletes the selection (text, shapes or slides).</summary>
     public ShowFragment? Cut()
@@ -130,6 +146,7 @@ public sealed partial class EditingSession
     /// </summary>
     public void Paste(ShowFragment fragment)
     {
+        fragment = fragment with { Content = EmbedCharts(fragment.Content) };
         if (CurrentSlide is not { } slide)
         {
             return;

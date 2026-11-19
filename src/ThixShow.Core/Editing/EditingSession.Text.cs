@@ -589,6 +589,9 @@ public sealed partial class EditingSession
         return true;
     }
 
+    /// <summary>How many matches the presentation has (the find bar's count).</summary>
+    public int CountMatches(FindOptions options) => AllMatches(options).Count;
+
     /// <summary>Replaces the selected match (if the selection is one) and finds the next.</summary>
     public bool Replace(FindOptions options, string replacement)
     {

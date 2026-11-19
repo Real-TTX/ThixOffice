@@ -27,7 +27,7 @@ public sealed class SharedChartRenderer : IChartRenderer
 
     public IReadOnlyList<DisplayItem>? Render(GraphicFrame frame, double width, double height, SlideContext context, ITextMeasurer measurer)
     {
-        if (frame.ChartPartUri is not { } uri || context.Presentation.Package is not { } package || ChartOf(package, uri) is not { } chart)
+        if (ChartOf(frame, context.Presentation) is not { } chart)
         {
             return null;
         }
@@ -42,6 +42,10 @@ public sealed class SharedChartRenderer : IChartRenderer
             Height = height,
         });
     }
+
+    /// <summary>The chart a frame shows: its own model, else the one of its part in the kept package (null when there is none).</summary>
+    public static Chart? ChartOf(GraphicFrame frame, Presentation presentation) =>
+        frame.Chart ?? (frame.ChartPartUri is { } uri && presentation.Package is { } package ? ChartOf(package, uri) : null);
 
     /// <summary>The chart of a part of the package (null when the part is missing or cannot be read).</summary>
     internal static Chart? ChartOf(PreservedPackage package, string partUri) =>
