@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ThixCalc without UI: its app definition (accent, document types) and the spreadsheet's core – the workbook model (Model:
+    sheets, sparse cells, the shared style table, rows/columns, merges, names, validation, conditional formats, filters,
+    hyperlinks, comments, preserved content), the formula engine (Formulas: tokenizer, parser, AST, reference rewriting;
+    Calculation: dependency graph, recalculation, spills; Functions: the function library), number formats and input
+    parsing (Formatting), the locales de-DE / en-US (Globalization), the formats (Formats: xlsx with the Open XML SDK, csv),
+    the editing engine (Editing: selection, undoable commands, clipboard, sort, filter, find) and the grid's viewport layout
+    (Layout: visible rows/columns, cell text layout, hit testing, display lists). No UI framework and no native code: text
+    is measured through ThixOffice.Text's ITextMeasurer, so the same core can serve a web version.
+  -->
+  <PropertyGroup>
+    <RootNamespace>ThixCalc.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixCalc" />
+    <InternalsVisibleTo Include="ThixCalc.Tests" />
+    <InternalsVisibleTo Include="ThixCalc.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- MIT licence. -->
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThixOffice.Core\ThixOffice.Core.csproj" />
+    <ProjectReference Include="..\ThixOffice.Text\ThixOffice.Text.csproj" />
+  </ItemGroup>
+
+</Project>

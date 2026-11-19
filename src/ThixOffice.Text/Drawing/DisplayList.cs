@@ -83,3 +83,15 @@ public sealed record ImageItem(double X, double Y, double Width, double Height, 
 
 /// <summary>Everything on one page, in drawing order; the size in points.</summary>
 public sealed record PageDisplayList(int PageIndex, double Width, double Height, IReadOnlyList<DisplayItem> Items);
+
+/// <summary>
+/// Starts clipping to a rectangle: items until the matching <see cref="ClipEndItem"/> draw only inside it (grid cells whose
+/// text overflows into neighbours or is cut at the cell border). Renderers that do not clip may ignore both items.
+/// </summary>
+public sealed record ClipBeginItem(double X, double Y, double Width, double Height) : DisplayItem;
+
+/// <summary>Ends the innermost <see cref="ClipBeginItem"/>.</summary>
+public sealed record ClipEndItem : DisplayItem
+{
+    public static ClipEndItem Instance { get; } = new();
+}

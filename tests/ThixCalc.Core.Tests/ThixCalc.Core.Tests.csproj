@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Tests of ThixCalc's UI-free core: the model and its sparse storage, the formula parser (round trips in both locales,
+    A1 / R1C1), reference rewriting, the dependency graph and recalculation (randomized: incremental == full), the function
+    library (table-driven, Excel's documented results), number formats and input parsing for de-DE and en-US, xlsx and csv
+    round trips (generated fixtures, Open XML validation), the editing session (random edits: undo all == original), the
+    viewport layout with the fixed-width measurer, and performance with stated numbers.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="GitHubActionsTestLogger" Version="2.4.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ThixOffice.Text\ThixOffice.Text.csproj" />
+    <ProjectReference Include="..\..\src\ThixCalc.Core\ThixCalc.Core.csproj" />
+  </ItemGroup>
+
+</Project>
