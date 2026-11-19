@@ -33,6 +33,7 @@ internal sealed class DocumentSurface : Control
 
     private static readonly TimeSpan BlinkInterval = TimeSpan.FromMilliseconds(530);
     private readonly CaretLayer _caretLayer = new();
+    private readonly Cursor _ibeam = new(StandardCursorType.Ibeam);
     private readonly DispatcherTimer _blink;
     private readonly DispatcherTimer _autoScroll;
     private readonly IBrush _paper = new SolidColorBrush(DocumentPalette.Paper);
@@ -49,7 +50,7 @@ internal sealed class DocumentSurface : Control
         InputClient = new WriteInputClient(this);
         Focusable = true;
         ClipToBounds = false;
-        Cursor = new Cursor(StandardCursorType.Ibeam);
+        Cursor = _ibeam;
         VisualChildren.Add(_caretLayer);
 
         _blink = new DispatcherTimer { Interval = BlinkInterval };
@@ -472,7 +473,11 @@ internal sealed class DocumentSurface : Control
     {
         base.OnPointerMoved(e);
         var position = e.GetPosition(this);
-        Cursor = _dragging || PageUnder(position) >= 0 ? new Cursor(StandardCursorType.Ibeam) : Cursor.Default;
+        var cursor = _dragging || PageUnder(position) >= 0 ? _ibeam : Cursor.Default;
+        if (!ReferenceEquals(Cursor, cursor))
+        {
+            Cursor = cursor;
+        }
         if (!_dragging)
         {
             return;
