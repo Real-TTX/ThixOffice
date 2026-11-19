@@ -69,6 +69,12 @@ public class OfficeCommand
     /// <summary>False when the search should not offer it (the backstage toggle itself, internal steps).</summary>
     public bool IsSearchable { get; init; } = true;
 
+    /// <summary>
+    /// True for a text-editing command (Rückgängig, Kopieren, Alles markieren …): while a text field outside the document has
+    /// the keyboard (a ribbon field, the find bar, a dialog), its shortcut belongs to the field, not to the document.
+    /// </summary>
+    public bool YieldsToTextField { get; init; }
+
     public bool IsEnabled => CanExecute?.Invoke() ?? true;
 
     public bool IsCheckable => IsChecked is not null;

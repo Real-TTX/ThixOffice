@@ -60,11 +60,28 @@ public static class DocumentService
     {
         var target = TargetPath(path);
         var type = AppInfo.Definition.SupportedTypeOf(target)!;
-        DocumentFiles.SaveAtomic(target, document.WriteContent, SettingsService.Get().KeepBackupCopy);
+        DocumentFiles.SaveAtomic(target, stream => document.WriteContentAs(stream, type), SettingsService.Get().KeepBackupCopy);
         document.MarkSaved(target, type);
         DocumentFiles.DeleteRecovery(document.RecoveryId);
         RecentDocuments.Add(target);
         Log.Info($"Document saved ({type.Name})");
+        return target;
+    }
+
+    /// <summary>
+    /// Exports a document into another format ("Als PDF exportieren"): <paramref name="write"/> fills the file, which is written
+    /// atomically like a save; the document keeps its own file and its unsaved state.
+    /// </summary>
+    public static string Export(string path, string extension, Action<Stream> write)
+    {
+        var target = FullPath(path);
+        if (!string.Equals(Path.GetExtension(target), extension, StringComparison.OrdinalIgnoreCase))
+        {
+            target += extension;
+        }
+
+        DocumentFiles.SaveAtomic(target, write);
+        Log.Info($"Document exported ({extension})");
         return target;
     }
 

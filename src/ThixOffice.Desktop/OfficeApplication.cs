@@ -109,6 +109,29 @@ public abstract class OfficeApplication : Application
     {
     }
 
+    /// <summary>The app's own backstage pages of <paramref name="window"/> (Drucken/Exportieren), shown after "Speichern unter".</summary>
+    public virtual IEnumerable<BackstageItem> CreateBackstageItems(OfficeWindow window) => [];
+
+    /// <summary>
+    /// The app's own checks of the published program (<c>--self-test</c>): its document model, its formats, its editor in a
+    /// real window. Each returns a note for the report or throws.
+    /// </summary>
+    public virtual IEnumerable<(string Name, Func<Task<string>> Check)> SelfTestChecks() => [];
+
+    /// <summary>
+    /// The app's own pictures of <c>--snapshot</c> ("main-find" …), drawn after the main window with the sample document:
+    /// <see cref="ShowSnapshotScene"/> prepares one and returns the top level to draw, <see cref="EndSnapshotScene"/> undoes it.
+    /// </summary>
+    public virtual IReadOnlyList<string> SnapshotScenes => [];
+
+    /// <summary>Prepares the snapshot scene <paramref name="name"/> in <paramref name="window"/>; returns what to draw (the window or a dialog).</summary>
+    public virtual TopLevel ShowSnapshotScene(OfficeWindow window, string name) => window;
+
+    /// <summary>Undoes the snapshot scene <paramref name="name"/> (closes a dialog, the find bar, the backstage).</summary>
+    public virtual void EndSnapshotScene(OfficeWindow window, string name, TopLevel shown)
+    {
+    }
+
     public override void Initialize()
     {
         if (!AppInfo.IsInitialized)

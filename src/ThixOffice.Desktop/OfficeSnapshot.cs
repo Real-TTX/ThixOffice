@@ -42,8 +42,13 @@ public static class OfficeSnapshot
     private static readonly string[] SetupPictures = ["setup-welcome", "setup-options", "setup-update", "setup-uninstall"];
 
     /// <summary>Every file a snapshot writes, by app id: thixwrite-main-light.png …</summary>
-    public static IReadOnlyList<string> FileNames(string appId) =>
-        [.. WindowPictures.Concat(SetupPictures).SelectMany(name => Themes.Select(theme => $"{appId}-{name}-{theme}.png"))];
+    public static IReadOnlyList<string> FileNames(string appId) => FileNames(appId, []);
+
+    /// <summary>Every file a snapshot of <paramref name="app"/> writes, its own scenes (<see cref="OfficeApplication.SnapshotScenes"/>) included.</summary>
+    public static IReadOnlyList<string> FileNames(OfficeApplication app) => FileNames(app.Definition.Id, app.SnapshotScenes);
+
+    private static IReadOnlyList<string> FileNames(string appId, IEnumerable<string> scenes) =>
+        [.. WindowPictures.Concat(scenes).Concat(SetupPictures).SelectMany(name => Themes.Select(theme => $"{appId}-{name}-{theme}.png"))];
 
     /// <summary>The command: sets Avalonia up headless, draws every picture into the folder, ends with 0 (all written) or 1.</summary>
     public static int Run<TApp>(string[] args)
@@ -77,7 +82,7 @@ public static class OfficeSnapshot
                 Console.WriteLine($"skipped  {file}: {reason}");
             }
 
-            exitCode = report.Written.Count + report.Skipped.Count == FileNames(AppInfo.Definition.Id).Count ? 0 : 1;
+            exitCode = report.Written.Count + report.Skipped.Count == FileNames(OfficeApplication.Instance).Count ? 0 : 1;
         }
         catch (Exception exception)
         {
@@ -131,6 +136,16 @@ public static class OfficeSnapshot
             Settle(window);
             Save(window, target, $"{id}-main-ribbon-collapsed-{theme}.png", written);
             window.Ribbon.IsCollapsed = false;
+            Settle(window);
+
+            foreach (var scene in application.SnapshotScenes)
+            {
+                var shown = application.ShowSnapshotScene(window, scene);
+                Settle(shown, waitLonger: true);
+                Save(shown, target, $"{id}-{scene}-{theme}.png", written);
+                application.EndSnapshotScene(window, scene, shown);
+                Settle(window);
+            }
 
             foreach (var (page, name) in new[] { (OfficeWindow.NewPageId, "new"), (OfficeWindow.OpenPageId, "open"), (OfficeWindow.SaveAsPageId, "saveas") })
             {

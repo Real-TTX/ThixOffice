@@ -45,6 +45,15 @@ public abstract class OfficeEditor
         }
     }
 
+    /// <summary>
+    /// A warning the window shows once when the document comes into it (content of the file the editor keeps but cannot
+    /// show), or null.
+    /// </summary>
+    public virtual string? OpeningWarning => null;
+
+    /// <summary>A click on the percentage of the status bar: the editor's zoom dialog (the default goes back to 100 %).</summary>
+    public virtual void RequestZoomLevel() => Zoom = 100;
+
     /// <summary>Puts the keyboard into the document (after the backstage, the search, opening).</summary>
     public virtual void FocusDocument() => View.Focus();
 

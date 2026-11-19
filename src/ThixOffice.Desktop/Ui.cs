@@ -64,13 +64,20 @@ public static class Ui
                 "Shift" => "⇧",
                 _ => "⌥",
             });
-            return string.Concat(modifiers.Concat(parts.Where(part => !order.Contains(part))));
+            return string.Concat(modifiers.Concat(parts.Where(part => !order.Contains(part)).Select(part => part switch
+            {
+                "Enter" => "↩",
+                "Space" => "Leertaste",
+                _ => part,
+            })));
         }
 
         return string.Join('+', parts.Select(part => part switch
         {
             "Ctrl" => "Strg",
             "Shift" => "Umschalt",
+            "Enter" => "Eingabe",
+            "Space" => "Leertaste",
             _ => part,
         }));
     }

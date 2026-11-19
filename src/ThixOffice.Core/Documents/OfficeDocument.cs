@@ -53,11 +53,25 @@ public abstract class OfficeDocument
     /// <summary>Writes the content (into a temporary file that replaces the document once it is complete).</summary>
     protected abstract void Write(Stream stream);
 
+    /// <summary>
+    /// Writes the content as a file of <paramref name="type"/> ("Speichern unter" into another type: ThixWrite writes plain text
+    /// for .txt). The default writes the model's own format.
+    /// </summary>
+    protected virtual void Write(Stream stream, DocumentType type) => Write(stream);
+
+    /// <summary>The document was saved as a file of <paramref name="type"/> (the next save writes that type).</summary>
+    protected virtual void OnSaved(DocumentType type)
+    {
+    }
+
     /// <summary>The business layer reads a file into the model through this (the model only sees a stream).</summary>
     internal void ReadContent(Stream stream) => Read(stream);
 
     /// <summary>The business layer writes the model into a file through this.</summary>
     internal void WriteContent(Stream stream) => Write(stream);
+
+    /// <summary>The business layer writes the model into a file of <paramref name="type"/> through this.</summary>
+    internal void WriteContentAs(Stream stream, DocumentType type) => Write(stream, type);
 
     /// <summary>The model calls this after every change of its content.</summary>
     protected void OnContentChanged()
@@ -75,6 +89,7 @@ public abstract class OfficeDocument
         FileType = type;
         IsDirty = false;
         IsRecovered = false;
+        OnSaved(type);
         RaiseChanged();
     }
 

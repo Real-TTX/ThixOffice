@@ -18,6 +18,13 @@ public interface IFileDialogs
 
     /// <summary>A folder (null: cancelled).</summary>
     Task<string?> PickFolderAsync(Window owner, string startFolder);
+
+    /// <summary>
+    /// Where to export to, in a format that is not a document type of the app ("PDF-Dokument", ".pdf"); null: cancelled.
+    /// The default asks like <see cref="PickSaveTargetAsync"/> (test doubles).
+    /// </summary>
+    Task<string?> PickExportTargetAsync(Window owner, string suggestedFileName, string startFolder, string typeDescription, string extension) =>
+        PickSaveTargetAsync(owner, suggestedFileName, startFolder);
 }
 
 /// <summary>The dialogs of Windows and macOS through Avalonia's storage provider; the filters are the app's supported types.</summary>
@@ -44,6 +51,20 @@ public sealed class SystemFileDialogs : IFileDialogs
             SuggestedStartLocation = await Folder(owner, startFolder),
             DefaultExtension = AppInfo.Definition.SaveType.Name,
             FileTypeChoices = Filters(),
+            ShowOverwritePrompt = true,
+        });
+        return file?.TryGetLocalPath();
+    }
+
+    public async Task<string?> PickExportTargetAsync(Window owner, string suggestedFileName, string startFolder, string typeDescription, string extension)
+    {
+        var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Exportieren",
+            SuggestedFileName = suggestedFileName,
+            SuggestedStartLocation = await Folder(owner, startFolder),
+            DefaultExtension = extension.TrimStart('.'),
+            FileTypeChoices = [new FilePickerFileType(typeDescription) { Patterns = [$"*{extension}"] }],
             ShowOverwritePrompt = true,
         });
         return file?.TryGetLocalPath();

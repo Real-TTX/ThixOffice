@@ -138,6 +138,11 @@ public static class OfficeSelfTest
             return "";
         });
 
+        foreach (var (name, check) in app.SelfTestChecks())
+        {
+            await Check(name, check);
+        }
+
         report.AppendLine(failures == 0 ? "PASSED" : $"FAILED ({failures})");
         await File.WriteAllTextAsync(reportPath, report.ToString(), Encoding.UTF8);
 

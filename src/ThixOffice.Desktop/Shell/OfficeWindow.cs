@@ -82,7 +82,7 @@ public sealed class OfficeWindow : MatWindow
         CollectShortcuts();
         _editor = app.CreateEditor(this, document);
         StatusBar.View.ZoomChanged += (_, zoom) => _editor.Zoom = zoom;
-        StatusBar.View.ZoomLevelRequested += (_, _) => _editor.Zoom = 100; // the dialog of the zoom comes with the editors
+        StatusBar.View.ZoomLevelRequested += (_, _) => _editor.RequestZoomLevel(); // the editor's zoom dialog
 
         // The ribbon: the app's definition (made for this window: its items carry this window's state), bound to the commands.
         Ribbon = new MatRibbon { IsCollapsed = settings.IsRibbonCollapsed };
@@ -310,7 +310,7 @@ public sealed class OfficeWindow : MatWindow
     }
 
     /// <summary>Shows a message under the ribbon (null hides it).</summary>
-    public void ShowMessage(string? text, InfoSeverity severity = InfoSeverity.Info)
+    public void ShowMessage(string? text, InfoSeverity severity = InfoSeverity.Info, bool isClosable = false)
     {
         if (text is null)
         {
@@ -318,7 +318,7 @@ public sealed class OfficeWindow : MatWindow
             return;
         }
 
-        _messageBar.Show(text, severity);
+        _messageBar.Show(text, severity, isClosable);
     }
 
     // ===== Building =====
@@ -388,6 +388,7 @@ public sealed class OfficeWindow : MatWindow
             Shortcut = "Ctrl+Z",
             CanExecute = () => Document.CanUndo,
             Keywords = ["zurück", "widerrufen"],
+            YieldsToTextField = true,
         });
         Commands.Add(new OfficeCommand(CommonCommandIds.Redo, "Wiederholen", () => Document.Redo())
         {
@@ -396,6 +397,7 @@ public sealed class OfficeWindow : MatWindow
             MacShortcut = "Ctrl+Shift+Z",
             CanExecute = () => Document.CanRedo,
             Keywords = ["wiederherstellen"],
+            YieldsToTextField = true,
         });
         Commands.Add(new OfficeCommand(CommonCommandIds.Backstage, "Datei", () => Backstage.Open())
         {
@@ -456,6 +458,7 @@ public sealed class OfficeWindow : MatWindow
             new BackstageItem(OpenPageId, "Öffnen", "folder-open", () => new OpenPage(this), Shortcut: ShortcutOf(CommonCommandIds.Open)),
             new BackstageItem(SaveItemId, "Speichern", "save", Run: async () => await SaveAsync(), Shortcut: ShortcutOf(CommonCommandIds.Save)),
             new BackstageItem(SaveAsPageId, "Speichern unter", "save-as", () => new SaveAsPage(this), Shortcut: ShortcutOf(CommonCommandIds.SaveAs)),
+            .. _app.CreateBackstageItems(this),
             new BackstageItem(CloseItemId, "Schließen", "x", Run: CloseDocumentAsync, Shortcut: ShortcutOf(CommonCommandIds.Close)),
         ],
         new BackstageItem(SettingsPageId, "Einstellungen", "settings", () => new SettingsPage(this)),
@@ -500,6 +503,10 @@ public sealed class OfficeWindow : MatWindow
         if (document.IsRecovered)
         {
             ShowMessage("Dieses Dokument wurde nach einem unerwarteten Ende wiederhergestellt. Speichern Sie es, um es zu behalten.", InfoSeverity.Warning);
+        }
+        else if (_editor.OpeningWarning is { } warning)
+        {
+            ShowMessage(warning, InfoSeverity.Warning, isClosable: true);
         }
         else
         {
@@ -561,13 +568,14 @@ public sealed class OfficeWindow : MatWindow
             return; // the search box keeps its own keys (Strg+Z there undoes the typing)
         }
 
-        // A field of the ribbon (Schriftgrad) undoes its own typing; the other shortcuts (Strg+S) still apply there.
-        var inRibbonField = FocusManager?.GetFocusedElement() is TextBox field && Ribbon.IsVisualAncestorOf(field);
+        // A text field (Schriftgrad in the ribbon, the find bar) undoes, copies and selects its own text; the other shortcuts
+        // (Strg+S) still apply there.
+        var inTextField = FocusManager?.GetFocusedElement() is TextBox;
         foreach (var (gesture, command) in _shortcuts)
         {
             if (gesture.Matches(e))
             {
-                if (inRibbonField && command.Id is CommonCommandIds.Undo or CommonCommandIds.Redo)
+                if (inTextField && command.YieldsToTextField)
                 {
                     return;
                 }
