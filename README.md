@@ -14,24 +14,32 @@ und die aussieht wie die übrigen Thix-Apps.
 
 Der Plan steht in [docs/PLAN.md](docs/PLAN.md).
 
-## ThixWrite – Stand Meilenstein 1a
+## ThixWrite – Stand Meilenstein 1b
 
 ThixWrite ist eine Textverarbeitung mit eigenem, nativem Editor: Seiten wie auf Papier (weiß, auch im dunklen
 Erscheinungsbild), Zeichen- und Absatzformat, Formatvorlagen, Aufzählung und Nummerierung, Rückgängig/Wiederholen, Zwischenablage
 (mit Formatierung zwischen ThixWrite-Fenstern, „Nur Text einfügen“ mit Strg+Umschalt+V), Suchen und Ersetzen, Seite einrichten,
-Zoom (auch Strg+Mausrad, Seitenbreite, Ganze Seite), Formatierungszeichen und „Als PDF exportieren“. Eingabemethoden (Umlaute,
-Akzente mit Tottasten, Emoji-Panel, chinesisch/japanisch) funktionieren.
+Zoom (auch Strg+Mausrad, Seitenbreite, Ganze Seite), Formatierungszeichen, „Als PDF exportieren“ und Drucken (Windows und macOS,
+mit Vorschau). Dazu Tabellen (Raster einfügen, Zeilen/Spalten, verbinden/teilen, Rahmen, Schattierung, Überschriften wiederholen,
+Spaltenbreite ziehen), Bilder (einfügen, einfügen aus der Zwischenablage, ziehen, Größe mit Ziehpunkten, Alternativtext), Kopf- und
+Fußzeilen mit Seitenzahlen (Doppelklick in den Rand), Links, Lineal mit Einzügen und Tabstopps, die Dialoge Schriftart und Absatz,
+Format übertragen, Symbole und Einfügen aus anderen Programmen (HTML: Formatierung, Listen, Tabellen, Links, Bilder). Eingabemethoden
+(Umlaute, Akzente mit Tottasten, Emoji-Panel, chinesisch/japanisch) funktionieren.
 
 Word-Dokumente (.docx) sind das Standardformat; .txt wird als reiner Text gelesen und geschrieben. Inhalte, die ThixWrite noch
-nicht anzeigt (Tabellen, Bilder, Kopf-/Fußzeilen, Kommentare …), bleiben beim Speichern erhalten – beim Öffnen sagt ein Hinweis,
-welche es sind. Direktes Drucken folgt; bis dahin führt der Weg über das PDF.
+nicht anzeigt (Kommentare, Fußnoten, verschachtelte Tabellen, Formeln …), bleiben beim Speichern erhalten – beim Öffnen sagt ein
+Hinweis, welche es sind.
 
 ![ThixWrite hell](docs/images/thixwrite-main-light.png)
 
 ![ThixWrite dunkel](docs/images/thixwrite-main-dark.png)
 
-| Suchen und Ersetzen (Strg+F, Strg+H) | Layout und Formatierungszeichen |
+| Tabelle (Kontext-Karte Layout) | Bild (Kontext-Karte Bildformat) |
 | --- | --- |
+| ![Tabelle](docs/images/thixwrite-main-table-light.png) | ![Bild](docs/images/thixwrite-main-picture-light.png) |
+| **Kopfzeile bearbeiten** (Doppelklick in den Rand) | **Datei › Drucken** (Strg+P) |
+| ![Kopfzeile](docs/images/thixwrite-main-header-light.png) | ![Drucken](docs/images/thixwrite-backstage-print-light.png) |
+| **Suchen und Ersetzen** (Strg+F, Strg+H) | **Layout und Formatierungszeichen** |
 | ![Suchen und Ersetzen](docs/images/thixwrite-main-find-light.png) | ![Layout](docs/images/thixwrite-main-layout-light.png) |
 | **Seite einrichten** | **Ansicht › Ganze Seite** |
 | ![Seite einrichten](docs/images/thixwrite-dialog-page-setup-light.png) | ![Ganze Seite](docs/images/thixwrite-main-view-dark.png) |
@@ -52,9 +60,13 @@ Wie im deutschen Word, wo sie nicht kollidieren (unter macOS ⌘ statt Strg, ⌥
 | Strg+F / Strg+H (⌥⌘F) | Suchen / Ersetzen |
 | Strg+A, Strg+C/X/V, Strg+Umschalt+V | Alles markieren, Zwischenablage, Nur Text einfügen |
 | Strg+Eingabe, Umschalt+Eingabe | Seitenumbruch, Zeilenumbruch |
-| Tab / Umschalt+Tab | in Listen: Ebene tiefer / höher |
+| Tab / Umschalt+Tab | in Listen: Ebene tiefer / höher; in Tabellen: nächste / vorige Zelle (Tab in der letzten Zelle: neue Zeile) |
 | Alt+Umschalt+D | Datum und Uhrzeit |
-| Strg+P | Exportieren (PDF) |
+| Strg+P | Drucken |
+| Strg+K, Strg+Klick | Link einfügen, Link öffnen |
+| Strg+D | Schriftart … |
+| Strg+Umschalt+C | Format übertragen |
+| Esc (in Kopf-/Fußzeile) | zurück zum Text |
 | Strg+Z / Strg+Y (⇧⌘Z), Strg+S, F12, Strg+F1 | Rückgängig / Wiederholen, Speichern, Speichern unter, Menüband |
 
 ## Installieren

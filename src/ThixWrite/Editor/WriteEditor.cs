@@ -13,6 +13,7 @@ using ThixOffice.Desktop;
 using ThixOffice.Desktop.Shell;
 using ThixWrite.Core.Documents;
 using ThixWrite.Core.Editing;
+using ThixWrite.Core.Formats.Html;
 using ThixWrite.Core.Layout;
 using ThixWrite.Core.Model;
 using ThixWrite.Dialogs;
@@ -466,6 +467,11 @@ public sealed class WriteEditor : OfficeEditor
             return;
         }
 
+        if (!textOnly && await TryGetHtmlAsync(clipboard) is { } html && PasteHtml(html))
+        {
+            return;
+        }
+
         if (await clipboard.TryGetTextAsync() is { Length: > 0 } text)
         {
             Session.PasteText(text);
@@ -481,6 +487,35 @@ public sealed class WriteEditor : OfficeEditor
             {
                 Session.InsertImage(image);
             }
+        }
+    }
+
+    /// <summary>
+    /// Pastes HTML of another program (a browser, Word, a mail): its formatting, lists, tables, links and embedded pictures, sanitized
+    /// (<see cref="HtmlImport"/>). False when it holds nothing to paste.
+    /// </summary>
+    public bool PasteHtml(string html)
+    {
+        if (HtmlImport.Import(HtmlImport.FromClipboardFormat(html)) is not { } fragment)
+        {
+            return false;
+        }
+
+        Session.Paste(fragment);
+        return true;
+    }
+
+    /// <summary>The HTML on the clipboard (Windows "HTML Format", macOS public.html), or null.</summary>
+    private static async Task<string?> TryGetHtmlAsync(IClipboard clipboard)
+    {
+        var format = DataFormat.CreateBytesPlatformFormat(OperatingSystem.IsMacOS() ? "public.html" : "HTML Format");
+        try
+        {
+            return await clipboard.TryGetValueAsync(format) is { Length: > 0 } bytes ? System.Text.Encoding.UTF8.GetString(bytes).TrimEnd(' ') : null;
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or NotSupportedException or System.Runtime.InteropServices.COMException)
+        {
+            return null;
         }
     }
 

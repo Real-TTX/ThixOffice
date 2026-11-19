@@ -117,6 +117,22 @@ public sealed class TextToolsUiTests
     }
 
     [AvaloniaFact]
+    public async Task HTML_of_another_program_pastes_with_its_formatting_in_one_step()
+    {
+        using var data = new TestData();
+        var window = await NewWindowAsync();
+        await TypeAsync(window, "Vorher ");
+        var editor = EditorOf(window);
+
+        Assert.True(editor.PasteHtml("<p>Aus dem <b>Browser</b></p><ul><li>Punkt</li></ul><script>böse()</script>"));
+        await SettleAsync();
+        Assert.Equal("Vorher Aus dem Browser\nPunkt", TextOf(window));
+        Assert.True(editor.Session.Document.ParagraphAt(0)!.Inlines.OfType<TextRun>().Single(run => run.Text == "Browser").Properties.Bold);
+        editor.Session.Undo();
+        Assert.Equal("Vorher ", TextOf(window));
+    }
+
+    [AvaloniaFact]
     public async Task Symbol_inserts_from_its_menu_and_the_dialog()
     {
         using var data = new TestData();

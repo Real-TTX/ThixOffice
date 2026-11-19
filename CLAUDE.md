@@ -15,8 +15,9 @@ like "Was möchten Sie tun?"); code, comments and identifiers English.
 **Phase 0 (done): the foundation.** The shared core and desktop, the logos of all three apps, CI, and MatDesktop 0.3.0's
 MatRibbon, MatBackstage, MatStatusBar and MatQuickAccess in the window.
 **Milestone 1a (done): ThixWrite's native editor** on `WordDocument` (docx default, txt), the filled ribbon, find/replace,
-page setup, zoom, PDF export (see "ThixWrite's editor" below; gaps in docs/PLAN.md). **Next:** 1b (tables, images, headers
-and footers, printing …). Do not build ribbon controls of your own.
+page setup, zoom, PDF export. **Milestone 1b (done):** printing, tables, pictures, headers/footers/page numbers, links, ruler and
+tab stops, the dialogs Schriftart/Absatz, format painter, symbols, HTML paste (see the sections below; gaps in docs/PLAN.md).
+**Next:** 1c (table of contents, footnotes, comments, spelling, odt). Do not build ribbon controls of your own.
 
 Stack: **.NET 10** (`global.json` 10.0.100, latestMinor), C#, **Avalonia 11.3.22** with **MatDesktop 0.3.1** (a copy), xunit +
 Avalonia.Headless. Reference apps (sibling folders): ThixCalendar (structure, setup, OTA), ThixNote (document app: file types,
@@ -235,6 +236,13 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   characters' format (and the paragraph's when whole paragraphs are selected).
 - **Ruler** (Ansicht › Lineal, `Ruler` above the pages): margins, indents and tab stops of the caret's paragraph; dragging markers
   changes them, a click sets a left tab stop, a tab dragged off is removed (positions snap to 1/16 cm).
+
+### Paste from other programs
+
+- `HtmlImport` (ThixWrite.Core/Formats/Html): the clipboard's HTML (Windows "HTML Format" with its header – `FromClipboardFormat` –,
+  macOS public.html) → a `DocumentFragment` (styles and lists along); a small tolerant parser; scripts, styles, frames, objects,
+  forms, comments dropped; links only http/https/mailto; pictures only from data: URIs (nothing is fetched). Paste order in
+  `WriteEditor.PasteAsync`: ThixWrite's fragment, HTML, text, a bitmap. RTF is not read (gap).
 
 ### Adding a command to ThixWrite
 

@@ -181,6 +181,11 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   Business-Layer), Tooltip; Lineal mit Rändern, Einzügen und Tabstopps (ziehen, klicken), Dialoge Schriftart (Strg+D) und Absatz
   (mit Tabstopps) als Gruppen-Starter, Format übertragen, Symbol (Menü + Dialog). **Lücken:** Links auf Textmarken (Sprung im
   Dokument), Format übertragen per Doppelklick dauerhaft, Schriftfarbe/Abstände im Schriftart-Dialog, Lineal im Kopfzeilen-Modus.
+- **Einfügen aus anderen Programmen erledigt (1b):** HTML der Zwischenablage (Windows „HTML Format“, macOS public.html) mit
+  Absätzen, Überschriften, Zeichenformat, Listen, Tabellen, Links (nur http/https/mailto) und eingebetteten Bildern (data:-URIs);
+  Skripte, Stile, Rahmen und Formulare fallen weg, nichts wird nachgeladen. **Lücken:** RTF, Tabellenformatierung aus HTML
+  (Rahmen/Farben der Zellen), CSS-Klassen (nur style-Attribute).
+- **Stand 1b insgesamt: erledigt** (Lücken siehe die Punkte oben).
 - **1b:** Drucken, Tabellen, Bilder, Kopf-/Fußzeilen, Seitenzahlen, Hyperlinks, Tabstopps (Lineal), Dialoge Schriftart/Absatz,
   HTML/RTF einfügen.
 - **1c:** Inhaltsverzeichnis, Fußnoten, Kommentare, Rechtschreibprüfung, odt; Karten Referenzen/Überprüfen.
