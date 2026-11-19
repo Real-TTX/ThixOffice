@@ -190,11 +190,11 @@ public class XlsxTests
     {
         var bytes = Write(Sample());
         using var package = SpreadsheetDocument.Open(new MemoryStream(bytes), false);
-        var report = package.WorkbookPart!.WorksheetParts.Select(part => part.Worksheet).First(sheet => sheet.OuterXml.Contains("XLOOKUP", StringComparison.Ordinal));
+        var report = package.WorkbookPart!.WorksheetParts.Select(part => part.Worksheet!).First(sheet => sheet.OuterXml.Contains("XLOOKUP", StringComparison.Ordinal));
         Assert.Contains("_xlfn.XLOOKUP(", report.OuterXml, StringComparison.Ordinal);
         Assert.Contains("_xlfn.SEQUENCE(3)", report.OuterXml, StringComparison.Ordinal);
         Assert.NotNull(package.WorkbookPart.CellMetadataPart);
-        var data = package.WorkbookPart.WorksheetParts.Select(part => part.Worksheet).First(sheet => sheet.OuterXml.Contains("Artikel", StringComparison.Ordinal) || sheet.Descendants<X.CellFormula>().Any(formula => formula.FormulaType?.Value == X.CellFormulaValues.Shared));
+        var data = package.WorkbookPart.WorksheetParts.Select(part => part.Worksheet!).First(sheet => sheet.OuterXml.Contains("Artikel", StringComparison.Ordinal) || sheet.Descendants<X.CellFormula>().Any(formula => formula.FormulaType?.Value == X.CellFormulaValues.Shared));
         Assert.Contains(data.Descendants<X.CellFormula>(), formula => formula.FormulaType?.Value == X.CellFormulaValues.Shared && formula.Reference?.Value == "D2:D4");
     }
 
