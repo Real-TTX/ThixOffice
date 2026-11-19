@@ -136,4 +136,31 @@ public static class SampleWorkbook
         session.Select(StartCell);
         return workbook;
     }
+
+    /// <summary>
+    /// The charts of the pictures below the budget: "Einnahmen und Ausgaben" as clustered columns (salary, expenses, surplus per
+    /// month) and "Ausgaben nach Kategorie" as a pie with percentages – live on the budget's cells.
+    /// </summary>
+    public static (SheetChart Columns, SheetChart Pie) AddCharts(EditingSession session, Core.Layout.SheetLayout layout)
+    {
+        var sheet = session.ActiveSheet;
+        ThixOffice.Charts.ChartDataRef Range(int firstRow, int firstColumn, int lastRow, int lastColumn) =>
+            new(ChartReferences.Of(sheet, new CellRange(firstRow, firstColumn, lastRow, lastColumn))) { IsNumeric = false };
+        ThixOffice.Charts.ChartText Name(int row) => ThixOffice.Charts.ChartText.Ref(ChartReferences.Of(sheet, CellRange.Cell(row, 0)));
+        var months = Range(1, 1, 1, 6);
+        ThixOffice.Charts.SeriesSpec Series(int row) => new(Name(row), months, Range(row, 1, row, 6) with { IsNumeric = true });
+
+        var columns = ThixOffice.Charts.ChartFactory.Create(ThixOffice.Charts.ChartTemplates.Find("column")!, [Series(3), Series(14), Series(15)]);
+        columns = ThixOffice.Charts.ChartEdits.SetTitle(columns, true, "Einnahmen und Ausgaben");
+        var pie = ThixOffice.Charts.ChartFactory.Create(ThixOffice.Charts.ChartTemplates.Find("pie")!,
+            [new ThixOffice.Charts.SeriesSpec(ThixOffice.Charts.ChartText.Of("Ausgaben"), Range(6, 0, 12, 0), Range(6, 7, 12, 7) with { IsNumeric = true })]);
+        pie = ThixOffice.Charts.ChartEdits.SetTitle(pie, true, "Ausgaben nach Kategorie");
+        pie = pie with { Plots = [pie.Plots[0] with { Labels = new ThixOffice.Charts.DataLabels(ShowValue: false, ShowPercent: true, Position: ThixOffice.Charts.DataLabelPosition.BestFit) }] };
+
+        var columnAnchor = Core.Layout.ChartLayer.AnchorAt(layout, new CellAddress(17, 1), 380, 205);
+        var pieAnchor = Core.Layout.ChartLayer.AnchorAt(layout, new CellAddress(17, 7), 320, 205);
+        var first = session.PasteChart(columns, columnAnchor, "Einnahmen und Ausgaben");
+        var second = session.PasteChart(pie, pieAnchor, "Ausgaben nach Kategorie");
+        return (first, second);
+    }
 }

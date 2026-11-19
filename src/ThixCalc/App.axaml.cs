@@ -30,10 +30,12 @@ public partial class App : OfficeApplication
     public const string ViewScene = "main-view";
     public const string PrintScene = "backstage-print";
     public const string PageSetupScene = "dialog-page-setup";
+    public const string ChartScene = "main-chart";
+    public const string ChartDesignScene = "main-chart-design";
 
     public override OfficeAppDefinition Definition => ThixCalcApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [FormulaScene, ViewScene, FindScene, FormatCellsScene, FunctionScene, PageSetupScene, PrintScene];
+    public override IReadOnlyList<string> SnapshotScenes => [FormulaScene, ViewScene, FindScene, FormatCellsScene, FunctionScene, PageSetupScene, PrintScene, ChartScene, ChartDesignScene];
 
     public override string SampleDocumentName => "Haushaltsbudget 2026";
 
@@ -54,6 +56,7 @@ public partial class App : OfficeApplication
         CalcCommands.Add(window);
         CalcStyleCommands.Add(window);
         CalcPageCommands.Add(window);
+        CalcChartCommands.Add(window);
     }
 
     public override IEnumerable<BackstageItem> CreateBackstageItems(OfficeWindow window) => [CalcPrintPage.Item(window), CalcExportPage.Item(window)];
@@ -103,6 +106,21 @@ public partial class App : OfficeApplication
                 editor.Session.SetPageSetup(setup => setup with { Landscape = true, FitToPage = true, FitToWidth = 1, FitToHeight = 0, Footer = "&CSeite &P von &N" });
                 window.ShowBackstage(CalcPrintPage.PageId);
                 return window;
+            case ChartScene or ChartDesignScene:
+                // The budget's charts below the table: columns per month and the expenses as a pie.
+                var (columns, _) = SampleWorkbook.AddCharts(editor.Session, editor.LayoutOf(editor.Session.ActiveSheet));
+                editor.Session.Select(new CellAddress(16, 1));
+                editor.Session.ScrollTo(new CellAddress(12, 1));
+                editor.Surface.ResetSheet();
+                if (name == ChartDesignScene)
+                {
+                    editor.Session.SelectChart(columns.Id);
+                    Dispatcher.UIThread.RunJobs();
+                    window.Ribbon.SelectTab(CalcEditor.ChartDesignTab);
+                }
+
+                Dispatcher.UIThread.RunJobs();
+                return window;
             case PageSetupScene:
                 var setupDialog = PageSetupDialog.Create(editor);
                 _ = setupDialog.ShowAsync(window);
@@ -127,6 +145,14 @@ public partial class App : OfficeApplication
                 break;
             case FindScene:
                 editor.FindBar.Close();
+                editor.Session.Select(SampleWorkbook.StartCell);
+                break;
+            case ChartScene or ChartDesignScene:
+                window.Ribbon.SelectTab("home");
+                editor.Session.Undo();
+                editor.Session.Undo();
+                editor.Session.ScrollTo(new CellAddress(2, 1));
+                editor.Surface.ResetSheet();
                 editor.Session.Select(SampleWorkbook.StartCell);
                 break;
             case PrintScene:

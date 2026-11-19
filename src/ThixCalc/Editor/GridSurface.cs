@@ -31,7 +31,7 @@ namespace ThixCalc.Editor;
 /// scrolls while dragging outside. While a formula is edited, clicking and dragging point references into it.
 /// </para>
 /// </summary>
-internal sealed class GridSurface : Control, ITextField
+internal sealed partial class GridSurface : Control, ITextField
 {
     private const double WheelRows = 3;
 
@@ -289,16 +289,20 @@ internal sealed class GridSurface : Control, ITextField
         }
 
         var picture = _picture;
-        var selection = SelectionRenderer.Render(viewport, Look());
+        var selection = Session.SelectedChart is null ? SelectionRenderer.Render(viewport, Look()) : [];
         var marquee = _copied is { } copied ? viewport.RangeRect(copied) : (PixelRect?)null;
         var phase = _antsPhase;
         var antsColor = GridPalette.Token("Mat.Accent");
         var resizeLine = ResizeLine(viewport);
         var measurer = CalcFonts.Skia;
+        var chartFrame = _chartDrag is null ? SelectedChartRect(viewport) : null;
+        var chartOutline = _chartDrag?.Current;
+        var scaling = RenderScaling;
         context.Custom(new SkiaDrawOperation(new Rect(Bounds.Size), canvas =>
         {
             canvas.DrawPicture(picture);
             SkiaPageRenderer.Draw(canvas, selection, measurer);
+            DrawChartSelection(canvas, viewport, chartFrame, chartOutline, scaling);
             if (marquee is { } rect)
             {
                 DrawMarchingAnts(canvas, rect, viewport, phase, antsColor);
@@ -315,7 +319,7 @@ internal sealed class GridSurface : Control, ITextField
     /// <summary>The grid's display list of the viewport, recorded once (vector, replayed on every frame until something changes).</summary>
     private SKPicture Record(GridViewport viewport)
     {
-        var list = GridRenderer.Render(viewport, _editor.Metrics, GridPalette.RenderOptions(Session.SelectedRanges));
+        var list = GridRenderer.Render(viewport, _editor.Metrics, GridPalette.RenderOptions(Session.SelectedChart is null ? Session.SelectedRanges : []));
         using var recorder = new SKPictureRecorder();
         var canvas = recorder.BeginRecording(SKRect.Create((float)viewport.Width, (float)viewport.Height));
         SkiaPageRenderer.Draw(canvas, list, CalcFonts.Skia);
@@ -391,6 +395,11 @@ internal sealed class GridSurface : Control, ITextField
         var shift = modifiers.HasFlag(KeyModifiers.Shift);
         var command = modifiers.HasFlag(OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control);
         var alt = modifiers.HasFlag(KeyModifiers.Alt);
+        if (HandleChartKey(key, modifiers))
+        {
+            return true;
+        }
+
         switch (key)
         {
             case Key.Down when alt:
@@ -504,7 +513,7 @@ internal sealed class GridSurface : Control, ITextField
         }
 
         var text = new string(e.Text.Where(character => !char.IsControl(character)).ToArray());
-        if (text.Length == 0)
+        if (text.Length == 0 || Session.SelectedChart is not null && !_editor.Editing.IsEditing)
         {
             return;
         }
@@ -547,6 +556,10 @@ internal sealed class GridSurface : Control, ITextField
         var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
         var add = e.KeyModifiers.HasFlag(OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control);
         _lastPointer = point.Position;
+        if (PressChart(e, point, device, viewport))
+        {
+            return;
+        }
 
         if (point.Properties.IsRightButtonPressed)
         {
@@ -737,6 +750,11 @@ internal sealed class GridSurface : Control, ITextField
         base.OnPointerMoved(e);
         var position = e.GetPosition(this);
         _lastPointer = position;
+        if (DragChart(DevicePoint(position), e.KeyModifiers))
+        {
+            return;
+        }
+
         if (_drag.Kind == DragKind.None)
         {
             UpdateCursor(position);
@@ -831,6 +849,12 @@ internal sealed class GridSurface : Control, ITextField
     {
         base.OnPointerReleased(e);
         _autoScroll.Stop();
+        if (ReleaseChart())
+        {
+            e.Pointer.Capture(null);
+            return;
+        }
+
         var drag = _drag;
         _drag = default;
         e.Pointer.Capture(null);
@@ -888,6 +912,12 @@ internal sealed class GridSurface : Control, ITextField
     {
         base.OnPointerCaptureLost(e);
         _autoScroll.Stop();
+        if (_chartDrag is not null)
+        {
+            _chartDrag = null;
+            InvalidateVisual();
+        }
+
         if (_drag.Kind is DragKind.Fill or DragKind.ResizeColumn or DragKind.ResizeRow)
         {
             _drag = default;
@@ -916,7 +946,7 @@ internal sealed class GridSurface : Control, ITextField
             HitKind.ColumnHeader or HitKind.RowHeader or HitKind.Corner => StandardCursorType.Hand,
             _ => StandardCursorType.Arrow,
         };
-        Cursor = new Cursor(cursor);
+        Cursor = ChartCursor(viewport, device) ?? new Cursor(cursor);
         ShowNote(hit);
     }
 

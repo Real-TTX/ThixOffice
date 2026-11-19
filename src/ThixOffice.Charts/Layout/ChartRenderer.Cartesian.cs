@@ -130,6 +130,16 @@ public static partial class ChartRenderer
             else
             {
                 categories = LayoutHorizontalCategories(canvas, data, categoryAxis, geometry, width, plot.Height * 0.45);
+
+                // Slanted labels reach left of their tick: the plot moves right until the first ones fit in the chart.
+                var overhang = LeftOverhang(canvas, categories, width) - left - (plot.X - area.X) - canvas.Pt(5);
+                if (overhang > 0)
+                {
+                    left += overhang;
+                    width = Math.Max(1, plot.Width - left - right);
+                    categories = LayoutHorizontalCategories(canvas, data, categoryAxis, geometry, width, plot.Height * 0.45);
+                }
+
                 bottom = categories.Visible ? categories.Extent + gap : 0;
             }
 
@@ -378,7 +388,8 @@ public static partial class ChartRenderer
 
         List<(double Value, string Text)> LabelsOf(AxisScale scale) => scale.Ticks.Select(value => (value, formatter.Format(value, format))).ToList();
 
-        var maxIntervals = vertical ? (int)Math.Floor(length / (lineHeight * 2.4)) : 10;
+        // Excel's density: about one gridline per 1.3 label heights (a default 5 × 3 inch chart gets 6–9 intervals).
+        var maxIntervals = vertical ? (int)Math.Floor(length / (lineHeight * 1.3)) : 10;
         maxIntervals = Math.Clamp(maxIntervals, 1, 10);
         var scale = ScaleFor(maxIntervals);
         var labels = LabelsOf(scale);
@@ -572,6 +583,19 @@ public static partial class ChartRenderer
 
         var extent = longest * Math.Sin(radians) + lineHeight * Math.Cos(radians);
         return new CategoryLabels(labels, rotation, extent, size, true);
+    }
+
+    /// <summary>How far slanted labels reach left of the plot (0 for straight ones).</summary>
+    private static double LeftOverhang(ChartCanvas canvas, CategoryLabels categories, double width)
+    {
+        if (!categories.Visible || categories.Rotation == 0)
+        {
+            return 0;
+        }
+
+        var radians = Math.Abs(categories.Rotation) * Math.PI / 180;
+        var lineHeight = canvas.LineHeight(categories.Size);
+        return categories.Labels.Select(label => canvas.Measure(label.Lines[0], categories.Size).Width * Math.Cos(radians) + lineHeight * Math.Sin(radians) / 2 - label.Position * width).DefaultIfEmpty(0).Max();
     }
 
     /// <summary>Labels left of horizontal bars: right-aligned, shortened to the room, every n-th when the bars are thin.</summary>

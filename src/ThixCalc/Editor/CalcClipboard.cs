@@ -19,6 +19,7 @@ internal sealed class CalcClipboard(CalcEditor editor)
     private static readonly DataFormat<byte[]> OwnFormat = DataFormat.CreateBytesApplicationFormat("ThixCalc.Cells");
     private static ClipboardContent? s_content;
     private static string s_token = string.Empty;
+    private static (ThixOffice.Charts.Chart Chart, double Width, double Height, string Name)? s_chart;
 
     /// <summary>Cells of ThixCalc are waiting to be pasted (Inhalte einfügen needs them).</summary>
     public bool HasOwnContent => s_content is not null;
@@ -31,6 +32,12 @@ internal sealed class CalcClipboard(CalcEditor editor)
         }
 
         var session = editor.Session;
+        if (session.SelectedChart is { } chart)
+        {
+            await CopyChartAsync(chart, cut);
+            return;
+        }
+
         if (session.SelectedRanges.Count > 1)
         {
             throw new ThixOffice.Core.Models.BusinessException("Dieser Befehl kann nicht für eine Mehrfachauswahl verwendet werden.");
@@ -38,6 +45,7 @@ internal sealed class CalcClipboard(CalcEditor editor)
 
         var content = cut ? session.Cut() : session.Copy();
         s_content = content;
+        s_chart = null;
         s_token = Guid.NewGuid().ToString("N");
         editor.Surface.CopiedRange = content.Range;
         if (Clipboard is not { } clipboard)
@@ -66,6 +74,15 @@ internal sealed class CalcClipboard(CalcEditor editor)
 
         var session = editor.Session;
         var clipboard = Clipboard;
+        if (!textOnly && s_chart is { } chart && (clipboard is null || await HasOwnTokenAsync(clipboard)))
+        {
+            // A chart goes to the active cell in its size (a copy of its data references: Excel's way within a workbook).
+            var layout = editor.LayoutOf(session.ActiveSheet);
+            var anchor = ThixCalc.Core.Layout.ChartLayer.AnchorAt(layout, session.ActiveCell, chart.Width, chart.Height);
+            session.PasteChart(chart.Chart, anchor);
+            return;
+        }
+
         if (!textOnly && s_content is { } content && (clipboard is null || await HasOwnTokenAsync(clipboard)))
         {
             session.Paste(content, options);
@@ -93,6 +110,32 @@ internal sealed class CalcClipboard(CalcEditor editor)
         {
             session.PasteText(text);
         }
+    }
+
+    /// <summary>Kopieren / Ausschneiden of a selected chart: ThixCalc's token and the chart's name as text.</summary>
+    private async Task CopyChartAsync(ThixCalc.Core.Model.SheetChart chart, bool cut)
+    {
+        var (width, height) = editor.ChartSize(chart);
+        s_chart = (chart.Chart, width, height, chart.Name);
+        s_content = null;
+        s_token = Guid.NewGuid().ToString("N");
+        editor.Surface.CopiedRange = null;
+        if (cut)
+        {
+            editor.Session.DeleteChart(chart.Id);
+        }
+
+        if (Clipboard is not { } clipboard)
+        {
+            return;
+        }
+
+        var item = new DataTransferItem();
+        item.Set(OwnFormat, Encoding.UTF8.GetBytes(s_token));
+        item.SetText(chart.Name);
+        var transfer = new DataTransfer();
+        transfer.Add(item);
+        await clipboard.SetDataAsync(transfer);
     }
 
     private static async Task<bool> HasOwnTokenAsync(IClipboard clipboard)

@@ -566,6 +566,60 @@ public sealed class CalcEditor : OfficeEditor
         _ = RunAsync("AutoSumme", () => Session.AutoSum(function));
     }
 
+    // ===== Charts =====
+
+    /// <summary>Excel's size of a new chart: 5 × 3 inches.</summary>
+    private const double NewChartWidth = 360;
+    private const double NewChartHeight = 216;
+
+    /// <summary>
+    /// Einfügen › Diagramm: a chart of the selection (a single cell: its region) right of the data, selected and in view, the
+    /// tab Diagrammentwurf open.
+    /// </summary>
+    public Task InsertChartAsync(ThixOffice.Charts.ChartTemplate template) => RunAsync("Diagramm einfügen", () =>
+    {
+        if (!Editing.Commit())
+        {
+            return;
+        }
+
+        var sheet = Session.ActiveSheet;
+        var data = Session.Selection.IsSingleCell ? Navigation.CurrentRegion(sheet, Session.ActiveCell) : Session.Selection;
+        var layout = LayoutOf(sheet);
+        var corner = new CellAddress(Math.Clamp(data.FirstRow, 0, SheetLimits.LastRow), Math.Clamp(data.IsWholeRows ? 1 : data.LastColumn + 2, 0, SheetLimits.LastColumn - 10));
+        var anchor = ChartLayer.AnchorAt(layout, corner, NewChartWidth, NewChartHeight);
+        var entry = Session.InsertChart(template, anchor, Session.Selection.IsSingleCell ? null : Session.Selection);
+        Surface.ScrollIntoView(entry.Anchor.From);
+        _window.RibbonDefinition.ShowContext(CalcChartCommands.Context);
+        _window.Ribbon.SelectTab(ChartDesignTab);
+    });
+
+    /// <summary>The id of the contextual tab Diagrammentwurf.</summary>
+    public const string ChartDesignTab = "chartDesign";
+
+    /// <summary>A chart's size in points (at 100 %).</summary>
+    public (double Width, double Height) ChartSize(SheetChart chart)
+    {
+        var rect = ChartLayer.SheetRect(LayoutOf(Session.ActiveSheet), chart.Anchor, 1);
+        return (rect.Width / ChartLayer.PixelsPerPoint, rect.Height / ChartLayer.PixelsPerPoint);
+    }
+
+    /// <summary>Format › Höhe / Breite (cm): the chart's top-left corner stays.</summary>
+    public void ResizeSelectedChart(string? centimetres, bool height)
+    {
+        if (Session.SelectedChart is not { } chart
+            || !double.TryParse(centimetres, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || value <= 0)
+        {
+            return;
+        }
+
+        var layout = LayoutOf(Session.ActiveSheet);
+        var rect = ChartLayer.SheetRect(layout, chart.Anchor, 1);
+        var pixels = Math.Min(value, 500) * CalcChartCommands.PointsPerCentimetre * ChartLayer.PixelsPerPoint;
+        rect = height ? rect with { Height = pixels } : rect with { Width = pixels };
+        _ = RunAsync("Größe", () => Session.SetChartAnchor(chart.Id, ChartLayer.AnchorOf(layout, rect, 1), "Größe ändern"));
+    }
+
     /// <summary>Suchen / Ersetzen: the bar at the top right.</summary>
     public void OpenFind(bool replace)
     {
@@ -690,6 +744,15 @@ public sealed class CalcEditor : OfficeEditor
         Dispatcher.UIThread.Post(() =>
         {
             _statePending = false;
+            if (Session.SelectedChart is not null)
+            {
+                _window.RibbonDefinition.ShowContext(CalcChartCommands.Context);
+            }
+            else
+            {
+                _window.RibbonDefinition.HideContext(CalcChartCommands.Context);
+            }
+
             FormulaBar.Refresh();
             PlaceListButton();
             _window.Commands.Invalidate();

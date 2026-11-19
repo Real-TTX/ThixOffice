@@ -897,6 +897,11 @@ public sealed partial class EditingSession
     {
         get
         {
+            if (SelectedChart is { } chart)
+            {
+                return chart.Name;
+            }
+
             var sheet = ActiveSheet;
             var selection = Selection;
             foreach (var name in Workbook.Names)

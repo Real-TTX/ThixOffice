@@ -236,7 +236,7 @@ public static partial class ChartRenderer
 
         var size = legend.FontSize ?? LabelSize;
         var lineHeight = canvas.LineHeight(size);
-        var symbolWidth = entries.Any(entry => entry.IsLine) ? canvas.Pt(20) : canvas.Pt(7);
+        var symbolWidth = entries.Max(entry => SymbolWidth(canvas, entry));
         var textGap = canvas.Pt(4);
         var entryGap = canvas.Pt(11);
         var horizontal = legend.Position is LegendPosition.Top or LegendPosition.Bottom;
@@ -247,8 +247,9 @@ public static partial class ChartRenderer
             var rowWidth = 0.0;
             foreach (var entry in entries)
             {
-                var text = Fit(canvas, entry.Label, size, Math.Max(canvas.Pt(20), maxWidth - symbolWidth - textGap));
-                var width = symbolWidth + textGap + canvas.Measure(text, size).Width;
+                var own = SymbolWidth(canvas, entry);
+                var text = Fit(canvas, entry.Label, size, Math.Max(canvas.Pt(20), maxWidth - own - textGap));
+                var width = own + textGap + canvas.Measure(text, size).Width;
                 var needed = rows[^1].Count == 0 ? width : rowWidth + entryGap + width;
                 if (rows[^1].Count > 0 && needed > maxWidth)
                 {
@@ -277,7 +278,7 @@ public static partial class ChartRenderer
                 var x = inner.CenterX - width / 2;
                 foreach (var (entry, text, entryWidth) in row)
                 {
-                    DrawLegendEntry(canvas, entry, text, x, top + index * rowHeight, lineHeight, symbolWidth, textGap, size);
+                    DrawLegendEntry(canvas, entry, text, x, top + index * rowHeight, lineHeight, SymbolWidth(canvas, entry), textGap, size);
                     x += entryWidth + entryGap;
                 }
             }
@@ -317,6 +318,9 @@ public static partial class ChartRenderer
             ? inner with { X = inner.X + reserved, Width = Math.Max(0, inner.Width - reserved) }
             : inner with { Width = Math.Max(0, inner.Width - reserved) };
     }
+
+    /// <summary>A box for bars, areas and slices; a short line (with its marker) for lines.</summary>
+    private static double SymbolWidth(ChartCanvas canvas, LegendEntry entry) => entry.IsLine && entry.HasLine ? canvas.Pt(20) : canvas.Pt(7);
 
     private static void DrawLegendEntry(ChartCanvas canvas, LegendEntry entry, string text, double x, double top, double lineHeight, double symbolWidth, double textGap, double size)
     {

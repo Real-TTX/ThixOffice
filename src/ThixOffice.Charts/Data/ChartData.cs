@@ -35,7 +35,7 @@ public sealed class SimpleChartFormatter(CultureInfo? culture = null) : IChartVa
         var code = formatCode ?? "General";
         if (code.Contains('%', StringComparison.Ordinal))
         {
-            return (value * 100).ToString("0." + new string('#', Decimals(code)), _culture).TrimEnd('.', ',') + " %";
+            return (value * 100).ToString("0." + new string('#', Decimals(code)), _culture).TrimEnd('.', ',') + "%";
         }
 
         if (string.Equals(code, "General", StringComparison.OrdinalIgnoreCase) || code.Length == 0)

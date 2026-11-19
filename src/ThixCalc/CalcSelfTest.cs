@@ -70,6 +70,14 @@ internal static class CalcSelfTest
         editor.Session.Sort(new CellRange(0, 0, 3, 2), [new SortKey(1, Descending: true)], new SortOptions(HasHeader: true));
         Ensure(sheet.GetValue(1, 0).Text == "Kiwis", "the sort did not apply");
 
+        // A chart through the ribbon's command: series from the selection, live on the cells.
+        editor.Session.Select(new CellRange(0, 0, 3, 2));
+        await window.Commands[CalcCommandIds.InsertChartPrefix + "column"].ExecuteAsync();
+        await Settle();
+        Ensure(sheet.Charts.Count == 1 && sheet.Charts[0].Chart.AllSeries.Count() == 2, "the chart was not inserted");
+        var chartPixels = DrawChart(editor, sheet.Charts[0]);
+        Ensure(chartPixels > 200, $"the chart shows {chartPixels} coloured pixels");
+
         var folder = Path.Combine(AppPaths.DataDirectory, "Dokumente");
         Directory.CreateDirectory(folder);
         var path = DocumentService.SaveAs(window.Document, Path.Combine(folder, "Selbsttest.xlsx"));
@@ -77,6 +85,7 @@ internal static class CalcSelfTest
         var read = reopened.Workbook.Sheets[0];
         Ensure(read.GetValue(1, 0).Text == "Kiwis" && read.GetStyle(0, 1).Font.Bold, "the xlsx read back differs");
         Ensure(read.GetFormula(5, 1) is not null && Math.Abs(read.GetValue(5, 1).Number - 0.6) < 1e-9, "the formula is lost in the xlsx");
+        Ensure(read.Charts.Count == 1 && read.Charts[0].Chart.IsSupported && read.Charts[0].Chart.AllSeries.Count() == 2, "the chart is lost in the xlsx");
 
         // A frame of the grid, drawn as the screen draws it.
         var viewport = editor.LayoutOf(sheet).Viewport(800, 400, 1.0, 0, 0);
@@ -102,9 +111,10 @@ internal static class CalcSelfTest
         // The sample workbook (formats, conditional formats, frozen panes, two sheets) through xlsx.
         var sample = (CalcDocument)app.CreateDocument("Beispiel");
         sample.Load(SampleWorkbook.Create());
+        SampleWorkbook.AddCharts(sample.Session, new SheetLayout(sample.Workbook.Sheets[0], new GridMetrics(CalcFonts.Grid, sample.Workbook, sample.Locale)));
         var samplePath = DocumentService.SaveAs(sample, Path.Combine(folder, "Budget.xlsx"));
         var sampleRead = DocumentService.Open(samplePath, app.CreateDocument) as CalcDocument ?? throw new InvalidOperationException("not a CalcDocument");
-        Ensure(sampleRead.Workbook.Sheets.Count == 2 && sampleRead.Workbook.Sheets[0].ConditionalFormats.Count == 2, "the sample workbook lost content");
+        Ensure(sampleRead.Workbook.Sheets.Count == 2 && sampleRead.Workbook.Sheets[0].ConditionalFormats.Count == 2 && sampleRead.Workbook.Sheets[0].Charts.Count == 2, "the sample workbook lost content");
 
         // The sheet's pages as PDF and – where the machine has it – through the system's printer into a PDF.
         var lists = Pages.CalcPages.DisplayLists(editor, 0, "Selbsttest", out _);
@@ -116,7 +126,7 @@ internal static class CalcSelfTest
 
         window.Close();
         await Settle();
-        return $"{editor.Metrics.MaxDigitWidthPixels} px digit, {CalcFonts.Families.Count} font families, xlsx {new FileInfo(path).Length} bytes, sample {new FileInfo(samplePath).Length} bytes, PDF {bytes.Length} bytes, {printed}, frame {editor.Surface.LastRenderTime.TotalMilliseconds:0.0} ms";
+        return $"{editor.Metrics.MaxDigitWidthPixels} px digit, {CalcFonts.Families.Count} font families, xlsx {new FileInfo(path).Length} bytes, sample {new FileInfo(samplePath).Length} bytes, PDF {bytes.Length} bytes, {printed}, frame {editor.Surface.LastRenderTime.TotalMilliseconds:0.0} ms, chart {chartPixels} px";
     }
 
     /// <summary>Printing through GDI into "Microsoft Print to PDF" when the machine has it (the P/Invoke after trimming).</summary>
@@ -135,6 +145,31 @@ internal static class CalcSelfTest
         var printed = File.ReadAllBytes(output);
         Ensure(printed.Length > 1000 && printed[0] == '%' && printed[1] == 'P', "the printer wrote no PDF");
         return $"printed {printed.Length} bytes";
+    }
+
+    /// <summary>Draws a chart as the grid does (Skia, the theme's accents) and counts its coloured pixels.</summary>
+    private static int DrawChart(CalcEditor editor, SheetChart chart)
+    {
+        var workbook = editor.Session.Workbook;
+        var items = ChartLayer.RenderChart(chart.Chart, workbook, editor.Metrics, new Core.Charts.WorkbookChartSource(workbook, editor.Session.Locale), new PixelRect(0, 0, 480, 288), ChartLayer.PixelsPerPoint, 1);
+        using var bitmap = new SKBitmap(480, 288);
+        using (var canvas = new SKCanvas(bitmap))
+        {
+            canvas.Clear(GridPalette.SheetSkia);
+            SkiaPageRenderer.Draw(canvas, items, CalcFonts.Skia);
+        }
+
+        var coloured = 0;
+        for (var y = 0; y < bitmap.Height; y += 2)
+        {
+            for (var x = 0; x < bitmap.Width; x += 2)
+            {
+                var pixel = bitmap.GetPixel(x, y);
+                coloured += Math.Max(pixel.Red, Math.Max(pixel.Green, pixel.Blue)) - Math.Min(pixel.Red, Math.Min(pixel.Green, pixel.Blue)) > 60 ? 1 : 0;
+            }
+        }
+
+        return coloured;
     }
 
     private static void Type(CalcEditor editor, string text) =>

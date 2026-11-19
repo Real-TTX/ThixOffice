@@ -16,6 +16,15 @@ internal static class CalcContextMenus
     private static readonly OfficeCommandMenu.Submenu SortMenu = new("Sortieren", "sort",
         [CalcCommandIds.SortAscending, CalcCommandIds.SortDescending, null, CalcCommandIds.SortCustom]);
 
+    /// <summary>The menu of a chart: clipboard, the chart's type and data, its order, deleting it.</summary>
+    public static ContextMenu ForChart(OfficeWindow window) => OfficeCommandMenu.Create(window,
+    [
+        CalcCommandIds.Cut, CalcCommandIds.Copy, CalcCommandIds.Paste, null,
+        CalcCommandIds.ChartChangeType, CalcCommandIds.ChartSelectData, CalcCommandIds.ChartSwitchRowColumn, null,
+        CalcCommandIds.ChartBringToFront, CalcCommandIds.ChartSendToBack, null,
+        CalcCommandIds.ChartDelete,
+    ]);
+
     public static ContextMenu For(OfficeWindow window, HitKind kind) => kind switch
     {
         HitKind.RowHeader or HitKind.RowResize => OfficeCommandMenu.Create(window,

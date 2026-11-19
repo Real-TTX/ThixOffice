@@ -28,7 +28,7 @@ public static class CalcRibbon
             }
         }
 
-        definition.Add(HomeTab(palette, Launch), InsertTab(), PageLayoutTab(), FormulasTab(), DataTab(), ReviewTab(), ViewTab());
+        definition.Add(HomeTab(palette, Launch), InsertTab(), PageLayoutTab(), FormulasTab(), DataTab(), ReviewTab(), ViewTab(), ChartDesignTab(), ChartFormatTab());
         return definition;
     }
 
@@ -148,10 +148,62 @@ public static class CalcRibbon
 
     private static MatRibbonTab InsertTab() =>
         new MatRibbonTab("insert", "Einfügen").Add(
+            new MatRibbonGroup("charts", "Diagramme") { Icon = "chart-column" }.Add(
+                new MatRibbonStack("charts-left", ChartFamily(ThixOffice.Charts.ChartFamily.Column), ChartFamily(ThixOffice.Charts.ChartFamily.Bar), ChartFamily(ThixOffice.Charts.ChartFamily.Line)),
+                new MatRibbonStack("charts-middle", ChartFamily(ThixOffice.Charts.ChartFamily.Pie), ChartFamily(ThixOffice.Charts.ChartFamily.Area), ChartFamily(ThixOffice.Charts.ChartFamily.Scatter)),
+                new MatRibbonStack("charts-right", ChartFamily(ThixOffice.Charts.ChartFamily.Combo))),
             new MatRibbonGroup("links", "Links") { Icon = "link" }.Add(
                 Button(CalcCommandIds.Hyperlink, MatRibbonSize.Large)),
             new MatRibbonGroup("comments", "Kommentare") { Icon = "comment" }.Add(
                 Button(CalcCommandIds.Comment, MatRibbonSize.Large)));
+
+    /// <summary>A family of the Diagramme group: a menu of its chart types.</summary>
+    private static MatRibbonMenuButton ChartFamily(ThixOffice.Charts.ChartFamily family) =>
+        new(CalcCommandIds.ChartFamilyPrefix + family.ToString().ToLowerInvariant(), "", null,
+            [.. ThixOffice.Charts.ChartTemplates.All.Where(template => template.Family == family).Select(template => Button(CalcCommandIds.InsertChartPrefix + template.Id))]) { Size = MatRibbonSize.Medium };
+
+    /// <summary>Diagrammentwurf (contextual, while a chart is selected).</summary>
+    private static MatRibbonTab ChartDesignTab() =>
+        new MatRibbonTab(CalcEditor.ChartDesignTab, "Diagrammentwurf") { Context = CalcChartCommands.Context }.Add(
+            new MatRibbonGroup("chart-layouts", "Diagrammlayouts") { Icon = "plus" }.Add(
+                new MatRibbonMenuButton(CalcCommandIds.ChartAddElement, "", null,
+                [
+                    new MatRibbonMenuButton(CalcCommandIds.ChartAxes, "", null, Toggle(CalcCommandIds.ChartAxisHorizontal), Toggle(CalcCommandIds.ChartAxisVertical)),
+                    new MatRibbonMenuButton(CalcCommandIds.ChartAxisTitles, "", null, Toggle(CalcCommandIds.ChartAxisTitleHorizontal), Toggle(CalcCommandIds.ChartAxisTitleVertical)),
+                    Toggle(CalcCommandIds.ChartTitle),
+                    Toggle(CalcCommandIds.ChartDataLabels),
+                    new MatRibbonMenuButton(CalcCommandIds.ChartGridlines, "", null, Toggle(CalcCommandIds.ChartGridlinesMajor), Toggle(CalcCommandIds.ChartGridlinesVertical)),
+                    new MatRibbonMenuButton(CalcCommandIds.ChartLegend, "", null, [.. CalcChartCommands.LegendChoices.Select(choice => Toggle(CalcCommandIds.ChartLegendPrefix + choice.Id, "chartLegend"))]),
+                ]) { Size = MatRibbonSize.Large }),
+            new MatRibbonGroup("chart-styles", "Diagrammformatvorlagen") { Icon = "palette" }.Add(
+                new MatRibbonMenuButton(CalcCommandIds.ChartColors, "", null,
+                    [.. ThixOffice.Charts.ChartColors.Sets.Select(set => Toggle(CalcCommandIds.ChartColorPrefix + set.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), "chartColors"))]) { Size = MatRibbonSize.Large }),
+            new MatRibbonGroup("chart-data", "Daten") { Icon = "table" }.Add(
+                Button(CalcCommandIds.ChartSwitchRowColumn, MatRibbonSize.Large),
+                Button(CalcCommandIds.ChartSelectData, MatRibbonSize.Large)),
+            new MatRibbonGroup("chart-type", "Typ") { Icon = "chart-column" }.Add(
+                Button(CalcCommandIds.ChartChangeType, MatRibbonSize.Large)));
+
+    /// <summary>Format (contextual, while a chart is selected): order and size.</summary>
+    private static MatRibbonTab ChartFormatTab() =>
+        new MatRibbonTab("chartFormat", "Format") { Context = CalcChartCommands.Context }.Add(
+            new MatRibbonGroup("chart-arrange", "Anordnen") { Icon = "layers" }.Add(
+                new MatRibbonStack("chart-arrange-forward", Button(CalcCommandIds.ChartBringForward, MatRibbonSize.Medium), Button(CalcCommandIds.ChartBringToFront, MatRibbonSize.Medium)),
+                new MatRibbonStack("chart-arrange-backward", Button(CalcCommandIds.ChartSendBackward, MatRibbonSize.Medium), Button(CalcCommandIds.ChartSendToBack, MatRibbonSize.Medium))),
+            new MatRibbonGroup("chart-size", "Größe") { Icon = "crop" }.Add(
+                new MatRibbonStack("chart-size-fields",
+                    Labelled(Number(CalcCommandIds.ChartHeight, 0.5, 500, 0.1, "cm", 2), "Höhe"),
+                    Labelled(Number(CalcCommandIds.ChartWidth, 0.5, 500, 0.1, "cm", 2), "Breite"))),
+            new MatRibbonGroup("chart-delete", "Löschen") { Icon = "trash" }.Add(
+                Button(CalcCommandIds.ChartDelete, MatRibbonSize.Large)));
+
+    private static MatRibbonNumber Labelled(MatRibbonNumber number, string label)
+    {
+        number.Label = label;
+        number.Icon = "";
+        number.Width = 92;
+        return number;
+    }
 
     private static MatRibbonTab PageLayoutTab() =>
         new MatRibbonTab("pageLayout", "Seitenlayout").Add(

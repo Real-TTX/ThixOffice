@@ -168,6 +168,40 @@ public static class CalcCommandIds
     public const string ZoomDialog = "calc.zoom";
     public const string ZoomSelection = "calc.zoomSelection";
 
+    // Einfügen – Diagramme ("calc.chart.insert.<template>", menus "calc.chart.family.<family>")
+    public const string InsertChartPrefix = "calc.chart.insert.";
+    public const string ChartFamilyPrefix = "calc.chart.family.";
+
+    // Diagrammentwurf (context "chart")
+    public const string ChartAddElement = "calc.chart.addElement"; // menu
+    public const string ChartTitle = "calc.chart.element.title";
+    public const string ChartAxes = "calc.chart.element.axes"; // menu
+    public const string ChartAxisHorizontal = "calc.chart.element.axisHorizontal";
+    public const string ChartAxisVertical = "calc.chart.element.axisVertical";
+    public const string ChartAxisTitles = "calc.chart.element.axisTitles"; // menu
+    public const string ChartAxisTitleHorizontal = "calc.chart.element.axisTitleHorizontal";
+    public const string ChartAxisTitleVertical = "calc.chart.element.axisTitleVertical";
+    public const string ChartDataLabels = "calc.chart.element.dataLabels";
+    public const string ChartGridlines = "calc.chart.element.gridlines"; // menu
+    public const string ChartGridlinesMajor = "calc.chart.element.gridlinesMajor";
+    public const string ChartGridlinesVertical = "calc.chart.element.gridlinesVertical";
+    public const string ChartLegend = "calc.chart.element.legend"; // menu
+    public const string ChartLegendPrefix = "calc.chart.element.legend."; // none, right, top, left, bottom
+    public const string ChartColors = "calc.chart.colors"; // menu
+    public const string ChartColorPrefix = "calc.chart.colors.";
+    public const string ChartSwitchRowColumn = "calc.chart.switchRowColumn";
+    public const string ChartSelectData = "calc.chart.selectData";
+    public const string ChartChangeType = "calc.chart.changeType";
+
+    // Format (context "chart")
+    public const string ChartHeight = "calc.chart.height"; // value: cm
+    public const string ChartWidth = "calc.chart.width"; // value: cm
+    public const string ChartBringForward = "calc.chart.bringForward";
+    public const string ChartBringToFront = "calc.chart.bringToFront";
+    public const string ChartSendBackward = "calc.chart.sendBackward";
+    public const string ChartSendToBack = "calc.chart.sendToBack";
+    public const string ChartDelete = "calc.chart.delete";
+
     // Blätter
     public const string NextSheet = "calc.sheet.next";
     public const string PreviousSheet = "calc.sheet.previous";
