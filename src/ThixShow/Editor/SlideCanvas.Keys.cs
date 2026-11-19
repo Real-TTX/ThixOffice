@@ -134,6 +134,10 @@ internal sealed partial class SlideCanvas
                 return true;
             case Key.Enter or Key.F2 when ids.Count == 1:
                 return EditTextOf(ids[0], selectAll: key == Key.F2);
+            case Key.Escape when PendingShape is not null:
+                PendingShape = null;
+                Cursor = Cursor.Default;
+                return true;
             case Key.Escape when Session.Selection.EnteredGroup is { } group:
                 Session.SelectShapes([group]);
                 return true;

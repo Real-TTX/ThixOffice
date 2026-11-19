@@ -212,7 +212,36 @@ internal sealed class ShapePreview(string preset) : Control
         var pen = new Pen(Ui.Brush("Mat.Text"), 1.2);
         if (ShapeCatalog.IsLine(preset))
         {
-            context.DrawLine(pen, new Point(1, height), new Point(width, 1));
+            var (start, end) = (new Point(1, height), new Point(width, 1));
+            switch (preset)
+            {
+                case "bentConnector3":
+                    context.DrawLine(pen, start, new Point(width / 2, height));
+                    context.DrawLine(pen, new Point(width / 2, height), new Point(width / 2, 1));
+                    context.DrawLine(pen, new Point(width / 2, 1), end);
+                    break;
+                case "curvedConnector3":
+                    var curve = new StreamGeometry();
+                    using (var sink = curve.Open())
+                    {
+                        sink.BeginFigure(start, false);
+                        sink.CubicBezierTo(new Point(width / 2, height), new Point(width / 2, 1), end);
+                        sink.EndFigure(false);
+                    }
+
+                    context.DrawGeometry(null, pen, curve);
+                    break;
+                default:
+                    context.DrawLine(pen, start, end);
+                    if (preset == "straightConnector1")
+                    {
+                        context.DrawLine(pen, end, new Point(end.X - 5, end.Y + 1));
+                        context.DrawLine(pen, end, new Point(end.X - 1, end.Y + 5));
+                    }
+
+                    break;
+            }
+
             return;
         }
 
