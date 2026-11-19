@@ -92,7 +92,7 @@ public class RandomEditTests(Xunit.Abstractions.ITestOutputHelper output)
         var cell = CellAddress.Parse(Cell());
         session.ActivateSheet(random.Next(session.Workbook.Sheets.Count));
         session.Select(cell);
-        switch (random.Next(16))
+        switch (random.Next(20))
         {
             case 0:
                 session.EnterInput(random.Next(100).ToString(System.Globalization.CultureInfo.InvariantCulture));
@@ -148,6 +148,19 @@ public class RandomEditTests(Xunit.Abstractions.ITestOutputHelper output)
             case 14:
                 session.AutoFill(CellRange.Cell(cell), new CellRange(cell, cell.Offset(random.Next(1, 4), 0)));
                 return true;
+            case 15:
+                session.Select(CellRange.Parse("A1:C3"));
+                session.InsertChart(ThixOffice.Charts.ChartTemplates.All[random.Next(ThixOffice.Charts.ChartTemplates.All.Count)], new ChartAnchor(cell, 3, 4, cell.Offset(10, 5), 0, 0));
+                return true;
+            case 16 when session.ActiveSheet.Charts.Count > 0:
+                session.SetChartAnchor(session.ActiveSheet.Charts[^1].Id, new ChartAnchor(cell, 0, 0, cell.Offset(random.Next(2, 9), random.Next(2, 6)), 1, 1));
+                return true;
+            case 17 when session.ActiveSheet.Charts.Count > 0:
+                session.ChangeChartType(session.ActiveSheet.Charts[0].Id, ThixOffice.Charts.ChartTemplates.All[random.Next(ThixOffice.Charts.ChartTemplates.All.Count)]);
+                return true;
+            case 18 when session.ActiveSheet.Charts.Count > 0:
+                session.DeleteChart(session.ActiveSheet.Charts[random.Next(session.ActiveSheet.Charts.Count)].Id);
+                return true;
             default:
                 session.RenameSheet(random.Next(session.Workbook.Sheets.Count), "Blatt" + random.Next(100));
                 return true;
@@ -193,6 +206,7 @@ public class RandomEditTests(Xunit.Abstractions.ITestOutputHelper output)
             builder.Append(" merges ").Append(CellRange.FormatList(sheet.Merges.Ranges));
             builder.Append(" rows ").Append(string.Join(",", sheet.Rows.Entries));
             builder.Append(" columns ").Append(string.Join(",", sheet.Columns.Entries));
+            builder.Append(" charts ").Append(string.Join(",", sheet.Charts.Select(chart => chart.Id + "@" + chart.Anchor + ":" + ThixOffice.Charts.ChartTemplates.Of(chart.Chart)?.Id + ":" + string.Join("|", ThixOffice.Charts.ChartEdits.References(chart.Chart)))));
         }
 
         builder.Append(" names ").Append(string.Join(",", workbook.Names));

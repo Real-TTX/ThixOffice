@@ -95,3 +95,53 @@ public sealed record ClipEndItem : DisplayItem
 {
     public static ClipEndItem Instance { get; } = new();
 }
+
+/// <summary>What a segment of a <see cref="PathItem"/> does with its points.</summary>
+public enum PathVerb : byte
+{
+    /// <summary>Starts a new figure at one point.</summary>
+    Move,
+
+    /// <summary>A straight line to one point.</summary>
+    Line,
+
+    /// <summary>A cubic Bézier curve through two control points to a third point.</summary>
+    Cubic,
+
+    /// <summary>Closes the figure (no point).</summary>
+    Close,
+}
+
+/// <summary>How the ends and corners of a stroked path look.</summary>
+public enum LineJoin : byte
+{
+    Miter,
+    Round,
+}
+
+/// <summary>
+/// A filled and/or stroked outline (chart lines, areas, pie slices, markers): <see cref="Verbs"/> with their points in
+/// <see cref="Points"/> as x, y pairs (Move and Line take one pair, Cubic three, Close none). Arcs are given as Béziers, so a
+/// renderer needs only these four verbs.
+/// </summary>
+public sealed record PathItem(
+    PathVerb[] Verbs,
+    double[] Points,
+    RgbColor? Fill,
+    RgbColor? Stroke = null,
+    double StrokeWidth = 0,
+    LineStyle Style = LineStyle.Solid,
+    LineJoin Join = LineJoin.Round) : DisplayItem;
+
+/// <summary>
+/// Starts a transformation: items until the matching <see cref="TransformEndItem"/> are moved by (<see cref="X"/>,
+/// <see cref="Y"/>), then rotated by <see cref="Rotation"/> degrees (clockwise, around that point) and scaled by
+/// <see cref="Scale"/> – rotated text (axis titles, slanted category labels) and drawings placed in another unit.
+/// </summary>
+public sealed record TransformBeginItem(double X, double Y, double Rotation = 0, double Scale = 1) : DisplayItem;
+
+/// <summary>Ends the innermost <see cref="TransformBeginItem"/>.</summary>
+public sealed record TransformEndItem : DisplayItem
+{
+    public static TransformEndItem Instance { get; } = new();
+}

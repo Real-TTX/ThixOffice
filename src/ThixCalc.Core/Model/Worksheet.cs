@@ -148,6 +148,18 @@ public sealed class Worksheet
 
     public List<TableDefinition> Tables { get; } = [];
 
+    /// <summary>The charts floating over the sheet, back to front.</summary>
+    public List<SheetChart> Charts { get; } = [];
+
+    /// <summary>The charts as read (the same list = the drawing part is written back unchanged).</summary>
+    internal IReadOnlyList<SheetChart> LoadedCharts { get; set; } = [];
+
+    /// <summary>The drawing part's anchors that are no charts (pictures, shapes), as read, in their order.</summary>
+    internal List<string> PreservedDrawingAnchors { get; } = [];
+
+    /// <summary>The namespace declarations of the drawing part's root as read.</summary>
+    internal List<(string Prefix, string Uri)> DrawingNamespaces { get; } = [];
+
     /// <summary>Default row height has been set explicitly (sheetFormatPr customHeight).</summary>
     public bool CustomDefaultRowHeight { get; set; }
 

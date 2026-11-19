@@ -94,6 +94,7 @@ public sealed partial class EditingSession
         }
 
         Workbook.ActiveSheetIndex = index;
+        _selectedChart = null;
         _extensionEnd = ActiveCell;
         SelectionChanged?.Invoke(this, EventArgs.Empty);
         StateChanged?.Invoke(this, EventArgs.Empty);
@@ -213,6 +214,7 @@ public sealed partial class EditingSession
     private void SetSelection(CellAddress active, IReadOnlyList<CellRange> ranges)
     {
         var sheet = ActiveSheet;
+        _selectedChart = null;
         sheet.View = sheet.View with { ActiveCell = active, Selection = ranges };
         SelectionChanged?.Invoke(this, EventArgs.Empty);
         StateChanged?.Invoke(this, EventArgs.Empty);

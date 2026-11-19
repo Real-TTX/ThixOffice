@@ -4,6 +4,7 @@
     <Project Path="src/ThixOffice.Core/ThixOffice.Core.csproj" />
     <Project Path="src/ThixOffice.Desktop/ThixOffice.Desktop.csproj" />
     <Project Path="src/ThixOffice.Text/ThixOffice.Text.csproj" />
+    <Project Path="src/ThixOffice.Charts/ThixOffice.Charts.csproj" />
     <Project Path="src/ThixCalc.Core/ThixCalc.Core.csproj" />
     <Project Path="src/ThixOffice.Text.Skia/ThixOffice.Text.Skia.csproj" />
     <Project Path="src/ThixWrite.Core/ThixWrite.Core.csproj" />

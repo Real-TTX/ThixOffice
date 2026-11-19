@@ -373,6 +373,30 @@ internal static class ReferenceRewriter
                 sheet.Tables[index] = sheet.Tables[index] with { Range = range };
             }
         }
+
+        RewriteCharts(sheet, transform);
+    }
+
+    /// <summary>Charts follow inserted and deleted rows/columns: their data references and their anchors (they move and size with the cells).</summary>
+    private static void RewriteCharts(Worksheet sheet, ReferenceTransform transform)
+    {
+        var workbook = sheet.Workbook;
+        for (var index = 0; index < sheet.Charts.Count; index++)
+        {
+            var entry = sheet.Charts[index];
+            var chart = ThixOffice.Charts.ChartEdits.MapReferences(entry.Chart, formula => RewriteText(formula, workbook, transform, sheet.Id, default, default) ?? formula);
+            var anchor = entry.Anchor;
+            if (transform is AxisShift && transform.TransformArea(sheet.Id, anchor.Cells, AreaKind.Range) is { Range: { } moved } result && (result.SheetId is null || result.SheetId == sheet.Id))
+            {
+                anchor = anchor with { From = moved.First, To = moved.Last };
+            }
+
+            var changed = !ThixOffice.Charts.ChartEdits.References(chart).SequenceEqual(ThixOffice.Charts.ChartEdits.References(entry.Chart));
+            if (changed || anchor != entry.Anchor)
+            {
+                sheet.Charts[index] = entry with { Chart = changed ? chart : entry.Chart, Anchor = anchor };
+            }
+        }
     }
 
     private sealed class Context(ReferenceTransform transform, int sheetId, CellAddress oldOrigin, int newSheetId, CellAddress newOrigin)

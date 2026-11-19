@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Charts for every ThixOffice app, UI-free and without native code: the chart model (Model: chart, plots, series, axes,
+    legend, data labels, colours), the data binding abstraction (Data: a series names references that an IChartDataSource
+    resolves – cell ranges in ThixCalc, the cached values or an embedded workbook in ThixShow / ThixWrite), the layout and
+    rendering into ThixOffice.Text's display list (Layout: nice axis scales, label placement, legend, plots), and DrawingML
+    chart parts (Formats: c:chartSpace read and written, unknown parts kept) for xlsx now and pptx/docx later.
+    Number formats come through IChartValueFormatter, so this project knows no spreadsheet.
+  -->
+  <PropertyGroup>
+    <RootNamespace>ThixOffice.Charts</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixCalc.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThixOffice.Text\ThixOffice.Text.csproj" />
+  </ItemGroup>
+
+</Project>

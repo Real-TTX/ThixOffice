@@ -72,6 +72,12 @@ public sealed record GridRenderOptions
 
     /// <summary>Grid lines on or off (null: the sheet view's setting; printing passes the page setup's).</summary>
     public bool? GridLines { get; init; }
+
+    /// <summary>The sheet's charts over the cells.</summary>
+    public bool DrawCharts { get; init; } = true;
+
+    /// <summary>The size of a device pixel in the display list's units (chart hairlines snap to it); 0 for print and PDF.</summary>
+    public double ChartPixelSize { get; init; } = 1;
 }
 
 /// <summary>
@@ -178,6 +184,11 @@ public static class GridRenderer
             items.Add(new ClipBeginItem(clipX, clipY, Math.Min(viewport.Width, paneColumns[^1].End) - clipX, Math.Min(viewport.Height, paneRows[^1].End) - clipY));
             RenderPane(items, viewport, metrics, options, sheet, paneRows, paneColumns, merges, conditional);
             items.Add(ClipEndItem.Instance);
+        }
+
+        if (options.DrawCharts)
+        {
+            ChartLayer.Render(items, viewport, metrics, options.ChartPixelSize);
         }
 
         if (options.DrawHeaders && (viewport.HeaderWidth > 0 || viewport.HeaderHeight > 0))

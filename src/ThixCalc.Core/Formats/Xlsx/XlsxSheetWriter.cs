@@ -28,6 +28,7 @@ internal static class XlsxSheetWriter
     {
         var hyperlinkIds = WriteHyperlinkRelationships(sheet, part);
         var legacyDrawingId = WriteComments(sheet, part);
+        var drawing = XlsxDrawings.Write(sheet, part, context);
         UpdateTables(sheet, part);
         var shared = SharedFormulaGroups(sheet, context);
 
@@ -94,6 +95,15 @@ internal static class XlsxSheetWriter
                         break;
                     case "printOptions" or "pageMargins" or "pageSetup" or "headerFooter":
                         WritePageSetup(writer, sheet, name);
+                        break;
+                    case "drawing" when drawing.Handled:
+                        if (drawing.RelationshipId is { } drawingId)
+                        {
+                            writer.WriteStartElement("drawing", XlsxNamespaces.Main);
+                            writer.WriteAttributeString("r", "id", XlsxNamespaces.Relationships, drawingId);
+                            writer.WriteEndElement();
+                        }
+
                         break;
                     case "legacyDrawing" when legacyDrawingId is not null:
                         writer.WriteStartElement("legacyDrawing", XlsxNamespaces.Main);

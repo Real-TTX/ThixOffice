@@ -72,6 +72,7 @@
     <TrimmerRootAssembly Include="ThixOffice.Desktop" />
     <TrimmerRootAssembly Include="ThixCalc.Core" />
     <TrimmerRootAssembly Include="ThixOffice.Text" />
+    <TrimmerRootAssembly Include="ThixOffice.Charts" />
     <TrimmerRootAssembly Include="ThixOffice.Text.Skia" />
   </ItemGroup>
 

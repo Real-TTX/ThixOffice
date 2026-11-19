@@ -81,6 +81,7 @@ public static class XlsxReader
         foreach (var (sheet, part) in entries)
         {
             XlsxSheetReader.Read(sheet, part, context);
+            XlsxDrawings.Read(sheet, part, context);
         }
 
         DetectUnsupported(package, workbookPart, context);
@@ -250,11 +251,6 @@ public static class XlsxReader
         {
             if (worksheet.DrawingsPart is { } drawings)
             {
-                if (drawings.ChartParts.Any())
-                {
-                    context.Note("Diagramme");
-                }
-
                 if (drawings.ImageParts.Any())
                 {
                     context.Note("Bilder");

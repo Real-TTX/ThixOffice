@@ -45,6 +45,28 @@ public static class SkiaPageRenderer
                     canvas.Restore();
                     clips--;
                     break;
+                case TransformBeginItem transform:
+                    canvas.Save();
+                    canvas.Translate((float)transform.X, (float)transform.Y);
+                    if (transform.Rotation != 0)
+                    {
+                        canvas.RotateDegrees((float)transform.Rotation);
+                    }
+
+                    if (transform.Scale != 1)
+                    {
+                        canvas.Scale((float)transform.Scale);
+                    }
+
+                    clips++;
+                    break;
+                case TransformEndItem when clips > 0:
+                    canvas.Restore();
+                    clips--;
+                    break;
+                case PathItem path:
+                    DrawPath(canvas, path);
+                    break;
                 case RectangleItem rectangle:
                     DrawRectangle(canvas, rectangle);
                     break;
@@ -114,6 +136,64 @@ public static class SkiaPageRenderer
                 IsAntialias = true,
             };
             canvas.DrawRect(rect, paint);
+        }
+    }
+
+    private static void DrawPath(SKCanvas canvas, PathItem item)
+    {
+        using var path = new SKPath();
+        var points = item.Points;
+        var index = 0;
+        foreach (var verb in item.Verbs)
+        {
+            switch (verb)
+            {
+                case PathVerb.Move when index + 1 < points.Length:
+                    path.MoveTo((float)points[index], (float)points[index + 1]);
+                    index += 2;
+                    break;
+                case PathVerb.Line when index + 1 < points.Length:
+                    path.LineTo((float)points[index], (float)points[index + 1]);
+                    index += 2;
+                    break;
+                case PathVerb.Cubic when index + 5 < points.Length:
+                    path.CubicTo((float)points[index], (float)points[index + 1], (float)points[index + 2], (float)points[index + 3], (float)points[index + 4], (float)points[index + 5]);
+                    index += 6;
+                    break;
+                case PathVerb.Close:
+                    path.Close();
+                    break;
+            }
+        }
+
+        if (item.Fill is { } fill)
+        {
+            using var paint = new SKPaint { Color = ToSkia(fill), Style = SKPaintStyle.Fill, IsAntialias = true };
+            canvas.DrawPath(path, paint);
+        }
+
+        if (item.Stroke is { } stroke && item.StrokeWidth > 0)
+        {
+            var width = (float)item.StrokeWidth;
+            using var paint = new SKPaint
+            {
+                Color = ToSkia(stroke),
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = width,
+                IsAntialias = true,
+                StrokeJoin = item.Join == LineJoin.Round ? SKStrokeJoin.Round : SKStrokeJoin.Miter,
+                StrokeCap = item.Join == LineJoin.Round ? SKStrokeCap.Round : SKStrokeCap.Butt,
+            };
+            if (item.Style == LineStyle.Dashed)
+            {
+                paint.PathEffect = SKPathEffect.CreateDash([width * 4, width * 3], 0);
+            }
+            else if (item.Style == LineStyle.Dotted)
+            {
+                paint.PathEffect = SKPathEffect.CreateDash([width, width * 2], 0);
+            }
+
+            canvas.DrawPath(path, paint);
         }
     }
 

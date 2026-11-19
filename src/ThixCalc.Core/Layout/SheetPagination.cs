@@ -24,7 +24,22 @@ public static class SheetPagination
     private const double PointsPerPixel = 0.75;
 
     /// <summary>The range a sheet prints: its print area, or what it uses (cells with content or format, merges).</summary>
-    public static CellRange? PrintedRange(Worksheet sheet) => EditingSession.PrintAreaOf(sheet) ?? sheet.UsedRange;
+    public static CellRange? PrintedRange(Worksheet sheet)
+    {
+        if (EditingSession.PrintAreaOf(sheet) is { } area)
+        {
+            return area;
+        }
+
+        // Charts print too: the used range grows to cover them.
+        var range = sheet.UsedRange;
+        foreach (var chart in sheet.Charts)
+        {
+            range = range is { } existing ? existing.Union(chart.Anchor.Cells) : chart.Anchor.Cells;
+        }
+
+        return range;
+    }
 
     /// <summary>The pages of <paramref name="sheet"/> (of <paramref name="range"/> when given); empty when nothing is to print.</summary>
     public static IReadOnlyList<PrintedPage> Paginate(Worksheet sheet, GridMetrics metrics, CellRange? range = null)
@@ -195,6 +210,7 @@ public static class SheetPagination
             HeaderLine = RgbColor.FromHex("BFBFBF"),
             HeaderText = RgbColor.FromHex("404040"),
             FreezeLine = RgbColor.FromHex("BFBFBF"),
+            ChartPixelSize = 0,
         };
         var grid = GridRenderer.Render(viewport, metrics, options);
 
@@ -231,6 +247,8 @@ public static class SheetPagination
         LineItem line => line with { X1 = line.X1 + dx, Y1 = line.Y1 + dy, X2 = line.X2 + dx, Y2 = line.Y2 + dy },
         ClipBeginItem clip => clip with { X = clip.X + dx, Y = clip.Y + dy },
         ImageItem image => image with { X = image.X + dx, Y = image.Y + dy },
+        TransformBeginItem transform => transform with { X = transform.X + dx, Y = transform.Y + dy },
+        PathItem path => path with { Points = path.Points.Select((value, index) => value + (index % 2 == 0 ? dx : dy)).ToArray() },
         _ => item,
     };
 

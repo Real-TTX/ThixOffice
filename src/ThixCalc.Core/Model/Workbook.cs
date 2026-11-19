@@ -33,6 +33,7 @@ public sealed class Workbook
     private readonly List<Worksheet> _sheets = [];
     private readonly List<SheetRegion> _changes = [];
     private int _nextSheetId = 1;
+    private int _nextChartId = 1;
     private bool _structureChanged;
     private bool _sheetsChanged;
 
@@ -87,6 +88,26 @@ public sealed class Workbook
 
     public int IndexOf(Worksheet sheet) => _sheets.IndexOf(sheet);
 
+    /// <summary>A chart id not used yet in this workbook.</summary>
+    public int NextChartId() => _nextChartId++;
+
+    /// <summary>The chart with <paramref name="id"/> and its sheet, or null.</summary>
+    public (Worksheet Sheet, SheetChart Chart)? FindChart(int id)
+    {
+        foreach (var sheet in _sheets)
+        {
+            foreach (var chart in sheet.Charts)
+            {
+                if (chart.Id == id)
+                {
+                    return (sheet, chart);
+                }
+            }
+        }
+
+        return null;
+    }
+
     public Worksheet? FindSheet(string name) =>
         _sheets.FirstOrDefault(sheet => string.Equals(sheet.Name, name, StringComparison.OrdinalIgnoreCase));
 
@@ -134,7 +155,23 @@ public sealed class Workbook
     public void RenameSheet(Worksheet sheet, string name)
     {
         ValidateSheetName(name, sheet);
+        var old = sheet.Name;
         sheet.Name = name;
+
+        // Charts name their data by sheet name; formulas by id.
+        foreach (var other in _sheets)
+        {
+            for (var index = 0; index < other.Charts.Count; index++)
+            {
+                var chart = other.Charts[index];
+                var renamed = ThixOffice.Charts.ChartEdits.MapReferences(chart.Chart, formula => ChartReferences.Rename(formula, old, name));
+                if (!ThixOffice.Charts.ChartEdits.References(renamed).SequenceEqual(ThixOffice.Charts.ChartEdits.References(chart.Chart)))
+                {
+                    other.Charts[index] = chart with { Chart = renamed };
+                }
+            }
+        }
+
         _sheetsChanged = true;
         Calculation.OnSheetsChanged(name);
     }
