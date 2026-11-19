@@ -177,6 +177,59 @@ public static class SampleWorkbook
     }
 
     /// <summary>
+    /// The PivotTable of the pictures: a sheet "Ausgaben" with every expense of the half year (date, category, group, amount),
+    /// then a PivotTable on a new sheet – Gruppe and Kategorie in Zeilen, the dates grouped by Monate in Spalten, Summe von Betrag.
+    /// </summary>
+    public static Core.Model.Pivot.PivotTable AddPivot(EditingSession session)
+    {
+        var sheet = session.AddSheet("Ausgaben", session.Workbook.Sheets.Count);
+        string[] header = ["Datum", "Kategorie", "Gruppe", "Betrag"];
+        (string Category, string Group, double[] Amounts)[] expenses =
+        [
+            ("Miete", "Wohnen", [1150, 1150, 1150, 1150, 1150, 1150]),
+            ("Strom", "Wohnen", [86, 86, 86, 92, 92, 92]),
+            ("Lebensmittel", "Alltag", [612.4, 588.15, 640.9, 601.25, 655.3, 629.8]),
+            ("Versicherungen", "Vorsorge", [214, 214, 214, 214, 214, 214]),
+            ("Mobilität", "Alltag", [185.5, 172.2, 199.9, 240.1, 188.6, 205]),
+            ("Freizeit", "Freizeit", [240, 310, 195, 420, 285, 360]),
+            ("Sparen", "Vorsorge", [500, 500, 500, 500, 500, 500]),
+        ];
+        var date = session.Workbook.Styles.Intern(session.Workbook.Styles[0] with { NumberFormat = "dd.mm.yyyy" });
+        var euro = session.Workbook.Styles.Intern(session.Workbook.Styles[0] with { NumberFormat = "#,##0.00 \"€\"" });
+        for (var column = 0; column < header.Length; column++)
+        {
+            sheet.SetValue(0, column, header[column]);
+        }
+
+        var row = 1;
+        for (var month = 0; month < 6; month++)
+        {
+            foreach (var (category, group, amounts) in expenses)
+            {
+                sheet.SetValue(row, 0, Core.Calculation.DateSerial.FromDate(2026, month + 1, 1 + (row % 27)) ?? 0);
+                sheet.SetStyleId(row, 0, date);
+                sheet.SetValue(row, 1, category);
+                sheet.SetValue(row, 2, group);
+                sheet.SetValue(row, 3, amounts[month]);
+                sheet.SetStyleId(row, 3, euro);
+                row++;
+            }
+        }
+
+        var pivot = session.CreatePivotTable($"Ausgaben!$A$1:$D${row}", new PivotDestination(NewSheet: true));
+        pivot = session.AddPivotField(pivot, 2, Core.Model.Pivot.PivotAxis.Row);
+        pivot = session.AddPivotField(pivot, 1, Core.Model.Pivot.PivotAxis.Row);
+        pivot = session.AddPivotField(pivot, 0, Core.Model.Pivot.PivotAxis.Column);
+        pivot = session.AddPivotField(pivot, 3);
+        pivot = session.GroupPivotField(pivot, 0, Core.Model.Pivot.PivotDateGroups.Months);
+        pivot = session.ChangePivotDataField(pivot, 0, data => data with { NumberFormat = "#,##0" });
+        session.SetColumnWidth(0, 0, 22);
+        session.SetColumnWidth(1, 7, 9);
+        session.Select(new CellAddress(4, 1));
+        return pivot;
+    }
+
+    /// <summary>
     /// The charts of the pictures below the budget: "Einnahmen und Ausgaben" as clustered columns (salary, expenses, surplus per
     /// month) and "Ausgaben nach Kategorie" as a pie with percentages – live on the budget's cells.
     /// </summary>

@@ -27,6 +27,11 @@ public static partial class OdsWriter
             Note("Diagramme");
         }
 
+        if (workbook.Sheets.Any(sheet => sheet.PivotTables.Count > 0))
+        {
+            Note("PivotTables (ihre Werte bleiben als Zellen)");
+        }
+
         if (workbook.Sheets.Any(sheet => sheet.Tables.Count > 0))
         {
             Note("Tabellen (Name, Tabellenformat und Ergebniszeile – die Zellen und ihre Werte bleiben)");

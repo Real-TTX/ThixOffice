@@ -109,6 +109,13 @@ public static class GridRenderer
         }
 
         var table = sheet.Tables.Count > 0 ? TableStyles.LookAt(sheet, row, column) : null;
+        var pivotIndent = 0;
+        if (table is null && sheet.PivotTables.Count > 0)
+        {
+            table = Model.Pivot.PivotStyles.LookAt(sheet, row, column);
+            pivotIndent = Model.Pivot.PivotStyles.IndentAt(sheet, row, column);
+        }
+
         var font = style.Font with
         {
             Bold = look?.Bold ?? (style.Font.Bold || table?.Bold == true),
@@ -117,6 +124,11 @@ public static class GridRenderer
             Underline = look?.Underline is { } underline ? (underline ? UnderlineKind.Single : UnderlineKind.None) : style.Font.Underline,
         };
         style = style with { Font = font };
+        if (pivotIndent > 0)
+        {
+            style = style with { Alignment = style.Alignment with { Indent = style.Alignment.Indent + pivotIndent } };
+        }
+
         var defaultText = text ?? RgbColor.Black;
         var textColor = formatted.Color ?? (look?.FontColor ?? font.Color)?.Resolve(workbook.Theme, defaultText) ?? defaultText;
         if (sheet.Hyperlinks.Any(link => link.Range.Contains(row, column)) && font.Color is null && look?.FontColor is null)
@@ -341,7 +353,25 @@ public static class GridRenderer
 
         RenderTableLines(items, viewport, sheet, range);
 
-        // The arrows of an autofilter or a table in its header row.
+        // The arrows of an autofilter or a table in its header row, and those of the PivotTables' field headers.
+        foreach (var pivot in sheet.PivotTables)
+        {
+            if (sheet.OutputOf(pivot) is not { } output)
+            {
+                continue;
+            }
+
+            foreach (var (cell, field) in output.FilterButtons)
+            {
+                if (range.Contains(cell) && FilterButtonRect(viewport, cell) is { } button)
+                {
+                    var settings = pivot.Fields[field];
+                    var filtered = settings.HiddenItems.Count > 0 || settings.SelectedItem is not null || settings.LabelFilter is not null || settings.ValueFilter is not null;
+                    DrawFilterButton(items, options, button, filtered);
+                }
+            }
+        }
+
         foreach (var (headerRow, firstColumn, lastColumn, filter) in FilterHeaders(sheet))
         {
             if (headerRow < range.FirstRow || headerRow > range.LastRow)
@@ -357,21 +387,40 @@ public static class GridRenderer
                 }
 
                 var active = filter is not null && filter.Columns.Any(entry => entry.ColumnOffset == column - firstColumn);
-                items.Add(new RectangleItem(button.X, button.Y, button.Width, button.Height, options.FilterButton, options.FilterButtonLine, 1));
-                var middle = Math.Round(button.X + button.Width / 2);
-                var top = Math.Round(button.Y + button.Height * 0.38);
-                var half = Math.Max(2, Math.Round(button.Width * 0.22));
-                for (var step = 0; step <= half; step++)
-                {
-                    items.Add(new LineItem(middle - half + step - 0.5, top + step + 0.5, middle + half - step + 0.5, top + step + 0.5, active ? options.FilterActive : options.FilterArrow, 1));
-                }
-
-                if (active)
-                {
-                    items.Add(new LineItem(middle - half, top - 2.5, middle + half + 1, top - 2.5, options.FilterActive, 1));
-                }
+                DrawFilterButton(items, options, button, active);
             }
         }
+    }
+
+    private static void DrawFilterButton(List<DisplayItem> items, GridRenderOptions options, PixelRect button, bool active)
+    {
+        items.Add(new RectangleItem(button.X, button.Y, button.Width, button.Height, options.FilterButton, options.FilterButtonLine, 1));
+        var middle = Math.Round(button.X + button.Width / 2);
+        var top = Math.Round(button.Y + button.Height * 0.38);
+        var half = Math.Max(2, Math.Round(button.Width * 0.22));
+        for (var step = 0; step <= half; step++)
+        {
+            items.Add(new LineItem(middle - half + step - 0.5, top + step + 0.5, middle + half - step + 0.5, top + step + 0.5, active ? options.FilterActive : options.FilterArrow, 1));
+        }
+
+        if (active)
+        {
+            items.Add(new LineItem(middle - half, top - 2.5, middle + half + 1, top - 2.5, options.FilterActive, 1));
+        }
+    }
+
+    /// <summary>The PivotTable field whose filter arrow sits in <paramref name="cell"/> (and its table), or null.</summary>
+    public static (Model.Pivot.PivotTable Pivot, int Field)? PivotFilterFieldAt(Worksheet sheet, CellAddress cell)
+    {
+        foreach (var pivot in sheet.PivotTables)
+        {
+            if (pivot.Range is { } range && range.Contains(cell) && sheet.OutputOf(pivot) is { } output && output.FilterButtons.FindIndex(button => button.Cell == cell) is var index && index >= 0)
+            {
+                return (pivot, output.FilterButtons[index].Field);
+            }
+        }
+
+        return null;
     }
 
     /// <summary>The header rows with filter arrows: the sheet's autofilter and the tables that show their buttons (row, columns, filter).</summary>
@@ -412,7 +461,7 @@ public static class GridRenderer
     /// <summary>The arrow button in a filter header cell (autofilter or table), or null when the cell has none.</summary>
     public static PixelRect? FilterButtonRect(GridViewport viewport, CellAddress address)
     {
-        if (FilterColumnAt(viewport.Layout.Sheet, address) is null)
+        if (FilterColumnAt(viewport.Layout.Sheet, address) is null && (viewport.Layout.Sheet.PivotTables.Count == 0 || PivotFilterFieldAt(viewport.Layout.Sheet, address) is null))
         {
             return null;
         }
@@ -430,6 +479,19 @@ public static class GridRenderer
     /// <summary>The lines of table styles: under the header (light styles) and above the total row.</summary>
     private static void RenderTableLines(List<DisplayItem> items, GridViewport viewport, Worksheet sheet, CellRange pane)
     {
+        foreach (var (row, first, last, color) in Model.Pivot.PivotStyles.TotalLines(sheet))
+        {
+            if (row < pane.FirstRow || row > pane.LastRow + 1 || last < pane.FirstColumn || first > pane.LastColumn)
+            {
+                continue;
+            }
+
+            var y = viewport.RowY(row) - 0.5;
+            var left = viewport.ColumnX(Math.Max(first, pane.FirstColumn)) - 1;
+            var right = viewport.ColumnX(Math.Min(last, pane.LastColumn) + 1) - 1;
+            items.Add(new LineItem(left, y, right, y, color, 1));
+        }
+
         foreach (var table in sheet.Tables)
         {
             if (!table.Range.Intersects(pane) || TableStyles.Resolve(table.Style, sheet.Workbook.Theme) is not { } look)
@@ -539,7 +601,7 @@ public static class GridRenderer
 
         // A filter arrow in the cell: the text stops before it (as in Excel).
         var right = Math.Min(clip.Right, pane.Right);
-        if ((sheet.AutoFilter is not null || sheet.Tables.Count > 0) && FilterButtonRect(viewport, display.Cell) is { } button)
+        if ((sheet.AutoFilter is not null || sheet.Tables.Count > 0 || sheet.PivotTables.Count > 0) && FilterButtonRect(viewport, display.Cell) is { } button)
         {
             right = Math.Min(right, button.X - 1);
         }

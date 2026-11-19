@@ -100,6 +100,9 @@ public sealed class CalcEditor : OfficeEditor
         Grid.SetRow(bottom, 2);
         _view = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Children = { FormulaBar, gridArea, bottom, FindBar } };
         _view.Use(Panel.BackgroundProperty, "Mat.Surface");
+        _fieldList = new PivotFieldList(this) { IsVisible = false };
+        Grid.SetColumn(_fieldList, 1);
+        _root = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Children = { _view, _fieldList } };
 
         Surface.ScrollChanged += (_, _) => SyncScrollBars();
         _vertical.Scroll += (_, _) => OnScrollBar();
@@ -132,7 +135,59 @@ public sealed class CalcEditor : OfficeEditor
 
     internal OfficeWindow Window => _window;
 
-    public override Control View => _view;
+    public override Control View => _root;
+
+    private readonly Grid _root;
+    private readonly PivotFieldList _fieldList;
+
+    /// <summary>The PivotTable field list (tests).</summary>
+    internal PivotFieldList FieldList => _fieldList;
+
+    /// <summary>Whether the field list shows while the active cell is in a PivotTable (PivotTable-Analyse › Feldliste).</summary>
+    public bool FieldListVisible { get; private set; } = true;
+
+    public const string PivotAnalyzeTab = "pivotAnalyze";
+    public const string PivotDesignTab = "pivotDesign";
+
+    public void ShowFieldList(bool visible)
+    {
+        FieldListVisible = visible;
+        ScheduleState();
+    }
+
+    /// <summary>The source field of the active PivotTable cell (a row/column/filter label), or null.</summary>
+    public int? ActivePivotField()
+    {
+        if (Session.ActivePivot is not { } pivot || Session.ActiveSheet.OutputOf(pivot) is not { } output)
+        {
+            return null;
+        }
+
+        if (output.Cells.TryGetValue(Session.ActiveCell, out var cell) && cell.Field >= 0)
+        {
+            return cell.Field;
+        }
+
+        var header = output.FilterButtons.FindIndex(button => button.Cell == Session.ActiveCell);
+        return header >= 0 ? output.FilterButtons[header].Field : null;
+    }
+
+    /// <summary>The value field of the active PivotTable value cell, or null.</summary>
+    public int? ActivePivotValue() =>
+        Session.ActivePivot is { } pivot && Session.ActiveSheet.OutputOf(pivot)?.EntryAt(Session.ActiveCell) is { } entry ? entry.DataField : null;
+
+    /// <summary>The first row field of the active PivotTable (sorting by a value sorts it), or null.</summary>
+    public int? ActivePivotRowField() => Session.ActivePivot?.RowFields.FirstOrDefault(field => field >= 0, -1) is { } field && field >= 0 ? field : null;
+
+    public Task ValueFieldSettingsAsync(int index) =>
+        Session.ActivePivot is { } pivot ? Dialogs.ValueFieldSettingsDialog.ShowAsync(_window, this, pivot, index) : Task.CompletedTask;
+
+    public Task FieldSettingsAsync(int field) =>
+        Session.ActivePivot is { } pivot ? Dialogs.FieldSettingsDialog.ShowAsync(_window, this, pivot, field) : Task.CompletedTask;
+
+    public Task ActiveFieldSettingsAsync() => ActivePivotField() is { } field ? FieldSettingsAsync(field) : Task.CompletedTask;
+
+    public Task ActiveValueSettingsAsync() => ActivePivotValue() is { } index ? ValueFieldSettingsAsync(index) : Task.CompletedTask;
 
     /// <summary>The colour Schriftfarbe's button applies (the last one chosen; null = Automatisch).</summary>
     public string? FontColor { get; set; } = GridPalette.DefaultFontColor;
@@ -555,7 +610,8 @@ public sealed class CalcEditor : OfficeEditor
     }
 
     /// <summary>The context menu of the grid for what was right-clicked (cells, row headers, column headers).</summary>
-    internal ContextMenu ContextMenuFor(HitKind kind) => CalcContextMenus.For(_window, kind);
+    internal ContextMenu ContextMenuFor(HitKind kind) =>
+        kind == HitKind.Cell && Session.ActivePivot is not null ? CalcContextMenus.ForPivot(_window) : CalcContextMenus.For(_window, kind);
 
     /// <summary>Kopieren, Ausschneiden, Einfügen.</summary>
     internal CalcClipboard Clipboard => _clipboard ??= new CalcClipboard(this);
@@ -791,6 +847,22 @@ public sealed class CalcEditor : OfficeEditor
             else
             {
                 _window.RibbonDefinition.HideContext(CalcChartCommands.Context);
+            }
+
+            var pivot = Session.SelectedChart is null ? Session.ActivePivot : null;
+            if (pivot is not null)
+            {
+                _window.RibbonDefinition.ShowContext(CalcPivotCommands.Context);
+            }
+            else
+            {
+                _window.RibbonDefinition.HideContext(CalcPivotCommands.Context);
+            }
+
+            _fieldList.IsVisible = pivot is not null && FieldListVisible && pivot.Unsupported is null;
+            if (_fieldList.IsVisible)
+            {
+                _fieldList.Show(pivot!);
             }
 
             if (Session.SelectedChart is null && Session.ActiveTable is not null)

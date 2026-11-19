@@ -29,7 +29,7 @@ public static class CalcRibbon
             }
         }
 
-        definition.Add(HomeTab(palette, Launch), InsertTab(), PageLayoutTab(), FormulasTab(), DataTab(), ReviewTab(), ViewTab(), TableDesignTab(), ChartDesignTab(), ChartFormatTab());
+        definition.Add(HomeTab(palette, Launch), InsertTab(), PageLayoutTab(), FormulasTab(), DataTab(), ReviewTab(), ViewTab(), TableDesignTab(), PivotAnalyzeTab(), PivotDesignTab(), ChartDesignTab(), ChartFormatTab());
         return definition;
     }
 
@@ -151,6 +151,7 @@ public static class CalcRibbon
     private static MatRibbonTab InsertTab() =>
         new MatRibbonTab("insert", "Einfügen").Add(
             new MatRibbonGroup("tables", "Tabellen") { Icon = "table" }.Add(
+                Button(CalcCommandIds.InsertPivot, MatRibbonSize.Large),
                 Button(CalcCommandIds.InsertTable, MatRibbonSize.Large)),
             new MatRibbonGroup("charts", "Diagramme") { Icon = "chart-column" }.Add(
                 new MatRibbonStack("charts-left", ChartFamily(ThixOffice.Charts.ChartFamily.Column), ChartFamily(ThixOffice.Charts.ChartFamily.Bar), ChartFamily(ThixOffice.Charts.ChartFamily.Line)),
@@ -190,6 +191,52 @@ public static class CalcRibbon
                 new MatRibbonStack("table-options-3", Toggle(CalcCommandIds.TableFilterButton))),
             new MatRibbonGroup("table-styles", "Tabellenformatvorlagen") { Icon = "template" }.Add(
                 TableStyleMenu(CalcCommandIds.TableStyles)));
+
+    /// <summary>PivotTable-Analyse (contextual, while the active cell is in a PivotTable).</summary>
+    private static MatRibbonTab PivotAnalyzeTab() =>
+        new MatRibbonTab(CalcEditor.PivotAnalyzeTab, "PivotTable-Analyse") { Context = CalcPivotCommands.Context }.Add(
+            new MatRibbonGroup("pivot-table", "PivotTable") { Icon = "table" }.Add(
+                new MatRibbonStack("pivot-name", ComboBox(CalcCommandIds.PivotName, width: 130, isEditable: true))),
+            new MatRibbonGroup("pivot-field", "Aktives Feld") { Icon = "settings" }.Add(
+                new MatRibbonStack("pivot-field-rows", Button(CalcCommandIds.PivotFieldSettings, MatRibbonSize.Medium), Button(CalcCommandIds.PivotValueSettings, MatRibbonSize.Medium))),
+            new MatRibbonGroup("pivot-group", "Gruppieren") { Icon = "layers" }.Add(
+                new MatRibbonStack("pivot-group-rows", Button(CalcCommandIds.PivotGroup, MatRibbonSize.Medium), Button(CalcCommandIds.PivotUngroup, MatRibbonSize.Medium))),
+            new MatRibbonGroup("pivot-sort", "Sortieren") { Icon = "sort" }.Add(
+                new MatRibbonStack("pivot-sort-rows", Button(CalcCommandIds.PivotSortAscending, MatRibbonSize.Small), Button(CalcCommandIds.PivotSortDescending, MatRibbonSize.Small))),
+            new MatRibbonGroup("pivot-data", "Daten") { Icon = "refresh" }.Add(
+                new MatRibbonSplitButton(CalcCommandIds.PivotRefresh, "", menu: [Button(CalcCommandIds.PivotRefreshAll)]) { Size = MatRibbonSize.Large },
+                Button(CalcCommandIds.PivotChangeSource, MatRibbonSize.Large)),
+            new MatRibbonGroup("pivot-actions", "Aktionen") { Icon = "external" }.Add(
+                new MatRibbonStack("pivot-actions-rows", Button(CalcCommandIds.PivotDelete, MatRibbonSize.Medium), Button(CalcCommandIds.PivotMove, MatRibbonSize.Medium), Button(CalcCommandIds.PivotDetails, MatRibbonSize.Medium))),
+            new MatRibbonGroup("pivot-show", "Anzeigen") { Icon = "sidebar" }.Add(
+                Toggle(CalcCommandIds.PivotFieldList, size: MatRibbonSize.Large)));
+
+    /// <summary>Entwurf (contextual, while the active cell is in a PivotTable).</summary>
+    private static MatRibbonTab PivotDesignTab() =>
+        new MatRibbonTab(CalcEditor.PivotDesignTab, "Entwurf") { Context = CalcPivotCommands.Context }.Add(
+            new MatRibbonGroup("pivot-layout", "Layout") { Icon = "grid" }.Add(
+                new MatRibbonMenuButton(CalcCommandIds.PivotSubtotals, "", null,
+                    Toggle($"{CalcCommandIds.PivotSubtotals}.none", "pivot-subtotals"), Toggle($"{CalcCommandIds.PivotSubtotals}.bottom", "pivot-subtotals"), Toggle($"{CalcCommandIds.PivotSubtotals}.top", "pivot-subtotals")) { Size = MatRibbonSize.Large },
+                new MatRibbonMenuButton(CalcCommandIds.PivotGrandTotals, "", null,
+                    Toggle($"{CalcCommandIds.PivotGrandTotals}.off", "pivot-grand"), Toggle($"{CalcCommandIds.PivotGrandTotals}.both", "pivot-grand"),
+                    Toggle($"{CalcCommandIds.PivotGrandTotals}.rows", "pivot-grand"), Toggle($"{CalcCommandIds.PivotGrandTotals}.columns", "pivot-grand")) { Size = MatRibbonSize.Large },
+                new MatRibbonMenuButton(CalcCommandIds.PivotLayout, "", null,
+                    Toggle($"{CalcCommandIds.PivotLayout}.compact", "pivot-layout"), Toggle($"{CalcCommandIds.PivotLayout}.outline", "pivot-layout"), Toggle($"{CalcCommandIds.PivotLayout}.tabular", "pivot-layout"),
+                    new MatRibbonSeparator("pivot-layout-separator"),
+                    Toggle($"{CalcCommandIds.PivotLayout}.repeat", "pivot-repeat"), Toggle($"{CalcCommandIds.PivotLayout}.norepeat", "pivot-repeat")) { Size = MatRibbonSize.Large }),
+            new MatRibbonGroup("pivot-options", "Optionen für PivotTable-Formate") { Icon = "check-square" }.Add(
+                new MatRibbonStack("pivot-options-1", Toggle(CalcCommandIds.PivotRowHeaders), Toggle(CalcCommandIds.PivotColumnHeaders)),
+                new MatRibbonStack("pivot-options-2", Toggle(CalcCommandIds.PivotBandedRows), Toggle(CalcCommandIds.PivotBandedColumns))),
+            new MatRibbonGroup("pivot-styles", "PivotTable-Formatvorlagen") { Icon = "template" }.Add(
+                PivotStyleGallery()));
+
+    private static MatRibbonGallery PivotStyleGallery()
+    {
+        var gallery = Gallery(CalcCommandIds.PivotStyles, Core.Model.Pivot.PivotStyles.Gallery.Select(style => new MatRibbonGalleryEntry(style.Id, style.Label) { Icon = "table" }));
+        gallery.InlineCount = 4;
+        gallery.EntryWidth = 74;
+        return gallery;
+    }
 
     /// <summary>Diagrammentwurf (contextual, while a chart is selected).</summary>
     private static MatRibbonTab ChartDesignTab() =>

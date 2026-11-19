@@ -125,6 +125,17 @@ internal static class CalcSelfTest
         var sampleRead = DocumentService.Open(samplePath, app.CreateDocument) as CalcDocument ?? throw new InvalidOperationException("not a CalcDocument");
         Ensure(sampleRead.Workbook.Sheets.Count == 2 && sampleRead.Workbook.Sheets[0].ConditionalFormats.Count == 2 && sampleRead.Workbook.Sheets[0].Charts.Count == 2, "the sample workbook lost content");
 
+        // A PivotTable over the sample's expenses, through xlsx (parts written, read back, the same total).
+        var pivotBook = (CalcDocument)app.CreateDocument("Pivot");
+        pivotBook.Load(SampleWorkbook.Create());
+        var pivot = SampleWorkbook.AddPivot(pivotBook.Session);
+        var pivotTotal = pivotBook.Session.ActiveSheet.GetValue(pivot.Range!.Value.LastRow, pivot.Range.Value.LastColumn).Number;
+        Ensure(Math.Abs(pivotTotal - 18447.1) < 0.01, $"the PivotTable's total is {pivotTotal}");
+        var pivotPath = DocumentService.SaveAs(pivotBook, Path.Combine(folder, "Pivot.xlsx"));
+        var pivotRead = DocumentService.Open(pivotPath, app.CreateDocument) as CalcDocument ?? throw new InvalidOperationException("not a CalcDocument");
+        var readPivot = pivotRead.Workbook.Sheets.SelectMany(candidate => candidate.PivotTables).SingleOrDefault();
+        Ensure(readPivot is not null && pivotRead.Workbook.FindPivotCache(readPivot.CacheId)?.RecordCount == 42, "the PivotTable is lost in the xlsx");
+
         // The typed workbook as OpenDocument Spreadsheet: written and read back (System.IO.Compression and System.Xml after trimming).
         var odsPath = DocumentService.SaveAs(reopened, Path.Combine(folder, "Selbsttest.ods"));
         var fromOds = DocumentService.Open(odsPath, app.CreateDocument) as CalcDocument ?? throw new InvalidOperationException("not a CalcDocument");

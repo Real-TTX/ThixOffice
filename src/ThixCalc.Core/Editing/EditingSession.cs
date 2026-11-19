@@ -173,7 +173,17 @@ public sealed partial class EditingSession
         var range = Selection;
         if (range.IsSingleCell || SelectedRanges.Count > 1)
         {
+            // Excel: Eingabe after a run of Tab goes to the next row below the cell where the run started.
+            var start = _tabStartColumn;
+            if (!byRows && !backwards && start is { } column && SelectedRanges.Count == 1)
+            {
+                Select(new CellAddress(Math.Min(ActiveCell.Row + 1, SheetLimits.LastRow), column));
+                return;
+            }
+
+            var tabStart = byRows && !backwards ? start ?? ActiveCell.Column : (int?)null;
             Move(byRows ? (backwards ? Direction.Left : Direction.Right) : (backwards ? Direction.Up : Direction.Down));
+            _tabStartColumn = tabStart;
             return;
         }
 
@@ -211,9 +221,13 @@ public sealed partial class EditingSession
         }
     }
 
+    /// <summary>The column a run of Tab started in (Eingabe returns below it), or null.</summary>
+    private int? _tabStartColumn;
+
     private void SetSelection(CellAddress active, IReadOnlyList<CellRange> ranges)
     {
         var sheet = ActiveSheet;
+        _tabStartColumn = null;
         _selectedChart = null;
         sheet.View = sheet.View with { ActiveCell = active, Selection = ranges };
         SelectionChanged?.Invoke(this, EventArgs.Empty);

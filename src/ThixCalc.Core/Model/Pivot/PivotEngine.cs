@@ -23,7 +23,7 @@ public enum PivotCellKind : byte
 }
 
 /// <summary>A cell of the drawn PivotTable: its value, its kind, the indent of a compact row label, its number format.</summary>
-public readonly record struct PivotCell(CellValue Value, PivotCellKind Kind, int Indent = 0, string? NumberFormat = null, bool TotalRow = false);
+public readonly record struct PivotCell(CellValue Value, PivotCellKind Kind, int Indent = 0, string? NumberFormat = null, bool TotalRow = false, int Field = -1);
 
 /// <summary>A condition of a value cell: the level (field and date group), the item's key and label.</summary>
 public readonly record struct PivotCondition(int Field, PivotDateGroups Group, string Name, string Key, CellValue Label);
@@ -821,11 +821,11 @@ public static class PivotEngine
             var field = filters[index];
             var row = bodyRow - filters.Length - 1 + index;
             var settings = pivot.Fields[field];
-            cells[new CellAddress(row, left)] = new PivotCell(Caption(pivot, cache, field), PivotCellKind.FilterLabel);
+            cells[new CellAddress(row, left)] = new PivotCell(Caption(pivot, cache, field), PivotCellKind.FilterLabel, Field: field);
             CellValue selection = settings.SelectedItem is { } selected
                 ? cache.Fields[field].Items.FirstOrDefault(item => PivotItems.KeyOf(item) == selected) is var item && !item.IsBlank ? item : (CellValue)PivotItems.BlankLabel
                 : settings.HiddenItems.Count > 0 ? MultipleItems : AllItems;
-            cells[new CellAddress(row, left + 1)] = new PivotCell(selection, PivotCellKind.FilterValue, NumberFormat: cache.Fields[field].NumberFormat);
+            cells[new CellAddress(row, left + 1)] = new PivotCell(selection, PivotCellKind.FilterValue, NumberFormat: cache.Fields[field].NumberFormat, Field: field);
             buttons.Add((new CellAddress(row, left + 1), field));
         }
 
@@ -917,7 +917,7 @@ public static class PivotEngine
                             if (!same || pivot.RepeatLabels)
                             {
                                 var item = level.Items[computation.Columns.Nodes[node].Item];
-                                cells[new CellAddress(row, column)] = new PivotCell(item.Label, PivotCellKind.ColumnItem, NumberFormat: item.Format);
+                                cells[new CellAddress(row, column)] = new PivotCell(item.Label, PivotCellKind.ColumnItem, NumberFormat: item.Format, Field: level.Field);
                             }
                         }
 
@@ -966,7 +966,7 @@ public static class PivotEngine
                     {
                         var level = computation.RowFieldLevels[slot.Depth - 1];
                         var item = level.Items[computation.Rows.Nodes[slot.Node].Item];
-                        cells[new CellAddress(row, left)] = new PivotCell(item.Label, isSubtotalRow ? PivotCellKind.SubtotalLabel : PivotCellKind.RowItem, slot.Depth - 1, item.Format);
+                        cells[new CellAddress(row, left)] = new PivotCell(item.Label, isSubtotalRow ? PivotCellKind.SubtotalLabel : PivotCellKind.RowItem, slot.Depth - 1, item.Format, Field: level.Field);
                     }
                     else
                     {
@@ -988,7 +988,7 @@ public static class PivotEngine
                             if (shown)
                             {
                                 var item = level.Items[computation.Rows.Nodes[node].Item];
-                                cells[new CellAddress(row, left + levelIndex)] = new PivotCell(item.Label, isOwn && isSubtotalRow ? PivotCellKind.SubtotalLabel : PivotCellKind.RowItem, NumberFormat: item.Format);
+                                cells[new CellAddress(row, left + levelIndex)] = new PivotCell(item.Label, isOwn && isSubtotalRow ? PivotCellKind.SubtotalLabel : PivotCellKind.RowItem, NumberFormat: item.Format, Field: level.Field);
                             }
 
                             fieldColumn++;
@@ -1114,7 +1114,7 @@ public static class PivotEngine
     }
 
     /// <summary>An item label as text (numbers as the formula bar shows them).</summary>
-    internal static string LabelText(CellValue label, CalcLocale locale) => label.Kind switch
+    public static string LabelText(CellValue label, CalcLocale locale) => label.Kind switch
     {
         CellValueKind.Text => label.Text,
         CellValueKind.Number => NumberText.ToText(label.Number, locale),

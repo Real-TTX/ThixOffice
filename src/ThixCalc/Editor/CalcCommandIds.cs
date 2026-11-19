@@ -179,6 +179,31 @@ public static class CalcCommandIds
 
     // Einfügen – Tabellen; Start – Als Tabelle formatieren (value: the style name)
     public const string InsertTable = "calc.table.insert";
+
+    // PivotTable (Einfügen, contextual tabs PivotTable-Analyse and Entwurf)
+    public const string InsertPivot = "calc.pivot.insert";
+    public const string PivotName = "calc.pivot.name"; // value: the name
+    public const string PivotRefresh = "calc.pivot.refresh";
+    public const string PivotRefreshAll = "calc.pivot.refreshAll";
+    public const string PivotChangeSource = "calc.pivot.source";
+    public const string PivotFieldSettings = "calc.pivot.fieldSettings";
+    public const string PivotValueSettings = "calc.pivot.valueSettings";
+    public const string PivotGroup = "calc.pivot.group";
+    public const string PivotUngroup = "calc.pivot.ungroup";
+    public const string PivotDelete = "calc.pivot.delete";
+    public const string PivotMove = "calc.pivot.move";
+    public const string PivotFieldList = "calc.pivot.fieldList";
+    public const string PivotDetails = "calc.pivot.details";
+    public const string PivotSortAscending = "calc.pivot.sortAscending";
+    public const string PivotSortDescending = "calc.pivot.sortDescending";
+    public const string PivotSubtotals = "calc.pivot.subtotals"; // menu: .none .bottom .top
+    public const string PivotGrandTotals = "calc.pivot.grandTotals"; // menu: .off .both .rows .columns
+    public const string PivotLayout = "calc.pivot.layout"; // menu: .compact .outline .tabular .repeat .norepeat
+    public const string PivotRowHeaders = "calc.pivot.rowHeaders";
+    public const string PivotColumnHeaders = "calc.pivot.columnHeaders";
+    public const string PivotBandedRows = "calc.pivot.bandedRows";
+    public const string PivotBandedColumns = "calc.pivot.bandedColumns";
+    public const string PivotStyles = "calc.pivot.styles"; // value: a PivotStyle name
     public const string InsertTableAlias = "calc.table.insertAlias";
     public const string FormatAsTable = "calc.table.formatAs";
 

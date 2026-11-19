@@ -23,7 +23,7 @@ public sealed class GridTests
         Assert.Equal(12, ValueAt(window, "A1").Number);
         Assert.Equal("Text", ValueAt(window, "A2").Text);
         Assert.Equal(1.5, ValueAt(window, "B2").Number);
-        Assert.Equal(new CellAddress(2, 1), editor.Session.ActiveCell);
+        Assert.Equal(new CellAddress(2, 0), editor.Session.ActiveCell); // Eingabe after Tab returns below where the Tab run started (Excel)
         Assert.Equal("Bereit", window.StatusBar.TextOf(CalcEditor.ModeItem));
     }
 

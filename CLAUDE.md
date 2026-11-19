@@ -147,7 +147,8 @@ src/ThixCalc.Core          (no UI) ThixCalcApp.Definition (.xlsx default, .xlsm,
                            styles, borders, AutoSumme, sort, filter, find, duplicates, text to columns, conditional presets, page setup,
                            print area/titles, charts), Layout/ (GridMetrics, SheetLayout.Viewport by pixels, GridRenderer,
                            SelectionRenderer, SheetPagination, ChartLayer), Charts/ (WorkbookChartSource, CalcChartFormatter,
-                           ChartSources: series from a range), Model/SheetCharts (ChartAnchor, SheetChart, ChartReferences),
+                           ChartSources: series from a range), Model/SheetCharts (ChartAnchor, SheetChart, ChartReferences), Model/Pivot (PivotCache,
+                           PivotTable, PivotEngine, PivotStyles), Formats/Xlsx/XlsxPivots,
                            Formats/Xlsx/XlsxDrawings, Documents/CalcDocument
 src/ThixCalc               App, Program, CalcSelfTest, Editor/ (CalcEditor, GridSurface, FormulaTextBox + CellEditing, FormulaBar,
                            FormulaAssist, SheetTabBar, CalcFindBar, CalcClipboard, CalcCommands / CalcStyleCommands / CalcDataCommands /
@@ -552,6 +553,38 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - **xlsx:** `XlsxTables` (read; write into the table's part or a new one with a workbook-unique id; parts of removed tables go).
   **UI:** `CalcTableCommands` (context `table`, tab `tableDesign`), `Dialogs/TableDialogs`.
 
+### PivotTables (ThixCalc)
+
+- **Model** (`Model/Pivot`, UI-free, immutable): `PivotCache` (source sheet+range or table, `PivotCacheField`s with distinct items,
+  per field per record the item index; `Build` reads the source; `Workbook.PivotCaches` by id) and `PivotTable` (location = top left of
+  the body, filter fields above it; `PivotField` per source field: axis, hidden items by `PivotItems.KeyOf`, selected filter item,
+  label/value `PivotFilter`, `PivotSort`, subtotals, `PivotDateGroups`/`PivotNumberGroup`, caption; Row/Column/FilterFields with
+  `ValuesField` −2 = Σ Werte; `PivotDataField`s: function, `PivotShowAs` + base field/item, number format; layout Kurzformat/
+  Gliederung/Tabelle, repeat labels, grand totals, subtotals top/bottom, style + options; `Range` = the cells it occupies; `SourceXml` =
+  unchanged as read; `Unsupported` = shown and kept, never edited). `Worksheet.PivotTables` is in the undo snapshot.
+- **Engine** (`PivotEngine.Compute` → `PivotOutput`): visible records (filter fields, hidden items, label filters) → levels (a grouped
+  date field expands into Jahre/Quartale/Monate/Tage levels) → row and column trees and ONE pass of accumulators for every pair of
+  nodes (100 000 records: cache ≈ 95 ms + compute ≈ 50 ms) → value filters (second pass) → sort → slots → cells with `PivotCellKind`,
+  indent, number format, field; `Values` (conditions per value cell: `Lookup` = PIVOTDATENZUORDNEN, `RecordsOf` = Details anzeigen),
+  `FilterButtons`, `RowItems/ColumnItems` (the file's rowItems/colItems). German captions (Zeilenbeschriftungen, Gesamtergebnis,
+  "Summe von …"). `Worksheet.OutputOf(pivot)` caches it per table/cache instance; `PivotStyles` draws by it (`GridRenderer.Present`:
+  header fill, bold totals, compact indent, the line above the grand total, field arrows).
+- **Session** (`EditingSession.Pivot`): `CreatePivotTable(source text, PivotDestination)`, `AddPivotField` (numbers → Werte/Summe,
+  others → Zeilen, like Excel), `MovePivotField`, `RemovePivotField`, data field change/move/remove, `ChangePivotField`,
+  `GroupPivotField`/`Ungroup…`, `SetPivotOptions`, `RefreshPivot`/`RefreshAllPivots` (fields matched by name), `ChangePivotSource`,
+  `MovePivot`, `DeletePivot`, `ShowPivotDetails` (new sheet with a table). Each = one undo step: the record is swapped and the cells are
+  drawn anew as ordinary cells; `SetCell` refuses value changes inside a pivot (`GuardPivot`) except while the pivot draws itself.
+- **xlsx** (`XlsxPivots`): reads cache definitions (shared items, inline record values, fieldGroup/rangePr → grouping, databaseField=0
+  grouping fields mapped onto their base), records, table definitions (pivotFields, row/col/page/data fields, filters, sort,
+  autoSortScope, layout flags, style); writes changed/new ones in Excel's shape (refreshOnLoad cache, records with `x v`, extra cache
+  fields for coarser date groups, rowItems/colItems, schema order: … dataFields, pivotTableStyleInfo, filters); unchanged tables and
+  caches keep their parts; orphan parts and `pivotCaches` entries go. Calculated fields/items, OLAP, discrete grouping → `Unsupported`.
+- **UI:** `CalcPivotCommands` (Einfügen › PivotTable; context `pivot`: tabs `pivotAnalyze` PivotTable-Analyse and `pivotDesign` Entwurf),
+  `PivotFieldList` (right pane: field check boxes with search, the four areas with chips, own pointer drag between list and areas, chip
+  menus for the keyboard), `PivotFilterMenu` (arrow on the field headers), `Dialogs/PivotDialogs` (PivotTable erstellen,
+  Wertfeldeinstellungen, Feldeinstellungen, Gruppierung, Datenquelle ändern/Verschieben), `CalcContextMenus.ForPivot`, double click on a
+  value = Details anzeigen. Snapshot scenes `-main-pivot`, `-main-pivot-design` (`SampleWorkbook.AddPivot`).
+
 ### OpenDocument Spreadsheet (ods)
 
 - `Formats/Ods` (BCL only, on `ThixOffice.Core/Formats/Odf`): `OdsWriter.Write` (content.xml: sheets with `table:table-column`s, rows and
@@ -653,9 +686,9 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - `dotnet build ThixOffice.slnx` – expected: 0 warnings, 0 errors. `dotnet test ThixOffice.slnx` – all green.
 - ThixCalc the same way: `dotnet run --project src/ThixCalc` (`THIXCALC_DATA_DIR`), snapshots `-- --snapshot <folder>` (scenes
   `-main-formula`, `-main-view`, `-main-find`, `-dialog-format-cells`, `-dialog-function`, `-dialog-page-setup`, `-backstage-print`,
-  `-main-chart`, `-main-chart-design`, `-main-table` on the budget sample `SampleWorkbook`), `THIXCALC_SCREENSHOTS=<folder> dotnet test
+  `-main-chart`, `-main-chart-design`, `-main-table`, `-main-pivot`, `-main-pivot-design`, `-dialog-function-arguments` on the budget sample `SampleWorkbook`), `THIXCALC_SCREENSHOTS=<folder> dotnet test
   tests/ThixCalc.Tests` (also every chart type into `<folder>/charts`: `ChartPictureTests`); its trimmed publish (~46 MB) runs
-  `--self-test` (typed values and German formulas incl. SVERWEIS/SUMMEWENN, format, sort, a chart through the ribbon command, xlsx round
+  `--self-test` (typed values and German formulas incl. SVERWEIS/SUMMEWENN/XVERWEIS/GRUPPIERENNACH, format, sort, a chart through the ribbon command, xlsx round
   trip with the chart, a Skia frame and a chart picture, the sample with its charts, PDF, GDI print).
 - ThixShow the same way: `dotnet run --project src/ThixShow` (`THIXSHOW_DATA_DIR`), snapshots and self test as above (its trimmed publish
   ≈ 45 MB runs the self test in CI).

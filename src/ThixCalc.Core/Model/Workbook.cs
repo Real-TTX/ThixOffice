@@ -177,6 +177,12 @@ public sealed class Workbook
             }
         }
 
+        // PivotCaches name their source sheet (the cache part is then written new).
+        foreach (var cache in PivotCaches.Where(cache => cache.SourceTable is null && string.Equals(cache.SourceSheet, old, StringComparison.OrdinalIgnoreCase)))
+        {
+            cache.RenameSource(name);
+        }
+
         _sheetsChanged = true;
         Calculation.OnSheetsChanged(name);
     }

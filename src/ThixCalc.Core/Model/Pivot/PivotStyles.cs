@@ -53,7 +53,7 @@ public static class PivotStyles
             {
                 PivotCellKind.FilterLabel or PivotCellKind.FilterValue => new TableCellLook(null, cell.Kind == PivotCellKind.FilterLabel, null),
                 PivotCellKind.DataCaption or PivotCellKind.RowHeader or PivotCellKind.ColumnHeader or PivotCellKind.ColumnItem => new TableCellLook(headerFill, true, headerText),
-                PivotCellKind.GrandTotalLabel or PivotCellKind.GrandTotalValue => new TableCellLook(cell.TotalRow ? headerFill : null, true, cell.TotalRow ? headerText : null),
+                PivotCellKind.GrandTotalLabel or PivotCellKind.GrandTotalValue => cell.TotalRow || InHeader(output, row) ? new TableCellLook(headerFill, true, headerText) : new TableCellLook(null, true, null),
                 PivotCellKind.SubtotalLabel or PivotCellKind.SubtotalValue => new TableCellLook(null, true, null),
                 _ => pivot.BandedRows && (row - output.Body.Row - output.HeaderRows) % 2 == 1 ? new TableCellLook(band, false, null)
                     : pivot.BandedColumns && (column - output.Body.Column - output.LabelColumns) % 2 == 1 ? new TableCellLook(band, false, null)

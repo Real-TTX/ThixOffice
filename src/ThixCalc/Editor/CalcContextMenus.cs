@@ -25,6 +25,17 @@ internal static class CalcContextMenus
         CalcCommandIds.ChartDelete,
     ]);
 
+    /// <summary>The menu of a PivotTable cell (Excel's: copy, format, refresh, sort, value field settings, details, grouping, field list).</summary>
+    public static ContextMenu ForPivot(OfficeWindow window) => OfficeCommandMenu.Create(window,
+    [
+        CalcCommandIds.Copy, CalcCommandIds.FormatCells, null,
+        CalcCommandIds.PivotRefresh, new OfficeCommandMenu.Submenu("Sortieren", "sort", [CalcCommandIds.PivotSortAscending, CalcCommandIds.PivotSortDescending]), null,
+        CalcCommandIds.PivotValueSettings, CalcCommandIds.PivotFieldSettings, CalcCommandIds.PivotDetails, null,
+        CalcCommandIds.PivotGroup, CalcCommandIds.PivotUngroup, null,
+        CalcCommandIds.PivotFieldList, CalcCommandIds.PivotDelete,
+    ],
+    [CalcCommandIds.PivotValueSettings, CalcCommandIds.PivotFieldSettings, CalcCommandIds.PivotDetails, CalcCommandIds.PivotGroup, CalcCommandIds.PivotUngroup]);
+
     public static ContextMenu For(OfficeWindow window, HitKind kind) => kind switch
     {
         HitKind.RowHeader or HitKind.RowResize => OfficeCommandMenu.Create(window,

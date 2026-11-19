@@ -35,10 +35,12 @@ public partial class App : OfficeApplication
     public const string TableScene = "main-table";
     public const string FilterScene = "dialog-filter";
     public const string FunctionArgumentsScene = "dialog-function-arguments";
+    public const string PivotScene = "main-pivot";
+    public const string PivotDesignScene = "main-pivot-design";
 
     public override OfficeAppDefinition Definition => ThixCalcApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [FormulaScene, ViewScene, FindScene, FormatCellsScene, FunctionScene, FunctionArgumentsScene, PageSetupScene, PrintScene, ChartScene, ChartDesignScene, TableScene, FilterScene];
+    public override IReadOnlyList<string> SnapshotScenes => [FormulaScene, ViewScene, FindScene, FormatCellsScene, FunctionScene, FunctionArgumentsScene, PageSetupScene, PrintScene, ChartScene, ChartDesignScene, TableScene, FilterScene, PivotScene, PivotDesignScene];
 
     public override string SampleDocumentName => "Haushaltsbudget 2026";
 
@@ -61,6 +63,7 @@ public partial class App : OfficeApplication
         CalcPageCommands.Add(window);
         CalcChartCommands.Add(window);
         CalcTableCommands.Add(window);
+        CalcPivotCommands.Add(window);
         CalcEditCommands.Add(window);
     }
 
@@ -148,6 +151,15 @@ public partial class App : OfficeApplication
                 var arguments = FunctionArgumentsDialog.Create(editor.Session, vlookup, ["\"Miete\"", "A7:C13", "2", "FALSCH"]);
                 _ = arguments.ShowAsync(window);
                 return arguments;
+            case PivotScene or PivotDesignScene:
+                // The expenses of the half year as a PivotTable: groups and categories by month, the field list beside it.
+                _pivotSceneSheets = editor.Session.Workbook.Sheets.Count;
+                SampleWorkbook.AddPivot(editor.Session);
+                editor.ShowFieldList(true);
+                Dispatcher.UIThread.RunJobs();
+                window.Ribbon.SelectTab(name == PivotScene ? CalcEditor.PivotAnalyzeTab : CalcEditor.PivotDesignTab);
+                Dispatcher.UIThread.RunJobs();
+                return window;
             case PageSetupScene:
                 var setupDialog = PageSetupDialog.Create(editor);
                 _ = setupDialog.ShowAsync(window);
@@ -158,6 +170,7 @@ public partial class App : OfficeApplication
     }
 
     private int _tableSceneSteps;
+    private int _pivotSceneSheets;
 
     public override void EndSnapshotScene(OfficeWindow window, string name, TopLevel shown)
     {
@@ -196,6 +209,16 @@ public partial class App : OfficeApplication
             case TableScene:
                 window.Ribbon.SelectTab("home");
                 for (var step = 0; step < _tableSceneSteps; step++)
+                {
+                    editor.Session.Undo();
+                }
+
+                editor.Session.ActivateSheet(0);
+                editor.Session.Select(SampleWorkbook.StartCell);
+                break;
+            case PivotScene or PivotDesignScene:
+                window.Ribbon.SelectTab("home");
+                while (editor.Session.CanUndo && editor.Session.Workbook.Sheets.Count > _pivotSceneSheets)
                 {
                     editor.Session.Undo();
                 }

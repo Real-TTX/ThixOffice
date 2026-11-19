@@ -39,7 +39,14 @@ public sealed class PivotCache
     public int Id { get; }
 
     /// <summary>The source: a sheet and range ("Daten!A1:F500"), or a table by name (then the range is the table's).</summary>
-    public string SourceSheet { get; }
+    public string SourceSheet { get; private set; }
+
+    /// <summary>The source sheet was renamed (Workbook.RenameSheet; undo renames back the same way).</summary>
+    internal void RenameSource(string sheet)
+    {
+        SourceSheet = sheet;
+        IsAsRead = false;
+    }
 
     public CellRange SourceRange { get; }
 

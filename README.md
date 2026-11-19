@@ -117,6 +117,15 @@ Kommas als Trennzeichen werden beim Tippen verstanden. Das Raster scrollt pixelg
   Strukturierte Verweise wie in Excel: `=SUMME(Tabelle1[Umsatz])`, `[@Menge]*[@Preis]`, `Tabelle1[[#Kopfzeilen];[Name]]`,
   `#Ergebnisse`; Umbenennen von Tabelle oder Spalte ändert die Formeln mit. Karte **Tabellenentwurf** (Tabellenname, Tabellengröße
   ändern, In Bereich konvertieren, Tabellenformatoptionen, Tabellenformatvorlagen).
+- **PivotTables** (Einfügen › PivotTable): aus einem Bereich oder einer Tabelle, auf ein neues oder vorhandenes Blatt. Rechts die
+  Liste **PivotTable-Felder** wie in Excel: Felder ankreuzen (Zahlen landen in Werte, Texte in Zeilen), zwischen Filter, Spalten,
+  Zeilen und Werte ziehen oder über das Menü jedes Felds verschieben. Werte zusammenfassen nach Summe, Anzahl, Mittelwert, Max, Min,
+  Produkt, Anzahl Zahlen, StdAbw, Varianz; Werte anzeigen als % des Gesamt-, Zeilen- oder Spaltenergebnisses, Differenz, % Differenz,
+  laufende Summe; Datumswerte gruppieren nach Jahren, Quartalen, Monaten, Tagen, Zahlen in Bereichen; Filterpfeile mit Elementliste,
+  Beschriftungs- und Wertefilter (Top 10), Sortieren nach Beschriftung oder Wert; Kurz-, Gliederungs- und Tabellenformat,
+  Teil- und Gesamtergebnisse, Formatvorlagen. Doppelklick auf einen Wert zeigt die Datensätze dahinter, Aktualisieren (Alt+F5) liest
+  die Quelle neu, PIVOTDATENZUORDNEN liest Werte. Excel-PivotTables werden gelesen, berechnet, aktualisiert und unverändert gespeichert;
+  PivotTables mit berechneten Feldern oder OLAP-Quellen werden angezeigt und erhalten.
 - **Diagramme** (Einfügen › Diagramme): Säulen und Balken (gruppiert, gestapelt, 100 %), Linie (mit Datenpunkten, gestapelt), Kreis
   und Ring, Fläche (gestapelt), Punkt (XY, mit geraden oder interpolierten Linien) und Verbund (Säulen + Linie, auch auf der
   Sekundärachse). Die Reihen kommen wie in Excel aus der Markierung (Überschriften, Kategorien, Datumsachse) und folgen den Zellen

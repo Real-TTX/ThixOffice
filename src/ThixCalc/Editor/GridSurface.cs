@@ -593,6 +593,15 @@ internal sealed partial class GridSurface : Control, ITextField
             return;
         }
 
+        if (!editing.IsEditing && hit.Kind == HitKind.Cell && Session.ActiveSheet.PivotTables.Count > 0 && GridRenderer.PivotFilterFieldAt(Session.ActiveSheet, hit.Cell) is { } pivotFilter
+            && GridRenderer.FilterButtonRect(viewport, hit.Cell) is { } pivotButton && pivotButton.Contains(device.X, device.Y))
+        {
+            Session.Select(hit.Cell);
+            OpenPivotFilter(pivotFilter.Pivot, pivotFilter.Field);
+            e.Handled = true;
+            return;
+        }
+
         if (!editing.IsEditing && hit.Kind == HitKind.Cell && FilterColumnAt(viewport, hit.Cell, device) is { } filterColumn)
         {
             Session.Select(hit.Cell);
@@ -618,6 +627,16 @@ internal sealed partial class GridSurface : Control, ITextField
         {
             switch (hit.Kind)
             {
+                case HitKind.Cell when Session.ActiveSheet.PivotAt(hit.Cell.Row, hit.Cell.Column) is { } pivot:
+                    // A double click on a value shows its records (Details anzeigen); pivot cells are not edited in place.
+                    Session.Select(hit.Cell);
+                    if (Session.ActiveSheet.OutputOf(pivot)?.EntryAt(hit.Cell) is not null)
+                    {
+                        _ = _editor.RunAsync("Details anzeigen", () => Session.ShowPivotDetails(hit.Cell));
+                    }
+
+                    e.Handled = true;
+                    return;
                 case HitKind.Cell:
                     Session.Select(hit.Cell);
                     editing.Begin(EditStart.Edit, caretAt: point.Position);
@@ -691,6 +710,17 @@ internal sealed partial class GridSurface : Control, ITextField
 
     /// <summary>The list behind a filter arrow (the last one opened, for tests).</summary>
     internal FilterMenu? FilterMenu { get; private set; }
+
+    /// <summary>The list behind a PivotTable field's arrow (the last one opened, for tests).</summary>
+    internal PivotFilterMenu? PivotFilterMenu { get; private set; }
+
+    internal void OpenPivotFilter(Core.Model.Pivot.PivotTable pivot, int field)
+    {
+        var flyout = new Flyout { Placement = PlacementMode.Pointer };
+        PivotFilterMenu = new PivotFilterMenu(_editor, pivot, field, () => flyout.Hide());
+        flyout.Content = PivotFilterMenu;
+        flyout.ShowAt(this, showAtPointer: true);
+    }
 
     /// <summary>Opens the filter list of an autofilter column under the pointer.</summary>
     internal void OpenFilter(int columnOffset)

@@ -333,6 +333,13 @@ Formate, Sortieren/Filtern, Fixieren, bedingte Formatierung, Diagramme, xlsx/csv
   XMLFILTERN (offline), GESTUTZTBEREICH, PROZENTVON, INFO, BAHTTEXT, JIS/ASC; Eta-Lambdas (=NACHZEILE(A1:C3;SUMME), Datei
   `_xleta.SUM`), `@` als `_xlfn.SINGLE` in der Datei. **Unsicher** (deutsche Namen ohne Prüfung in einem deutschen Excel):
   GESTUTZTBEREICH (TRIMRANGE), UMBRUCHSPALTEN/-ZEILEN, ZUORDNEN (MAP), Argumentnamen von GRUPPIERENNACH/PIVOTMIT/REGEX….
+- **Stand PivotTables (2026-11-20): erledigt.** Core (Modell, Engine, EditingSession, xlsx), Feldliste, Karten PivotTable-Analyse und
+  Entwurf, Dialoge, Filterpfeile, Kontextmenü, Details anzeigen, PIVOTDATENZUORDNEN, Selbsttest. 100.000 Datensätze: Cache ≈ 95 ms,
+  Berechnung ≈ 50 ms. **Lücken:** berechnete Felder/Elemente und manuelle Gruppen (nur erhalten), OLAP/Datenmodell (nur erhalten),
+  Datenschnitte und Zeitachsen (erhalten), PivotCharts, Empfohlene PivotTables, Elementnamen wiederholen wird nicht in die Datei
+  geschrieben (x14), PivotTable-Formatvorlagen werden angenähert (Hell/Mittel in den Akzentfarben), Werte anzeigen als % des
+  übergeordneten Ergebnisses, Rang und Index fehlen, Ein-/Ausblenden einzelner Gruppen (+/−) fehlt, Excel-Kompatibilität der
+  geschriebenen Dateien ist mit dem Open-XML-Validator und einer Fixture in Excels Form geprüft, nicht mit Excel selbst.
 - **Lücken (wichtig für Excel-Umsteiger zuerst):** Blitzvorschau, Fenster teilen, Seitenumbruchvorschau.
 - **ods erledigt (2026-11-19):** OpenDocument-Tabelle lesen und schreiben ohne neue Abhängigkeit, auf den gemeinsamen ODF-Bausteinen
   in ThixOffice.Core/Formats/Odf (auch odt nutzt sie): Blätter (Reihenfolge, ausgeblendet, Registerfarbe, Schutz ohne Kennwort), Werte
