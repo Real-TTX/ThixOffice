@@ -112,6 +112,7 @@ public partial class App : OfficeApplication
                 editor.Session.Select(new CellAddress(16, 1));
                 editor.Session.ScrollTo(new CellAddress(12, 1));
                 editor.Surface.ResetSheet();
+                window.Ribbon.SelectTab("insert");
                 if (name == ChartDesignScene)
                 {
                     editor.Session.SelectChart(columns.Id);

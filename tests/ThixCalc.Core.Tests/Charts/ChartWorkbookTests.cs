@@ -199,6 +199,21 @@ public class ChartWorkbookTests
     }
 
     [Fact]
+    public void A_copied_sheet_brings_its_charts_showing_its_own_cells()
+    {
+        var (workbook, session) = Budget();
+        session.Select(CellRange.Parse("A1:C5"));
+        session.InsertChart(ChartTemplates.Find("column")!, Anchor);
+
+        var copy = session.CopySheet(0);
+
+        var chart = Assert.Single(copy.Charts);
+        Assert.All(ChartEdits.References(chart.Chart), formula => Assert.StartsWith("'Budget (2)'!", formula, StringComparison.Ordinal));
+        Assert.NotEqual(workbook["Budget"].Charts[0].Id, chart.Id);
+        XlsxTests.AssertValid(XlsxTests.Write(workbook));
+    }
+
+    [Fact]
     public void Charts_round_trip_through_xlsx_and_validate()
     {
         var (workbook, session) = Budget();

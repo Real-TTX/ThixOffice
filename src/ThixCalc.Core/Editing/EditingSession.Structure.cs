@@ -410,6 +410,10 @@ public sealed partial class EditingSession
 
             copy.View = source.View with { TabSelected = false };
             copy.TabColor = source.TabColor;
+
+            // Charts come along and show the copy's cells (Excel's way).
+            ChangeSheetState(copy, () => copy.Charts.AddRange(source.Charts.Select(chart => new SheetChart(Workbook.NextChartId(), chart.Anchor,
+                ThixOffice.Charts.ChartEdits.MapReferences(chart.Chart, formula => ChartReferences.Rename(formula, source.Name, copy.Name))) { Name = chart.Name })));
             Record(new ActionStep(() => { }, () => { }, structural: true));
         });
         return copy;

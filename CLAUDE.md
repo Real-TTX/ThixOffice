@@ -20,7 +20,7 @@ tab stops, the dialogs Schriftart/Absatz, format painter, symbols, HTML paste (s
 **Phase 2, ThixOffice side (done):** ThixCloud sign-in and documents in ThixDrive for every app (section "ThixCloud and ThixDrive").
 **Phase 3, first release of ThixCalc (done):** the grid, cell and formula editing, sheet tabs, the German Excel ribbon and dialogs,
 find/replace, clipboard, page setup, printing and PDF, CSV/xlsx/xlsm flows (section "ThixCalc's editor"; gaps in docs/PLAN.md).
-**Next:** ThixCalc charts; ThixWrite 1c (table of contents, footnotes, comments, spelling, odt). Do not build ribbon controls of your own.
+**ThixCalc charts (done):** the shared `ThixOffice.Charts` (section "Charts"). **Next:** ThixCalc tables; ThixWrite 1c (table of contents, footnotes, comments, spelling, odt). Do not build ribbon controls of your own.
 
 Stack: **.NET 10** (`global.json` 10.0.100, latestMinor), C#, **Avalonia 11.3.22** with **MatDesktop 0.3.1** (a copy), xunit +
 Avalonia.Headless. Reference apps (sibling folders): ThixCalendar (structure, setup, OTA), ThixNote (document app: file types,
@@ -94,8 +94,13 @@ src/ThixOffice.Desktop     shared Avalonia UI
   Controls/                ActionBar, IconLabel, InfoBar, FormErrors (from the reference apps), CloudSignInPanel, FindBarBase
                            (the Suchen/Ersetzen bar of every app), ITextField (a text field that is no TextBox keeps undo/copy keys)
 src/ThixOffice.Text        (no UI, no native code) ITextMeasurer, FontSpec/FontMetrics, ShapedText, FixedWidthTextMeasurer (tests),
-                           Drawing/ display lists (GlyphRunItem, RectangleItem, LineItem in points), Unicode/ LineBreaker (UAX 14),
+                           Drawing/ display lists (GlyphRunItem, RectangleItem, LineItem, PathItem, Transform/Clip begin-end, in points), Unicode/ LineBreaker (UAX 14),
                            TextBoundaries (graphemes, words)
+src/ThixOffice.Charts      (no UI) charts for every app (section "Charts"): Model/ (Chart, ChartPlot, ChartSeries, ChartAxis, ChartLegend,
+                           DataLabels, ChartColor + ChartColors (theme accents, colour sets), ChartTemplates (+ ChartFactory: Excel's
+                           new charts), ChartEdits (pure element changes)), Data/ (IChartDataSource, IChartValueFormatter,
+                           ChartDataResolver → ResolvedChart), Layout/ (AxisScaling, ChartRenderer → display items, ChartCanvas),
+                           Formats/ (ChartXml reads c:chartSpace, ChartXmlWriter writes it; unknown XML kept)
 src/ThixOffice.Text.Skia   SkiaTextMeasurer (SkiaSharp typefaces + HarfBuzz shaping, font fallback), SkiaPageRenderer (display list
                            → any SKCanvas), PdfExport (SKDocument.CreatePdf); SkiaSharp 2.88.9 / HarfBuzzSharp 8.3.1.1 = Avalonia's
 src/ThixCalc.Core          (no UI) ThixCalcApp.Definition (.xlsx default, .xlsm, .csv; .ods planned; cloud id calc); Model/ (Workbook, Worksheet,
@@ -105,11 +110,13 @@ src/ThixCalc.Core          (no UI) ThixCalcApp.Definition (.xlsx default, .xlsm,
                            Globalization/ (de-DE, en-US), Formats/ (xlsx with the Open XML SDK incl. page setup, csv with Detect, Html/
                            HtmlTables for the clipboard), Editing/ (EditingSession: every command undoable – input, array formulas,
                            styles, borders, AutoSumme, sort, filter, find, duplicates, text to columns, conditional presets, page setup,
-                           print area/titles), Layout/ (GridMetrics, SheetLayout.Viewport by pixels, GridRenderer, SelectionRenderer,
-                           SheetPagination), Documents/CalcDocument
+                           print area/titles, charts), Layout/ (GridMetrics, SheetLayout.Viewport by pixels, GridRenderer,
+                           SelectionRenderer, SheetPagination, ChartLayer), Charts/ (WorkbookChartSource, CalcChartFormatter,
+                           ChartSources: series from a range), Model/SheetCharts (ChartAnchor, SheetChart, ChartReferences),
+                           Formats/Xlsx/XlsxDrawings, Documents/CalcDocument
 src/ThixCalc               App, Program, CalcSelfTest, Editor/ (CalcEditor, GridSurface, FormulaTextBox + CellEditing, FormulaBar,
                            FormulaAssist, SheetTabBar, CalcFindBar, CalcClipboard, CalcCommands / CalcStyleCommands / CalcDataCommands /
-                           CalcPageCommands + CalcCommandIds, CalcRibbon, CalcContextMenus, GridPalette, CalcFonts, SampleWorkbook),
+                           CalcPageCommands / CalcChartCommands + CalcCommandIds, GridSurface.Charts, CalcRibbon, CalcContextMenus, GridPalette, CalcFonts, SampleWorkbook),
                            Dialogs/ (Zellen formatieren, Funktion einfügen, Sortieren, Datenüberprüfung, Text in Spalten, Duplikate,
                            Namens-Manager, Link, Notiz, bedingte Formatierung, Seite einrichten, Zoom, Zellen einfügen/löschen, Blatt
                            verschieben, Textimport), Pages/ (CalcPrintPage, CalcExportPage)
@@ -364,6 +371,25 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   `CsvImportDialog` (reads again, not dirty). `CalcEditor.ConfirmSaveAsync` asks before CSV drops sheets/formulas and before .xlsx drops
   macros; `OpeningWarning` names unsupported content and says that macros never run but stay.
 
+### Charts (shared: ThixOffice.Charts; ThixCalc's part)
+
+- **Shared API** (UI-free, depends on ThixOffice.Text only): a `Chart` record (plots → series with `ChartDataRef` = formula text +
+  cached values, axes, title, legend, colour set; `SourceXml` / `ShapeXml` / `ExtraXml` keep what the model does not own). Drawing:
+  `ChartDataResolver.Resolve(chart, IChartDataSource?)` (null = the file's caches: ThixShow/ThixWrite until they embed a workbook) →
+  `ChartRenderer.Render(resolved, new ChartRenderOptions { Measurer, Formatter, Accents, FontFamily, X, Y, Width, Height, Scale (target
+  units per point), PixelSize (a device pixel for hairline snapping, 0 for print/PDF) })` → display items for screen, PDF and print
+  alike. Files: `ChartXml.Read(xml)` / `ChartXmlWriter.Write(chart, source)` give the part's XML (a pptx/docx host manages only the part
+  and its graphicFrame). New charts: `ChartFactory.Create(ChartTemplates.Find(id), specs)`; edits: `ChartEdits` (each clears the edited
+  part's SourceXml). Unsupported types: `Chart.UnsupportedType` → a labelled frame, written back exactly. Tests live in
+  tests/ThixCalc.Core.Tests/Charts (layout determinism, axis tables, DrawingML round trips) and `ChartPictureTests`.
+- **ThixCalc:** `Worksheet.Charts` (`SheetChart`: id, two-cell `ChartAnchor` in points, chart, name; the loaded part) back to front; in the
+  undo snapshot (`SheetState`), rewritten with rows/columns (`ReferenceRewriter.RewriteCharts`), renamed with sheets (`Workbook.RenameSheet`),
+  copied by `CopySheet`. Session: `InsertChart`, `SelectedChart`/`SelectChart` (any cell selection clears it), `SetChartAnchor`,
+  `ChangeChart`, `ChangeChartType`, `SwitchRowColumn`, `SetChartData`, `OrderChart`, `DeleteChart`, `PasteChart`. `GridRenderer` draws
+  them over the cells through `ChartLayer` (printing and PDF get them; `SheetPagination.PrintedRange` covers them). xlsx: `XlsxDrawings`
+  (unchanged charts keep their parts; the drawing is rewritten only when charts changed; pictures and shapes in it stay). UI:
+  `GridSurface.Charts`, `CalcChartCommands` (context `chart`: tabs `chartDesign`, `chartFormat`), `Dialogs/ChartDialogs`.
+
 ### Adding a command to ThixCalc
 
 1. An id in `CalcCommandIds` (`calc.<name>`; menu entries `calc.<menu>.<entry>`; value commands note their value).
@@ -385,9 +411,11 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 
 - `dotnet build ThixOffice.slnx` – expected: 0 warnings, 0 errors. `dotnet test ThixOffice.slnx` – all green.
 - ThixCalc the same way: `dotnet run --project src/ThixCalc` (`THIXCALC_DATA_DIR`), snapshots `-- --snapshot <folder>` (scenes
-  `-main-formula`, `-main-view`, `-main-find`, `-dialog-format-cells`, `-dialog-function`, `-dialog-page-setup`, `-backstage-print` on the
-  budget sample `SampleWorkbook`), `THIXCALC_SCREENSHOTS=<folder> dotnet test tests/ThixCalc.Tests`; its trimmed publish (~46 MB) runs
-  `--self-test` (typed values and German formulas incl. SVERWEIS/SUMMEWENN, format, sort, xlsx round trip, a Skia frame, PDF, GDI print).
+  `-main-formula`, `-main-view`, `-main-find`, `-dialog-format-cells`, `-dialog-function`, `-dialog-page-setup`, `-backstage-print`,
+  `-main-chart`, `-main-chart-design` on the budget sample `SampleWorkbook`), `THIXCALC_SCREENSHOTS=<folder> dotnet test
+  tests/ThixCalc.Tests` (also every chart type into `<folder>/charts`: `ChartPictureTests`); its trimmed publish (~46 MB) runs
+  `--self-test` (typed values and German formulas incl. SVERWEIS/SUMMEWENN, format, sort, a chart through the ribbon command, xlsx round
+  trip with the chart, a Skia frame and a chart picture, the sample with its charts, PDF, GDI print).
 - Run: `dotnet run --project src/ThixWrite`; with `THIXWRITE_DATA_DIR=<folder>` an instance of its own (settings, recent list,
   recovery in that folder) that never meets the installed one. A development build never runs the setup.
 - **Snapshots:** `dotnet run --project src/ThixWrite -- --snapshot <folder>` draws every window headless in light and dark

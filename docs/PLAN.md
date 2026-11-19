@@ -231,11 +231,53 @@ Formate, Sortieren/Filtern, Fixieren, bedingte Formatierung, Diagramme, xlsx/csv
   (Alt+Pfeil unten), Notiz-Dreieck mit Anzeige beim Zeigen, Links per Strg+Klick; Drucken mit Vorschau (aktives Blatt, Mappe, Auswahl) und PDF; Hinweise bei CSV und Makros;
   ThixDrive über die Shell. Gemeinsam gemacht (ThixWrite nutzt sie mit): Skia-Zeichenoperation, Druck- und Exportseite,
   Dialograhmen, Suchleiste, Kontextmenüs aus Befehlen, Speichern-Rückfrage des Editors.
-- **Lücken (wichtig für Excel-Umsteiger zuerst):** Diagramme (werden erhalten, aber nicht angezeigt – nächster Schritt),
-  benutzerdefinierte Filter (Zahlen-/Textfilter; die Werteliste hinter den Filterpfeilen gibt es), Einfügen › Tabelle,
+- **Stand Diagramme (2026-11-19): erledigt.** Gemeinsame, UI-freie Komponente `ThixOffice.Charts` (Modell, Datenanbindung über
+  `IChartDataSource`, Layout und Zeichnen in die Display-Liste, DrawingML-Teile `c:chartSpace` lesen/schreiben) – ThixShow und
+  ThixWrite binden dieselben Diagramme später ein (Daten aus dem Cache oder einer eingebetteten Mappe). Typen: Säulen/Balken
+  (gruppiert, gestapelt, 100 %), Linie (mit Datenpunkten, gestapelt, geglättet beim Lesen), Kreis, Ring, Fläche (gestapelt), Punkt
+  (XY; Punkte, gerade oder interpolierte Linien), Verbund Säule + Linie (auch Sekundärachse). Titel, Achsentitel, Rubriken-, Wert- und
+  Datumsachse mit automatischer Skalierung wie Excel (Null als Start, 5 % Luft, Einheiten 1-2-5, Dichte nach Höhe), Zahlenformate
+  über ThixCalcs Formatierer (`IChartValueFormatter`), Gitternetzlinien, Legende (vier Seiten, umbrechend), Datenbeschriftungen ohne
+  Überlappung, Farben aus den Designfarben (Farbig 1–4, Einfarbig 1–6), Lückenbreite/Überlappung, ausgeblendete und leere Zellen.
+  In ThixCalc: Diagramme schweben verankert über den Zellen (wählen, verschieben, Größe mit Ziehpunkten, Pfeiltasten, Entf,
+  Kopieren/Einfügen, Ebenen), folgen eingefügten Zeilen, umbenannten und kopierten Blättern, Einfügen › Diagramme, Karten
+  Diagrammentwurf und Format, Dialoge Diagrammtyp ändern (mit Vorschau) und Datenquelle auswählen, alles rückgängig machbar; Druck
+  und PDF mit dem Blatt; xlsx-Rundreise mit Zeichnungsankern (unveränderte Diagramme bleiben Byte für Byte, Bilder/Formen in der
+  Zeichnung bleiben erhalten, nicht unterstützte Typen und Chartex werden als beschrifteter Rahmen gezeigt und unverändert gespeichert).
+  **Lücken:** „Empfohlene Diagramme“, Diagrammblätter (bleiben erhalten), einzelne Diagrammelemente anklicken und formatieren
+  (Formatbereich, Schriftarten, Füllungen je Reihe in der Oberfläche), logarithmische Achsen, Trendlinien und Fehlerindikatoren (nur
+  erhalten), mehrstufige Rubriken (gelesen und erhalten, nur innerste Stufe gezeigt), Diagrammformatvorlagen-Galerie (nur Farben).
+- **Lücken (wichtig für Excel-Umsteiger zuerst):** benutzerdefinierte Filter (Zahlen-/Textfilter; die Werteliste hinter den Filterpfeilen gibt es), Einfügen › Tabelle,
   Strg+Plus/Minus (Zellen einfügen/löschen), Dialog Inhalte einfügen (nur Menüeinträge), Reihe ausfüllen (Dialog), Blitzvorschau,
   „Alle suchen“, Fenster teilen, Seitenumbruchvorschau, Textrichtung/Drehung beim Zeichnen, Teilformatierung in einer Zelle, Rückgängig
   innerhalb der Zellbearbeitung, ods.
+
+### Icons für MatDesign
+
+Das Sprite gehört MatDesign; die MatDesktop-Kopie wird hier nie geändert. ThixCalc nutzt bis dahin Platzhalter. Diese Symbole
+fehlen (Name → wo, Platzhalter heute):
+
+| Fehlendes Symbol | Verwendet in ThixCalc | Platzhalter |
+| --- | --- | --- |
+| `function` (fx) | Formeln › Funktion einfügen (`calc.insertFunction`), Bearbeitungsleiste fx | `sum` bzw. Text „fx“ |
+| `thousands-separator` | Start › Zahl › 1.000er-Trennzeichen (`calc.thousands`) | `decimals-more` |
+| `conditional-formatting` | Start › Formatvorlagen › Bedingte Formatierung (`calc.cf`) | `palette` |
+| `text-to-columns` | Daten › Text in Spalten (`calc.data.textToColumns`) | `columns` |
+| `remove-duplicates` | Daten › Duplikate entfernen (`calc.data.removeDuplicates`) | `list-checks` |
+| `data-validation` | Daten › Datenüberprüfung (`calc.data.validation`) | `check-square` |
+| `group-rows` / `ungroup-rows` | Daten › Gruppieren / Gruppierung aufheben (`calc.data.group`, `calc.data.ungroup`) | `layers` |
+| `name-manager` | Formeln › Namens-Manager, Namen definieren (`calc.nameManager`, `calc.defineName`) | `tag` |
+| `freeze-top-row`, `freeze-first-column`, `unfreeze` | Ansicht › Fenster fixieren (Menü `calc.freeze.*`) | `freeze`, `x` |
+| `chart-area` | Einfügen › Diagramme › Fläche, Diagrammtyp ändern | `chart-line` |
+| `chart-scatter` | Einfügen › Diagramme › Punkt (XY) | `bar-chart` |
+| `chart-combo` | Einfügen › Diagramme › Verbund | `chart-column` |
+| `chart-doughnut` | Diagrammtyp ändern (Ring) | `chart-pie` |
+| `chart-elements` | Diagrammentwurf › Diagrammelement hinzufügen | `plus` |
+| `chart-type` | Diagrammentwurf › Diagrammtyp ändern | `chart-column` |
+| `switch-row-column` | Diagrammentwurf › Zeile/Spalte wechseln | `refresh` |
+| `select-data` | Diagrammentwurf › Daten auswählen | `table` |
+| `bring-forward`, `send-backward` | Format › Anordnen (vier Befehle) | `layers` |
+| `chart-legend`, `chart-gridlines`, `chart-axes`, `chart-data-labels` | Diagrammelement hinzufügen (Untermenüs) | `list`, `grid`, `chart-line`, `tag` |
 
 ### Phase 4 – ThixShow
 Folienmodell, Layouts/Designs, Formen/Text/Bilder/Tabellen, Folienübersicht, Übergänge/Animationen,

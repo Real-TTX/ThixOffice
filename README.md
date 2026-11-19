@@ -77,9 +77,18 @@ Namen: SUMME, SVERWEIS, SUMMEWENNS, XVERWEIS, WENNFEHLER, dynamische Arrays …)
 - **Drucken und PDF:** Seite einrichten (Papier, Hoch-/Querformat, Ränder, Skalierung oder „auf N × M Seiten“, Druckbereich,
   Wiederholungszeilen, Gitternetzlinien, Überschriften, Kopf- und Fußzeile mit Seitenzahl), Datei › Drucken mit Vorschau (aktives
   Blatt, ganze Mappe oder Auswahl), Datei › Exportieren als PDF.
+- **Diagramme** (Einfügen › Diagramme): Säulen und Balken (gruppiert, gestapelt, 100 %), Linie (mit Datenpunkten, gestapelt), Kreis
+  und Ring, Fläche (gestapelt), Punkt (XY, mit geraden oder interpolierten Linien) und Verbund (Säulen + Linie, auch auf der
+  Sekundärachse). Die Reihen kommen wie in Excel aus der Markierung (Überschriften, Kategorien, Datumsachse) und folgen den Zellen
+  live. Ein Klick wählt ein Diagramm (Rahmen mit Ziehpunkten): ziehen verschiebt, Ziehpunkte ändern die Größe, Pfeiltasten
+  verschieben fein, Entf löscht, Strg+C/V kopiert. Die Karten **Diagrammentwurf** (Diagrammelement hinzufügen: Titel, Achsen,
+  Achsentitel, Datenbeschriftungen, Gitternetzlinien, Legende; Farben ändern; Zeile/Spalte wechseln; Daten auswählen; Diagrammtyp
+  ändern mit Vorschau) und **Format** (Anordnen, Höhe/Breite). Diagramme werden gedruckt und als PDF exportiert, in .xlsx gelesen und
+  geschrieben; Diagrammtypen, die ThixCalc noch nicht zeichnet (3D, Netz, Kurs, Wasserfall …), bleiben erhalten und erscheinen als
+  beschrifteter Rahmen.
 - **Dateien:** Excel-Arbeitsmappen (.xlsx) sind Standard; .xlsm wird gelesen und mit Makros wieder geschrieben (Makros werden nie
   ausgeführt); CSV mit Erkennung von Trennzeichen und Zeichensatz (bei Zweifel fragt der Textimport) und einem Hinweis beim
-  Speichern, dass CSV nur die Werte des aktiven Blatts enthält. Was ThixCalc noch nicht zeigt (Diagramme, Bilder, Pivot-Tabellen …),
+  Speichern, dass CSV nur die Werte des aktiven Blatts enthält. Was ThixCalc noch nicht zeigt (Bilder, Formen, Pivot-Tabellen …),
   bleibt beim Speichern erhalten – ein Hinweis nennt es beim Öffnen.
 
 ![ThixCalc hell](docs/images/thixcalc-main-light.png)
@@ -93,8 +102,10 @@ Namen: SUMME, SVERWEIS, SUMMEWENNS, XVERWEIS, WENNFEHLER, dynamische Arrays …)
 | ![Funktion einfügen](docs/images/thixcalc-dialog-function-light.png) | ![Suchen](docs/images/thixcalc-main-find-light.png) |
 | **Datei › Drucken** (Strg+P) | **Seite einrichten** |
 | ![Drucken](docs/images/thixcalc-backstage-print-light.png) | ![Seite einrichten](docs/images/thixcalc-dialog-page-setup-light.png) |
-| **Formeln** | |
-| ![Formeln](docs/images/thixcalc-main-view-dark.png) | |
+| **Diagramme** (Einfügen) | **Diagrammentwurf** |
+| ![Diagramme](docs/images/thixcalc-main-chart-light.png) | ![Diagrammentwurf](docs/images/thixcalc-main-chart-design-light.png) |
+| **Formeln** | **Diagramme dunkel** |
+| ![Formeln](docs/images/thixcalc-main-view-dark.png) | ![Diagramme dunkel](docs/images/thixcalc-main-chart-dark.png) |
 
 ### Tastenkürzel in ThixCalc
 
@@ -122,6 +133,7 @@ Wie im deutschen Excel (unter macOS ⌘ statt Strg):
 | Strg+9, Strg+0 | Zeilen / Spalten ausblenden |
 | Strg+C/X/V, Strg+Umschalt+V, Strg+Z/Y, Strg+S, F12, Strg+P | Zwischenablage, Nur Text, Rückgängig/Wiederholen, Speichern, Speichern unter, Drucken |
 | Strg+Mausrad | Zoom |
+| Diagramm gewählt: Pfeile (Strg: weiter), Entf, Esc | verschieben, löschen, zurück zu den Zellen |
 
 ## ThixCloud und ThixDrive
 
