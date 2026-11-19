@@ -109,6 +109,7 @@ internal sealed class WorkbookSnapshot
         private readonly double _rowSize;
         private readonly double _columnSize;
         private readonly SheetView _view;
+        private readonly PageSetup _pageSetup;
 
         public SheetState(Worksheet sheet)
         {
@@ -126,10 +127,12 @@ internal sealed class WorkbookSnapshot
             _rowSize = sheet.Rows.DefaultSize;
             _columnSize = sheet.Columns.DefaultSize;
             _view = sheet.View;
+            _pageSetup = sheet.PageSetup;
         }
 
         public void Restore()
         {
+            _sheet.PageSetup = _pageSetup;
             _sheet.Merges.Replace(_merges);
             Replace(_sheet.ConditionalFormats, _formats);
             Replace(_sheet.Validations, _validations);

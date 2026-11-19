@@ -157,6 +157,14 @@ public sealed class Worksheet
     /// <summary>The sheet's protection (&lt;sheetProtection&gt; as XML), or null when the sheet is not protected.</summary>
     public string? ProtectionXml { get; set; }
 
+    /// <summary>Seitenlayout: paper, orientation, margins, scaling, grid lines/headings on paper, header and footer.</summary>
+    public PageSetup PageSetup { get; set; } = PageSetup.Default;
+
+    /// <summary>The original &lt;pageSetup&gt; and &lt;headerFooter&gt; (attributes the model does not own are written back).</summary>
+    internal string? PageSetupXml { get; set; }
+
+    internal string? HeaderFooterXml { get; set; }
+
     internal CellStore Store { get; } = new();
 
     /// <summary>The worksheet elements the model does not own (drawing, pageSetup, tableParts, extLst …) as XML, by element name.</summary>

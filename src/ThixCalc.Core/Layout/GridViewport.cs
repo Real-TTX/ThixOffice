@@ -339,6 +339,15 @@ public sealed class GridViewport
 
     public IEnumerable<AxisSegment> AllColumns => FrozenColumns.Concat(Columns);
 
+    /// <summary>Rows below this index are the fixed rows of the viewport (-1: the sheet view's frozen rows; a printed page: its title rows).</summary>
+    public int FrozenRowLimit { get; init; } = -1;
+
+    /// <summary>Pixels the fixed rows are moved up (a printed page whose title rows do not start at row 1).</summary>
+    public double FrozenRowShift { get; init; }
+
+    /// <summary>Columns below this index are fixed (-1: the sheet view's frozen columns).</summary>
+    public int FrozenColumnLimit { get; init; } = -1;
+
     /// <summary>The y where the scrolling pane starts (below headers and frozen rows).</summary>
     public double ScrollTop { get; init; }
 
@@ -381,11 +390,11 @@ public sealed class GridViewport
     /// <summary>The screen y of a row's top (frozen rows fixed, scrolling ones shifted).</summary>
     public double RowY(int row)
     {
-        var frozen = Layout.Sheet.View.FrozenRows;
+        var frozen = FrozenRowLimit >= 0 ? FrozenRowLimit : Layout.Sheet.View.FrozenRows;
         var zoom = Zoom;
         if (row < frozen)
         {
-            return HeaderHeight + Layout.RowTop(row, zoom);
+            return HeaderHeight + Layout.RowTop(row, zoom) - FrozenRowShift;
         }
 
         return Layout.RowTop(row, zoom) - RowOrigin;
@@ -393,7 +402,7 @@ public sealed class GridViewport
 
     public double ColumnX(int column)
     {
-        var frozen = Layout.Sheet.View.FrozenColumns;
+        var frozen = FrozenColumnLimit >= 0 ? FrozenColumnLimit : Layout.Sheet.View.FrozenColumns;
         if (column < frozen)
         {
             return HeaderWidth + Layout.ColumnLeft(column, Zoom);

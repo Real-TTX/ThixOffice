@@ -92,6 +92,9 @@ internal static class XlsxSheetWriter
                     case "hyperlinks" when sheet.Hyperlinks.Count > 0:
                         WriteHyperlinks(writer, sheet, hyperlinkIds);
                         break;
+                    case "printOptions" or "pageMargins" or "pageSetup" or "headerFooter":
+                        WritePageSetup(writer, sheet, name);
+                        break;
                     case "legacyDrawing" when legacyDrawingId is not null:
                         writer.WriteStartElement("legacyDrawing", XlsxNamespaces.Main);
                         writer.WriteAttributeString("r", "id", XlsxNamespaces.Relationships, legacyDrawingId);
@@ -148,21 +151,92 @@ internal static class XlsxSheetWriter
         }
     }
 
+    /// <summary>Seitenlayout: the four elements from the model; attributes of pageSetup / headerFooter it does not own stay as read.</summary>
+    private static void WritePageSetup(XmlWriter writer, Worksheet sheet, string name)
+    {
+        var setup = sheet.PageSetup;
+        string Number(double value) => value.ToString("R", CultureInfo.InvariantCulture);
+        switch (name)
+        {
+            case "printOptions" when setup.PrintGridLines || setup.PrintHeadings || setup.CenterHorizontally || setup.CenterVertically:
+                writer.WriteStartElement("printOptions", XlsxNamespaces.Main);
+                XlsxFeatures.WriteFlag(writer, "horizontalCentered", setup.CenterHorizontally);
+                XlsxFeatures.WriteFlag(writer, "verticalCentered", setup.CenterVertically);
+                XlsxFeatures.WriteFlag(writer, "headings", setup.PrintHeadings);
+                XlsxFeatures.WriteFlag(writer, "gridLines", setup.PrintGridLines);
+                writer.WriteEndElement();
+                break;
+            case "pageMargins":
+                writer.WriteStartElement("pageMargins", XlsxNamespaces.Main);
+                writer.WriteAttributeString("left", Number(setup.LeftMargin));
+                writer.WriteAttributeString("right", Number(setup.RightMargin));
+                writer.WriteAttributeString("top", Number(setup.TopMargin));
+                writer.WriteAttributeString("bottom", Number(setup.BottomMargin));
+                writer.WriteAttributeString("header", Number(setup.HeaderMargin));
+                writer.WriteAttributeString("footer", Number(setup.FooterMargin));
+                writer.WriteEndElement();
+                break;
+            case "pageSetup" when sheet.PageSetupXml is not null || setup with { LeftMargin = 0.7, RightMargin = 0.7, TopMargin = 0.75, BottomMargin = 0.75, HeaderMargin = 0.3, FooterMargin = 0.3, PrintGridLines = false, PrintHeadings = false, CenterHorizontally = false, CenterVertically = false, Header = null, Footer = null } != PageSetup.Default:
+                var element = sheet.PageSetupXml is { } xml ? ParsePageSetup(xml) : new X.PageSetup();
+                element.PaperSize = (uint)setup.PaperSize;
+                element.Orientation = setup.Landscape ? X.OrientationValues.Landscape : X.OrientationValues.Portrait;
+                element.Scale = setup.Scale == 100 ? null : (uint)Math.Clamp(setup.Scale, 10, 400);
+                element.FitToWidth = setup.FitToWidth == 1 ? null : (uint)Math.Max(0, setup.FitToWidth);
+                element.FitToHeight = setup.FitToHeight == 1 ? null : (uint)Math.Max(0, setup.FitToHeight);
+                element.PageOrder = setup.OverThenDown ? X.PageOrderValues.OverThenDown : null;
+                element.UseFirstPageNumber = setup.FirstPageNumber is null ? null : true;
+                element.FirstPageNumber = setup.FirstPageNumber is { } first ? (uint)first : null;
+                writer.WriteRaw(element.OuterXml);
+                break;
+            case "headerFooter" when sheet.HeaderFooterXml is not null || setup.Header is not null || setup.Footer is not null:
+                var headerFooter = sheet.HeaderFooterXml is { } original ? new X.HeaderFooter(original) : new X.HeaderFooter();
+                headerFooter.OddHeader = setup.Header is { Length: > 0 } header ? new X.OddHeader(header) : null;
+                headerFooter.OddFooter = setup.Footer is { Length: > 0 } footer ? new X.OddFooter(footer) : null;
+                if (headerFooter.HasChildren || headerFooter.HasAttributes)
+                {
+                    writer.WriteRaw(headerFooter.OuterXml);
+                }
+
+                break;
+        }
+    }
+
     private static void WriteSheetProperties(XmlWriter writer, Worksheet sheet)
     {
         if (sheet.SheetPropertiesXml is { } xml)
         {
             var properties = new X.SheetProperties(xml);
             properties.TabColor = sheet.TabColor is { } color ? XlsxStyles.WriteColor<X.TabColor>(color) : null;
+            ApplyFitToPage(properties, sheet);
             writer.WriteRaw(properties.OuterXml);
             return;
         }
 
-        if (sheet.TabColor is { } tab)
+        if (sheet.TabColor is not null || sheet.PageSetup.FitToPage)
         {
-            writer.WriteStartElement("sheetPr", XlsxNamespaces.Main);
-            XlsxFeatures.WriteColor(writer, "tabColor", tab);
-            writer.WriteEndElement();
+            var created = new X.SheetProperties { TabColor = sheet.TabColor is { } tab ? XlsxStyles.WriteColor<X.TabColor>(tab) : null };
+            ApplyFitToPage(created, sheet);
+            writer.WriteRaw(created.OuterXml);
+        }
+    }
+
+    private static X.PageSetup ParsePageSetup(string xml)
+    {
+        var holder = new X.Worksheet { InnerXml = xml };
+        return holder.GetFirstChild<X.PageSetup>() is { } parsed ? (X.PageSetup)parsed.CloneNode(true) : new X.PageSetup();
+    }
+
+    /// <summary>sheetPr/pageSetUpPr fitToPage follows the model (Seitenlayout › An Format anpassen).</summary>
+    private static void ApplyFitToPage(X.SheetProperties properties, Worksheet sheet)
+    {
+        if (sheet.PageSetup.FitToPage)
+        {
+            properties.PageSetupProperties ??= new X.PageSetupProperties();
+            properties.PageSetupProperties.FitToPage = true;
+        }
+        else if (properties.PageSetupProperties is { } existing)
+        {
+            existing.FitToPage = null;
         }
     }
 

@@ -57,6 +57,9 @@ public sealed record GridRenderOptions
     public IReadOnlyList<CellRange> Selection { get; init; } = [];
 
     public bool DrawHeaders { get; init; } = true;
+
+    /// <summary>Grid lines on or off (null: the sheet view's setting; printing passes the page setup's).</summary>
+    public bool? GridLines { get; init; }
 }
 
 /// <summary>
@@ -208,7 +211,7 @@ public static class GridRenderer
         var paneRect = new PixelRect(columns[0].Start, rows[0].Start, columns[^1].End - columns[0].Start, rows[^1].End - rows[0].Start);
 
         // Grid lines.
-        if (sheet.View.ShowGridLines)
+        if (options.GridLines ?? sheet.View.ShowGridLines)
         {
             foreach (var row in rows)
             {
@@ -394,7 +397,7 @@ public static class GridRenderer
         items.Add(ClipEndItem.Instance);
     }
 
-    private static void AddRun(List<DisplayItem> items, double x, double baseline, ShapedText shaped, RgbColor color)
+    internal static void AddRun(List<DisplayItem> items, double x, double baseline, ShapedText shaped, RgbColor color)
     {
         var characterX = new double[shaped.Text.Length];
         var position = 0.0;

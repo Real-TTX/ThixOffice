@@ -15,7 +15,8 @@ internal static class XlsxSheetReader
     internal static readonly HashSet<string> OwnedElements =
     [
         "sheetPr", "dimension", "sheetViews", "sheetFormatPr", "cols", "sheetData", "sheetProtection", "autoFilter", "sortState",
-        "mergeCells", "conditionalFormatting", "dataValidations", "hyperlinks", "legacyDrawing", "tableParts",
+        "mergeCells", "conditionalFormatting", "dataValidations", "hyperlinks", "legacyDrawing", "tableParts", "printOptions", "pageMargins",
+        "pageSetup", "headerFooter",
     ];
 
     public static void Read(Worksheet sheet, WorksheetPart part, ReadContext context)
@@ -255,6 +256,48 @@ internal static class XlsxSheetReader
             case X.SheetProperties properties:
                 sheet.TabColor = XlsxStyles.ReadColor(properties.TabColor);
                 sheet.SheetPropertiesXml = properties.OuterXml;
+                if (properties.PageSetupProperties?.FitToPage?.Value == true)
+                {
+                    sheet.PageSetup = sheet.PageSetup with { FitToPage = true };
+                }
+
+                break;
+            case X.PrintOptions options:
+                sheet.PageSetup = sheet.PageSetup with
+                {
+                    PrintGridLines = options.GridLines?.Value == true,
+                    PrintHeadings = options.Headings?.Value == true,
+                    CenterHorizontally = options.HorizontalCentered?.Value == true,
+                    CenterVertically = options.VerticalCentered?.Value == true,
+                };
+                break;
+            case X.PageMargins margins:
+                sheet.PageSetup = sheet.PageSetup with
+                {
+                    LeftMargin = margins.Left?.Value ?? 0.7,
+                    RightMargin = margins.Right?.Value ?? 0.7,
+                    TopMargin = margins.Top?.Value ?? 0.75,
+                    BottomMargin = margins.Bottom?.Value ?? 0.75,
+                    HeaderMargin = margins.Header?.Value ?? 0.3,
+                    FooterMargin = margins.Footer?.Value ?? 0.3,
+                };
+                break;
+            case X.PageSetup setup:
+                sheet.PageSetupXml = setup.OuterXml;
+                sheet.PageSetup = sheet.PageSetup with
+                {
+                    PaperSize = (int)(setup.PaperSize?.Value ?? 9),
+                    Landscape = setup.Orientation?.Value == X.OrientationValues.Landscape,
+                    Scale = (int)(setup.Scale?.Value ?? 100),
+                    FitToWidth = (int)(setup.FitToWidth?.Value ?? 1),
+                    FitToHeight = (int)(setup.FitToHeight?.Value ?? 1),
+                    OverThenDown = setup.PageOrder?.Value == X.PageOrderValues.OverThenDown,
+                    FirstPageNumber = setup.UseFirstPageNumber?.Value == true ? (int?)setup.FirstPageNumber?.Value : null,
+                };
+                break;
+            case X.HeaderFooter headerFooter:
+                sheet.HeaderFooterXml = headerFooter.OuterXml;
+                sheet.PageSetup = sheet.PageSetup with { Header = headerFooter.OddHeader?.Text, Footer = headerFooter.OddFooter?.Text };
                 break;
             case X.SheetDimension:
                 break;
