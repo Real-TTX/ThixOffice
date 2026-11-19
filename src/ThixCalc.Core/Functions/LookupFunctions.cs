@@ -105,6 +105,7 @@ internal static class LookupFunctions
         r.Add("ADDRESS", 2, 5, Address);
         r.Add("TRANSPOSE", 1, 1, call => call.Array(0).Transpose(), [ArgumentKind.Array]);
         r.Add("FORMULATEXT", 1, 1, FormulaText, [ArgumentKind.Reference]);
+        r.Add("ANCHORARRAY", 1, 1, AnchorArray, [ArgumentKind.Reference], returnsReference: true, array: true);
         r.Add("HYPERLINK", 1, 2, call => call.Has(1) ? call.Value(1) : call.Value(0));
     }
 
@@ -668,6 +669,27 @@ internal static class LookupFunctions
         }
 
         return text;
+    }
+
+    /// <summary>A1#: the range the dynamic array anchored in A1 spills into.</summary>
+    private static Operand AnchorArray(FunctionCall call)
+    {
+        var reference = call.Reference(0) ?? throw new CalcErrorException(CellError.Value);
+        var area = reference.First;
+        var row = area.Range.FirstRow;
+        var column = area.Range.FirstColumn;
+        var value = call.Context.Engine.GetValue(area.Sheet, row, column);
+        if (area.Sheet.GetFormulaCell(row, column) is not { } anchor)
+        {
+            return CellError.Reference;
+        }
+
+        if (anchor.SpillRange is { } spill)
+        {
+            return new ReferenceValue(area.Sheet, spill);
+        }
+
+        return value.IsError ? value : new ReferenceValue(area.Sheet, CellRange.Cell(row, column));
     }
 
     private static Operand FormulaText(FunctionCall call)

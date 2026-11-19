@@ -200,4 +200,21 @@ public class XlsxFixtureTests
         Assert.Equal("'Basis Daten'!B2+1", FormulaFormatter.Format(reread["Bericht"].GetFormula(0, 0)!, reread, default));
         Assert.Equal(11, reread["Bericht"]["A1"].Number);
     }
+[Fact]
+    public void Inserted_rows_move_tables_and_structured_references_evaluate()
+    {
+        var workbook = XlsxTests.Read(ExcelLikeWorkbook());
+        var session = new ThixCalc.Core.Editing.EditingSession(workbook);
+        var sheet = workbook["Übersicht"];
+        TestBooks.Set(sheet, "H1", "=SUM(Tabelle1[Wert])");
+        workbook.Calculation.Recalculate();
+        Assert.Equal(15, sheet["H1"].Number);
+        session.InsertRows(0, 2);
+        Assert.Equal(CellRange.Parse("A3:B5"), sheet.Tables[0].Range);
+        Assert.Equal(15, sheet["H3"].Number);
+        var bytes = XlsxTests.Write(workbook);
+        XlsxTests.AssertValid(bytes);
+        using var package = SpreadsheetDocument.Open(new MemoryStream(bytes), false);
+        Assert.Equal("A3:B5", package.WorkbookPart!.WorksheetParts.Single().TableDefinitionParts.Single().Table!.Reference!.Value);
+    }
 }

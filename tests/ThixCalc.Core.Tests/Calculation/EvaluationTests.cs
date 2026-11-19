@@ -116,6 +116,22 @@ public class EvaluationTests
     }
 
     [Fact]
+    public void The_spill_operator_follows_the_array()
+    {
+        var workbook = Create();
+        var sheet = workbook.Sheets[0];
+        Fill(sheet, ("A1", 3), ("B1", "=SEQUENCE(A1)"), ("C1", "=SUM(B1#)"), ("D1", "=ROWS(B1#)"));
+        workbook.Calculation.Recalculate();
+        Assert.Equal(6, sheet["C1"].Number);
+        Set(sheet, "A1", 5);
+        workbook.Calculation.Recalculate();
+        Assert.Equal(15, sheet["C1"].Number);
+        Assert.Equal(5, sheet["D1"].Number);
+        Assert.Equal("SUM(B1#)", ThixCalc.Core.Formulas.FormulaFormatter.Format(sheet.GetFormula(0, 2)!, workbook, new CellAddress(0, 2)));
+        Assert.Equal("SUM(_xlfn.ANCHORARRAY(B1))", ThixCalc.Core.Formulas.FormulaFormatter.Format(sheet.GetFormula(0, 2)!, workbook, new CellAddress(0, 2), ThixCalc.Core.Formulas.FormulaSyntax.FileFormat));
+    }
+
+    [Fact]
     public void Shrinking_spills_clear_their_old_cells()
     {
         var workbook = Create();

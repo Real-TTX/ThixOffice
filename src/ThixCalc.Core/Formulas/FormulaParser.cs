@@ -287,15 +287,27 @@ public sealed class FormulaParser
 
     private FormulaNode ParseRange()
     {
-        var left = ParsePrimary();
+        var left = SpillOperator(ParsePrimary());
         while (Peek() == ':')
         {
             _position++;
-            var right = ParsePrimary();
+            var right = SpillOperator(ParsePrimary());
             left = CombineRange(left, right);
         }
 
         return left;
+    }
+
+    /// <summary>The spill range operator: A1# is ANCHORARRAY(A1) (as the file format stores it).</summary>
+    private FormulaNode SpillOperator(FormulaNode node)
+    {
+        if (node is ReferenceNode { Area.Kind: AreaKind.Cell } && Peek() == '#' && FunctionRegistry.Find("ANCHORARRAY") is { } anchor)
+        {
+            _position++;
+            return new FunctionNode(anchor.Name, anchor, [node]);
+        }
+
+        return node;
     }
 
     /// <summary>A1:B3 becomes one area reference; anything else (A1:INDEX(…)) stays a range operation.</summary>

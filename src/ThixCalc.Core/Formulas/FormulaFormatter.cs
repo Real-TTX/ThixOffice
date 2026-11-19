@@ -214,6 +214,13 @@ public static class FormulaFormatter
 
         private void WriteFunction(FunctionNode function)
         {
+            if (!syntax.IsFileFormat && function.Function?.Name == "ANCHORARRAY" && function.Arguments is [ReferenceNode anchor])
+            {
+                Write(anchor, 12);
+                _builder.Append('#');
+                return;
+            }
+
             if (function.Callee is not null)
             {
                 Write(function.Callee, 12);
