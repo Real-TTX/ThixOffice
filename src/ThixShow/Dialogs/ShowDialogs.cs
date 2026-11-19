@@ -4,6 +4,7 @@ using ThixOffice.Core.Business;
 using ThixOffice.Core.Models;
 using ThixOffice.Desktop.Dialogs;
 using ThixOffice.Desktop.Shell;
+using ThixShow.Core.Editing;
 using ThixShow.Core.Model;
 using ThixShow.Editor;
 
@@ -130,5 +131,74 @@ internal static class SectionDialogs
         {
             await editor.RunAsync("Abschnitt umbenennen", () => editor.Session.RenameSection(section.Id, name.Trim()));
         }
+    }
+}
+
+/// <summary>
+/// Kopf- und Fußzeile (Einfügen): Datum und Uhrzeit (automatisch aktualisieren or fest), Foliennummer, Fußzeile with its text, Auf
+/// Titelfolie nicht anzeigen; Übernehmen gives it to the selected slides, or – with "Für alle Folien" – to every slide.
+/// </summary>
+public sealed class HeaderFooterDialog : OfficeDialog
+{
+    private readonly ShowEditor _editor;
+
+    public HeaderFooterDialog(ShowEditor editor, bool date = false, bool slideNumber = false)
+        : base("Kopf- und Fußzeile", 480)
+    {
+        _editor = editor;
+        var current = editor.Session.CurrentSlide is { } slide ? editor.Session.HeaderFooterOf(slide) : new HeaderFooterSettings();
+        Date = new CheckBox { Content = "Datum und Uhrzeit", IsChecked = current.Date || date };
+        Automatic = new RadioButton { Content = "Automatisch aktualisieren", GroupName = "date", IsChecked = current.DateAutomatic, Margin = new Avalonia.Thickness(26, 0, 0, 0) };
+        Fixed = new RadioButton { Content = "Fest", GroupName = "date", IsChecked = !current.DateAutomatic, Margin = new Avalonia.Thickness(26, 0, 0, 0) };
+        FixedDate = new TextBox { Text = current.FixedDate.Length > 0 ? current.FixedDate : DateTime.Now.ToString("dd.MM.yyyy", System.Globalization.CultureInfo.GetCultureInfo("de-DE")), Margin = new Avalonia.Thickness(52, 0, 0, 0) };
+        SlideNumber = new CheckBox { Content = "Foliennummer", IsChecked = current.SlideNumber || slideNumber };
+        Footer = new CheckBox { Content = "Fußzeile", IsChecked = current.Footer };
+        FooterText = new TextBox { Text = current.FooterText, Margin = new Avalonia.Thickness(26, 0, 0, 0) };
+        NotOnTitle = new CheckBox { Content = "Auf Titelfolie nicht anzeigen", IsChecked = current.NotOnTitleSlide };
+        ForAll = new CheckBox { Content = "Für alle Folien übernehmen", IsChecked = true };
+        AutomationProperties.SetName(FixedDate, "Festes Datum");
+        AutomationProperties.SetName(FooterText, "Text der Fußzeile");
+        OkButton.Content = new ThixOffice.Desktop.Controls.IconLabel { Icon = "check", Text = "Übernehmen" };
+        SetBody(new StackPanel
+        {
+            Spacing = 8,
+            Children = { Date, Automatic, Fixed, FixedDate, SlideNumber, Footer, FooterText, new Separator(), NotOnTitle, ForAll },
+        });
+    }
+
+    public CheckBox Date { get; }
+
+    public RadioButton Automatic { get; }
+
+    public RadioButton Fixed { get; }
+
+    public TextBox FixedDate { get; }
+
+    public CheckBox SlideNumber { get; }
+
+    public CheckBox Footer { get; }
+
+    public TextBox FooterText { get; }
+
+    public CheckBox NotOnTitle { get; }
+
+    public CheckBox ForAll { get; }
+
+    public static Task<bool> ShowAsync(Window owner, ShowEditor editor, bool date = false, bool slideNumber = false) =>
+        new HeaderFooterDialog(editor, date, slideNumber).ShowAsync(owner);
+
+    protected override bool Apply()
+    {
+        var settings = new HeaderFooterSettings(
+            Date: Date.IsChecked == true,
+            DateAutomatic: Automatic.IsChecked == true,
+            FixedDate: FixedDate.Text ?? "",
+            SlideNumber: SlideNumber.IsChecked == true,
+            Footer: Footer.IsChecked == true,
+            FooterText: FooterText.Text ?? "",
+            NotOnTitleSlide: NotOnTitle.IsChecked == true);
+        var slides = ForAll.IsChecked == true ? [.. _editor.Session.Presentation.Slides.Select(slide => slide.Id)] : _editor.SelectedSlideIds;
+        _ = _editor.RunAsync("Kopf- und Fußzeile", () => _editor.Session.SetHeaderFooter(settings, slides));
+        return true;
     }
 }

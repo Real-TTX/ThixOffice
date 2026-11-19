@@ -118,7 +118,11 @@ public static class ShowRibbon
             new MatRibbonGroup("links", "Links") { Icon = "link" }.Add(
                 Button(ShowCommandIds.InsertLink, MatRibbonSize.Large)),
             new MatRibbonGroup("text", "Text") { Icon = "text-box" }.Add(
-                Button(ShowCommandIds.TextBox, MatRibbonSize.Large)),
+                Button(ShowCommandIds.TextBox, MatRibbonSize.Large),
+                Button(ShowCommandIds.HeaderFooter, MatRibbonSize.Large),
+                new MatRibbonStack("text-fields",
+                    Button(ShowCommandIds.InsertDate),
+                    Button(ShowCommandIds.InsertSlideNumber))),
             new MatRibbonGroup("symbols", "Symbole") { Icon = "symbol" }.Add(
                 new MatRibbonMenuButton(ShowCommandIds.InsertSymbol, "", menu: [.. Enumerable.Range(0, ShowDrawingCommands.Symbols.Count).Select(index => Button($"{ShowCommandIds.InsertSymbol}.{index}"))]) { Size = MatRibbonSize.Large }));
 

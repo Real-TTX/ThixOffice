@@ -86,6 +86,19 @@ internal static class ShowDrawingCommands
             Icon = "link", Shortcut = "Ctrl+K", CanExecute = () => editorOf()?.Session.Selection.Text is { IsCollapsed: false },
             Description = "Macht den markierten Text zu einem Link auf eine Webseite oder E-Mail-Adresse.",
         });
+        foreach (var (id, label, icon, date, number, description) in new (string, string, string, bool, bool, string)[]
+                 {
+                     (ShowCommandIds.HeaderFooter, "Kopf- und Fußzeile", "footer", false, false, "Datum, Foliennummer und Fußzeile auf den Folien."),
+                     (ShowCommandIds.InsertDate, "Datum und Uhrzeit", "calendar", true, false, "Zeigt das Datum unten auf den Folien (automatisch aktualisiert oder fest)."),
+                     (ShowCommandIds.InsertSlideNumber, "Foliennummer", "page-number", false, true, "Nummeriert die Folien unten rechts."),
+                 })
+        {
+            commands.Add(new OfficeCommand(id, label, () => editorOf() is { } editor ? HeaderFooterDialog.ShowAsync(window, editor, date, number) : Task.CompletedTask)
+            {
+                Icon = icon, CanExecute = HasSlide, Description = description, Keywords = ["fußzeile", "seitenzahl", "datum"],
+            });
+        }
+
         commands.Add(new OfficeCommand(ShowCommandIds.InsertSymbol, "Symbol", () => Task.CompletedTask)
         {
             Icon = "symbol", CanExecute = () => editorOf()?.Session.Selection.Text is not null, IsSearchable = false,

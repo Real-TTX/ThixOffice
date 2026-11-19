@@ -328,6 +328,9 @@ Präsentations- und Referentenansicht, pptx, danach odp.
   Layout, Diagrammentwurf; Bildschirmpräsentation im Vollbild (60 fps nur bei Bewegung) mit Referentenansicht auf dem zweiten
   Bildschirm; Drucken (Folien, Notizenseiten, Handzettel 1–9, Graustufen) und PDF; pptx/pptm mit Makro-Frage; Selbsttest, Bilder,
   UI-Tests; 200 Folien: Folienwechsel ≈ 9 ms, Miniaturen-Scrollen ≈ 5 ms je Schritt.
+  Nachgezogen (2026-11-20): Datei › Exportieren als Bild (PNG/JPEG, alle Folien oder die aktuelle, 1280/1920/3840 Pixel),
+  Kopf- und Fußzeile mit Datum (automatisch oder fest), Foliennummer, Fußzeile, „Auf Titelfolie nicht anzeigen“ (Felder bleiben in
+  pptx), Tests der Abläufe Wiederherstellen und ThixDrive.
   Kern-Lücken geschlossen: Diagramme behalten beim Kopieren zwischen Präsentationen ihre Daten, „Passend skalieren“ verkleinert die
   Schrift mit (`TextScaling`); offen bleibt: Absatz-Animationen bewegen die ganze Form.
   In die gemeinsamen Projekte gehoben: `SelectionHandles` (Ziehpunkte von ThixWrite-Bildern, ThixCalc-Diagrammen, ThixShow-Formen),

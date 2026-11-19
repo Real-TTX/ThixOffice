@@ -168,7 +168,7 @@ darunter die Notizen, unten die Statusleiste mit „Folie 3 von 12“, Notizen, 
 - **Einfügen:** Formen aus der Galerie (Linien, Rechtecke, Standardformen, Blockpfeile, Formelformen, Flussdiagramm, Sterne und Banner,
   Legenden – auswählen und auf der Folie aufziehen), Textfelder, Bilder (Datei, Zwischenablage, auf die Folie ziehen), Tabellen (Raster),
   **Diagramme** (Säule, Balken, Linie, Kreis, Ring, Fläche, Punkt, Verbund – mit Beispieldaten, die „Daten bearbeiten“ als kleine
-  Tabelle ändert; Diagramme aus PowerPoint-Dateien werden gezeichnet und bleiben unverändert erhalten), Links, Symbole.
+  Tabelle ändert; Diagramme aus PowerPoint-Dateien werden gezeichnet und bleiben unverändert erhalten), Links, Symbole, **Kopf- und Fußzeile** (Datum automatisch oder fest, Foliennummer, Fußzeilentext, nicht auf der Titelfolie).
 - **Menüband wie im deutschen PowerPoint:** Start (Zwischenablage, Folien, Schriftart, Absatz, Zeichnen mit Anordnen,
   Schnellformatvorlagen, Fülleffekt, Formkontur, Schatten; Suchen, Ersetzen, Markieren), Einfügen, **Entwurf** (sechs Designs mit
   ihren Farben, Foliengröße 4:3/16:9/benutzerdefiniert mit „Passend skalieren“ oder „Maximieren“, Hintergrund), **Übergänge**
@@ -183,7 +183,8 @@ darunter die Notizen, unten die Statusleiste mit „Folie 3 von 12“, Notizen, 
   „Alle Folien“, Bildschirm schwarz, Präsentation beenden. Den Bildschirm wählen Sie unter *Bildschirmpräsentation › Bildschirm*.
   Die **Leseansicht** spielt die Präsentation im Fenster.
 - **Drucken und PDF:** *Datei › Drucken* (Strg+P) mit Ganzseitige Folien, Notizenseiten und Handzettel (1, 2, 3 mit Linien, 4, 6, 9
-  Folien pro Seite), Farbe oder Graustufen, Vorschau; *Datei › Exportieren* als PDF.
+  Folien pro Seite), Farbe oder Graustufen, Vorschau; *Datei › Exportieren* als PDF oder als Bilder (PNG oder JPEG, alle Folien oder die
+  aktuelle, 1280, 1920 oder 3840 Pixel breit).
 - **Dateien:** PowerPoint-Präsentationen (.pptx) sind Standard; .pptm wird mit seinen Makros gelesen und geschrieben (Makros laufen nie;
   vor dem Speichern als .pptx fragt ThixShow). Was ThixShow noch nicht bearbeitet (SmartArt, OLE-Objekte, Kommentare …), bleibt beim
   Speichern erhalten – ein Hinweis nennt es beim Öffnen. Präsentationen in ThixDrive wie bei den anderen Apps.

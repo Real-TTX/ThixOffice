@@ -153,4 +153,28 @@ public sealed class EditorTests
         await window.Commands[ShowChartCommands.ChangeType + ".pie"].ExecuteAsync();
         Assert.Equal(ThixOffice.Charts.ChartType.Pie, ShowChartCommands.SelectedChart(editor)!.Value.Chart.Plots[0].Type);
     }
+
+    [AvaloniaFact]
+    public async Task Kopf_und_Fusszeile_puts_footer_and_numbers_on_every_slide_but_the_title()
+    {
+        using var data = new TestData();
+        var window = await SampleWindowAsync();
+        var editor = EditorOf(window);
+        var opening = window.Commands[ShowCommandIds.InsertSlideNumber].ExecuteAsync();
+        await SettleAsync();
+        var dialog = Assert.Single(window.OwnedWindows.OfType<ThixShow.Dialogs.HeaderFooterDialog>());
+        Assert.True(dialog.SlideNumber.IsChecked);
+        dialog.Footer.IsChecked = true;
+        dialog.FooterText.Text = "Nordlicht Reisen";
+        dialog.NotOnTitle.IsChecked = true;
+        dialog.Confirm();
+        await opening;
+        await SettleAsync();
+
+        var slides = editor.Session.Presentation.Slides;
+        Assert.DoesNotContain(slides[0].Shapes, shape => shape.Placeholder?.IsFooterKind == true);
+        Assert.All(slides.Skip(1).Where(slide => editor.Session.Presentation.LayoutOf(slide).Type != "title"), slide =>
+            Assert.Equal(2, slide.Shapes.Count(shape => shape.Placeholder?.IsFooterKind == true)));
+        Assert.Equal("Nordlicht Reisen", editor.Session.HeaderFooterOf(slides[1]).FooterText);
+    }
 }
