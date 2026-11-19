@@ -156,13 +156,25 @@ public sealed class CalcLocale
     /// <summary>"Tabelle" / "Sheet" (new sheets are called Tabelle1, Tabelle2 …).</summary>
     public string SheetBaseName { get; private init; } = "Sheet";
 
-    public string[] MonthNames => Culture.DateTimeFormat.MonthNames;
+    /// <summary>Month names as Excel shows them (fixed tables: ICU and Windows differ, e.g. "Mär" / "Mrz").</summary>
+    public string[] MonthNames => IsGerman
+        ? ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"]
+        : ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-    public string[] MonthAbbreviations => Culture.DateTimeFormat.AbbreviatedMonthNames;
+    public string[] MonthAbbreviations => IsGerman
+        ? ["Jan", "Feb", "Mrz", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
+        : ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-    public string[] DayNames => Culture.DateTimeFormat.DayNames;
+    /// <summary>Day names from Sunday.</summary>
+    public string[] DayNames => IsGerman
+        ? ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"]
+        : ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-    public string[] DayAbbreviations => Culture.DateTimeFormat.AbbreviatedDayNames;
+    public string[] DayAbbreviations => IsGerman
+        ? ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"]
+        : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    private bool IsGerman => Name.StartsWith("de", StringComparison.Ordinal);
 
     public bool IsInvariant => Name.Length == 0;
 

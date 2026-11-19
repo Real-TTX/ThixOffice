@@ -483,6 +483,11 @@ public static class ValueParser
                 int.Parse(iso[2], CultureInfo.InvariantCulture), date1904, out value, ref format, "yyyy-mm-dd");
         }
 
+        if (text.Contains(',') && !text.Any(char.IsLetter))
+        {
+            return false;
+        }
+
         var tokens = Tokenize(text);
         if (tokens.Count is < 2 or > 3)
         {
