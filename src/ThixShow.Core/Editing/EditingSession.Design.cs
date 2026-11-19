@@ -50,7 +50,7 @@ public sealed partial class EditingSession
     /// <summary>
     /// Changes the slide size. <see cref="SlideScaleMode.Fit"/> shrinks the content uniformly so everything fits (centred),
     /// <see cref="SlideScaleMode.Maximize"/> scales it to fill (content may run over the edges), <see cref="SlideScaleMode.None"/>
-    /// keeps positions. Masters and layouts scale alike; font sizes stay (gap: PowerPoint scales them with "Passend").
+    /// keeps positions. Masters and layouts scale alike; "Passend" scales font sizes with the content (<see cref="TextScaling"/>).
     /// </summary>
     public void SetSlideSize(SlideSize size, SlideScaleMode mode = SlideScaleMode.Fit) =>
         Apply("Foliengröße", presentation =>
@@ -77,15 +77,19 @@ public sealed partial class EditingSession
                 Width = (long)Math.Round(transform.Width * scale),
                 Height = (long)Math.Round(transform.Height * scale),
             };
+            var fonts = mode == SlideScaleMode.Fit && Math.Abs(scale - 1) > 1e-6 ? scale : 1;
+            SlideElement Text(SlideElement shape) => fonts == 1 ? shape : TextScaling.Scale(shape, fonts);
             ValueList<SlideElement> Shapes(ValueList<SlideElement> shapes) =>
-                shapes.Select(shape => shape.Transform is { } transform ? shape with { Transform = Scale(transform) } : shape).ToList();
+                shapes.Select(shape => Text(shape.Transform is { } transform ? shape with { Transform = Scale(transform) } : shape)).ToList();
 
             return presentation with
             {
                 SlideSize = size,
+                DefaultTextStyle = fonts == 1 ? presentation.DefaultTextStyle : TextScaling.Scale(presentation.DefaultTextStyle, fonts),
                 Masters = presentation.Masters.Select(master => master with
                 {
                     Shapes = Shapes(master.Shapes),
+                    TextStyles = fonts == 1 ? master.TextStyles : TextScaling.Scale(master.TextStyles, fonts),
                     Layouts = master.Layouts.Select(layout => layout with { Shapes = Shapes(layout.Shapes) }).ToList(),
                 }).ToList(),
                 Slides = presentation.Slides.Select(slide => slide with { Shapes = Shapes(slide.Shapes) }).ToList(),

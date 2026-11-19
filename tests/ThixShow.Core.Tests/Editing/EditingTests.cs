@@ -299,9 +299,12 @@ public class EditingTests
         session.SelectShapes([title.Id]);
         session.MoveShapes(0, 0);
         var rectangle = session.CurrentSlide!.Shapes.OfType<AutoShape>().First(shape => shape.Placeholder is null);
+        var titleSize = session.Presentation.Masters[0].TextStyles.Title.LevelOf(0)!.DefaultRun!.Size!.Value;
         session.SetSlideSize(SlideSize.Standard, SlideScaleMode.Fit);
         var scaled = session.CurrentSlide!.FindShape(rectangle.Id)!.Transform!;
         Assert.Equal((long)Math.Round(rectangle.Transform!.Width * (9144000 / 12192000.0)), scaled.Width);
+        // "Passend skalieren" shrinks the text with the content (the master's title size here).
+        Assert.Equal((int)Math.Round(titleSize * (9144000 / 12192000.0)), session.Presentation.Masters[0].TextStyles.Title.LevelOf(0)!.DefaultRun!.Size);
 
         session.SetTransition([session.CurrentSlide!.Id], new SlideTransition(TransitionKind.Fade));
         session.ApplyTransitionToAll();
