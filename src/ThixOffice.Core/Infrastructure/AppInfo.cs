@@ -20,6 +20,9 @@ public static class AppInfo
 
     public static bool IsInitialized => _definition is not null;
 
+    /// <summary>The assembly of the app (its version and its embedded installer.json).</summary>
+    internal static Assembly? AppAssembly => _assembly;
+
     /// <summary>The product name: ThixWrite.</summary>
     public static string ProductName => Definition.Name;
 

@@ -32,6 +32,8 @@
   <ItemGroup>
     <AvaloniaResource Include="Assets\thixtest.ico" />
     <AvaloniaResource Include="Assets\logo-256.png" />
+    <!-- The install options of the test app ThixTest (the same file as the core tests'). -->
+    <EmbeddedResource Include="..\ThixOffice.Core.Tests\installer.json" LogicalName="installer.json" Link="installer.json" />
   </ItemGroup>
 
 </Project>

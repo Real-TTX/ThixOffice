@@ -201,6 +201,15 @@ jobs:
       group: thixoffice-publish-${{ inputs.app-id }}-${{ github.ref_name }}
       cancel-in-progress: false
     steps:
+      # The app's installer.json (SETUP-08: what the setup offers – desktop shortcut, automatic updates, file types) goes
+      # into the manifest as "installer", where ThixLauncher and ThixInstall read it before a quiet install.
+      - uses: actions/checkout@v4
+        with:
+          path: source
+          sparse-checkout: |
+            src/${{ inputs.app-name }}/installer.json
+          sparse-checkout-cone-mode: false
+
       - uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.app-id }}-windows
@@ -213,7 +222,7 @@ jobs:
           path: artifacts
 
       # The manifest the installed app reads for its update check (UpdateService): "setup"/"sha256" for Windows,
-      # "packages" for each platform that was built.
+      # "packages" for each platform that was built, "installer" = the app's installer.json (install options, SETUP-08).
       - name: Write update manifest
         shell: bash
         run: |
@@ -237,6 +246,7 @@ jobs:
             "setup": "${setup}",
             "sha256": "$(sha "$setup")",
             "publishedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "installer": $(cat "../source/src/${APP_NAME}/installer.json"),
             "packages": {
               "win-x64": { "file": "${setup}", "sha256": "$(sha "$setup")" }${mac}
             }

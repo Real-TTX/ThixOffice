@@ -1,0 +1,9 @@
+{
+  "desktopShortcut": { "default": false },
+  "automaticUpdates": { "default": true },
+  "fileTypes": [
+    { "extension": ".docx", "name": "Word-Dokument", "default": true },
+    { "extension": ".odt", "name": "OpenDocument-Text", "default": false },
+    { "extension": ".txt", "name": "Textdokument", "default": false }
+  ]
+}

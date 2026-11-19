@@ -1,8 +1,8 @@
   <!--
     ThixShow's document types for Finder (CFBundleDocumentTypes, put into Info.plist by package-macos.sh). Like the Windows
     registration only what ThixShow can open now: PowerPoint presentations (its own format) and presentations with macros
-    (kept, never run), both as "Alternate": ThixShow appears under "Öffnen mit", the default stays the user's (house rule: never
-    take a type silently). .odp is added when its reader exists (ThixShowApp.Definition marks it as planned). @DOCUMENT_ICON@ is
+    (kept, never run), both as "Alternate": ThixShow appears under "Öffnen mit". It becomes the default only for the
+    types the user chose (install options, SETUP-08: "ThixShow --configure --file-types=…", Launch Services). .odp is added when its reader exists (ThixShowApp.Definition marks it as planned). @DOCUMENT_ICON@ is
     the document icon of the bundle.
   -->
   <array>

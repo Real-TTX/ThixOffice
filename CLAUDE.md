@@ -64,8 +64,14 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
                            DocumentService (Open, Save, SaveAs, TargetPath, recovery), AccessPolicy (LockConfiguration, DisableUpdates,
                            DisableCloud, DisableFileAssociations, DisablePrinting), PrintService (printers, PagesOf "1-3, 5",
                            Print = policy + validation, then the IPrinterSystem), InstallService (Windows self-installing exe), UninstallEntry (what
-                           ThixLauncher reads), CloudService + DriveService (ThixCloud / ThixDrive, see below), FileAssociations (ProgIDs, "Öffnen mit", Capabilities; opt-in default only for free
-                           types), AutostartService (off by default), UpdateService + MacAppBundle (channel manifest, SHA-256, 6 h,
+                           ThixLauncher reads), CloudService + DriveService (ThixCloud / ThixDrive, see below), FileAssociations (ProgIDs, "Öffnen mit",
+                           Capabilities for every supported type; the extension's default only for the types chosen in the setup – Register(…,
+                           defaults), null = keep), InstallerOptions (SETUP-08 of MatDesign: the app's src/<App>/installer.json – embedded in the
+                           app's assembly (AppInfo.AppAssembly), and as "installer" in the update manifest – says what the setup offers: desktop
+                           shortcut, automatic updates, the supported types (own format on); no autostart; the command line --quiet [--start] /
+                           --update [--restart] / --configure [--desktop-shortcut=yes|no --automatic-updates=yes|no --file-types=.a,.b|none|default],
+                           a wrong option or value = exit code 2, nothing installed; Defaults/Current/Apply; Models/InstallerConfig;
+                           Platform/MacOS/MacFileAssociations: Launch Services for the chosen types), AutostartService (off by default), UpdateService + MacAppBundle (channel manifest, SHA-256, 6 h,
                            install on exit)
   Infrastructure/          AppInfo (Initialize(definition, appAssembly), Version/Channel/BuildNumber from the app's assembly, Pin for
                            snapshots), AppPaths, JsonFileStore, UserRegistry (IUserRegistry: WindowsUserRegistry | MemoryUserRegistry),
@@ -93,7 +99,9 @@ src/ThixOffice.Desktop     shared Avalonia UI
                            command file.saveAsPdf "Als PDF speichern" write a COPY – the document keeps file, type and dirty state;
                            the message bar says "Als PDF gespeichert" with "Öffnen" (InfoBar action)
   OfficeProgram            Main helper: Run<TApp>(args, definition); BuildAvaloniaApp<TApp>()
-  OfficeSelfTest, OfficeSnapshot, OfficeSetup (MatSetupWindow), UpdateCoordinator, UiWatchdog, Ui (helpers)
+  OfficeSelfTest, OfficeSnapshot, OfficeSetup (MatSetupWindow; Options/Choices from installer.json: a switch per type "type:.ext"),
+                           UpdateCoordinator, UiWatchdog, Ui (helpers); OfficeApplication.ClaimInstance (a second start hands its documents
+                           to the running instance – tested per app in InstallOptionsTests)
   Shell/                   OfficeWindow (MatWindow per document: title bar with logo, word mark, MatQuickAccess, document name +
                            unsaved dot, CommandSearchBox; MatRibbon; message bar; editor; status bar; backstage over it all;
                            keyboard; unsaved prompt; recovery timer), OfficeRibbonBinding + OfficeRibbonItems (see below),
@@ -690,8 +698,8 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   at the `MatFormField` whose `controls:FormErrors.Field` is that field, or in a message.
 - **Documents are never lost:** save atomically (temporary file, then replace), recovery files while unsaved, ask before closing
   (Speichern | Abbrechen | gap | Nicht speichern), never open a format the app cannot read (planned types are not registered and
-  are refused), never take a file type from another program silently (FileAssociations: "Öffnen mit"; default only opt-in and only
-  for free types; the system's "Standard-Apps" decide). Updates install when the app closes.
+  are refused), never take a file type silently (FileAssociations: "Öffnen mit" for every supported type; the default only for the
+  types the user chose in the setup / ThixLauncher – installer.json, SETUP-08; Windows' own UserChoice stays). Updates install when the app closes.
 - **UI rules:** lists get a toolbar above (search, filter, sort); list actions below, left-aligned, positive → negative,
   delete-like actions with a gap (`controls:ActionBar.Separated`); buttons in one row; icons where they help; tabs for areas of
   one item; hide what does not apply; tiles keep their distance; About opens from the version bottom left.
@@ -715,7 +723,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   names, no "generated with" lines.** Small logical commits; never push to main without the owner; no manual releases.
 - `.github/workflows/_desktop.yml` (reusable, `workflow_call`: app-name, app-id, project, tests, build-number): version → Windows
   (test, publish win-x64, self test, `<App>Setup.exe`) → macOS (test, publish osx-arm64 + osx-x64, package-macos.sh) → publish
-  (manifest `<id>-update.json`; rolling releases `release-channel` / `nightly-channel` SHARED by all apps – only the app's own
+  (manifest `<id>-update.json` with `"installer"` = src/<App>/installer.json, sparse checkout; rolling releases `release-channel` / `nightly-channel` SHARED by all apps – only the app's own
   files are uploaded with `--clobber`, the release keeps its title; one concurrency group per app and branch, `thixoffice-publish-<id>-<branch>` – a group shared by all apps cancelled waiting publish jobs;
   versioned release `<id>-v<version>` on main). Windows publishes even when macOS fails.
 - Launcher (docs/PLAN.md section 6): per app id, manifest, `<App>Setup.exe`, `<App>-macOS-<arch>.zip/.dmg`, bundle id; the uninstall
@@ -732,6 +740,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 3. Major/Minor already exist in `Directory.Build.props` (`ThixCalcMajor/Minor`); add the projects to `ThixOffice.slnx`, a test
    project `tests/ThixCalc.Tests`, and `InternalsVisibleTo` entries in ThixOffice.Core / ThixOffice.Desktop if the tests need them.
 4. Logos exist (`branding/thixcalc`); `node tools/render-icons.js` fills `src/ThixCalc/Assets` once the project exists.
-5. `scripts/macos-document-types/thixcalc.plist`; `.github/workflows/thixcalc.yml` = a copy of thixwrite.yml with its paths,
+5. `src/ThixCalc/installer.json` (embedded; every supported type, the own format on; a test holds it to the definition);
+   `scripts/macos-document-types/thixcalc.plist`; `.github/workflows/thixcalc.yml` = a copy of thixwrite.yml with its paths,
    app name/id, project and tests.
 6. Launcher: catalog entry, logo `branding/launcher/thixcalc.png` (on a branch of ThixLauncher, see PLAN section 6).

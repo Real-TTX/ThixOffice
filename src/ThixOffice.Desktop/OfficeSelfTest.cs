@@ -77,10 +77,34 @@ public static class OfficeSelfTest
         await Check("update manifest (JSON)", async () =>
         {
             var package = $$"""{"file":"{{definition.SetupFileName}}","sha256":"AB"}""";
-            var json = $$"""{"version":"0.1.9-20261118","channel":"release","buildNumber":9,"setup":"{{definition.SetupFileName}}","sha256":"AB","publishedAt":"2026-11-18T12:00:00Z","packages":{"win-x64":{{package}} } }""";
+            var json = $$"""{"version":"0.1.9-20261118","channel":"release","buildNumber":9,"setup":"{{definition.SetupFileName}}","sha256":"AB","publishedAt":"2026-11-18T12:00:00Z","installer":{"desktopShortcut":{"default":false},"fileTypes":[]},"packages":{"win-x64":{{package}} } }""";
             var manifest = await new StringContent(json, Encoding.UTF8, "application/json").ReadFromJsonAsync<UpdateManifest>();
             Ensure(manifest is { BuildNumber: 9 } && UpdateService.PackageFor(manifest, "win-x64")?.File == definition.SetupFileName, "manifest not read");
             return UpdateService.ManifestFileName;
+        });
+
+        await Check("install options (installer.json, arguments)", () =>
+        {
+            var config = InstallerOptions.Config;
+            Ensure(config is { DesktopShortcut: not null, AutomaticUpdates: not null }, "installer.json not read");
+            Ensure(config.FileTypes.Count > 0 && config.FileTypes.All(type => definition.SupportedTypeOf("x" + type.Extension) is not null),
+                "installer.json offers a type the app does not open");
+            var first = config.FileTypes[0].Extension;
+            var request = InstallerOptions.Parse([InstallerOptions.QuietArgument, "--desktop-shortcut=yes", "--automatic-updates=no", $"--file-types={first}", InstallerOptions.StartArgument]);
+            Ensure(request is { Action: SetupAction.Install, Start: true, Choices: { DesktopShortcut: true, AutomaticUpdates: false } } && request.Choices.FileTypes?.SequenceEqual([first]) == true,
+                "arguments not read");
+            var refused = false;
+            try
+            {
+                InstallerOptions.Parse([InstallerOptions.QuietArgument, "--desktop-shortcut=vielleicht"]);
+            }
+            catch (BusinessException)
+            {
+                refused = true;
+            }
+
+            Ensure(refused, "a wrong value was taken");
+            return Task.FromResult(string.Join(", ", config.FileTypes.Select(type => type.Extension)));
         });
 
         await Check("cloud contract (JSON)", () =>

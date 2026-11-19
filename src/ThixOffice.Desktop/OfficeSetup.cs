@@ -2,6 +2,7 @@ using System.Runtime.Versioning;
 using MatDesktop;
 using ThixOffice.Core.Business;
 using ThixOffice.Core.Infrastructure;
+using ThixOffice.Core.Models;
 using ThixOffice.Desktop.Controls;
 
 namespace ThixOffice.Desktop;
@@ -9,7 +10,8 @@ namespace ThixOffice.Desktop;
 /// <summary>
 /// The Windows setup of every app in MatDesktop's setup window (SETUP-01, SETUP-02): one window for install, update and
 /// uninstall, 600 × 560, the footer with "Version x · channel" (SETUP-07). Install: Welcome (per user, no administrator
-/// rights, where to: SETUP-03) → Options (desktop shortcut, automatic updates – no autostart: an editor does not start with
+/// rights, where to: SETUP-03) → Options (what the app's installer.json offers, SETUP-08: desktop shortcut, automatic
+/// updates, a switch per document type – the same questions ThixLauncher asks; no autostart: an editor does not start with
 /// the computer) → Progress → Finish. Update: Welcome with the installed and the new version → Progress → Finish. Uninstall:
 /// what goes and "Auch meine Einstellungen löschen" (off; documents are never deleted) → Progress → Finish (SETUP-04).
 /// The work (InstallService) runs on a background task and reports its steps.
@@ -36,10 +38,8 @@ public static class OfficeSetup
                 }
                 else
                 {
-                    var options = isUpdate
-                        ? null
-                        : new InstallOptions(run.Options.GetValueOrDefault("shortcut"), run.Options.GetValueOrDefault("updates", true));
-                    await Task.Run(() => InstallService.Install(source, options, Report));
+                    var choices = isUpdate ? null : Choices(run.Options);
+                    await Task.Run(() => InstallService.Install(source, choices, Report));
                 }
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException
@@ -89,9 +89,7 @@ public static class OfficeSetup
                 MatSetupStep.Welcome(
                     $"{definition.Name}: {definition.Description}",
                     Note($"Wird für Ihr Benutzerkonto installiert – ohne Administratorrechte – nach\n{programFolder}")),
-                MatSetupStep.WithOptions(null,
-                    MatSetupOption.DesktopShortcut("Ein Startmenü-Eintrag wird immer angelegt"),
-                    MatSetupOption.AutomaticUpdates($"Neue Versionen werden installiert, wenn Sie {definition.Name} schließen")),
+                MatSetupStep.WithOptions(null, [.. Options(definition)]),
             ],
         };
 
@@ -109,6 +107,45 @@ public static class OfficeSetup
             DeleteDataDescription = "Einstellungen, „Zuletzt verwendet“ und Protokolle auf diesem Computer. Ihre Dokumente bleiben in jedem Fall erhalten.",
         });
     }
+
+    /// <summary>
+    /// The switches of the Options step from the install options (installer.json, SETUP-08), each as its default: the same
+    /// questions ThixLauncher asks before it installs quietly. A document type is "type:.docx".
+    /// </summary>
+    internal static IEnumerable<MatSetupOption> Options(OfficeAppDefinition definition)
+    {
+        var config = InstallerOptions.Config;
+        if (config.DesktopShortcut is { } shortcut)
+        {
+            yield return MatSetupOption.DesktopShortcut("Ein Startmenü-Eintrag wird immer angelegt") with { IsOn = shortcut.Default };
+        }
+
+        if (config.AutomaticUpdates is { } updates)
+        {
+            yield return MatSetupOption.AutomaticUpdates($"Neue Versionen werden installiert, wenn Sie {definition.Name} schließen") with { IsOn = updates.Default };
+        }
+
+        if (config.Autostart is { } autostart)
+        {
+            yield return MatSetupOption.Autostart() with { IsOn = autostart.Default };
+        }
+
+        foreach (var type in config.FileTypes)
+        {
+            yield return new MatSetupOption(FileTypeKey + type.Extension, $"{type.Extension}-Dateien mit {definition.Name} öffnen", type.Name, type.Default);
+        }
+    }
+
+    /// <summary>The answers of the Options step as install choices.</summary>
+    internal static InstallChoices Choices(IReadOnlyDictionary<string, bool> options) => new(
+        options.TryGetValue("shortcut", out var shortcut) ? shortcut : null,
+        options.TryGetValue("autostart", out var autostart) ? autostart : null,
+        options.TryGetValue("updates", out var updates) ? updates : null,
+        InstallerOptions.Config.FileTypes.Count == 0
+            ? null
+            : InstallerOptions.Config.FileTypes.Where(type => options.GetValueOrDefault(FileTypeKey + type.Extension)).Select(type => type.Extension).ToList());
+
+    private const string FileTypeKey = "type:";
 
     /// <summary>A note under the text of a step, in the tint of information.</summary>
     private static InfoBar Note(string text)

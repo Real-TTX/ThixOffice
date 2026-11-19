@@ -1,0 +1,10 @@
+{
+  "desktopShortcut": { "default": false },
+  "automaticUpdates": { "default": true },
+  "fileTypes": [
+    { "extension": ".xlsx", "name": "Excel-Arbeitsmappe", "default": true },
+    { "extension": ".xlsm", "name": "Excel-Arbeitsmappe mit Makros", "default": false },
+    { "extension": ".csv", "name": "CSV-Datei (Trennzeichen-getrennt)", "default": false },
+    { "extension": ".ods", "name": "OpenDocument-Tabelle", "default": false }
+  ]
+}

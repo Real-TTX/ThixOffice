@@ -452,6 +452,13 @@ Mehrere Apps aus einem Repo funktionieren mit dem Channel-Manifest. Je App:
 | Setup | `ThixWriteSetup.exe` | `ThixCalcSetup.exe` | `ThixShowSetup.exe` |
 | macOS | `ThixWrite-macOS-<arch>.zip/.dmg` | … | … |
 | Bundle-ID | `info.schmoldt.thixwrite` | `info.schmoldt.thixcalc` | `info.schmoldt.thixshow` |
+| Installationsoptionen | `src/ThixWrite/installer.json` | `src/ThixCalc/installer.json` | `src/ThixShow/installer.json` |
+
+Installationsoptionen (MatDesign SETUP-08): jede App bettet ihre `installer.json` ein, CI schreibt sie als `"installer"` ins
+Manifest. Angeboten werden Desktop-Verknüpfung (aus), automatische Updates (an) und die unterstützten Dateitypen (das eigene
+Format an: .docx / .xlsx / .pptx; .odt, .txt, .xlsm, .csv, .ods, .pptm aus) – kein Autostart. Der Launcher fragt dasselbe und
+ruft `<App>Setup.exe --quiet --desktop-shortcut=… --automatic-updates=… --file-types=…` auf (macOS nach dem Kopieren des
+Bundles `<App>.app/Contents/MacOS/<App> --configure …`); ein falscher Wert endet mit Exit-Code 2, ohne etwas zu installieren.
 
 Im Launcher je App: Katalogeintrag, Logo, Tests. Einmalig vorab: `SampleGitHub` so ändern, dass es
 die App über den Manifest-/Paketnamen findet statt über das Repo. Launcher-Änderungen laufen über

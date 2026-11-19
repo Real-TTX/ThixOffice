@@ -20,7 +20,8 @@ namespace ThixOffice.Desktop;
 /// <summary>
 /// The application object every app of the suite derives from (ThixWrite's <c>App</c>): the app names its definition,
 /// its document model, its editor, its commands and its ribbon; everything else happens here, the same for every app:
-///  - Windows: the published exe is its own setup ("--update [--restart]", "--uninstall [--quiet]", "--quiet");
+///  - Windows: the published exe is its own setup ("--update [--restart]", "--uninstall [--quiet]", "--quiet [--start]") with
+///    the install options of SETUP-08 (InstallerOptions; "--configure [options]" on both systems; a wrong option: exit code 2);
 ///  - "--self-test &lt;report&gt;" checks the published program, "--snapshot &lt;folder&gt;" draws its windows (OfficeProgram);
 ///  - one instance per user and data folder (MatSingleInstance, DESK-05): a second start – a double click on a document –
 ///    hands its files to the running one, which opens each in a window of its own (or the window that already has it);
@@ -184,7 +185,7 @@ public abstract class OfficeApplication : Application
             return;
         }
 
-        if (OperatingSystem.IsWindows() && RunSetupIfRequested(args))
+        if (RunSetupIfRequested(args))
         {
             return;
         }
@@ -573,19 +574,50 @@ public abstract class OfficeApplication : Application
     }
 
     /// <summary>
-    /// Windows: the published exe is its own setup (InstallService):
+    /// The command line of SETUP-05 with the install options of SETUP-08 (InstallerOptions; a wrong option or value: the message
+    /// on stderr and in the log, exit code 2, nothing installed). Both systems: "--configure [options]" applies the options to the
+    /// installed app and ends (macOS: ThixLauncher calls it after it copied the bundle). Windows: the published exe is its own
+    /// setup (InstallService):
     ///  - "--uninstall" (from "Installierte Apps"): the uninstall assistant, or silently with "--quiet";
-    ///  - "--update" (the update, ThixLauncher): installs itself silently; with "--restart" it starts the app again;
-    ///  - "--quiet": installs itself silently with the default choices;
+    ///  - "--update [options]" (the update, ThixLauncher): installs itself silently, an installed app keeps its choices; with
+    ///    "--restart" it starts the app again;
+    ///  - "--quiet [options] [--start]" (ThixLauncher, ThixInstall, an administrator): installs itself without a window, options
+    ///    not given take the default of installer.json; "--start" starts the app afterwards;
     ///  - started anywhere else than the program folder without a document: the setup assistant.
-    /// A development build (not single-file) always runs as the application.
+    /// A development build (not single-file) runs as the application otherwise.
     /// </summary>
-    [SupportedOSPlatform("windows")]
     private bool RunSetupIfRequested(string[] args)
     {
-        if (args.Contains(InstallService.UninstallArgument))
+        SetupRequest request;
+        try
         {
-            if (args.Contains(InstallService.QuietArgument))
+            request = InstallerOptions.Parse(args);
+        }
+        catch (BusinessException exception)
+        {
+            Log.Warning($"Setup arguments refused: {exception.Message}");
+            Console.Error.WriteLine(exception.Message);
+            EndProcess(2);
+            return true;
+        }
+
+        if (request.Action == SetupAction.Configure)
+        {
+            var executable = OperatingSystem.IsWindows() && File.Exists(InstallService.InstalledExecutable) ? InstallService.InstalledExecutable : ExecutablePath;
+            InstallerOptions.Apply(request.Choices, executable, Log.Info);
+            EndProcess(0);
+            return true;
+        }
+
+        return OperatingSystem.IsWindows() && RunWindowsSetup(request, args);
+    }
+
+    [SupportedOSPlatform("windows")]
+    private bool RunWindowsSetup(SetupRequest request, string[] args)
+    {
+        if (request.Action == SetupAction.Uninstall)
+        {
+            if (request.Quiet)
             {
                 if (InstallService.Uninstall(deleteUserData: false, Log.Info))
                 {
@@ -608,23 +640,22 @@ public abstract class OfficeApplication : Application
             return true;
         }
 
-        var isUpdate = args.Contains(InstallService.UpdateArgument);
-        if (isUpdate || (args.Contains(InstallService.QuietArgument) && !InstallService.IsInstalledExecutable(ExecutablePath)))
+        if (request.Action is SetupAction.Install or SetupAction.Update)
         {
             var exitCode = 0;
             try
             {
-                InstallService.Install(ExecutablePath, isUpdate && InstallService.IsInstalled ? null : new InstallOptions(DesktopShortcut: false), Log.Info);
+                InstallService.Install(ExecutablePath, request.Choices, Log.Info);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException
                                                   or System.Runtime.InteropServices.COMException or System.Security.SecurityException)
             {
-                Log.Error("Silent installation failed", exception);
+                Log.Error(request.Action == SetupAction.Update ? "Update failed" : "Silent installation failed", exception);
                 Console.Error.WriteLine(exception.Message);
                 exitCode = 1;
             }
 
-            if (args.Contains(InstallService.RestartArgument) && File.Exists(InstallService.InstalledExecutable))
+            if (request.Start && File.Exists(InstallService.InstalledExecutable))
             {
                 InstallService.StartInstalled();
             }
@@ -633,7 +664,7 @@ public abstract class OfficeApplication : Application
             return true;
         }
 
-        if (OfficeProgram.IsSingleFile &&!InstallService.IsInstalledExecutable(ExecutablePath) && DocumentFilesIn(args).Count == 0)
+        if (OfficeProgram.IsSingleFile && !InstallService.IsInstalledExecutable(ExecutablePath) && DocumentFilesIn(args).Count == 0)
         {
             OfficeSetup.Run(this, isUninstall: false, _ => EndProcess(0));
             return true;
@@ -667,8 +698,7 @@ public abstract class OfficeApplication : Application
     private bool TakeSingleInstance(IReadOnlyList<string> files)
     {
         _instance = new MatSingleInstance(Definition.Name, AppPaths.HasOverride ? AppPaths.DataDirectory : null);
-        _instance.SecondStart += (_, args) => Ui.Post(() => HandleActivation(DocumentFilesIn(args)));
-        if (!_instance.TryClaim([.. files]))
+        if (!ClaimInstance(_instance, files))
         {
             Log.Info($"{Definition.Name} runs already: the files were handed to it");
             return false;
@@ -680,6 +710,17 @@ public abstract class OfficeApplication : Application
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Claims <paramref name="instance"/> with the documents of this start's command line: true = the first start (from now on
+    /// the documents of every later start open here, <see cref="HandleActivation"/>); false = an instance runs already and got
+    /// <paramref name="files"/>.
+    /// </summary>
+    internal bool ClaimInstance(MatSingleInstance instance, IReadOnlyList<string> files)
+    {
+        instance.SecondStart += (_, args) => Ui.Post(() => HandleActivation(DocumentFilesIn(args)));
+        return instance.TryClaim([.. files]);
     }
 
     /// <summary>The setup asks a running instance to end (update, uninstall): unsaved changes go into recovery files, then it ends.</summary>

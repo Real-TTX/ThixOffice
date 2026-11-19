@@ -318,12 +318,27 @@ Wie im deutschen Word, wo sie nicht kollidieren (unter macOS ⌘ statt Strg, ⌥
 
 - **Windows:** `ThixWriteSetup.exe`, `ThixCalcSetup.exe` bzw. `ThixShowSetup.exe` aus dem Release-Kanal herunterladen und starten. Das Programm installiert sich selbst für
   das eigene Benutzerkonto (ohne Administratorrechte) nach `%LocalAppData%\Programs\ThixWrite`, trägt sich im Startmenü, unter
-  „Installierte Apps“ und unter „Öffnen mit“ für Word-Dokumente (.docx) und Textdateien ein – Standardprogramm wird ThixWrite
-  nur, wenn Sie es in den „Standard-Apps“ von Windows wählen. Entfernen über „Installierte Apps“.
+  „Installierte Apps“ und unter „Öffnen mit“ für alle Dateitypen ein, die es öffnet (ThixWrite: .docx, .odt, .txt). Das Setup
+  fragt, ob eine Desktop-Verknüpfung entstehen soll, ob Updates automatisch installiert werden und welche Dateitypen die App
+  standardmäßig öffnet (vorausgewählt nur das eigene Format: .docx, .xlsx bzw. .pptx). Eine Wahl, die Sie selbst unter „Öffnen
+  mit“ / „Standard-Apps“ getroffen haben, bleibt. Entfernen über „Installierte Apps“.
 - **macOS:** `ThixWrite-macOS-arm64.dmg` (Apple Silicon) bzw. `-x64.dmg` (Intel) öffnen und ThixWrite in „Programme“ ziehen.
 - Updates kommen automatisch aus dem eigenen Kanal (`release-channel` für main, `nightly-channel` für dev) und werden
   installiert, wenn ThixWrite geschlossen wird – nie mitten in der Arbeit.
 - ThixLauncher kann die Apps installieren (je App eigenes Manifest `<app>-update.json`, siehe Plan Abschnitt 6).
+
+**Ohne Fenster** (ThixLauncher, ThixInstall, Administratoren) – die Optionen des Setups als Argumente (MatDesign SETUP-05/08;
+was angeboten wird, steht in `src/<App>/installer.json` und im Update-Manifest unter `installer`):
+
+```
+ThixWriteSetup.exe --quiet --desktop-shortcut=yes --automatic-updates=yes --file-types=.docx,.odt [--start]
+ThixWrite.exe --configure --file-types=none     # nur anwenden (macOS: ThixWrite.app/Contents/MacOS/ThixWrite --configure …)
+ThixWrite.exe --uninstall --quiet
+```
+
+`--file-types` nimmt Endungen (mit oder ohne Punkt), `none` oder `default`. Nicht angegebene Optionen: bei der
+Erstinstallation der Standard, bei einem Update bleibt es, wie es ist. Ein falscher Wert oder eine Option, die die App nicht
+anbietet (z. B. `--autostart=yes`), bricht mit Exit-Code 2 ab, ohne etwas zu installieren.
 
 ![Einrichtung](docs/images/thixwrite-setup-welcome-light.png)
 

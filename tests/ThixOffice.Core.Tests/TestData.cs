@@ -105,6 +105,7 @@ internal sealed class TestData : IDisposable
     public void Dispose()
     {
         AutostartService.UseLaunchAgentFolderForTests(null);
+        InstallerOptions.UseConfigForTests(null);
         if (OperatingSystem.IsWindows())
         {
             InstallService.UseLocationsForTests(null);

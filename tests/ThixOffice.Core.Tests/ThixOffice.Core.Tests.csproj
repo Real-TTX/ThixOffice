@@ -26,4 +26,9 @@
     <ProjectReference Include="..\..\src\ThixOffice.Core\ThixOffice.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The install options of the test app ThixTest (an app embeds its installer.json the same way). -->
+    <EmbeddedResource Include="installer.json" LogicalName="installer.json" />
+  </ItemGroup>
+
 </Project>
