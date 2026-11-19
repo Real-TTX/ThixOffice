@@ -166,7 +166,16 @@ public sealed class SlidesTests
         var window = await SampleWindowAsync();
         var editor = EditorOf(window);
 
-        await PressAsync(window, PhysicalKey.H, CommandKey);
+        // Strg+H (⌥⌘F on the Mac, where ⌘H hides the program).
+        if (OperatingSystem.IsMacOS())
+        {
+            await PressAsync(window, PhysicalKey.F, CommandKey | RawInputModifiers.Alt);
+        }
+        else
+        {
+            await PressAsync(window, PhysicalKey.H, CommandKey);
+        }
+
         Assert.True(editor.FindBar.IsVisible);
         editor.FindBar.SearchBox.Text = "Ziele";
         await SettleAsync();
