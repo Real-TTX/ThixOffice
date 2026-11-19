@@ -186,17 +186,17 @@ public static class WriteRibbon
     private static MatRibbonTab HomeTab(Theme theme, Action<string> launch) =>
         new MatRibbonTab("home", "Start").Add(
             new MatRibbonGroup("undo", "Rückgängig") { Icon = "undo" }.Add(
-                Button(CommonCommandIds.Undo),
-                Button(CommonCommandIds.Redo)),
+                Button(CommonCommandIds.Undo, MatRibbonSize.Small),
+                Button(CommonCommandIds.Redo, MatRibbonSize.Small)),
             new MatRibbonGroup("clipboard", "Zwischenablage") { Icon = "paste", ShrinkOrder = 1 }.Add(
-                new MatRibbonSplitButton(WriteCommandIds.Paste, "", menu: [Button(WriteCommandIds.PasteText)]) { Size = MatRibbonSize.Large },
+                new MatRibbonSplitButton(WriteCommandIds.Paste, "", menu: [Button(WriteCommandIds.PasteText)]) { Size = MatRibbonSize.Large, MinSize = MatRibbonSize.Large },
                 Button(WriteCommandIds.Cut),
                 Button(WriteCommandIds.Copy),
                 Toggle(WriteCommandIds.FormatPainter)),
             new MatRibbonGroup("font", "Schriftart") { Icon = "type", ShrinkOrder = 4, Launcher = () => launch(WriteCommandIds.FontDialog) }.Add(
                 new MatRibbonStack("font-rows",
                     new MatRibbonRow("font-row-1",
-                        ComboBox(WriteCommandIds.FontName, width: 150, isEditable: true),
+                        ComboBox(WriteCommandIds.FontName, width: 136, isEditable: true),
                         ComboBox(WriteCommandIds.FontSize, width: 64, isEditable: true),
                         Button(WriteCommandIds.GrowFont, MatRibbonSize.Small),
                         Button(WriteCommandIds.ShrinkFont, MatRibbonSize.Small),
@@ -228,7 +228,7 @@ public static class WriteRibbon
                             [.. WriteCommands.LineSpacings.Select(spacing => Toggle(WriteCommands.LineSpacingId(spacing), "lineSpacing"))]) { Size = MatRibbonSize.Small }))),
             new MatRibbonGroup("styles", "Formatvorlagen") { Icon = "template", ShrinkOrder = 5 }.Add(
                 StylesGallery()),
-            new MatRibbonGroup("editing", "Bearbeiten") { Icon = "search" }.Add(
+            new MatRibbonGroup("editing", "Bearbeiten") { Icon = "search", ShrinkOrder = 2 }.Add(
                 Button(WriteCommandIds.Find),
                 Button(WriteCommandIds.Replace),
                 Button(WriteCommandIds.SelectAll)));
@@ -290,7 +290,7 @@ public static class WriteRibbon
     {
         var gallery = Gallery(WriteCommandIds.Styles, StyleEntries);
         gallery.InlineCount = 3;
-        gallery.EntryWidth = 80;
+        gallery.EntryWidth = 74;
         return gallery;
     }
 
