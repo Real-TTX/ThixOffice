@@ -549,23 +549,48 @@ public sealed class SlideShow
         SlideRenderer.RenderBackdrop(current, context, _measurer, _renderOptions, slideIndex + 1);
         foreach (var shape in slide.Shapes)
         {
-            if (!animated.Contains(shape.Id))
+            var paragraphLayers = timeline.ParagraphLayers.Where(pair => pair.Value.ShapeId == shape.Id).ToList();
+            bool InLayer(int paragraph) => paragraphLayers.Any(pair => paragraph >= pair.Value.Start && paragraph <= pair.Value.End);
+            var baseShape = paragraphLayers.Count == 0 ? shape : ParagraphMask.Keep(shape, paragraph => !InLayer(paragraph), withShape: true);
+            if (!animated.Contains(shape.Id) && paragraphLayers.Count == 0)
             {
                 SlideRenderer.RenderElement(current, context, shape, _measurer, _renderOptions, slideIndex + 1, null);
                 continue;
             }
 
-            if (current.Count > 0)
+            if (!animated.Contains(shape.Id))
             {
-                segments.Add(new Segment(current, null));
-                current = [];
+                SlideRenderer.RenderElement(current, context, baseShape, _measurer, _renderOptions, slideIndex + 1, null);
+            }
+            else
+            {
+                if (current.Count > 0)
+                {
+                    segments.Add(new Segment(current, null));
+                    current = [];
+                }
+
+                var items = new List<DisplayItem>();
+                SlideRenderer.RenderElement(items, context, baseShape, _measurer, _renderOptions, slideIndex + 1, null);
+                segments.Add(new Segment(items, shape.Id));
+                var bounds = Editing.EditingSession.RotatedBounds(ShapeResolver.Resolve(context, shape).Transform);
+                boxes[shape.Id] = new ShapeBox(Units.EmuToPoints(bounds.X), Units.EmuToPoints(bounds.Y), Units.EmuToPoints(bounds.Width), Units.EmuToPoints(bounds.Height), Width, Height);
             }
 
-            var items = new List<DisplayItem>();
-            SlideRenderer.RenderElement(items, context, shape, _measurer, _renderOptions, slideIndex + 1, null);
-            segments.Add(new Segment(items, shape.Id));
-            var bounds = Editing.EditingSession.RotatedBounds(ShapeResolver.Resolve(context, shape).Transform);
-            boxes[shape.Id] = new ShapeBox(Units.EmuToPoints(bounds.X), Units.EmuToPoints(bounds.Y), Units.EmuToPoints(bounds.Width), Units.EmuToPoints(bounds.Height), Width, Height);
+            // Each animated paragraph range: a layer of its own with only its lines, its box the lines' area.
+            foreach (var (layer, range) in paragraphLayers)
+            {
+                if (current.Count > 0)
+                {
+                    segments.Add(new Segment(current, null));
+                    current = [];
+                }
+
+                var items = new List<DisplayItem>();
+                SlideRenderer.RenderElement(items, context, ParagraphMask.Keep(shape, paragraph => paragraph >= range.Start && paragraph <= range.End, withShape: false), _measurer, _renderOptions, slideIndex + 1, null);
+                segments.Add(new Segment(items, layer));
+                boxes[layer] = ParagraphBox(slide, shape, range.Start, range.End);
+            }
         }
 
         if (current.Count > 0)
@@ -576,6 +601,23 @@ public sealed class SlideShow
         content = new SlideContent(timeline, segments, boxes);
         _content[slideIndex] = content;
         return content;
+    }
+
+    /// <summary>The area of a shape's paragraphs on the slide (the shape's box when the text cannot be laid out).</summary>
+    private ShapeBox ParagraphBox(Slide slide, SlideElement shape, int start, int end)
+    {
+        if (TextGeometry.Of(_presentation, slide, new Editing.TextTarget(shape.Id), _measurer) is { } placed
+            && placed.Layout.Lines.Where(line => line.Paragraph >= start && line.Paragraph <= end).ToList() is { Count: > 0 } lines)
+        {
+            var layout = placed.Layout;
+            var (top, bottom) = (lines.Min(line => line.Top), lines.Max(line => line.Bottom));
+            var corners = new[] { placed.Matrix.Apply(layout.BoxLeft, top), placed.Matrix.Apply(layout.BoxLeft + layout.BoxWidth, top), placed.Matrix.Apply(layout.BoxLeft, bottom), placed.Matrix.Apply(layout.BoxLeft + layout.BoxWidth, bottom) };
+            var (left, upper) = (corners.Min(point => point.X), corners.Min(point => point.Y));
+            return new ShapeBox(left, upper, corners.Max(point => point.X) - left, corners.Max(point => point.Y) - upper, Width, Height);
+        }
+
+        var bounds = Editing.EditingSession.RotatedBounds(ShapeResolver.Resolve(SlideContext.For(_presentation, slide), shape).Transform);
+        return new ShapeBox(Units.EmuToPoints(bounds.X), Units.EmuToPoints(bounds.Y), Units.EmuToPoints(bounds.Width), Units.EmuToPoints(bounds.Height), Width, Height);
     }
 
     // ------------------------------------------------------------ presenter view

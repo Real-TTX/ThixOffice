@@ -21,15 +21,24 @@ public sealed record BuildStep(IReadOnlyList<ScheduledEffect> Effects, bool IsAu
 /// The animation timeline of one slide, built from its main sequence (ECMA-376 timing model as PowerPoint writes it): effects are cut
 /// into build steps at every "on click" effect; within a step "with previous" effects start with the effect before them and "after
 /// previous" ones when the effects before them have ended; each effect's own delay comes on top. Shapes whose first effect is an
-/// entrance start hidden. Effects on shapes inside groups move their top-level group (a documented simplification).
+/// entrance start hidden. Effects on shapes inside groups move their top-level group (a documented simplification). An effect on
+/// paragraphs of a top-level shape (p:txEl/p:pRg, "nach Absätzen") gets a layer of its own (<see cref="ParagraphLayer"/>): those
+/// paragraphs move, the shape and its other paragraphs stay.
 /// </summary>
 public sealed class SlideTimeline
 {
-    private SlideTimeline(IReadOnlyList<BuildStep> steps, IReadOnlySet<int> initiallyHidden)
+    private SlideTimeline(IReadOnlyList<BuildStep> steps, IReadOnlySet<int> initiallyHidden, IReadOnlyDictionary<int, (int ShapeId, int Start, int End)> paragraphLayers)
     {
         Steps = steps;
         InitiallyHidden = initiallyHidden;
+        ParagraphLayers = paragraphLayers;
     }
+
+    /// <summary>The layers of paragraph effects: layer id → the shape and its paragraphs (first and last, 0-based).</summary>
+    public IReadOnlyDictionary<int, (int ShapeId, int Start, int End)> ParagraphLayers { get; }
+
+    /// <summary>The layer id of paragraphs of a shape (negative, so it never meets a shape id).</summary>
+    public static int ParagraphLayer(int shapeId, int start) => -((shapeId * 1000) + start + 1);
 
     public IReadOnlyList<BuildStep> Steps { get; }
 
@@ -58,6 +67,7 @@ public sealed class SlideTimeline
         }
 
         var steps = new List<BuildStep>();
+        var paragraphLayers = new Dictionary<int, (int ShapeId, int Start, int End)>();
         List<ScheduledEffect>? current = null;
         var automatic = false;
         var chainStart = 0;
@@ -67,6 +77,13 @@ public sealed class SlideTimeline
             if (!topLevel.TryGetValue(effect.ShapeId, out var layer))
             {
                 continue; // an effect on a shape that is gone
+            }
+
+            if (effect.ParagraphStart is { } start && layer == effect.ShapeId)
+            {
+                layer = ParagraphLayer(effect.ShapeId, start);
+                var end = Math.Max(start, effect.ParagraphEnd ?? start);
+                paragraphLayers[layer] = paragraphLayers.TryGetValue(layer, out var known) ? (effect.ShapeId, start, Math.Max(known.End, end)) : (effect.ShapeId, start, end);
             }
 
             if (current is null || effect.Trigger == AnimationTrigger.OnClick)
@@ -106,6 +123,6 @@ public sealed class SlideTimeline
             }
         }
 
-        return new SlideTimeline(steps, hidden);
+        return new SlideTimeline(steps, hidden, paragraphLayers);
     }
 }

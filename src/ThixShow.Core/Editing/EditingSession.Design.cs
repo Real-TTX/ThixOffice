@@ -149,6 +149,43 @@ public sealed partial class EditingSession
             AnimationPresets.Create(preset, id, index == 0 ? trigger : AnimationTrigger.WithPrevious, direction: direction))));
     }
 
+    /// <summary>
+    /// Effektoptionen › Nach Absatz: one effect per non-empty paragraph of each selected shape with text, each on its own click (the
+    /// first with <paramref name="trigger"/>), replacing the shapes' effects so far. Shapes without text get one effect.
+    /// </summary>
+    public void AddAnimationByParagraph(AnimationPreset preset, AnimationDirection direction = AnimationDirection.Bottom, AnimationTrigger trigger = AnimationTrigger.OnClick, IReadOnlyList<int>? shapeIds = null)
+    {
+        var ids = shapeIds ?? SelectedShapeIds();
+        if (ids.Count == 0 || CurrentSlide is not { } slide)
+        {
+            return;
+        }
+
+        EditTiming("Animation nach Absätzen", effects =>
+        {
+            var added = new List<AnimationEffect>();
+            foreach (var id in ids)
+            {
+                var paragraphs = slide.FindShape(id) is AutoShape { Text: { } text }
+                    ? text.Paragraphs.Select((paragraph, index) => (paragraph, index)).Where(pair => pair.paragraph.Length > 0).Select(pair => pair.index).ToList()
+                    : [];
+                if (paragraphs.Count == 0)
+                {
+                    added.Add(AnimationPresets.Create(preset, id, added.Count == 0 ? trigger : AnimationTrigger.WithPrevious, direction: direction));
+                    continue;
+                }
+
+                foreach (var paragraph in paragraphs)
+                {
+                    var effect = AnimationPresets.Create(preset, id, added.Count == 0 ? trigger : AnimationTrigger.OnClick, direction: direction);
+                    added.Add(effect with { ParagraphStart = paragraph, ParagraphEnd = paragraph });
+                }
+            }
+
+            return effects.Where(effect => !ids.Contains(effect.ShapeId)).ToList().Concat(added).ToList();
+        });
+    }
+
     /// <summary>Replaces the effect at <paramref name="index"/> by another preset (trigger, delay and duration kept where sensible).</summary>
     public void ChangeAnimation(int index, AnimationPreset preset, AnimationDirection direction = AnimationDirection.Bottom) =>
         EditTiming("Animation ändern", effects =>
