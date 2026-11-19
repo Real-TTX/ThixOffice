@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ThixShow without UI: its app definition (accent, document types) and the presentation program's core – the model (Model:
+    presentation, themes, masters → layouts → slides with placeholder inheritance, notes, sections, the shape tree with preset
+    and custom geometry, fills, outlines, effects, text bodies, tables, graphic frames, transitions and the animation timing
+    model, preserved content), DrawingML's colour and geometry machinery (Drawing: colour transforms, the guide formula
+    engine and the preset shapes), the layout and rendering of a slide into ThixOffice.Text display lists (Layout: text bodies
+    with autofit, placeholder resolution, thumbnails, handouts, notes pages, hit testing), the formats (Formats: pptx/pptm with
+    the Open XML SDK, preserving what ThixShow does not own; built-in themes), the editing engine (Editing: selection,
+    undoable commands, snapping, clipboard fragments, find/replace) and the slide show engine (Show: build steps, transition
+    and animation timelines, frames as layers). No UI framework and no native code: text is measured through
+    ThixOffice.Text's ITextMeasurer, so the same core can serve a web version.
+  -->
+  <PropertyGroup>
+    <RootNamespace>ThixShow.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixShow" />
+    <InternalsVisibleTo Include="ThixShow.Tests" />
+    <InternalsVisibleTo Include="ThixShow.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- MIT licence. -->
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThixOffice.Core\ThixOffice.Core.csproj" />
+    <ProjectReference Include="..\ThixOffice.Text\ThixOffice.Text.csproj" />
+  </ItemGroup>
+
+</Project>

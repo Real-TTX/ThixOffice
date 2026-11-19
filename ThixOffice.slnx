@@ -6,6 +6,7 @@
     <Project Path="src/ThixOffice.Text/ThixOffice.Text.csproj" />
     <Project Path="src/ThixCalc.Core/ThixCalc.Core.csproj" />
     <Project Path="src/ThixOffice.Text.Skia/ThixOffice.Text.Skia.csproj" />
+    <Project Path="src/ThixShow.Core/ThixShow.Core.csproj" />
     <Project Path="src/ThixWrite.Core/ThixWrite.Core.csproj" />
     <Project Path="src/ThixWrite/ThixWrite.csproj" />
   </Folder>
@@ -14,6 +15,7 @@
     <Project Path="tests/ThixCalc.Tests/ThixCalc.Tests.csproj" />
     <Project Path="tests/ThixOffice.Core.Tests/ThixOffice.Core.Tests.csproj" />
     <Project Path="tests/ThixOffice.Desktop.Tests/ThixOffice.Desktop.Tests.csproj" />
+    <Project Path="tests/ThixShow.Core.Tests/ThixShow.Core.Tests.csproj" />
     <Project Path="tests/ThixWrite.Core.Tests/ThixWrite.Core.Tests.csproj" />
     <Project Path="tests/ThixWrite.Tests/ThixWrite.Tests.csproj" />
   </Folder>
