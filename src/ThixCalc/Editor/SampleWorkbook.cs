@@ -138,6 +138,45 @@ public static class SampleWorkbook
     }
 
     /// <summary>
+    /// The table of the pictures: on the categories sheet, the half year as a formatted table (Mittel 2) with a total row.
+    /// Returns the number of undo steps it took.
+    /// </summary>
+    public static int AddTable(EditingSession session)
+    {
+        session.ActivateSheet(1);
+        string[][] rows =
+        [
+            ["Monat", "Einnahmen", "Ausgaben", "Überschuss"],
+            ["Januar", "3.870", "2.987,90", "=B2-C2"],
+            ["Februar", "3.830", "3.020,35", "=B3-C3"],
+            ["März", "3.960", "2.985,80", "=B4-C4"],
+            ["April", "3.980", "3.217,35", "=B5-C5"],
+            ["Mai", "3.910", "3.084,90", "=B6-C6"],
+            ["Juni", "4.060", "3.150,80", "=B7-C7"],
+        ];
+        var steps = 0;
+        for (var row = 0; row < rows.Length; row++)
+        {
+            for (var column = 0; column < rows[row].Length; column++)
+            {
+                var text = rows[row][column].Replace("=B", "=E", StringComparison.Ordinal).Replace("-C", "-F", StringComparison.Ordinal);
+                session.Select(new CellAddress(row, column + 3));
+                session.EnterInput(text);
+                steps++;
+            }
+        }
+
+        session.Select(new CellRange(1, 4, 6, 6));
+        session.SetLocalNumberFormat("#.##0,00 €");
+        session.SetColumnWidth(3, 6, 13);
+        session.Select(new CellAddress(0, 3));
+        var table = session.CreateTable(new CellRange(0, 3, 6, 6), hasHeaders: true);
+        session.SetTotalsRow(table.Name, true);
+        session.Select(new CellAddress(3, 4));
+        return steps + 4;
+    }
+
+    /// <summary>
     /// The charts of the pictures below the budget: "Einnahmen und Ausgaben" as clustered columns (salary, expenses, surplus per
     /// month) and "Ausgaben nach Kategorie" as a pie with percentages – live on the budget's cells.
     /// </summary>

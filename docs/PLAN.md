@@ -247,6 +247,16 @@ Formate, Sortieren/Filtern, Fixieren, bedingte Formatierung, Diagramme, xlsx/csv
   **Lücken:** „Empfohlene Diagramme“, Diagrammblätter (bleiben erhalten), einzelne Diagrammelemente anklicken und formatieren
   (Formatbereich, Schriftarten, Füllungen je Reihe in der Oberfläche), logarithmische Achsen, Trendlinien und Fehlerindikatoren (nur
   erhalten), mehrstufige Rubriken (gelesen und erhalten, nur innerste Stufe gezeigt), Diagrammformatvorlagen-Galerie (nur Farben).
+- **Stand Tabellen (2026-11-19): erledigt.** Einfügen › Tabelle (Strg+T/Strg+L, Dialog mit Bereich und „Tabelle hat
+  Überschriften“; ohne Überschriften kommt eine Zeile „Spalte1 …“ darüber), Start › Als Tabelle formatieren, Formatvorlagen Hell 1–21,
+  Mittel 1–28, Dunkel in den Designfarben (Galerie: Hell 1, Hell 9, Mittel 2–7), gebänderte Zeilen/Spalten, erste/letzte Spalte,
+  Ergebniszeile (TEILERGEBNIS(109;[Spalte]) im Zahlenformat der Spalte), Filterpfeile mit eigenem Filter je Tabelle, automatische
+  Erweiterung beim Tippen darunter/daneben, Überschrift aus/ein, Tabellengröße ändern, In Bereich konvertieren (Aussehen bleibt,
+  strukturierte Verweise werden zu A1-Bezügen), Umbenennen von Tabelle und Spalte mit Formeln, strukturierte Verweise deutsch
+  angezeigt (#Alle, #Daten, #Kopfzeilen, #Ergebnisse, #Diese Zeile, „;“) und englisch gespeichert, Karte Tabellenentwurf, xlsx
+  (Tabellenteile neu, geändert, gelöscht; Spaltenformate und berechnete Spalten bleiben). **Lücken:** berechnete Spalten (eine Formel
+  füllt nicht von selbst die ganze Spalte), Auswahl der Ergebnisfunktion je Spalte in der Zelle (Dropdown), Tabellenformatvorlagen
+  ändern/neu, Datenschnitte, Filter-Schaltflächen verkürzen den Überschriftstext nicht.
 - **Lücken (wichtig für Excel-Umsteiger zuerst):** benutzerdefinierte Filter (Zahlen-/Textfilter; die Werteliste hinter den Filterpfeilen gibt es), Einfügen › Tabelle,
   Strg+Plus/Minus (Zellen einfügen/löschen), Dialog Inhalte einfügen (nur Menüeinträge), Reihe ausfüllen (Dialog), Blitzvorschau,
   „Alle suchen“, Fenster teilen, Seitenumbruchvorschau, Textrichtung/Drehung beim Zeichnen, Teilformatierung in einer Zelle, Rückgängig

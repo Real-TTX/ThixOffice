@@ -77,6 +77,11 @@ Namen: SUMME, SVERWEIS, SUMMEWENNS, XVERWEIS, WENNFEHLER, dynamische Arrays …)
 - **Drucken und PDF:** Seite einrichten (Papier, Hoch-/Querformat, Ränder, Skalierung oder „auf N × M Seiten“, Druckbereich,
   Wiederholungszeilen, Gitternetzlinien, Überschriften, Kopf- und Fußzeile mit Seitenzahl), Datei › Drucken mit Vorschau (aktives
   Blatt, ganze Mappe oder Auswahl), Datei › Exportieren als PDF.
+- **Tabellen** (Einfügen › Tabelle, Strg+T oder Strg+L; Start › Als Tabelle formatieren): Überschriften mit Filterpfeilen, gebänderte
+  Zeilen und Formatvorlagen in den Designfarben, Ergebniszeile mit TEILERGEBNIS, die Tabelle wächst beim Tippen darunter oder daneben.
+  Strukturierte Verweise wie in Excel: `=SUMME(Tabelle1[Umsatz])`, `[@Menge]*[@Preis]`, `Tabelle1[[#Kopfzeilen];[Name]]`,
+  `#Ergebnisse`; Umbenennen von Tabelle oder Spalte ändert die Formeln mit. Karte **Tabellenentwurf** (Tabellenname, Tabellengröße
+  ändern, In Bereich konvertieren, Tabellenformatoptionen, Tabellenformatvorlagen).
 - **Diagramme** (Einfügen › Diagramme): Säulen und Balken (gruppiert, gestapelt, 100 %), Linie (mit Datenpunkten, gestapelt), Kreis
   und Ring, Fläche (gestapelt), Punkt (XY, mit geraden oder interpolierten Linien) und Verbund (Säulen + Linie, auch auf der
   Sekundärachse). Die Reihen kommen wie in Excel aus der Markierung (Überschriften, Kategorien, Datumsachse) und folgen den Zellen
@@ -104,6 +109,8 @@ Namen: SUMME, SVERWEIS, SUMMEWENNS, XVERWEIS, WENNFEHLER, dynamische Arrays …)
 | ![Drucken](docs/images/thixcalc-backstage-print-light.png) | ![Seite einrichten](docs/images/thixcalc-dialog-page-setup-light.png) |
 | **Diagramme** (Einfügen) | **Diagrammentwurf** |
 | ![Diagramme](docs/images/thixcalc-main-chart-light.png) | ![Diagrammentwurf](docs/images/thixcalc-main-chart-design-light.png) |
+| **Tabelle mit Ergebniszeile** (Tabellenentwurf) | |
+| ![Tabelle](docs/images/thixcalc-main-table-light.png) | |
 | **Formeln** | **Diagramme dunkel** |
 | ![Formeln](docs/images/thixcalc-main-view-dark.png) | ![Diagramme dunkel](docs/images/thixcalc-main-chart-dark.png) |
 
@@ -128,6 +135,7 @@ Wie im deutschen Excel (unter macOS ⌘ statt Strg):
 | Strg+F, Strg+H, F5 | Suchen, Ersetzen, Gehe zu (Namenfeld) |
 | Strg+Umschalt+L | Filter ein/aus |
 | Strg+K, Umschalt+F2 | Link, Notiz |
+| Strg+T, Strg+L | Tabelle erstellen |
 | Umschalt+F3, Strg+F3, F9 | Funktion einfügen, Namens-Manager, Neu berechnen |
 | Strg+Bild ab / auf (Mac: ⌥⌘→ / ⌥⌘←), Umschalt+F11 | nächstes / voriges Blatt, neues Blatt |
 | Strg+9, Strg+0 | Zeilen / Spalten ausblenden |

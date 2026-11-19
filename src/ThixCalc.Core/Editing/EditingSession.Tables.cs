@@ -187,6 +187,17 @@ public sealed partial class EditingSession
             }
 
             var totalsRow = table.Range.LastRow + 1;
+
+            // The total row shows numbers as its column does.
+            for (var column = table.Range.FirstColumn; column <= table.Range.LastColumn; column++)
+            {
+                var format = sheet.GetStyle(table.Range.LastRow, column).NumberFormat;
+                var current = sheet.GetStyle(totalsRow, column);
+                if (current.NumberFormat != format)
+                {
+                    SetCell(sheet, totalsRow, column, sheet.GetCell(totalsRow, column) with { StyleId = Workbook.Styles.Intern(current with { NumberFormat = format }) });
+                }
+            }
             var last = table.Columns.Count - 1;
             var data = new CellRange(table.DataRange.FirstRow, table.Range.LastColumn, table.DataRange.LastRow, table.Range.LastColumn);
             var numeric = sheet.GetCells(data).Any(entry => entry.Cell.Value.IsNumber);
@@ -213,6 +224,51 @@ public sealed partial class EditingSession
             }
 
             SetCell(sheet, totalsRow, table.Range.FirstColumn, new Cell(CellValue.FromText("Ergebnis"), null, sheet.GetStyleId(totalsRow, table.Range.FirstColumn)));
+        });
+    }
+
+    /// <summary>
+    /// Überschrift off: the header row leaves the table (its cells stay); on: the row above becomes the header with the
+    /// column names (it must be empty).
+    /// </summary>
+    public void SetTableHeader(string name, bool visible)
+    {
+        var (sheet, table) = FindTable(name);
+        if (table.HasHeader == visible)
+        {
+            return;
+        }
+
+        if (!visible)
+        {
+            Execute("Überschrift", () => ReplaceTable(sheet, table, table with
+            {
+                Range = new CellRange(table.Range.FirstRow + 1, table.Range.FirstColumn, table.Range.LastRow, table.Range.LastColumn),
+                HeaderRowCount = 0,
+                Filter = null,
+            }));
+            return;
+        }
+
+        var above = table.Range.FirstRow - 1;
+        var row = new CellRange(Math.Max(0, above), table.Range.FirstColumn, Math.Max(0, above), table.Range.LastColumn);
+        if (above < 0 || sheet.GetCells(row).Any(entry => !entry.Cell.Value.IsBlank || entry.Cell.HasFormula) || sheet.Tables.Any(other => other != table && other.Range.Intersects(row)))
+        {
+            throw new BusinessException("Über der Tabelle ist kein Platz für die Überschriften. Fügen Sie zuerst eine leere Zeile ein.");
+        }
+
+        Execute("Überschrift", () =>
+        {
+            for (var index = 0; index < table.Columns.Count; index++)
+            {
+                SetCell(sheet, above, table.Range.FirstColumn + index, new Cell(CellValue.FromText(table.Columns[index]), null, sheet.GetStyleId(above, table.Range.FirstColumn + index)));
+            }
+
+            ReplaceTable(sheet, table, table with
+            {
+                Range = new CellRange(above, table.Range.FirstColumn, table.Range.LastRow, table.Range.LastColumn),
+                HeaderRowCount = 1,
+            });
         });
     }
 

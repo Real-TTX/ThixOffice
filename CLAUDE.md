@@ -390,6 +390,19 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   (unchanged charts keep their parts; the drawing is rewritten only when charts changed; pictures and shapes in it stay). UI:
   `GridSurface.Charts`, `CalcChartCommands` (context `chart`: tabs `chartDesign`, `chartFormat`), `Dialogs/ChartDialogs`.
 
+### Tables (ThixCalc)
+
+- **Model:** `TableDefinition` (name, range, columns, header/total rows, style + options, totals functions/labels, its own `Filter`) in
+  `Worksheet.Tables`; `TableStyles` resolves Office's style names in the theme (`LookAt` per cell: fill, bold, text colour) – the grid
+  draws them in `GridRenderer.Present` under the cell's own format, plus header/total lines and the header's filter arrows
+  (`GridRenderer.FilterHeaders`). Structured references: stored English with ","; `StructuredSpecifiers` translates to German items and
+  ";" for display; `StructuredReferences.ResolveRange` evaluates, `CalcEngine` registers only the named cells as precedents.
+- **Session** (`EditingSession.Tables`): `CreateTable`, `SetTableOptions`, `SetTotalsRow`, `SetTableHeader`, `RenameTable` (formulas follow),
+  `ResizeTable`, `ConvertTableToRange`, growth on input (`GrowTableFor`, `RenameColumnFor`), `ActiveTable`, `ActiveFilter` (filters act on the
+  active cell's table, else the sheet's autofilter). Every table change marks the command structural (dependencies rebuilt).
+- **xlsx:** `XlsxTables` (read; write into the table's part or a new one with a workbook-unique id; parts of removed tables go).
+  **UI:** `CalcTableCommands` (context `table`, tab `tableDesign`), `Dialogs/TableDialogs`.
+
 ### Adding a command to ThixCalc
 
 1. An id in `CalcCommandIds` (`calc.<name>`; menu entries `calc.<menu>.<entry>`; value commands note their value).
@@ -412,7 +425,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - `dotnet build ThixOffice.slnx` – expected: 0 warnings, 0 errors. `dotnet test ThixOffice.slnx` – all green.
 - ThixCalc the same way: `dotnet run --project src/ThixCalc` (`THIXCALC_DATA_DIR`), snapshots `-- --snapshot <folder>` (scenes
   `-main-formula`, `-main-view`, `-main-find`, `-dialog-format-cells`, `-dialog-function`, `-dialog-page-setup`, `-backstage-print`,
-  `-main-chart`, `-main-chart-design` on the budget sample `SampleWorkbook`), `THIXCALC_SCREENSHOTS=<folder> dotnet test
+  `-main-chart`, `-main-chart-design`, `-main-table` on the budget sample `SampleWorkbook`), `THIXCALC_SCREENSHOTS=<folder> dotnet test
   tests/ThixCalc.Tests` (also every chart type into `<folder>/charts`: `ChartPictureTests`); its trimmed publish (~46 MB) runs
   `--self-test` (typed values and German formulas incl. SVERWEIS/SUMMEWENN, format, sort, a chart through the ribbon command, xlsx round
   trip with the chart, a Skia frame and a chart picture, the sample with its charts, PDF, GDI print).

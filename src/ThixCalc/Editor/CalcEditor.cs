@@ -753,6 +753,15 @@ public sealed class CalcEditor : OfficeEditor
                 _window.RibbonDefinition.HideContext(CalcChartCommands.Context);
             }
 
+            if (Session.SelectedChart is null && Session.ActiveTable is not null)
+            {
+                _window.RibbonDefinition.ShowContext(CalcTableCommands.Context);
+            }
+            else
+            {
+                _window.RibbonDefinition.HideContext(CalcTableCommands.Context);
+            }
+
             FormulaBar.Refresh();
             PlaceListButton();
             _window.Commands.Invalidate();

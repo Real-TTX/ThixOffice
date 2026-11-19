@@ -28,7 +28,7 @@ public static class CalcRibbon
             }
         }
 
-        definition.Add(HomeTab(palette, Launch), InsertTab(), PageLayoutTab(), FormulasTab(), DataTab(), ReviewTab(), ViewTab(), ChartDesignTab(), ChartFormatTab());
+        definition.Add(HomeTab(palette, Launch), InsertTab(), PageLayoutTab(), FormulasTab(), DataTab(), ReviewTab(), ViewTab(), TableDesignTab(), ChartDesignTab(), ChartFormatTab());
         return definition;
     }
 
@@ -103,6 +103,7 @@ public static class CalcRibbon
                     Button(CalcStyleCommands.RuleId("clearSheet")),
                     Button(CalcStyleCommands.RuleId("manage")),
                 ]) { Size = MatRibbonSize.Large },
+                TableStyleMenu(CalcCommandIds.FormatAsTable),
                 CellStylesGallery()),
             new MatRibbonGroup("cells", "Zellen") { Icon = "row-insert", ShrinkOrder = 2 }.Add(
                 new MatRibbonSplitButton(CalcCommandIds.Insert, "", menu:
@@ -148,6 +149,8 @@ public static class CalcRibbon
 
     private static MatRibbonTab InsertTab() =>
         new MatRibbonTab("insert", "Einfügen").Add(
+            new MatRibbonGroup("tables", "Tabellen") { Icon = "table" }.Add(
+                Button(CalcCommandIds.InsertTable, MatRibbonSize.Large)),
             new MatRibbonGroup("charts", "Diagramme") { Icon = "chart-column" }.Add(
                 new MatRibbonStack("charts-left", ChartFamily(ThixOffice.Charts.ChartFamily.Column), ChartFamily(ThixOffice.Charts.ChartFamily.Bar), ChartFamily(ThixOffice.Charts.ChartFamily.Line)),
                 new MatRibbonStack("charts-middle", ChartFamily(ThixOffice.Charts.ChartFamily.Pie), ChartFamily(ThixOffice.Charts.ChartFamily.Area), ChartFamily(ThixOffice.Charts.ChartFamily.Scatter)),
@@ -161,6 +164,31 @@ public static class CalcRibbon
     private static MatRibbonMenuButton ChartFamily(ThixOffice.Charts.ChartFamily family) =>
         new(CalcCommandIds.ChartFamilyPrefix + family.ToString().ToLowerInvariant(), "", null,
             [.. ThixOffice.Charts.ChartTemplates.All.Where(template => template.Family == family).Select(template => Button(CalcCommandIds.InsertChartPrefix + template.Id))]) { Size = MatRibbonSize.Medium };
+
+    /// <summary>The table styles as a gallery (labels: Hell 1, Mittel 2 …).</summary>
+    private static MatRibbonGallery TableStyleMenu(string commandId)
+    {
+        var gallery = Gallery(commandId, TableStyles.Gallery.Select(style => new MatRibbonGalleryEntry(style.Id, style.Label) { Icon = "table" }));
+        gallery.InlineCount = 3;
+        gallery.EntryWidth = 74;
+        return gallery;
+    }
+
+    /// <summary>Tabellenentwurf (contextual, while the active cell is in a table).</summary>
+    private static MatRibbonTab TableDesignTab() =>
+        new MatRibbonTab("tableDesign", "Tabellenentwurf") { Context = CalcTableCommands.Context }.Add(
+            new MatRibbonGroup("table-properties", "Eigenschaften") { Icon = "tag" }.Add(
+                new MatRibbonStack("table-properties-rows",
+                    ComboBox(CalcCommandIds.TableName, width: 130, isEditable: true),
+                    Button(CalcCommandIds.TableResize, MatRibbonSize.Medium))),
+            new MatRibbonGroup("table-tools", "Tools") { Icon = "grid" }.Add(
+                Button(CalcCommandIds.TableConvert, MatRibbonSize.Large)),
+            new MatRibbonGroup("table-options", "Tabellenformatoptionen") { Icon = "check-square" }.Add(
+                new MatRibbonStack("table-options-1", Toggle(CalcCommandIds.TableHeaderRow), Toggle(CalcCommandIds.TableTotalRow), Toggle(CalcCommandIds.TableBandedRows)),
+                new MatRibbonStack("table-options-2", Toggle(CalcCommandIds.TableFirstColumn), Toggle(CalcCommandIds.TableLastColumn), Toggle(CalcCommandIds.TableBandedColumns)),
+                new MatRibbonStack("table-options-3", Toggle(CalcCommandIds.TableFilterButton))),
+            new MatRibbonGroup("table-styles", "Tabellenformatvorlagen") { Icon = "template" }.Add(
+                TableStyleMenu(CalcCommandIds.TableStyles)));
 
     /// <summary>Diagrammentwurf (contextual, while a chart is selected).</summary>
     private static MatRibbonTab ChartDesignTab() =>

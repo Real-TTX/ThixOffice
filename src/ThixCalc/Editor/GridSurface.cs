@@ -685,8 +685,8 @@ internal sealed partial class GridSurface : Control, ITextField
 
     /// <summary>The autofilter column whose arrow is at <paramref name="device"/>, or null.</summary>
     private int? FilterColumnAt(GridViewport viewport, CellAddress cell, Point device) =>
-        Session.ActiveSheet.AutoFilter is { } filter && cell.Row == filter.Range.FirstRow && GridRenderer.FilterButtonRect(viewport, cell.Column) is { } button && button.Contains(device.X, device.Y)
-            ? cell.Column - filter.Range.FirstColumn
+        GridRenderer.FilterColumnAt(Session.ActiveSheet, cell) is { } offset && GridRenderer.FilterButtonRect(viewport, cell) is { } button && button.Contains(device.X, device.Y)
+            ? offset
             : null;
 
     /// <summary>The list behind a filter arrow (the last one opened, for tests).</summary>

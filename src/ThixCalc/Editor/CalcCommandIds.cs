@@ -168,6 +168,24 @@ public static class CalcCommandIds
     public const string ZoomDialog = "calc.zoom";
     public const string ZoomSelection = "calc.zoomSelection";
 
+    // Einfügen – Tabellen; Start – Als Tabelle formatieren (value: the style name)
+    public const string InsertTable = "calc.table.insert";
+    public const string InsertTableAlias = "calc.table.insertAlias";
+    public const string FormatAsTable = "calc.table.formatAs";
+
+    // Tabellenentwurf (context "table")
+    public const string TableName = "calc.table.name"; // value: the name
+    public const string TableResize = "calc.table.resize";
+    public const string TableConvert = "calc.table.convert";
+    public const string TableHeaderRow = "calc.table.headerRow";
+    public const string TableTotalRow = "calc.table.totalRow";
+    public const string TableBandedRows = "calc.table.bandedRows";
+    public const string TableFirstColumn = "calc.table.firstColumn";
+    public const string TableLastColumn = "calc.table.lastColumn";
+    public const string TableBandedColumns = "calc.table.bandedColumns";
+    public const string TableFilterButton = "calc.table.filterButton";
+    public const string TableStyles = "calc.table.styles"; // value: the style name
+
     // Einfügen – Diagramme ("calc.chart.insert.<template>", menus "calc.chart.family.<family>")
     public const string InsertChartPrefix = "calc.chart.insert.";
     public const string ChartFamilyPrefix = "calc.chart.family.";
