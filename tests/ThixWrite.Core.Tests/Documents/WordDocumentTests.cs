@@ -81,7 +81,8 @@ public class WordDocumentTests
         document.SaveFormat = WordFileFormat.Docx;
         Assert.Equal((byte)'P', WriteOf(document)[0]);
         Assert.Equal(WordFileFormat.Docx, WordDocument.FormatOf(".DOCX"));
-        Assert.Null(WordDocument.FormatOf(".odt"));
+        Assert.Equal(WordFileFormat.Odt, WordDocument.FormatOf(".odt"));
+        Assert.Null(WordDocument.FormatOf(".rtf"));
     }
 }
 

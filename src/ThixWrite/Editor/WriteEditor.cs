@@ -328,9 +328,44 @@ public sealed class WriteEditor : OfficeEditor
                 return null;
             }
 
+            if (Document.LoadedFormat == WordFileFormat.Odt)
+            {
+                var lost = string.Join(Environment.NewLine, notes.Select(note => $"• {note.Count} × {UnsupportedContent.PlainLabel(note.Kind)}"));
+                return $"Dieses OpenDocument-Dokument enthält Inhalte, die ThixWrite nicht anzeigt. Beim Speichern sind sie nicht mehr enthalten:{Environment.NewLine}{lost}";
+            }
+
             var details = string.Join(Environment.NewLine, notes.Select(note => "• " + note.Message));
             return $"Dieses Dokument enthält Inhalte, die ThixWrite noch nicht anzeigt oder bearbeitet. Sie bleiben beim Speichern als Word-Dokument erhalten:{Environment.NewLine}{details}";
         }
+    }
+
+    private bool _odtConfirmed;
+
+    /// <summary>
+    /// Saving as .odt: content kept from a Word file (fields, drawings, content controls …) has no place there – the user is asked
+    /// once before it is left out. The header or footer being edited goes into the document first.
+    /// </summary>
+    public override async Task<bool> ConfirmSaveAsync(string path)
+    {
+        CommitHeaderFooter();
+        if (!string.Equals(Path.GetExtension(path), ".odt", StringComparison.OrdinalIgnoreCase) || _odtConfirmed || Document.LoadedFormat == WordFileFormat.Odt)
+        {
+            return true;
+        }
+
+        var preserved = Document.Content.Blocks.OfType<OpaqueBlock>().Count()
+            + Document.Content.Blocks.OfType<Core.Model.Paragraph>().SelectMany(paragraph => paragraph.Inlines).OfType<OpaqueInline>().Count(inline => inline.Kind != PreservedKind.Bookmark && !inline.IsMarker);
+        if (preserved == 0)
+        {
+            return true;
+        }
+
+        var answer = await ThixOffice.Desktop.Dialogs.QuestionDialog.AskAsync(_window, "Als OpenDocument speichern",
+            "Dieses Dokument enthält Inhalte aus Word, die das OpenDocument-Format in ThixWrite nicht aufnehmen kann (z. B. Formen, Inhaltssteuerelemente, Formeln). Sie sind in der .odt-Datei nicht enthalten. Möchten Sie trotzdem als OpenDocument speichern?",
+            new ThixOffice.Desktop.Dialogs.DialogChoice("Als OpenDocument speichern", "save", "MatButton.Primary", IsDefault: true),
+            new ThixOffice.Desktop.Dialogs.DialogChoice("Abbrechen", "x", IsCancel: true));
+        _odtConfirmed = answer == 0;
+        return _odtConfirmed;
     }
 
     /// <summary>The page of the caret (0-based): "Aktuelle Seite drucken", the status bar.</summary>

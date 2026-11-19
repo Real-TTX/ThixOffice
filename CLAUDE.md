@@ -22,8 +22,8 @@ tab stops, the dialogs Schriftart/Absatz, format painter, symbols, HTML paste (s
 find/replace, clipboard, page setup, printing and PDF, CSV/xlsx/xlsm flows (section "ThixCalc's editor"; gaps in docs/PLAN.md).
 **ThixCalc charts (done):** the shared `ThixOffice.Charts` (section "Charts"). **Phase 4, first version of ThixShow (done):** the
 slide editor, thumbnails, sorter, show and presenter view, the German PowerPoint ribbon, printing/PDF (section "ThixShow's editor";
-gaps in docs/PLAN.md). **ThixWrite 1c (in progress):** footnotes/endnotes, the table of contents, comments, spelling and the Referenzen/Überprüfen tabs done; next
-odt. Do not build ribbon controls of
+gaps in docs/PLAN.md). **ThixWrite 1c (done):** footnotes/endnotes, table of contents, comments, spelling (shared seam), Referenzen/Überprüfen, odt; next the
+launcher entry and ThixWrite 1d (gaps in docs/PLAN.md). Do not build ribbon controls of
 your own (a picture gallery is a `RibbonFlyoutButton` through `CreateRibbonContent`).
 
 Stack: **.NET 10** (`global.json` 10.0.100, latestMinor), C#, **Avalonia 11.3.22** with **MatDesktop 0.3.1** (a copy), xunit +
@@ -137,11 +137,11 @@ src/ThixCalc               App, Program, CalcSelfTest, Editor/ (CalcEditor, Grid
                            Dialogs/ (Zellen formatieren, Funktion einfügen, Sortieren, Datenüberprüfung, Text in Spalten, Duplikate,
                            Namens-Manager, Link, Notiz, bedingte Formatierung, Seite einrichten, Zoom, Zellen einfügen/löschen, Blatt
                            verschieben, Textimport), Pages/ (CalcPrintPage, CalcExportPage)
-src/ThixWrite.Core         (no UI) ThixWriteApp.Definition (.docx Supported + default, .txt Supported, .odt/.rtf Planned);
+src/ThixWrite.Core         (no UI) ThixWriteApp.Definition (.docx Supported + default, .odt and .txt Supported, .rtf Planned);
                            Model/ (Document of immutable blocks, styles, lists, sections, tables, preserved content), Editing/ (EditingSession:
                            selection, every command as a reversible transaction, undo, clipboard fragments, find/replace,
                            GetFormatting), Layout/ (DocumentLayout: incremental line breaking + pagination, hit testing, caret and
-                           selection geometry, display lists), Formats/ (docx with the Open XML SDK, plain text),
+                           selection geometry, display lists), Formats/ (docx with the Open XML SDK + DocxNotes/DocxComments/DocxToc, Odt/, plain text),
                            Documents/WordDocument (OfficeDocument: Content + Session; LoadedFormat / SaveFormat), BlankDocument +
                            DocumentFonts (new documents: Aptos → Calibri → Helvetica Neue → Arial, whatever the machine has)
 src/ThixShow.Core          (no UI) ThixShowApp.Definition (.pptx default, .pptm, .odp planned; cloud id show); Model/ (immutable Presentation:
@@ -412,6 +412,15 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   defaults; `EditingSession.Language/SetLanguage`, `ReplaceWord`), `Editor/SpellingSupport` (queue per language, `Misspelled(pages)` for
   `DocumentSurface.Misspelled` – the wavy lines, `ErrorAt`, `NextError`, `CheckNow`), `WriteEditor.SpellingMenuItems` (context menu),
   `Dialogs/SpellingDialog` (F7), `Dialogs/WordCountDialog`; commands in `ReviewCommands` (write.spelling, write.wordCount, write.language.*).
+
+### OpenDocument Text (odt)
+
+- `Formats/Odt`: `OdtXml` (namespaces as `…Ns`, lengths, character/paragraph properties both ways), `OdtWriter` (ZIP: mimetype first and
+  stored, content.xml, styles.xml with the page layout and master page, meta.xml, Pictures/, manifest), `OdtReader` (named styles mapped
+  to ThixWrite's ids by display name – "Heading 1" → Heading1 –, automatic styles as direct formatting, lists from list styles, tables with
+  covered cells, notes, annotations, sections/indexes as paragraphs; anything else counted in `UnsupportedContent`, the opening warning says
+  it is not kept for odt). `WordDocument` sniffs the mimetype (`OdtReader.IsOdt`), `WordFileFormat.Odt`; `WriteEditor.ConfirmSaveAsync`
+  asks before Word content is left out of an .odt. No dependency beyond the BCL.
 
 ### Links, dialogs, format painter, symbols, ruler
 

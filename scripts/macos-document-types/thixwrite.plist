@@ -2,7 +2,7 @@
     ThixWrite's document types for Finder (CFBundleDocumentTypes, put into Info.plist by package-macos.sh). Like the
     Windows registration only what ThixWrite can open now: Word documents (its own format) and plain text, both as
     "Alternate": ThixWrite appears under "Öffnen mit", the default stays the user's (house rule: never take a type silently).
-    .odt and .rtf are added when their readers exist (ThixWriteApp.Definition marks them as planned). @DOCUMENT_ICON@ is the
+    .odt is OpenDocument Text; .rtf is added when its reader exists (ThixWriteApp.Definition marks them as planned). @DOCUMENT_ICON@ is the
     document icon of the bundle.
   -->
   <array>
@@ -15,6 +15,22 @@
       <array><string>org.openxmlformats.wordprocessingml.document</string></array>
       <key>CFBundleTypeMIMETypes</key>
       <array><string>application/vnd.openxmlformats-officedocument.wordprocessingml.document</string></array>
+      <key>CFBundleTypeIconFile</key>
+      <string>@DOCUMENT_ICON@</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Alternate</string>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>OpenDocument-Text</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>odt</string></array>
+      <key>LSItemContentTypes</key>
+      <array><string>org.oasis-open.opendocument.text</string></array>
+      <key>CFBundleTypeMIMETypes</key>
+      <array><string>application/vnd.oasis.opendocument.text</string></array>
       <key>CFBundleTypeIconFile</key>
       <string>@DOCUMENT_ICON@</string>
       <key>CFBundleTypeRole</key>

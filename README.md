@@ -8,13 +8,13 @@ und die aussieht wie die übrigen Thix-Apps.
 
 | Programm | statt | Formate | Stand |
 | --- | --- | --- | --- |
-| **ThixWrite** | Word | docx, txt, später odt | Meilenstein 1b; Dokumente in ThixDrive (Phase 2) |
+| **ThixWrite** | Word | docx, odt, txt | Meilenstein 1c; Dokumente in ThixDrive (Phase 2) |
 | **ThixCalc** | Excel | xlsx, xlsm, csv, später ods | erstes Release (Phase 3), Arbeitsmappen in ThixDrive |
 | **ThixShow** | PowerPoint | pptx, pptm, später odp | erste Version (Phase 4), Präsentationen in ThixDrive |
 
 Der Plan steht in [docs/PLAN.md](docs/PLAN.md).
 
-## ThixWrite – Stand Meilenstein 1b
+## ThixWrite – Stand Meilenstein 1c
 
 ThixWrite ist eine Textverarbeitung mit eigenem, nativem Editor: Seiten wie auf Papier (weiß, auch im dunklen
 Erscheinungsbild), Zeichen- und Absatzformat, Formatvorlagen, Aufzählung und Nummerierung, Rückgängig/Wiederholen, Zwischenablage
@@ -38,7 +38,9 @@ Systems (Windows: Sprachpakete; macOS: die Rechtschreibung des Systems) – unbe
 Rechtsklick zeigt Vorschläge, **F7** geht Wort für Wort durch das Dokument; Überprüfen › Sprache legt die Sprache des Dokuments fest,
 Wörter zählen zählt Seiten, Wörter und Zeichen. Abschalten lässt sie sich in Einstellungen › Allgemein.
 
-Word-Dokumente (.docx) sind das Standardformat; .txt wird als reiner Text gelesen und geschrieben. Inhalte, die ThixWrite noch
+Word-Dokumente (.docx) sind das Standardformat; **OpenDocument-Text (.odt)** aus LibreOffice und Co. wird gelesen und geschrieben
+(Absätze, Zeichen- und Absatzformat, Formatvorlagen, Listen, Tabellen, Bilder, Kopf- und Fußzeile, Seite einrichten, Links, Fuß- und
+Endnoten, Kommentare); .txt wird als reiner Text gelesen und geschrieben. Inhalte, die ThixWrite noch
 nicht anzeigt (Kommentare, verschachtelte Tabellen, Formeln …), bleiben beim Speichern erhalten – beim Öffnen sagt ein
 Hinweis, welche es sind.
 

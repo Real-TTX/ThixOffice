@@ -228,6 +228,21 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   Standardsprache des Dokuments, w:lang), Einstellung „Rechtschreibung während der Eingabe prüfen“.
   **Lücken:** Grammatik, Sprache je Absatz/Lauf (w:lang der Läufe wird erhalten, geprüft wird mit der Dokumentsprache), Kopf-/Fußzeilen
   und Fußnoten werden nicht geprüft, AutoKorrektur, „Einmal ignorieren“ merkt sich nichts über den Dialog hinaus.
+- **Karten Referenzen und Überprüfen erledigt (1c):** Referenzen = Inhaltsverzeichnis (Menü, Tabelle aktualisieren), Fußnoten (Fußnote,
+  Endnote, Nächste Fußnote); Überprüfen = Dokumentprüfung (Rechtschreibung F7, Wörter zählen), Sprache, Kommentare (Neuer Kommentar,
+  Löschen, Vorheriger, Weiter, Kommentare anzeigen) – nur Befehle, die es gibt. Ansicht › Navigationsbereich.
+- **odt erledigt (1c):** OpenDocument Text lesen und schreiben ohne neue Abhängigkeit (System.IO.Compression + System.Xml.Linq):
+  mimetype zuerst und unkomprimiert, Manifest, styles.xml (benannte Formatvorlagen mit Anzeigenamen, Standardformat mit Sprache,
+  Seitenlayout, Musterseite mit Kopf-/Fußzeile und erster Seite), content.xml (automatische Formatvorlagen für direkte Formatierung,
+  Absätze und Überschriften, Listen verschachtelt mit Listenformatvorlagen, Tabellen mit Spalten-, Zeilen- und verdeckten Zellen,
+  Rahmen, Füllung, Abständen, Bilder in Pictures/, Links, Fuß-/Endnoten, Felder Seitenzahl/Seitenanzahl/Datum, Textmarken, Kommentare
+  als office:annotation mit Bereich). Gelesen werden auch Abschnitte und Verzeichnisse (ihre Absätze); was ThixWrite nicht zeigt
+  (Formen, Formeln, Objekte), nennt der Hinweis beim Öffnen – es ist in einer gespeicherten .odt nicht mehr enthalten. Ein Word-Dokument
+  mit erhaltenem Word-Inhalt fragt vor „Als OpenDocument speichern“. .odt ist registriert (Windows-Dateitypen, macOS-Plist), Selbsttest
+  liest/schreibt odt in der getrimmten exe. **Lücken:** Seitenumbrüche im Absatz werden zu „Umbruch davor“ des Folgeabsatzes,
+  Abschnitte mit eigener Seite, gerade/ungerade Kopfzeilen, Tabellenformatvorlagen (die Zellen tragen ihre Rahmen), Spalten, Zeichen-
+  und Absatzrahmen, Formen und Textfelder, Verzeichnisse als Felder (sie werden zu Absätzen), verschachtelte Tabellen.
+- **Stand 1c (2026-11-19): erledigt** (Lücken siehe die Punkte oben).
 - Danach: Launcher-Eintrag (siehe 6).
 
 ### Phase 2 – Drive in ThixCloud

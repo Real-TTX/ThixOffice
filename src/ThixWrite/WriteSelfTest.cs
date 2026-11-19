@@ -130,7 +130,14 @@ internal static class WriteSelfTest
             "the table of contents is lost in the docx");
         Ensure(SkiaPageRenderer.DecodeImage(image.Key, image.Bytes) is { Width: 600 }, "Skia cannot decode the picture");
         Ensure(Core.Formats.Html.HtmlImport.Import("<p><b>HTML</b></p>") is { } html && html.Blocks.Count > 0, "HTML is not read");
-        return $"picture, footer, footnote and table of contents {new FileInfo(path).Length} bytes";
+        // The same as OpenDocument Text: written, read back (System.IO.Compression and System.Xml after trimming).
+        var odt = DocumentService.SaveAs(reopened, Path.Combine(folder, "Bild.odt"));
+        var fromOdt = DocumentService.Open(odt, app.CreateDocument) as WordDocument ?? throw new InvalidOperationException("not a WordDocument");
+        Ensure(fromOdt.LoadedFormat == WordFileFormat.Odt, "the odt was not read as OpenDocument");
+        Ensure(fromOdt.Content.Blocks.OfType<Paragraph>().SelectMany(paragraph => paragraph.Inlines).OfType<ImageInline>().Any(), "the picture is lost in the odt");
+        Ensure(NoteNumbering.All(fromOdt.Content).SingleOrDefault().Note?.PlainText.Trim() == "Eine Fußnote.", "the footnote is lost in the odt");
+        Ensure(fromOdt.Content.GetPlainText().Contains("Kapitel", StringComparison.Ordinal), "the heading is lost in the odt");
+        return $"picture, footer, footnote and table of contents {new FileInfo(path).Length} bytes, odt {new FileInfo(odt).Length} bytes";
     }
 
     /// <summary>

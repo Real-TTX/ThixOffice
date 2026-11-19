@@ -12,7 +12,7 @@ namespace ThixWrite.Tests;
 public sealed class DocumentTests
 {
     [Fact]
-    public void ThixWrite_works_on_docx_and_txt_and_declares_odt_and_rtf_as_planned()
+    public void ThixWrite_works_on_docx_odt_and_txt_and_declares_rtf_as_planned()
     {
         var definition = ThixWriteApp.Definition;
 
@@ -21,9 +21,9 @@ public sealed class DocumentTests
         Assert.Equal("Write", definition.Suffix);
         Assert.Equal(".docx", definition.DefaultType.Extension);
         Assert.Equal(DocumentTypeSupport.Supported, definition.DefaultType.Support);
-        Assert.Equal([".docx", ".txt"], definition.SupportedTypes.Select(type => type.Extension));
+        Assert.Equal([".docx", ".odt", ".txt"], definition.SupportedTypes.Select(type => type.Extension));
         Assert.Equal(".docx", definition.SaveType.Extension);
-        Assert.All(definition.DocumentTypes.Where(type => type.Extension is ".odt" or ".rtf"), type => Assert.False(type.IsSupported));
+        Assert.All(definition.DocumentTypes.Where(type => type.Extension is ".rtf"), type => Assert.False(type.IsSupported));
         Assert.Equal("thixwrite-update.json", definition.ManifestFileName);
         Assert.Equal("ThixWriteSetup.exe", definition.SetupFileName);
         Assert.Equal("info.schmoldt.thixwrite", definition.MacBundleId);

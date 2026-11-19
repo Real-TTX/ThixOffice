@@ -217,7 +217,7 @@ public sealed class FlowTests
     {
         using var data = new TestData();
         var window = TestData.App.NewDocumentWindow();
-        var odt = data.File("Vertrag.odt", "PK");
+        var odt = data.File("Vertrag.rtf", "{\\rtf1 PK}");
 
         var task = TestData.App.OpenFileAsync(odt, window);
         await SettleAsync();

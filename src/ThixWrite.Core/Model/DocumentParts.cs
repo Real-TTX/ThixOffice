@@ -62,6 +62,17 @@ public sealed record UnsupportedContent(PreservedKind Kind, int Count)
     /// <summary>"3 × Tabelle" – German, for the warning.</summary>
     public string Message => $"{Count} × {Label(Kind)}";
 
+    /// <summary>The German name of a kind of content, without what happens to it (an OpenDocument file: it is not kept).</summary>
+    public static string PlainLabel(PreservedKind kind) => kind switch
+    {
+        PreservedKind.Drawing or PreservedKind.FloatingDrawing => "Zeichnung oder Form",
+        PreservedKind.Table => "Tabelle in einer Tabelle (ihr Text wird gezeigt)",
+        PreservedKind.Math => "Formel",
+        PreservedKind.EmbeddedObject => "Eingebettetes Objekt",
+        PreservedKind.Comment => "Kommentar",
+        _ => "Unbekannter Inhalt",
+    };
+
     /// <summary>The German name of a kind of preserved content.</summary>
     public static string Label(PreservedKind kind) => kind switch
     {

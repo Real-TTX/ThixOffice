@@ -3,6 +3,7 @@ using ThixOffice.Core.Documents;
 using ThixOffice.Core.Models;
 using ThixWrite.Core.Editing;
 using ThixWrite.Core.Formats.Docx;
+using ThixWrite.Core.Formats.Odt;
 using ThixWrite.Core.Formats.Text;
 using ThixWrite.Core.Model;
 
@@ -13,6 +14,7 @@ public enum WordFileFormat
 {
     Docx,
     PlainText,
+    Odt,
 }
 
 /// <summary>
@@ -65,6 +67,7 @@ public sealed class WordDocument : OfficeDocument
     {
         ".docx" => WordFileFormat.Docx,
         ".txt" => WordFileFormat.PlainText,
+        ".odt" => WordFileFormat.Odt,
         _ => null,
     };
 
@@ -80,7 +83,13 @@ public sealed class WordDocument : OfficeDocument
         using var buffer = new MemoryStream();
         stream.CopyTo(buffer);
         buffer.Position = 0;
-        if (IsZip(buffer))
+        if (IsZip(buffer) && OdtReader.IsOdt(buffer))
+        {
+            Attach(OdtReader.Read(buffer));
+            LoadedFormat = WordFileFormat.Odt;
+            TextEncoding = null;
+        }
+        else if (IsZip(buffer))
         {
             Attach(DocxReader.Read(buffer));
             LoadedFormat = WordFileFormat.Docx;
@@ -113,6 +122,12 @@ public sealed class WordDocument : OfficeDocument
         if (format == WordFileFormat.PlainText)
         {
             PlainTextFormat.Write(Content, stream, TextEncoding);
+            return;
+        }
+
+        if (format == WordFileFormat.Odt)
+        {
+            OdtWriter.Write(Content, stream);
             return;
         }
 
