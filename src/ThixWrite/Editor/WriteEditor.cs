@@ -658,54 +658,11 @@ public sealed class WriteEditor : OfficeEditor
 
     private void OnContentReplaced(object? sender, EventArgs e) => _surface.ScheduleRefresh();
 
-    private ContextMenu BuildContextMenu()
-    {
-        var menu = new ContextMenu();
-        string?[] ids =
+    private ContextMenu BuildContextMenu() => OfficeCommandMenu.Create(_window,
         [
             WriteCommandIds.Cut, WriteCommandIds.Copy, WriteCommandIds.Paste, WriteCommandIds.PasteText, null,
             WriteCommandIds.FontDialog, WriteCommandIds.ParagraphDialog, null,
             WriteCommandIds.Hyperlink, WriteCommandIds.HyperlinkOpen, WriteCommandIds.HyperlinkRemove,
-        ];
-        foreach (var id in ids)
-        {
-            if (id is null)
-            {
-                menu.Items.Add(new Separator());
-                continue;
-            }
-
-            if (_window.Commands.Find(id) is not { } command)
-            {
-                continue;
-            }
-
-            var item = new MenuItem
-            {
-                Header = command.Label,
-                Icon = command.Icon is null ? null : new MatDesktop.MatIcon { Icon = command.Icon, Size = 16 },
-                InputGesture = Ui.Gesture(command.CurrentShortcut),
-            };
-            item.Click += async (_, _) =>
-            {
-                await OfficeWindow.RunCommandAsync(_window, command);
-                FocusDocument();
-            };
-            menu.Items.Add(item);
-        }
-
-        menu.Opening += (_, _) =>
-        {
-            foreach (var item in menu.Items.OfType<MenuItem>())
-            {
-                var command = _window.Commands.All.FirstOrDefault(candidate => candidate.Label == (string?)item.Header);
-                item.IsEnabled = command?.IsEnabled ?? true;
-                if (command?.Id is WriteCommandIds.HyperlinkOpen or WriteCommandIds.HyperlinkRemove)
-                {
-                    item.IsVisible = item.IsEnabled; // only on a link
-                }
-            }
-        };
-        return menu;
-    }
+        ],
+        [WriteCommandIds.HyperlinkOpen, WriteCommandIds.HyperlinkRemove]);
 }

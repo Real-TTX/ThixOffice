@@ -1,8 +1,3 @@
-using Avalonia;
-using Avalonia.Media;
-using Avalonia.Platform;
-using Avalonia.Rendering.SceneGraph;
-using Avalonia.Skia;
 using SkiaSharp;
 using ThixOffice.Text.Skia;
 using ThixWrite.Core.Layout;
@@ -70,43 +65,6 @@ internal sealed class PagePictures
     }
 
     public void Clear() => _pictures.Clear();
-}
-
-/// <summary>
-/// Draws page pictures through Avalonia's Skia lease, on the render thread: each picture at its place in the control, scaled
-/// from points to device-independent pixels (the canvas carries the control's transform and the screen's scaling).
-/// </summary>
-internal sealed class PageDrawOperation(Rect bounds, IReadOnlyList<(Rect Rect, SKPicture Picture)> pages, double scale) : ICustomDrawOperation
-{
-    public Rect Bounds => bounds;
-
-    public bool HitTest(Point p) => false;
-
-    public bool Equals(ICustomDrawOperation? other) => ReferenceEquals(this, other);
-
-    public void Dispose()
-    {
-    }
-
-    public void Render(ImmediateDrawingContext context)
-    {
-        if (context.TryGetFeature(typeof(ISkiaSharpApiLeaseFeature)) is not ISkiaSharpApiLeaseFeature feature)
-        {
-            return;
-        }
-
-        using var lease = feature.Lease();
-        var canvas = lease.SkCanvas;
-        foreach (var (rect, picture) in pages)
-        {
-            canvas.Save();
-            canvas.ClipRect(SKRect.Create((float)rect.X, (float)rect.Y, (float)rect.Width, (float)rect.Height));
-            canvas.Translate((float)rect.X, (float)rect.Y);
-            canvas.Scale((float)scale);
-            canvas.DrawPicture(picture);
-            canvas.Restore();
-        }
-    }
 }
 
 /// <summary>The formatting marks of a page (¶ at paragraph ends, · for spaces, → for tabs, ↵ for line breaks, the page break line).</summary>

@@ -287,7 +287,8 @@ internal sealed class DocumentSurface : Control
         DrawnPages = drawn;
         if (pages.Count > 0)
         {
-            context.Custom(new PageDrawOperation(visible.Inflate(2), pages, _scale));
+            var scale = _scale;
+            context.Custom(new ThixOffice.Desktop.Rendering.SkiaDrawOperation(visible.Inflate(2), canvas => ThixOffice.Desktop.Rendering.SkiaDrawOperation.DrawPictures(canvas, pages, scale)));
         }
 
         if (_dimBody)

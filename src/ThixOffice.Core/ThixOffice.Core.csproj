@@ -16,6 +16,7 @@
     <InternalsVisibleTo Include="ThixOffice.Desktop" />
     <InternalsVisibleTo Include="ThixOffice.Desktop.Tests" />
     <InternalsVisibleTo Include="ThixWrite.Tests" />
+    <InternalsVisibleTo Include="ThixCalc.Tests" />
   </ItemGroup>
 
   <ItemGroup>

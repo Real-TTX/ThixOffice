@@ -789,7 +789,7 @@ public sealed class OfficeWindow : MatWindow
 
         // A text field (Schriftgrad in the ribbon, the find bar) undoes, copies and selects its own text; the other shortcuts
         // (Strg+S) still apply there.
-        var inTextField = FocusManager?.GetFocusedElement() is TextBox;
+        var inTextField = FocusManager?.GetFocusedElement() is TextBox or ITextField { IsEditingText: true };
         foreach (var (gesture, command) in _shortcuts)
         {
             if (gesture.Matches(e))
