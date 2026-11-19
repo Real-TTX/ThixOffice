@@ -24,10 +24,12 @@ public partial class App : OfficeApplication
     public const string FindScene = "main-find";
     public const string PageSetupScene = "dialog-page-setup";
     public const string ExportScene = "backstage-export";
+    public const string LayoutScene = "main-layout";
+    public const string ViewScene = "main-view";
 
     public override OfficeAppDefinition Definition => ThixWriteApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [FindScene, PageSetupScene, ExportScene];
+    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, FindScene, PageSetupScene, ExportScene];
 
     public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => WriteRibbon.Create(window);
 
@@ -58,14 +60,27 @@ public partial class App : OfficeApplication
 
     public override IEnumerable<(string Name, Func<Task<string>> Check)> SelfTestChecks() => [("ThixWrite editor, docx, PDF", () => WriteSelfTest.RunAsync(this))];
 
-    protected override void FillSampleDocument(OfficeDocument document) =>
-        ((WordDocument)document).Load(SampleDocument.Create(WriteFonts.Default));
+    /// <summary>The sample report, the caret at the start of its first body paragraph (Standard, like a user who just clicked there).</summary>
+    protected override void FillSampleDocument(OfficeDocument document)
+    {
+        var word = (WordDocument)document;
+        word.Load(SampleDocument.Create(WriteFonts.Default));
+        word.Session.SetCaret(new ThixWrite.Core.Model.DocumentPosition(SampleDocument.BodyParagraph, 0));
+    }
 
     public override TopLevel ShowSnapshotScene(OfficeWindow window, string name)
     {
         var editor = (WriteEditor)window.Editor;
         switch (name)
         {
+            case LayoutScene:
+                window.Ribbon.SelectTab("layout");
+                editor.ShowMarks = true;
+                return window;
+            case ViewScene:
+                window.Ribbon.SelectTab("view");
+                editor.ZoomToWholePage();
+                return window;
             case FindScene:
                 editor.FindBar.Open(replace: true);
                 editor.FindBar.SearchBox.Text = "Versandkosten";
@@ -85,10 +100,19 @@ public partial class App : OfficeApplication
 
     public override void EndSnapshotScene(OfficeWindow window, string name, TopLevel shown)
     {
+        var editor = (WriteEditor)window.Editor;
         switch (name)
         {
+            case LayoutScene:
+                editor.ShowMarks = false;
+                window.Ribbon.SelectTab("home");
+                break;
+            case ViewScene:
+                editor.Zoom = 100;
+                window.Ribbon.SelectTab("home");
+                break;
             case FindScene:
-                ((WriteEditor)window.Editor).FindBar.Close();
+                editor.FindBar.Close();
                 break;
             case PageSetupScene when shown is Window dialog:
                 dialog.Close();

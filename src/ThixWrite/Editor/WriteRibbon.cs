@@ -121,12 +121,12 @@ public static class WriteRibbon
             new MatRibbonGroup("undo", "Rückgängig") { Icon = "undo" }.Add(
                 Button(CommonCommandIds.Undo),
                 Button(CommonCommandIds.Redo)),
-            new MatRibbonGroup("clipboard", "Zwischenablage") { Icon = "paste" }.Add(
+            new MatRibbonGroup("clipboard", "Zwischenablage") { Icon = "paste", ShrinkOrder = 1 }.Add(
                 new MatRibbonSplitButton(WriteCommandIds.Paste, "", menu: [Button(WriteCommandIds.PasteText)]) { Size = MatRibbonSize.Large },
                 Button(WriteCommandIds.Cut),
                 Button(WriteCommandIds.Copy),
                 Toggle(WriteCommandIds.FormatPainter)),
-            new MatRibbonGroup("font", "Schriftart") { Icon = "type", ShrinkOrder = 3 }.Add(
+            new MatRibbonGroup("font", "Schriftart") { Icon = "type", ShrinkOrder = 4 }.Add(
                 new MatRibbonStack("font-rows",
                     new MatRibbonRow("font-row-1",
                         ComboBox(WriteCommandIds.FontName, width: 150, isEditable: true),
@@ -144,7 +144,7 @@ public static class WriteRibbon
                         new MatRibbonSeparator("font-separator"),
                         ColorPicker(WriteCommandIds.Highlight, DocumentPalette.HighlightColors, "Keine Farbe"),
                         ColorPicker(WriteCommandIds.FontColor, DocumentPalette.FontColors(theme))))),
-            new MatRibbonGroup("paragraph", "Absatz") { Icon = "align-left", ShrinkOrder = 2 }.Add(
+            new MatRibbonGroup("paragraph", "Absatz") { Icon = "align-left", ShrinkOrder = 3 }.Add(
                 new MatRibbonStack("paragraph-rows",
                     new MatRibbonRow("paragraph-row-1",
                         Toggle(WriteCommandIds.Bullets, size: MatRibbonSize.Small),
@@ -159,8 +159,8 @@ public static class WriteRibbon
                         Toggle(WriteCommandIds.Justify, "align", MatRibbonSize.Small),
                         new MatRibbonMenuButton(WriteCommandIds.LineSpacing, "", null,
                             [.. WriteCommands.LineSpacings.Select(spacing => Toggle(WriteCommands.LineSpacingId(spacing), "lineSpacing"))]) { Size = MatRibbonSize.Small }))),
-            new MatRibbonGroup("styles", "Formatvorlagen") { Icon = "template", ShrinkOrder = 1 }.Add(
-                Gallery(WriteCommandIds.Styles, StyleEntries)),
+            new MatRibbonGroup("styles", "Formatvorlagen") { Icon = "template", ShrinkOrder = 5 }.Add(
+                StylesGallery()),
             new MatRibbonGroup("editing", "Bearbeiten") { Icon = "search" }.Add(
                 Button(WriteCommandIds.Find),
                 Button(WriteCommandIds.Replace),
@@ -190,11 +190,29 @@ public static class WriteRibbon
                 Button(WriteCommandIds.PageSetup)),
             new MatRibbonGroup("layout-paragraph", "Absatz") { Icon = "indent" }.Add(
                 new MatRibbonStack("indents",
-                    Number(WriteCommandIds.IndentLeft, 0, 50, 0.25, "cm", 2),
-                    Number(WriteCommandIds.IndentRight, 0, 50, 0.25, "cm", 2)),
+                    Labelled(Number(WriteCommandIds.IndentLeft, 0, 50, 0.25, "cm", 2), "Einzug links"),
+                    Labelled(Number(WriteCommandIds.IndentRight, 0, 50, 0.25, "cm", 2), "Einzug rechts")),
                 new MatRibbonStack("spacing",
-                    Number(WriteCommandIds.SpacingBefore, 0, 1584, 6, "Pt."),
-                    Number(WriteCommandIds.SpacingAfter, 0, 1584, 6, "Pt."))));
+                    Labelled(Number(WriteCommandIds.SpacingBefore, 0, 1584, 6, "Pt."), "Abstand vor"),
+                    Labelled(Number(WriteCommandIds.SpacingAfter, 0, 1584, 6, "Pt."), "Abstand nach"))));
+
+    /// <summary>The Formatvorlagen gallery: three styles in the ribbon (Word's width at a normal window), all in its menu.</summary>
+    private static MatRibbonGallery StylesGallery()
+    {
+        var gallery = Gallery(WriteCommandIds.Styles, StyleEntries);
+        gallery.InlineCount = 3;
+        gallery.EntryWidth = 90;
+        return gallery;
+    }
+
+    /// <summary>A number field with its words at the left (like Word's "Links:" / "Vor:") instead of an icon.</summary>
+    private static MatRibbonNumber Labelled(MatRibbonNumber number, string label)
+    {
+        number.Label = label;
+        number.Icon = "";
+        number.Width = 92;
+        return number;
+    }
 
     private static MatRibbonTab ViewTab() =>
         new MatRibbonTab("view", "Ansicht").Add(

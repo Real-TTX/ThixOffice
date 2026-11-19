@@ -10,6 +10,9 @@ namespace ThixWrite.Editor;
 /// </summary>
 public static class SampleDocument
 {
+    /// <summary>The block of the first body paragraph (after title, subtitle and the first heading).</summary>
+    public const int BodyParagraph = 3;
+
     public static Document Create(DocumentFonts fonts)
     {
         var document = BlankDocument.Create(fonts);
