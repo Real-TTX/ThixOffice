@@ -28,6 +28,7 @@ internal static class ShowContextMenus
     public const string Height = "show.size.height";
     public const string Width = "show.size.width";
     public const string AltText = "show.altText";
+    public const string Crop = "show.crop";
     public const string RowAbove = "show.table.rowAbove";
     public const string RowBelow = "show.table.rowBelow";
     public const string ColumnLeft = "show.table.columnLeft";
@@ -142,6 +143,14 @@ internal static class ShowContextMenus
             value => run("Größe", editor => Resize(editor, value, height: false)))
         {
             Icon = "columns", CanExecute = () => Box() is not null, Description = "Die Breite der markierten Form (cm).",
+        });
+        commands.Add(new OfficeCommand(Crop, "Zuschneiden", () =>
+            editorOf() is { } editor && editor.Session.Selection.Shapes.Count == 1 && editor.Session.CurrentSlide?.FindShape(editor.Session.Selection.Shapes[0]) is PictureShape picture
+                ? ThixShow.Dialogs.CropDialog.ShowAsync(window, editor, picture)
+                : Task.CompletedTask)
+        {
+            Icon = "crop", CanExecute = () => editorOf() is { } editor && editor.Session.Selection.Shapes.Count == 1 && editor.Session.CurrentSlide?.FindShape(editor.Session.Selection.Shapes[0]) is PictureShape,
+            Description = "Schneidet Ränder des Bilds ab; der sichtbare Teil bleibt an seinem Platz.",
         });
         commands.Add(new OfficeCommand(AltText, "Alternativtext", async () =>
         {

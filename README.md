@@ -166,7 +166,7 @@ darunter die Notizen, unten die Statusleiste mit „Folie 3 von 12“, Notizen, 
   Gruppe. **Text** in Platzhaltern („Titel durch Klicken hinzufügen“), Textfeldern, Formen und Tabellenzellen: direkt hineinklicken
   und tippen, Tab/Umschalt+Tab ändern die Listenebene, Eingabemethoden (Umlaute, Tottasten, CJK) funktionieren, AutoAnpassen.
 - **Einfügen:** Formen aus der Galerie (Linien, Rechtecke, Standardformen, Blockpfeile, Formelformen, Flussdiagramm, Sterne und Banner,
-  Legenden – auswählen und auf der Folie aufziehen), Textfelder, Bilder (Datei, Zwischenablage, auf die Folie ziehen), Tabellen (Raster),
+  Legenden – auswählen und auf der Folie aufziehen), Textfelder, Bilder (Datei, Zwischenablage, auf die Folie ziehen), Tabellen (Raster), Bilder zuschneiden (Bildformat),
   **Diagramme** (Säule, Balken, Linie, Kreis, Ring, Fläche, Punkt, Verbund – mit Beispieldaten, die „Daten bearbeiten“ als kleine
   Tabelle ändert; Diagramme aus PowerPoint-Dateien werden gezeichnet und bleiben unverändert erhalten), Links, Symbole, **Kopf- und Fußzeile** (Datum automatisch oder fest, Foliennummer, Fußzeilentext, nicht auf der Titelfolie).
 - **Menüband wie im deutschen PowerPoint:** Start (Zwischenablage, Folien, Schriftart, Absatz, Zeichnen mit Anordnen,
@@ -174,7 +174,7 @@ darunter die Notizen, unten die Statusleiste mit „Folie 3 von 12“, Notizen, 
   ihren Farben, Foliengröße 4:3/16:9/benutzerdefiniert mit „Passend skalieren“ oder „Maximieren“, Hintergrund), **Übergänge**
   (Verblassen, Schieben, Wischen, Teilen, Aufdecken, Bedecken, Zoom mit Effektoptionen, Dauer, Auf alle anwenden, nach Mausklick
   oder Zeit), **Animationen** (Eingang, Hervorgehoben, Beenden, Pfade; Effektoptionen, Start, Dauer, Verzögerung, **Animationsbereich**
-  zum Umordnen und Entfernen, Vorschau), Bildschirmpräsentation, Ansicht. Die Kontextkarten **Formformat**, **Bildformat**,
+  zum Umordnen und Entfernen, Effektoptionen „Nach Absatz“, Vorschau), Bildschirmpräsentation, Ansicht. Die Kontextkarten **Formformat**, **Bildformat**,
   **Tabellenentwurf** und **Layout** sowie **Diagrammentwurf** erscheinen mit der Auswahl.
 - **Bildschirmpräsentation** (F5 von Beginn an, Umschalt+F5 ab der aktuellen Folie) im Vollbild mit Übergängen und Animationen; sie
   zeichnet nur, solange sich etwas bewegt. Weiter mit Leertaste, Pfeiltasten, Bild ab, Klick oder Mausrad; Nummer + Eingabe springt zur

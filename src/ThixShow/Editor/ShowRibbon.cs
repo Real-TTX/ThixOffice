@@ -165,7 +165,7 @@ public static class ShowRibbon
                             Icon = group.Group switch { "Eingang" => "sparkles", "Hervorgehoben" => "star", "Beenden" => "logout", _ => "route" },
                         })),
                     ]) { InlineCount = 6 },
-                new MatRibbonMenuButton(ShowCommandIds.Animation + ".options", "Effektoptionen", "sliders", [.. ShowDesignCommands.AnimationDirections.Select(direction => Button($"{ShowCommandIds.Animation}.direction.{direction.Id}"))]) { Size = MatRibbonSize.Large }),
+                new MatRibbonMenuButton(ShowCommandIds.Animation + ".options", "Effektoptionen", "sliders", [.. ShowDesignCommands.AnimationDirections.Select(direction => Button($"{ShowCommandIds.Animation}.direction.{direction.Id}")), new MatRibbonSeparator(), Toggle(ShowCommandIds.Animation + ".asObject", "sequence"), Toggle(ShowCommandIds.Animation + ".byParagraph", "sequence")]) { Size = MatRibbonSize.Large }),
             new MatRibbonGroup("advanced", "Erweiterte Animation") { Icon = "list" }.Add(
                 Toggle(ShowCommandIds.AnimationPane, size: MatRibbonSize.Large)),
             new MatRibbonGroup("animation-timing", "Anzeigedauer") { Icon = "clock" }.Add(
@@ -244,6 +244,7 @@ public static class ShowRibbon
                     Button(ShowCommandIds.SendToBack + ".picture"),
                     Button(ShowCommandIds.RotateRight + ".picture"))),
             new MatRibbonGroup("picture-size", "Größe") { Icon = "orientation" }.Add(
+                Button(ShowContextMenus.Crop, MatRibbonSize.Large),
                 new MatRibbonStack("picture-size-rows",
                     Number(ShowContextMenus.Height + ".picture", 0.01, 142, 0.1, "cm", 2),
                     Number(ShowContextMenus.Width + ".picture", 0.01, 142, 0.1, "cm", 2))));

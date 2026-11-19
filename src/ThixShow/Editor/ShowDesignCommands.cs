@@ -233,6 +233,42 @@ internal static class ShowDesignCommands
             Icon = "sliders", CanExecute = () => SelectedEffect(editorOf()) is { } entry && AnimationPresets.PresetOf(entry.Effect) is AnimationPreset.FlyIn or AnimationPreset.FlyOut or AnimationPreset.Wipe or AnimationPreset.WipeOut or AnimationPreset.FloatIn or AnimationPreset.FloatOut,
             Options = [.. AnimationDirections.Select(entry => entry.Id)], Description = "Die Richtung des Effekts.",
         });
+        foreach (var (id, label, byParagraph) in new (string, string, bool)[] { (ShowCommandIds.Animation + ".asObject", "Als ein Objekt", false), (ShowCommandIds.Animation + ".byParagraph", "Nach Absatz", true) })
+        {
+            commands.Add(new OfficeCommand(id, label, () => run(label, editor =>
+            {
+                var effects = EffectsOfSelection(editor);
+                if (effects.Count == 0 || AnimationPresets.PresetOf(effects[0].Effect) is not { } preset)
+                {
+                    return;
+                }
+
+                var trigger = effects[0].Effect.Trigger;
+                editor.Session.Group(label, () =>
+                {
+                    foreach (var (index, _) in effects.OrderByDescending(entry => entry.Index))
+                    {
+                        editor.Session.RemoveAnimation(index);
+                    }
+
+                    if (byParagraph)
+                    {
+                        editor.Session.AddAnimationByParagraph(preset, editor.AnimationDirection, trigger);
+                    }
+                    else
+                    {
+                        editor.Session.AddAnimation(preset, editor.AnimationDirection, trigger);
+                    }
+                });
+            }))
+            {
+                CanExecute = () => SelectedEffect(editorOf()) is not null,
+                IsChecked = () => editorOf() is { } editor && EffectsOfSelection(editor).Any(entry => entry.Effect.ParagraphStart is not null) == byParagraph,
+                IsSearchable = false,
+                Description = byParagraph ? "Jeder Absatz erscheint mit einem eigenen Klick." : "Die ganze Form mit einem Effekt.",
+            });
+        }
+
         commands.Add(new OfficeValueCommand(ShowCommandIds.AnimationStart, "Start", OfficeValueKind.Choice,
             () => SelectedEffect(editorOf()) is { } entry ? AnimationStarts.First(start => start.Trigger == entry.Effect.Trigger).Label : null,
             value => run("Start", editor =>

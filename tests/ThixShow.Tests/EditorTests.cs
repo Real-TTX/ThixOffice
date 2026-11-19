@@ -177,4 +177,41 @@ public sealed class EditorTests
             Assert.Equal(2, slide.Shapes.Count(shape => shape.Placeholder?.IsFooterKind == true)));
         Assert.Equal("Nordlicht Reisen", editor.Session.HeaderFooterOf(slides[1]).FooterText);
     }
+
+    [AvaloniaFact]
+    public async Task Zuschneiden_crops_a_picture_and_Nach_Absatz_animates_each_paragraph()
+    {
+        using var data = new TestData();
+        var window = await SampleWindowAsync();
+        var editor = EditorOf(window);
+        var session = editor.Session;
+        session.GoToSlide(session.Presentation.Slides[3].Id);
+        var picture = session.CurrentSlide!.Shapes.OfType<PictureShape>().Single();
+        session.SelectShapes([picture.Id]);
+        var before = SlideHitTesting.BoundsOf(session.Presentation, session.CurrentSlide!, picture.Id);
+        await SettleAsync();
+        Assert.Contains(ShowContextMenus.PictureContext, window.RibbonDefinition.ActiveContexts);
+
+        var cropping = window.Commands[ShowContextMenus.Crop].ExecuteAsync();
+        await SettleAsync();
+        var dialog = Assert.Single(window.OwnedWindows.OfType<ThixShow.Dialogs.CropDialog>());
+        dialog.Left.Value = 10;
+        dialog.Confirm();
+        await cropping;
+        await SettleAsync();
+        var cropped = (PictureShape)session.CurrentSlide!.FindShape(picture.Id)!;
+        Assert.Equal(10000, cropped.Picture.Crop.Left);
+        var after = SlideHitTesting.BoundsOf(session.Presentation, session.CurrentSlide!, picture.Id);
+        Assert.True(after.Left > before.Left + 1 && Math.Abs(after.Right - before.Right) < 0.5, $"{before} → {after}");
+
+        session.GoToSlide(session.Presentation.Slides[1].Id);
+        var body = session.CurrentSlide!.Shapes.OfType<AutoShape>().First(shape => shape.Placeholder is { IsTitle: false });
+        session.SelectShapes([body.Id]);
+        await SettleAsync();
+        await window.Commands[ShowCommandIds.Animation + ".byParagraph"].ExecuteAsync();
+        var effects = session.CurrentSlide!.Timing!.MainSequence;
+        Assert.Equal(5, effects.Count);
+        Assert.All(effects, effect => Assert.NotNull(effect.ParagraphStart));
+        Assert.True(window.Commands[ShowCommandIds.Animation + ".byParagraph"].Checked);
+    }
 }

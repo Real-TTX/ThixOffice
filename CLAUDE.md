@@ -160,7 +160,10 @@ src/ThixShow.Core          (no UI) ThixShowApp.Definition (.pptx default, .pptm,
                            EffectEvaluator; SlideShow: clicks + clock → ShowFrame layers with opacity/transform/clip, presenter view),
                            Documents/ShowDocument; Layout/TextGeometry (a text body placed on the slide: CaretLine, HitTest, SelectionQuads,
                            TargetAt for shapes and table cells), Model/ShapeCatalog (the shapes gallery by PowerPoint's categories),
-                           SlideTitles; GraphicFrame.Chart = a chart made/changed in ThixShow (written into a part of its own:
+                           SlideTitles, TextScaling (Passend skalieren); Editing/ HeaderFooterSettings + SetHeaderFooter/HeaderFooterOf (date/number/
+                           footer placeholders from the layout, fields), CropPicture (the frame follows the cut sides), AddAnimationByParagraph;
+                           Show/ParagraphMask + SlideTimeline.ParagraphLayers (paragraph effects get layers of their own, other paragraphs
+                           drawn transparent so nothing moves); GraphicFrame.Chart = a chart made/changed in ThixShow (written into a part of its own:
                            IPartWriter.ChartId), EditingSession.InsertChart/SetChart, CountMatches
 src/ThixShow               App, Program, ShowSelfTest, Editor/ (ShowEditor: normal view = SlideListView pane | SlideCanvas + SlideOverlay over
                            the pasteboard | NotesPane, AnimationPane at the right; sorter = SlideListView in grid mode; ReadingView;

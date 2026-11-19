@@ -507,7 +507,7 @@ public static class ShowCommands
 
             commands.Add(new OfficeCommand(prefix + ".options", "Effektoptionen", () => Task.CompletedTask)
             {
-                Icon = "sliders", CanExecute = () => direction.IsEnabled, IsSearchable = false, Description = direction.Description,
+                Icon = "sliders", CanExecute = () => direction.IsEnabled || commands.Find(prefix + ".byParagraph")?.IsEnabled == true, IsSearchable = false, Description = direction.Description,
             });
             foreach (var (value, label) in options)
             {

@@ -330,14 +330,15 @@ Präsentations- und Referentenansicht, pptx, danach odp.
   UI-Tests; 200 Folien: Folienwechsel ≈ 9 ms, Miniaturen-Scrollen ≈ 5 ms je Schritt.
   Nachgezogen (2026-11-20): Datei › Exportieren als Bild (PNG/JPEG, alle Folien oder die aktuelle, 1280/1920/3840 Pixel),
   Kopf- und Fußzeile mit Datum (automatisch oder fest), Foliennummer, Fußzeile, „Auf Titelfolie nicht anzeigen“ (Felder bleiben in
-  pptx), Tests der Abläufe Wiederherstellen und ThixDrive.
+  pptx), Tests der Abläufe Wiederherstellen und ThixDrive,
+  Bildformat › Zuschneiden (der sichtbare Teil bleibt am Platz), Animationen › Effektoptionen › Nach Absatz.
   Kern-Lücken geschlossen: Diagramme behalten beim Kopieren zwischen Präsentationen ihre Daten, „Passend skalieren“ verkleinert die
-  Schrift mit (`TextScaling`); offen bleibt: Absatz-Animationen bewegen die ganze Form.
+  Schrift mit (`TextScaling`), Effekte „Nach Absatz“ bewegen nur ihre Absätze (`ParagraphMask`, Absatz-Ebenen im Zeitplan).
   In die gemeinsamen Projekte gehoben: `SelectionHandles` (Ziehpunkte von ThixWrite-Bildern, ThixCalc-Diagrammen, ThixShow-Formen),
   `OfficeFonts`, `TablePicker`, `RibbonFlyoutButton`, Druckseite mit zweiter Wahl und Graustufen.
   **Lücken gegenüber PowerPoint:** keine Rechtschreibprüfung (Überprüfen fehlt), kein Folienmaster-Bearbeiten, keine Kopf- und
   Fußzeile/Foliennummer/Datum einfügen (Kern fehlt), Notizen nur als einfacher Text, Diagrammdaten nur als kleine Tabelle (keine
-  eingebettete Arbeitsmappe, Diagrammelemente/Formatierung nicht bearbeitbar), kein Bild zuschneiden in der Oberfläche, keine
+  eingebettete Arbeitsmappe, Diagrammelemente/Formatierung nicht bearbeitbar), keine
   Laserpointer/Stift, keine Notizenseiten-Ansicht, Lineal/Gitternetzlinien nicht sichtbar (nur Am Raster ausrichten), Bilder als
   PNG exportieren fehlt, Größen in verschachtelten gedrehten Gruppen nur angenähert, Einfügen aus ThixWrite/ThixCalc nur als Text,
   Bildschirmwahl/Referentenansicht/Schleife gelten für den Prozess (nicht gespeichert).

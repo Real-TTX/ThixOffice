@@ -202,3 +202,71 @@ public sealed class HeaderFooterDialog : OfficeDialog
         return true;
     }
 }
+
+/// <summary>
+/// Bildformat › Zuschneiden: how much of the picture is cut off at each side (percent of the picture); the visible part stays where
+/// it is. "Zurücksetzen" puts all four back to 0.
+/// </summary>
+public sealed class CropDialog : OfficeDialog
+{
+    private readonly ShowEditor _editor;
+    private readonly int _shapeId;
+
+    public CropDialog(ShowEditor editor, PictureShape picture)
+        : base("Zuschneiden", 420)
+    {
+        _editor = editor;
+        _shapeId = picture.Id;
+        var crop = picture.Picture.Crop;
+        NumericUpDown Percent(int value, string name)
+        {
+            var field = new NumericUpDown { Minimum = 0, Maximum = 99, Increment = 1, FormatString = "0", Value = (decimal)Math.Round(value / 1000.0), MinWidth = 140 };
+            AutomationProperties.SetName(field, name);
+            return field;
+        }
+
+        Left = Percent(crop.Left, "Links");
+        Top = Percent(crop.Top, "Oben");
+        Right = Percent(crop.Right, "Rechts");
+        Bottom = Percent(crop.Bottom, "Unten");
+        var reset = new Button { Content = new ThixOffice.Desktop.Controls.IconLabel { Icon = "restore", Text = "Zurücksetzen" }, Margin = new Avalonia.Thickness(0, 8, 0, 0) };
+        reset.Click += (_, _) =>
+        {
+            foreach (var field in new[] { Left, Top, Right, Bottom })
+            {
+                field.Value = 0;
+            }
+        };
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,16,*"), RowDefinitions = new RowDefinitions("Auto,Auto") };
+        void Place(Control control, int row, int column)
+        {
+            Grid.SetRow(control, row);
+            Grid.SetColumn(control, column);
+            grid.Children.Add(control);
+        }
+
+        Place(Field("Links (%)", Left), 0, 0);
+        Place(Field("Rechts (%)", Right), 0, 2);
+        Place(Field("Oben (%)", Top), 1, 0);
+        Place(Field("Unten (%)", Bottom), 1, 2);
+        SetBody(new StackPanel { Children = { grid, reset } });
+    }
+
+    public NumericUpDown Left { get; }
+
+    public NumericUpDown Top { get; }
+
+    public NumericUpDown Right { get; }
+
+    public NumericUpDown Bottom { get; }
+
+    public static Task<bool> ShowAsync(Window owner, ShowEditor editor, PictureShape picture) => new CropDialog(editor, picture).ShowAsync(owner);
+
+    protected override bool Apply()
+    {
+        static int Thousandths(NumericUpDown field) => (int)Math.Round((double)(field.Value ?? 0) * 1000);
+        var crop = new RelativeRect(Thousandths(Left), Thousandths(Top), Thousandths(Right), Thousandths(Bottom));
+        _ = _editor.RunAsync("Zuschneiden", () => _editor.Session.CropPicture(_shapeId, crop));
+        return true;
+    }
+}
