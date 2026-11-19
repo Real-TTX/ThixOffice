@@ -60,13 +60,17 @@ public static class XlsxWriter
         var context = new WriteContext(workbook, workbookPart, DynamicArrayIndex(workbookPart));
         var parts = workbookPart.WorksheetParts.ToDictionary(part => part.Uri.ToString());
         var written = new List<(Worksheet Sheet, string RelationshipId)>();
+        var sheetParts = new List<(Worksheet Sheet, WorksheetPart Part)>();
         foreach (var sheet in workbook.Sheets)
         {
             var part = sheet.PartUri is { } uri && parts.Remove(uri, out var existing) ? existing : workbookPart.AddNewPart<WorksheetPart>();
             XlsxSheetWriter.Write(sheet, part, context);
             sheet.PartUri = part.Uri.ToString();
             written.Add((sheet, workbookPart.GetIdOfPart(part)));
+            sheetParts.Add((sheet, part));
         }
+
+        XlsxPivots.Write(workbook, workbookPart, sheetParts);
 
         foreach (var orphan in parts.Values)
         {

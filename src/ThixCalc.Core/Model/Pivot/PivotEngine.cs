@@ -31,6 +31,12 @@ public readonly record struct PivotCondition(int Field, PivotDateGroups Group, s
 /// <summary>A value cell for PIVOTDATENZUORDNEN and the drill-down: which value field, under which items.</summary>
 public sealed record PivotValueEntry(CellAddress Cell, int DataField, IReadOnlyList<PivotCondition> Conditions, CellValue Value);
 
+/// <summary>
+/// A row or column of the body for the file (rowItems/colItems): <see cref="Kind"/> 'd' (items), 's' (a subtotal), 'g' (the grand
+/// total); <see cref="Path"/> per level of the axis the level item id (Σ Werte: the value field's index).
+/// </summary>
+public sealed record PivotLayoutItem(char Kind, IReadOnlyList<int> Path, int Data);
+
 /// <summary>The PivotTable computed for drawing: every cell with its kind, the range, the value cells.</summary>
 public sealed class PivotOutput
 {
@@ -49,6 +55,11 @@ public sealed class PivotOutput
 
     /// <summary>The header cells of the row label columns that get a filter arrow (row → field index).</summary>
     public required List<(CellAddress Cell, int Field)> FilterButtons { get; init; }
+
+    /// <summary>The body rows / columns as the file's rowItems / colItems describe them.</summary>
+    public required List<PivotLayoutItem> RowItems { get; init; }
+
+    public required List<PivotLayoutItem> ColumnItems { get; init; }
 
     public PivotValueEntry? EntryAt(CellAddress cell) => Values.FirstOrDefault(entry => entry.Cell == cell);
 }
@@ -1031,7 +1042,43 @@ public static class PivotEngine
             Cells = cells,
             Values = entries,
             FilterButtons = buttons,
+            RowItems = [.. rowSlots.Select(slot => Item(computation.Rows, computation.RowLevels, slot))],
+            ColumnItems = [.. columnSlots.Select(slot => Item(computation.Columns, computation.ColumnLevels, slot))],
         };
+    }
+
+    private static PivotLayoutItem Item(Tree tree, List<Level> levels, Slot slot)
+    {
+        if (slot.Kind == SlotKind.GrandTotal)
+        {
+            return new PivotLayoutItem('g', [], Math.Max(0, slot.Data));
+        }
+
+        var path = PathOf(tree, slot.Node);
+        var items = new List<int>();
+        var depth = 0;
+        foreach (var level in levels)
+        {
+            if (level.IsValues)
+            {
+                if (slot.Data < 0)
+                {
+                    break;
+                }
+
+                items.Add(slot.Data);
+                continue;
+            }
+
+            if (depth >= path.Count)
+            {
+                break;
+            }
+
+            items.Add(tree.Nodes[path[depth++]].Item);
+        }
+
+        return new PivotLayoutItem(slot.Kind == SlotKind.Subtotal ? 's' : 'd', items, Math.Max(0, slot.Data));
     }
 
     /// <summary>The row (offset) of a field depth among the levels (Σ Werte counts as a level).</summary>

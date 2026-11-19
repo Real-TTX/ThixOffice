@@ -84,6 +84,8 @@ public static class XlsxReader
             XlsxDrawings.Read(sheet, part, context);
         }
 
+        XlsxPivots.Read(workbook, workbookPart, entries, context);
+
         DetectUnsupported(package, workbookPart, context);
         workbook.OriginalPackage = bytes;
         workbook.HasMacros = workbookPart.VbaProjectPart is not null;
@@ -263,11 +265,6 @@ public static class XlsxReader
                 }
             }
 
-            if (worksheet.PivotTableParts.Any())
-            {
-                context.Note("PivotTables");
-            }
-
             if (worksheet.WorksheetThreadedCommentsParts.Any())
             {
                 context.Note("Kommentare mit Unterhaltungen (als Notizen angezeigt)");
@@ -302,11 +299,6 @@ public static class XlsxReader
         if (workbookPart.ConnectionsPart is not null)
         {
             context.Note("Datenverbindungen und Abfragen");
-        }
-
-        if (workbookPart.PivotTableCacheDefinitionParts.Any() && !context.Notes.Contains("PivotTables"))
-        {
-            context.Note("PivotTables");
         }
 
         _ = package;

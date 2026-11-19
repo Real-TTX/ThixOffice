@@ -55,8 +55,19 @@ public sealed class PivotCache
     /// <summary>Whether records were read (a file may hold the definition only; Aktualisieren reads the source).</summary>
     public bool HasRecords => RecordCount > 0 || Fields.Count == 0;
 
-    /// <summary>The part the cache definition was read from (kept while the cache is unchanged).</summary>
-    public string? PartUri { get; init; }
+    /// <summary>The part the cache definition was read from or written to.</summary>
+    public string? PartUri { get; internal set; }
+
+    /// <summary>Whether the cache part in the package holds this cache (read or saved; a refresh makes a new cache).</summary>
+    internal bool IsAsRead { get; set; }
+
+    /// <summary>Marks the cache as the one in a package part.</summary>
+    internal PivotCache WithFile(string uri)
+    {
+        PartUri = uri;
+        IsAsRead = true;
+        return this;
+    }
 
     /// <summary>The cache definition and records as read (written back unchanged until the cache is refreshed).</summary>
     public string? SourceXml { get; init; }
