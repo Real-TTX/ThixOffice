@@ -469,6 +469,14 @@ public sealed class StyleTable
         return id;
     }
 
+    /// <summary>Loading: the file's default format becomes style 0.</summary>
+    internal void ReplaceDefault(CellStyle style)
+    {
+        _ids.Remove(_styles[0]);
+        _styles[0] = style;
+        _ids[style] = 0;
+    }
+
     /// <summary>The id of <paramref name="id"/>'s style changed by <paramref name="change"/>.</summary>
     public int With(int id, Func<CellStyle, CellStyle> change) => Intern(change(this[id]));
 }

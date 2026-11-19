@@ -71,6 +71,9 @@ public sealed class Workbook
     /// <summary>The package the workbook was read from (the writer starts from it), or null for a new workbook.</summary>
     internal byte[]? OriginalPackage { get; set; }
 
+    /// <summary>Sheets that are no worksheets (chart sheets …), as their workbook.xml entries with their original position.</summary>
+    internal List<(int Position, string Xml)> PreservedSheets { get; set; } = [];
+
     /// <summary>The package has a VBA project (.xlsm): kept, never run.</summary>
     public bool HasMacros { get; internal set; }
 

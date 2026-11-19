@@ -138,7 +138,10 @@ public sealed class CalcEngine
     /// Rebuilds the dependency graph from the sheets (after rows/columns/sheets moved or names changed): positions are read
     /// from the cells again, every formula is registered anew and becomes dirty.
     /// </summary>
-    public void Rebuild()
+    public void Rebuild() => Rebuild(markDirty: true);
+
+    /// <summary>Rebuilds the graph; <paramref name="markDirty"/> false keeps the cached values (after loading a file).</summary>
+    internal void Rebuild(bool markDirty)
     {
         _graph.Clear();
         _formulas.Clear();
@@ -168,7 +171,7 @@ public sealed class CalcEngine
                         formula.Column = data.ColumnAt(position);
                         formula.EngineIndex = -1;
                         formula.State = FormulaState.Clean;
-                        Add(formula);
+                        Add(formula, markDirty);
                     }
                 }
             }
@@ -803,7 +806,7 @@ public sealed class CalcEngine
         }
     }
 
-    private void Add(FormulaCell formula)
+    private void Add(FormulaCell formula, bool markDirty = true)
     {
         formula.EngineIndex = _formulas.Count;
         _formulas.Add(formula);
@@ -827,8 +830,15 @@ public sealed class CalcEngine
             }
         }
 
-        formula.State = FormulaState.Dirty;
-        _dirty.Add(formula);
+        if (markDirty || formula.Formula.IsVolatile)
+        {
+            formula.State = FormulaState.Dirty;
+            _dirty.Add(formula);
+        }
+        else if (formula.SpillRange is not null || formula.ArrayRange is not null)
+        {
+            AddAnchor(formula);
+        }
     }
 
     private void Unregister(FormulaCell formula)

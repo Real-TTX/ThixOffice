@@ -162,6 +162,23 @@ public sealed class Worksheet
     /// <summary>The worksheet elements the model does not own (drawing, pageSetup, tableParts, extLst …) as XML, by element name.</summary>
     internal List<(string Name, string Xml)> PreservedElements { get; } = [];
 
+    /// <summary>The namespace declarations and attributes of the original worksheet root (mc:Ignorable …).</summary>
+    internal List<(string Prefix, string Uri)> RootNamespaces { get; } = [];
+
+    internal List<(string Prefix, string LocalName, string Namespace, string Value)> RootAttributes { get; } = [];
+
+    /// <summary>The original &lt;sheetPr&gt; (the writer patches the tab colour into it).</summary>
+    internal string? SheetPropertiesXml { get; set; }
+
+    /// <summary>The relationship id of the notes' VML drawing in the original package.</summary>
+    internal string? LegacyDrawingId { get; set; }
+
+    /// <summary>The cells that had notes when the file was read (unchanged notes keep their VML shapes).</summary>
+    internal HashSet<CellAddress> OriginalCommentAddresses { get; set; } = [];
+
+    /// <summary>The sheetId of the file (kept on write).</summary>
+    internal uint FileSheetId { get; set; }
+
     /// <summary>The worksheet part this sheet was read from (the writer keeps its relationships).</summary>
     internal string? PartUri { get; set; }
 
@@ -350,6 +367,42 @@ public sealed class Worksheet
         }
 
         return new Cell(record.Value, null, record.StyleId, IsSpilled: (record.Flags & CellFlags.Spilled) != 0);
+    }
+
+    /// <summary>Loading: stores a value without telling the engine (it is rebuilt once at the end).</summary>
+    internal void LoadValue(int row, int column, CellValue value, int styleId, bool spilled = false)
+    {
+        var record = CellRecord.FromValue(value, styleId);
+        record.Flags = spilled ? CellFlags.Spilled : CellFlags.None;
+        Store.Set(row, column, record);
+    }
+
+    /// <summary>Loading: stores a formula with its cached value, clean (no recalculation needed).</summary>
+    internal FormulaCell LoadFormula(int row, int column, Formula formula, CellValue cached, int styleId, bool dynamicArray, CellRange? arrayRange, CellRange? spillRange)
+    {
+        var formulaCell = new FormulaCell(this, row, column, formula, dynamicArray)
+        {
+            Value = cached,
+            ArrayRange = arrayRange,
+            SpillRange = spillRange,
+            State = FormulaState.Clean,
+        };
+        Store.Set(row, column, new CellRecord { Payload = formulaCell, StyleId = styleId });
+        return formulaCell;
+    }
+
+    /// <summary>Marks the cells of a loaded array/spill range (not the anchor) as belonging to it.</summary>
+    internal void MarkSpilled(CellRange range, int anchorRow, int anchorColumn)
+    {
+        foreach (var (row, column, record) in Store.Enumerate(range).ToList())
+        {
+            if ((row != anchorRow || column != anchorColumn) && record.Payload is null)
+            {
+                var copy = record;
+                copy.Flags = CellFlags.Spilled;
+                Store.Set(row, column, copy);
+            }
+        }
     }
 
     internal FormulaCell? GetFormulaCell(int row, int column) => Store.TryGet(row, column, out var record) ? record.Formula : null;
