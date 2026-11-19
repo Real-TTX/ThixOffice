@@ -32,7 +32,7 @@ public sealed class FunctionArgumentsDialog : OfficeDialog
     private readonly TextBlock _result = new() { FontWeight = FontWeight.SemiBold };
 
     private FunctionArgumentsDialog(EditingSession session, FunctionInfo function, IReadOnlyList<string> arguments)
-        : base("Funktionsargumente", 600)
+        : base("Funktionsargumente", 700)
     {
         _session = session;
         _function = function;
@@ -105,7 +105,7 @@ public sealed class FunctionArgumentsDialog : OfficeDialog
         };
         var box = new TextBox { Text = text, MinWidth = 240 };
         AutomationProperties.SetName(box, label.Text);
-        var preview = new TextBlock { VerticalAlignment = VerticalAlignment.Center, MaxWidth = 180, TextTrimming = TextTrimming.CharacterEllipsis };
+        var preview = new TextBlock { VerticalAlignment = VerticalAlignment.Center, MaxWidth = 230, TextTrimming = TextTrimming.CharacterEllipsis };
         preview.Use(TextBlock.ForegroundProperty, "Mat.TextMuted");
         box.TextChanged += (_, _) => Changed(index);
         box.GotFocus += (_, _) => ShowArgument(index);
@@ -135,7 +135,7 @@ public sealed class FunctionArgumentsDialog : OfficeDialog
     }
 
     private void ShowArgument(int index) =>
-        _argument.Text = _function.ArgumentName(index) is { } name ? $"{name.Trim('[', ']')}{(name.StartsWith('[') ? " (optional)" : string.Empty)}" : string.Empty;
+        _argument.Text = _function.ArgumentName(index) is { } name ? $"{name.Trim('[', ']')}{(name.StartsWith('[') ? " (optional)" : " (erforderlich)")}" : string.Empty;
 
     private void Update()
     {
