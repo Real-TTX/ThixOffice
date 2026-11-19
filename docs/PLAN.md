@@ -256,7 +256,7 @@ Formate, Sortieren/Filtern, Fixieren, bedingte Formatierung, Diagramme, xlsx/csv
   angezeigt (#Alle, #Daten, #Kopfzeilen, #Ergebnisse, #Diese Zeile, „;“) und englisch gespeichert, Karte Tabellenentwurf, xlsx
   (Tabellenteile neu, geändert, gelöscht; Spaltenformate und berechnete Spalten bleiben). **Lücken:** berechnete Spalten (eine Formel
   füllt nicht von selbst die ganze Spalte), Auswahl der Ergebnisfunktion je Spalte in der Zelle (Dropdown), Tabellenformatvorlagen
-  ändern/neu, Datenschnitte, Filter-Schaltflächen verkürzen den Überschriftstext nicht.
+  ändern/neu, Datenschnitte.
 - **Stand Filter und Einfügen (2026-11-19): erledigt.** Zahlen-, Text- und Datumsfilter aus dem Filtermenü (Benutzerdefinierter
   AutoFilter mit zwei Bedingungen und Und/Oder, Platzhalter * und ?), Top 10 (Elemente/Prozent, oberste/unterste), über/unter dem
   Durchschnitt; Dialog Inhalte einfügen (Strg+Alt+V) mit Vorgang, Leerzellen überspringen, Transponieren; Strg+Plus/Strg+Minus (auch

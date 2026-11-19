@@ -537,7 +537,14 @@ public static class GridRenderer
             }
         }
 
-        clip = new PixelRect(Math.Max(clip.X, pane.X), clip.Y, Math.Min(clip.Right, pane.Right) - Math.Max(clip.X, pane.X), clip.Height);
+        // A filter arrow in the cell: the text stops before it (as in Excel).
+        var right = Math.Min(clip.Right, pane.Right);
+        if ((sheet.AutoFilter is not null || sheet.Tables.Count > 0) && FilterButtonRect(viewport, display.Cell) is { } button)
+        {
+            right = Math.Min(right, button.X - 1);
+        }
+
+        clip = new PixelRect(Math.Max(clip.X, pane.X), clip.Y, right - Math.Max(clip.X, pane.X), clip.Height);
         if (clip.Width <= 0)
         {
             return;
