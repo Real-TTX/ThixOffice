@@ -8,11 +8,11 @@ namespace ThixOffice.Core.Business;
 /// The document types of an app on Windows (per user, HKCU\Software\Classes; macOS declares them in Info.plist,
 /// scripts/package-macos.sh). Only SUPPORTED types are registered – a planned format never shows up before the app can read it.
 ///
-/// Registering never takes a type away from another program: every supported type gets the app's ProgID (with the document
-/// icon) and the app is entered under "Öffnen mit" (OpenWithProgids, Applications\&lt;exe&gt;) and in "Standard-Apps"
-/// (Capabilities, RegisteredApplications). Only when the user asks for it (<c>makeDefault</c>, opt-in) does an extension
-/// that has no program yet get the app as its default; one that belongs to another program is left alone – the user
-/// chooses in the system's "Standard-Apps" (Windows 10/11 keeps that choice itself and no program may change it).
+/// Every supported type gets the app's ProgID (with the document icon) and the app is entered under "Öffnen mit"
+/// (OpenWithProgids, Applications\&lt;exe&gt;) and in "Standard-Apps" (Capabilities, RegisteredApplications). Only the types the
+/// user chose in the setup (the install options, SETUP-08: <c>defaults</c>) get the app as the extension's default
+/// (HKCU\Software\Classes\.ext); the others are released when they had it. A choice the user made himself in "Öffnen mit"
+/// (Windows' UserChoice) stays – no program may change it.
 /// </summary>
 public static class FileAssociations
 {
@@ -25,8 +25,12 @@ public static class FileAssociations
     /// <summary>The command Explorer runs for a document: the program with the file.</summary>
     public static string OpenCommand(string executable) => $"\"{executable}\" \"%1\"";
 
-    /// <summary>Registers every supported type of <paramref name="definition"/> for <paramref name="executable"/> (see the class).</summary>
-    public static void Register(IUserRegistry registry, OfficeAppDefinition definition, string executable, string? documentIcon, bool makeDefault)
+    /// <summary>
+    /// Registers every supported type of <paramref name="definition"/> for <paramref name="executable"/> (see the class).
+    /// <paramref name="defaults"/>: the extensions the app opens by default (the others lose the app as their default); null
+    /// leaves the defaults as they are ("Erneut eintragen").
+    /// </summary>
+    public static void Register(IUserRegistry registry, OfficeAppDefinition definition, string executable, string? documentIcon, IReadOnlyCollection<string>? defaults)
     {
         var openCommand = OpenCommand(executable);
         var icon = documentIcon is not null ? $"\"{documentIcon}\"" : $"\"{executable}\",0";
@@ -41,13 +45,22 @@ public static class FileAssociations
 
             var extensionPath = $@"{ClassesPath}\{type.Extension}";
             registry.SetValue($@"{extensionPath}\OpenWithProgids", type.ProgId, "", RegistryValueType.None);
-            if (makeDefault && IsFree(registry, type))
+            if (defaults is null)
+            {
+                continue;
+            }
+
+            if (defaults.Contains(type.Extension, StringComparer.OrdinalIgnoreCase))
             {
                 registry.SetValue(extensionPath, "", type.ProgId);
-                if (type.MimeType is not null)
+                if (type.MimeType is not null && registry.GetValue(extensionPath, "Content Type") is null)
                 {
                     registry.SetValue(extensionPath, "Content Type", type.MimeType);
                 }
+            }
+            else if (IsDefaultFor(registry, type))
+            {
+                registry.DeleteValue(extensionPath, "");
             }
         }
 
@@ -103,15 +116,15 @@ public static class FileAssociations
     public static bool IsDefaultFor(IUserRegistry registry, DocumentType type) =>
         registry.GetValue($@"{ClassesPath}\{type.Extension}", "") as string == type.ProgId;
 
-    /// <summary>An extension whose default is empty or already the app's: "makeDefault" may take it.</summary>
-    internal static bool IsFree(IUserRegistry registry, DocumentType type) =>
-        registry.GetValue($@"{ClassesPath}\{type.Extension}", "") is not string { Length: > 0 } current || current == type.ProgId;
+    /// <summary>The supported extensions whose default (HKCU) is the app – what the setup chose (the install options).</summary>
+    public static IReadOnlyList<string> Defaults(IUserRegistry registry, OfficeAppDefinition definition) =>
+        definition.SupportedTypes.Where(type => IsDefaultFor(registry, type)).Select(type => type.Extension).ToList();
 
     // ===== For the app of this process =====
 
     /// <summary>
     /// "Dateitypen erneut eintragen" (settings): the setup's registration again – for the installed program when there is
-    /// one, otherwise for <paramref name="runningExecutable"/>; never as default. Policy-checked.
+    /// one, otherwise for <paramref name="runningExecutable"/>; the defaults stay as they are. Policy-checked.
     /// </summary>
     public static void RepairForThisApp(string runningExecutable)
     {
@@ -124,7 +137,7 @@ public static class FileAssociations
         var installed = InstallService.IsInstalled;
         var executable = installed ? InstallService.InstalledExecutable : runningExecutable;
         var icon = installed && File.Exists(InstallService.DocumentIcon) ? InstallService.DocumentIcon : null;
-        Register(UserRegistry.Current, AppInfo.Definition, executable, icon, makeDefault: false);
+        Register(UserRegistry.Current, AppInfo.Definition, executable, icon, defaults: null);
     }
 
     /// <summary>Whether the app of this process is registered for its types.</summary>

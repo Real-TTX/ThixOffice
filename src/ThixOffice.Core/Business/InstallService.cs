@@ -6,26 +6,24 @@ using ThixOffice.Core.Models;
 
 namespace ThixOffice.Core.Business;
 
-/// <summary>The choices of the setup assistant; an update (null) keeps what the user has.</summary>
-public sealed record InstallOptions(bool DesktopShortcut, bool InstallUpdatesAutomatically = true, bool MakeDefaultForFreeTypes = false);
-
 /// <summary>
 /// Windows only (macOS: the app bundle, <see cref="MacAppBundle"/>). Every app of the suite installs itself – like ThixNote –
 /// without a separate installer: the published ThixWrite.exe is the setup. Started from anywhere else it copies itself to
 /// %LocalAppData%\Programs\&lt;App&gt; (per user, no administrator rights), writes the document icon, creates the Start menu
 /// entry, the entry in "Installierte Apps" (<see cref="UninstallEntry"/>, what ThixLauncher reads), the document types
-/// (<see cref="FileAssociations"/>: "Öffnen mit", never taking a type from another program) and optionally a desktop
-/// shortcut. "--update" replaces the program silently, "--uninstall" removes every one of them, "--quiet" asks nothing.
+/// (<see cref="FileAssociations"/>: "Öffnen mit") and – as the install options say (<see cref="InstallerOptions"/>, SETUP-08) –
+/// a desktop shortcut, automatic updates and the types the app opens by default. "--update" replaces the program silently,
+/// "--uninstall" removes every one of them, "--quiet" asks nothing.
 /// Documents are never touched; the data folder (settings, recent list, logs) only when the user asks for it.
 /// The registry goes through <see cref="UserRegistry"/>, so the tests run the whole install in memory.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public static class InstallService
 {
-    public const string UpdateArgument = UpdateService.WindowsUpdateArgument;
-    public const string RestartArgument = UpdateService.RestartArgument;
-    public const string UninstallArgument = UninstallEntry.UninstallArgument;
-    public const string QuietArgument = UninstallEntry.QuietArgument;
+    public const string UpdateArgument = InstallerOptions.UpdateArgument;
+    public const string RestartArgument = InstallerOptions.RestartArgument;
+    public const string UninstallArgument = InstallerOptions.UninstallArgument;
+    public const string QuietArgument = InstallerOptions.QuietArgument;
 
     private static TestLocations? _testLocations;
 
@@ -55,11 +53,15 @@ public static class InstallService
     public static bool IsInstalledExecutable(string path) =>
         string.Equals(Path.GetFullPath(path), Path.GetFullPath(InstalledExecutable), StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Installs or updates. <paramref name="options"/> null = update: shortcuts, file types and autostart stay as they are.</summary>
-    public static void Install(string sourceExecutable, InstallOptions? options, Action<string> log)
+    /// <summary>
+    /// Installs or updates with the install options (SETUP-08): what <paramref name="choices"/> leaves open (null, or a value of
+    /// null) an installed app keeps as it is and a first install takes from the app's installer.json.
+    /// </summary>
+    public static void Install(string sourceExecutable, InstallChoices? choices, Action<string> log)
     {
         var name = AppInfo.ProductName;
-        var isUpdate = options is null;
+        var isUpdate = IsInstalled;
+        var wanted = (choices ?? new InstallChoices()).Over(isUpdate ? InstallerOptions.Current() : InstallerOptions.Defaults);
         log(isUpdate ? $"Aktualisiere {name} in {ProgramFolder}" : $"Installiere {name} nach {ProgramFolder}");
         StopRunningInstances(log);
 
@@ -70,37 +72,19 @@ public static class InstallService
             log("Programmdatei kopiert");
         }
 
-        var documentIcon = WriteDocumentIcon() ? DocumentIcon : null;
+        WriteDocumentIcon();
 
         CreateShortcut(StartMenuShortcut);
         log("Startmenü-Eintrag angelegt");
 
-        if (options?.DesktopShortcut ?? HasDesktopShortcut)
-        {
-            CreateShortcut(DesktopShortcut);
-            log("Desktop-Verknüpfung angelegt");
-        }
+        // Also an update applies them again: the file types point at the installed file and its document icon.
+        InstallerOptions.Apply(wanted, InstalledExecutable, log);
 
-        if (AccessPolicy.AreFileAssociationsDisabled)
-        {
-            log("Dateitypen: von einem Administrator deaktiviert");
-        }
-        else
-        {
-            // An update keeps a default the user gave the app; it never takes a new one.
-            FileAssociations.Register(UserRegistry.Current, AppInfo.Definition, InstalledExecutable, documentIcon, options?.MakeDefaultForFreeTypes ?? false);
-            log($"{name} unter „Öffnen mit“ eingetragen ({string.Join(", ", AppInfo.Definition.SupportedTypes.Select(type => type.Extension))})");
-        }
-
-        // An update keeps the autostart as the user left it, but points it at the installed file.
-        if (isUpdate && AutostartService.IsEnabled())
+        // The autostart is no install option of the Office apps (Einstellungen › Allgemein): an update keeps it as the user
+        // left it, but points it at the installed file.
+        if (InstallerOptions.Config.Autostart is null && isUpdate && AutostartService.IsEnabled())
         {
             AutostartService.WriteEntry(InstalledExecutable);
-        }
-
-        if (options is not null)
-        {
-            ApplyUpdateChoice(options.InstallUpdatesAutomatically, log);
         }
 
         UninstallEntry.Write(UserRegistry.Current, AppInfo.Definition, InstalledExecutable, ProgramFolder, AppInfo.Version, new FileInfo(InstalledExecutable).Length);
@@ -245,17 +229,16 @@ public static class InstallService
         }
     }
 
-    /// <summary>"Updates automatisch installieren" of the setup; a locked configuration (policy) keeps its value.</summary>
-    private static void ApplyUpdateChoice(bool installAutomatically, Action<string> log)
+    /// <summary>The desktop shortcut on or off (install options).</summary>
+    internal static void SetDesktopShortcut(bool wanted)
     {
-        try
+        if (wanted)
         {
-            SettingsService.Update(settings => settings with { InstallUpdatesAutomatically = installAutomatically });
-            log(installAutomatically ? "Updates werden beim Beenden automatisch installiert" : "Updates werden nur angeboten");
+            CreateShortcut(DesktopShortcut);
         }
-        catch (BusinessException exception)
+        else
         {
-            log(exception.Message);
+            DeleteFile(DesktopShortcut);
         }
     }
 

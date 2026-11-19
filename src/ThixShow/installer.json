@@ -1,0 +1,8 @@
+{
+  "desktopShortcut": { "default": false },
+  "automaticUpdates": { "default": true },
+  "fileTypes": [
+    { "extension": ".pptx", "name": "PowerPoint-Präsentation", "default": true },
+    { "extension": ".pptm", "name": "PowerPoint-Präsentation mit Makros", "default": false }
+  ]
+}

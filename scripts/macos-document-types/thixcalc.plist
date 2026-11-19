@@ -1,8 +1,8 @@
   <!--
     ThixCalc's document types for Finder (CFBundleDocumentTypes, put into Info.plist by package-macos.sh). Like the Windows
     registration only what ThixCalc can open now: Excel workbooks (its own format), workbooks with macros (kept, never run),
-    OpenDocument spreadsheets and CSV, all as "Alternate": ThixCalc appears under "Öffnen mit", the default stays the user's
-    (house rule: never take a type silently). @DOCUMENT_ICON@ is the document icon of the bundle.
+    OpenDocument spreadsheets and CSV, all as "Alternate": ThixCalc appears under "Öffnen mit". It becomes the
+    default only for the types the user chose (install options, SETUP-08: "ThixCalc --configure --file-types=…", Launch Services). @DOCUMENT_ICON@ is the document icon of the bundle.
   -->
   <array>
     <dict>

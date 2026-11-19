@@ -1,0 +1,7 @@
+{
+  "desktopShortcut": { "default": false },
+  "automaticUpdates": { "default": true },
+  "fileTypes": [
+    { "extension": ".tst", "name": "Testtext", "default": true }
+  ]
+}

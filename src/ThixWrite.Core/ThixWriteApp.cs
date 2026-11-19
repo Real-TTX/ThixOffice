@@ -6,7 +6,7 @@ namespace ThixWrite.Core;
 /// ThixWrite as data: the word processor of ThixOffice (Word's place), accent: Word's blue. Its own format is .docx (the
 /// default type: "Speichern unter" offers it first, the install flow registers it with the document icon); .txt is read and
 /// written as plain text, .odt as OpenDocument Text (what the model has). .rtf is PLANNED – never registered with the system,
-/// never offered – until its reader exists. ThixWrite never takes .docx or .txt from another program silently: it offers itself under "Öffnen mit".
+/// never offered – until its reader exists. ThixWrite offers itself under "Öffnen mit" and opens a type by default only when the user chose it in the setup (installer.json).
 /// </summary>
 public static class ThixWriteApp
 {

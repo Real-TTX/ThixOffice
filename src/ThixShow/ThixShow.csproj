@@ -82,6 +82,8 @@
     <AvaloniaResource Include="Assets\logo-64.png" />
     <!-- The icon of the document types (InstallService writes it next to the program; the file types point to it). -->
     <EmbeddedResource Include="Assets\thixshow-document.ico" LogicalName="thixshow-document.ico" />
+    <!-- What the setup offers (SETUP-08): read by InstallerOptions, published in the update manifest as "installer" by CI. -->
+    <EmbeddedResource Include="installer.json" LogicalName="installer.json" />
   </ItemGroup>
 
 </Project>
