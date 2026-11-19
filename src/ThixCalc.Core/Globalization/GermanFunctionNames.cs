@@ -1,0 +1,118 @@
+namespace ThixCalc.Core.Globalization;
+
+/// <summary>The German names of Excel's functions (as German Excel shows them), by canonical English name.</summary>
+internal static class GermanFunctionNames
+{
+    public static IReadOnlyDictionary<string, string> Names { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        // Math and trigonometry
+        ["ACOS"] = "ARCCOS", ["ACOSH"] = "ARCCOSHYP", ["ACOT"] = "ARCCOT", ["ACOTH"] = "ARCCOTHYP", ["AGGREGATE"] = "AGGREGAT",
+        ["ARABIC"] = "ARABISCH", ["ASIN"] = "ARCSIN", ["ASINH"] = "ARCSINHYP", ["ATAN"] = "ARCTAN", ["ATAN2"] = "ARCTAN2",
+        ["ATANH"] = "ARCTANHYP", ["BASE"] = "BASIS", ["CEILING"] = "OBERGRENZE", ["CEILING.MATH"] = "OBERGRENZE.MATHEMATIK",
+        ["CEILING.PRECISE"] = "OBERGRENZE.GENAU", ["ISO.CEILING"] = "ISO.OBERGRENZE", ["COMBIN"] = "KOMBINATIONEN",
+        ["COMBINA"] = "KOMBINATIONEN2", ["COSH"] = "COSHYP", ["COTH"] = "COTHYP", ["CSC"] = "COSEC", ["CSCH"] = "COSECHYP",
+        ["DECIMAL"] = "DEZIMAL", ["DEGREES"] = "GRAD", ["EVEN"] = "GERADE", ["FACT"] = "FAKULTÄT", ["FACTDOUBLE"] = "ZWEIFAKULTÄT",
+        ["FLOOR"] = "UNTERGRENZE", ["FLOOR.MATH"] = "UNTERGRENZE.MATHEMATIK", ["FLOOR.PRECISE"] = "UNTERGRENZE.GENAU",
+        ["GCD"] = "GGT", ["INT"] = "GANZZAHL", ["LCM"] = "KGV", ["MDETERM"] = "MDET", ["MINVERSE"] = "MINV", ["MOD"] = "REST",
+        ["MROUND"] = "VRUNDEN", ["MULTINOMIAL"] = "POLYNOMIAL", ["MUNIT"] = "MEINHEIT", ["ODD"] = "UNGERADE", ["POWER"] = "POTENZ",
+        ["PRODUCT"] = "PRODUKT", ["RADIANS"] = "BOGENMASS", ["RAND"] = "ZUFALLSZAHL", ["RANDARRAY"] = "ZUFALLSMATRIX",
+        ["RANDBETWEEN"] = "ZUFALLSBEREICH", ["ROMAN"] = "RÖMISCH", ["ROUND"] = "RUNDEN", ["ROUNDDOWN"] = "ABRUNDEN",
+        ["ROUNDUP"] = "AUFRUNDEN", ["SECH"] = "SECHYP", ["SEQUENCE"] = "SEQUENZ", ["SERIESSUM"] = "POTENZREIHE",
+        ["SIGN"] = "VORZEICHEN", ["SINH"] = "SINHYP", ["SQRT"] = "WURZEL", ["SQRTPI"] = "WURZELPI", ["SUBTOTAL"] = "TEILERGEBNIS",
+        ["SUM"] = "SUMME", ["SUMIF"] = "SUMMEWENN", ["SUMIFS"] = "SUMMEWENNS", ["SUMPRODUCT"] = "SUMMENPRODUKT",
+        ["SUMSQ"] = "QUADRATESUMME", ["SUMX2MY2"] = "SUMMEX2MY2", ["SUMX2PY2"] = "SUMMEX2PY2", ["SUMXMY2"] = "SUMMEXMY2",
+        ["TANH"] = "TANHYP", ["TRUNC"] = "KÜRZEN",
+
+        // Statistics
+        ["AVEDEV"] = "MITTELABW", ["AVERAGE"] = "MITTELWERT", ["AVERAGEA"] = "MITTELWERTA", ["AVERAGEIF"] = "MITTELWERTWENN",
+        ["AVERAGEIFS"] = "MITTELWERTWENNS", ["BETA.DIST"] = "BETA.VERT", ["BINOM.DIST"] = "BINOM.VERT",
+        ["CHISQ.DIST"] = "CHIQU.VERT", ["CHISQ.DIST.RT"] = "CHIQU.VERT.RE", ["CHISQ.INV"] = "CHIQU.INV",
+        ["CHISQ.INV.RT"] = "CHIQU.INV.RE", ["CHISQ.TEST"] = "CHIQU.TEST", ["CONFIDENCE.NORM"] = "KONFIDENZ.NORM",
+        ["CONFIDENCE.T"] = "KONFIDENZ.T", ["CORREL"] = "KORREL", ["COUNT"] = "ANZAHL", ["COUNTA"] = "ANZAHL2",
+        ["COUNTBLANK"] = "ANZAHLLEEREZELLEN", ["COUNTIF"] = "ZÄHLENWENN", ["COUNTIFS"] = "ZÄHLENWENNS",
+        ["COVARIANCE.P"] = "KOVARIANZ.P", ["COVARIANCE.S"] = "KOVARIANZ.S", ["DEVSQ"] = "SUMQUADABW", ["EXPON.DIST"] = "EXPON.VERT",
+        ["F.DIST"] = "F.VERT", ["F.DIST.RT"] = "F.VERT.RE", ["F.INV.RT"] = "F.INV.RE", ["FORECAST"] = "PROGNOSE",
+        ["FORECAST.LINEAR"] = "PROGNOSE.LINEAR", ["FREQUENCY"] = "HÄUFIGKEIT", ["GAMMA.DIST"] = "GAMMA.VERT",
+        ["GAMMALN.PRECISE"] = "GAMMALN.GENAU", ["GEOMEAN"] = "GEOMITTEL", ["GROWTH"] = "VARIATION", ["HARMEAN"] = "HARMITTEL",
+        ["HYPGEOM.DIST"] = "HYPGEOM.VERT", ["INTERCEPT"] = "ACHSENABSCHNITT", ["LARGE"] = "KGRÖSSTE", ["LINEST"] = "RGP",
+        ["LOGEST"] = "RKP", ["LOGNORM.DIST"] = "LOGNORM.VERT", ["MAXIFS"] = "MAXWENNS", ["MINIFS"] = "MINWENNS",
+        ["MODE"] = "MODALWERT", ["MODE.MULT"] = "MODUS.VIELF", ["MODE.SNGL"] = "MODUS.EINF", ["NEGBINOM.DIST"] = "NEGBINOM.VERT",
+        ["NORM.DIST"] = "NORM.VERT", ["NORM.S.DIST"] = "NORM.S.VERT", ["PERCENTILE"] = "QUANTIL",
+        ["PERCENTILE.EXC"] = "QUANTIL.EXKL", ["PERCENTILE.INC"] = "QUANTIL.INKL", ["PERCENTRANK"] = "QUANTILSRANG",
+        ["PERCENTRANK.EXC"] = "QUANTILSRANG.EXKL", ["PERCENTRANK.INC"] = "QUANTILSRANG.INKL", ["PERMUT"] = "VARIATIONEN",
+        ["PERMUTATIONA"] = "VARIATIONEN2", ["POISSON.DIST"] = "POISSON.VERT", ["PROB"] = "WAHRSCHBEREICH",
+        ["QUARTILE.EXC"] = "QUARTILE.EXKL", ["QUARTILE.INC"] = "QUARTILE.INKL", ["RANK"] = "RANG", ["RANK.AVG"] = "RANG.MITTELW",
+        ["RANK.EQ"] = "RANG.GLEICH", ["RSQ"] = "BESTIMMTHEITSMASS", ["SKEW"] = "SCHIEFE", ["SKEW.P"] = "SCHIEFE.P",
+        ["SLOPE"] = "STEIGUNG", ["SMALL"] = "KKLEINSTE", ["STANDARDIZE"] = "STANDARDISIERUNG", ["STDEV"] = "STABW",
+        ["STDEV.P"] = "STABW.N", ["STDEV.S"] = "STABW.S", ["STDEVA"] = "STABWA", ["STDEVP"] = "STABWN", ["STDEVPA"] = "STABWNA",
+        ["STEYX"] = "STFEHLERYX", ["T.DIST"] = "T.VERT", ["T.DIST.2T"] = "T.VERT.2S", ["T.DIST.RT"] = "T.VERT.RE",
+        ["T.INV.2T"] = "T.INV.2S", ["TRIMMEAN"] = "GESTUTZTMITTEL", ["VAR"] = "VARIANZ", ["VARA"] = "VARIANZA",
+        ["VARP"] = "VARIANZEN", ["VARPA"] = "VARIANZENA", ["WEIBULL.DIST"] = "WEIBULL.VERT", ["Z.TEST"] = "G.TEST",
+        ["NORMDIST"] = "NORMVERT", ["NORMSDIST"] = "STANDNORMVERT", ["NORMSINV"] = "STANDNORMINV", ["BINOMDIST"] = "BINOMVERT",
+        ["CHIDIST"] = "CHIVERT", ["TDIST"] = "TVERT", ["EXPONDIST"] = "EXPONVERT", ["CONFIDENCE"] = "KONFIDENZ",
+        ["COVAR"] = "KOVAR", ["LOGNORMDIST"] = "LOGNORMVERT", ["GAMMADIST"] = "GAMMAVERT", ["BETADIST"] = "BETAVERT",
+        ["FDIST"] = "FVERT", ["HYPGEOMDIST"] = "HYPGEOMVERT", ["NEGBINOMDIST"] = "NEGBINOMVERT", ["CRITBINOM"] = "KRITBINOM",
+        ["ZTEST"] = "GTEST",
+
+        // Logical
+        ["AND"] = "UND", ["FALSE"] = "FALSCH", ["IF"] = "WENN", ["IFERROR"] = "WENNFEHLER", ["IFNA"] = "WENNNV", ["IFS"] = "WENNS",
+        ["NOT"] = "NICHT", ["OR"] = "ODER", ["SWITCH"] = "ERSTERWERT", ["TRUE"] = "WAHR", ["XOR"] = "XODER",
+        ["BYROW"] = "NACHZEILE", ["BYCOL"] = "NACHSPALTE", ["MAKEARRAY"] = "MATRIXERSTELLEN", ["MAP"] = "ZUORDNEN",
+        ["ISOMITTED"] = "AUSGELASSEN",
+
+        // Lookup and reference
+        ["ADDRESS"] = "ADRESSE", ["AREAS"] = "BEREICHE", ["CHOOSE"] = "WAHL", ["CHOOSECOLS"] = "SPALTENWAHL",
+        ["CHOOSEROWS"] = "ZEILENWAHL", ["COLUMN"] = "SPALTE", ["COLUMNS"] = "SPALTEN", ["DROP"] = "WEGLASSEN",
+        ["EXPAND"] = "ERWEITERN", ["FORMULATEXT"] = "FORMELTEXT", ["HLOOKUP"] = "WVERWEIS", ["HSTACK"] = "HSTAPELN",
+        ["INDIRECT"] = "INDIREKT", ["LOOKUP"] = "VERWEIS", ["MATCH"] = "VERGLEICH", ["OFFSET"] = "BEREICH.VERSCHIEBEN",
+        ["ROW"] = "ZEILE", ["ROWS"] = "ZEILEN", ["SORT"] = "SORTIEREN", ["SORTBY"] = "SORTIERENNACH", ["TAKE"] = "ÜBERNEHMEN",
+        ["TOCOL"] = "ZUSPALTE", ["TOROW"] = "ZUZEILE", ["TRANSPOSE"] = "MTRANS", ["UNIQUE"] = "EINDEUTIG",
+        ["VLOOKUP"] = "SVERWEIS", ["VSTACK"] = "VSTAPELN", ["WRAPCOLS"] = "UMBRUCHSPALTE", ["WRAPROWS"] = "UMBRUCHZEILE",
+        ["XLOOKUP"] = "XVERWEIS", ["XMATCH"] = "XVERGLEICH",
+
+        // Text
+        ["CHAR"] = "ZEICHEN", ["CLEAN"] = "SÄUBERN", ["CONCAT"] = "TEXTKETTE", ["CONCATENATE"] = "VERKETTEN",
+        ["DOLLAR"] = "WÄHRUNG", ["EXACT"] = "IDENTISCH", ["FIND"] = "FINDEN", ["FIXED"] = "FEST", ["LEFT"] = "LINKS",
+        ["LEN"] = "LÄNGE", ["LOWER"] = "KLEIN", ["MID"] = "TEIL", ["NUMBERVALUE"] = "ZAHLENWERT", ["PROPER"] = "GROSS2",
+        ["REPLACE"] = "ERSETZEN", ["REPT"] = "WIEDERHOLEN", ["RIGHT"] = "RECHTS", ["SEARCH"] = "SUCHEN",
+        ["SUBSTITUTE"] = "WECHSELN", ["TEXTAFTER"] = "TEXTNACH", ["TEXTBEFORE"] = "TEXTVOR", ["TEXTJOIN"] = "TEXTVERKETTEN",
+        ["TEXTSPLIT"] = "TEXTTEILEN", ["TRIM"] = "GLÄTTEN", ["UNICHAR"] = "UNIZEICHEN", ["UPPER"] = "GROSS", ["VALUE"] = "WERT",
+        ["VALUETOTEXT"] = "WERTZUTEXT", ["ARRAYTOTEXT"] = "MATRIXZUTEXT",
+
+        // Date and time
+        ["DATE"] = "DATUM", ["DATEVALUE"] = "DATWERT", ["DAY"] = "TAG", ["DAYS"] = "TAGE", ["DAYS360"] = "TAGE360",
+        ["EDATE"] = "EDATUM", ["EOMONTH"] = "MONATSENDE", ["HOUR"] = "STUNDE", ["ISOWEEKNUM"] = "ISOKALENDERWOCHE",
+        ["MONTH"] = "MONAT", ["NETWORKDAYS"] = "NETTOARBEITSTAGE", ["NETWORKDAYS.INTL"] = "NETTOARBEITSTAGE.INTL",
+        ["NOW"] = "JETZT", ["SECOND"] = "SEKUNDE", ["TIME"] = "ZEIT", ["TIMEVALUE"] = "ZEITWERT", ["TODAY"] = "HEUTE",
+        ["WEEKDAY"] = "WOCHENTAG", ["WEEKNUM"] = "KALENDERWOCHE", ["WORKDAY"] = "ARBEITSTAG", ["WORKDAY.INTL"] = "ARBEITSTAG.INTL",
+        ["YEAR"] = "JAHR", ["YEARFRAC"] = "BRTEILJAHRE",
+
+        // Information
+        ["CELL"] = "ZELLE", ["ERROR.TYPE"] = "FEHLER.TYP", ["ISBLANK"] = "ISTLEER", ["ISERR"] = "ISTFEHL", ["ISERROR"] = "ISTFEHLER",
+        ["ISEVEN"] = "ISTGERADE", ["ISFORMULA"] = "ISTFORMEL", ["ISLOGICAL"] = "ISTLOG", ["ISNA"] = "ISTNV",
+        ["ISNONTEXT"] = "ISTKTEXT", ["ISNUMBER"] = "ISTZAHL", ["ISODD"] = "ISTUNGERADE", ["ISREF"] = "ISTBEZUG",
+        ["ISTEXT"] = "ISTTEXT", ["NA"] = "NV", ["SHEET"] = "BLATT", ["SHEETS"] = "BLÄTTER", ["TYPE"] = "TYP",
+
+        // Financial
+        ["ACCRINT"] = "AUFGELZINS", ["CUMIPMT"] = "KUMZINSZ", ["CUMPRINC"] = "KUMKAPITAL", ["DB"] = "GDA2", ["DDB"] = "GDA",
+        ["DISC"] = "DISAGIO", ["DOLLARDE"] = "NOTIERUNGDEZ", ["DOLLARFR"] = "NOTIERUNGBRU", ["EFFECT"] = "EFFEKTIV",
+        ["FV"] = "ZW", ["FVSCHEDULE"] = "ZW2", ["IPMT"] = "ZINSZ", ["IRR"] = "IKV", ["MIRR"] = "QIKV", ["NPER"] = "ZZR",
+        ["NPV"] = "NBW", ["PMT"] = "RMZ", ["PPMT"] = "KAPZ", ["PV"] = "BW", ["RATE"] = "ZINS", ["RRI"] = "ZSATZINVEST",
+        ["SLN"] = "LIA", ["SYD"] = "DIA", ["XIRR"] = "XINTZINSFUSS", ["XNPV"] = "XKAPITALWERT", ["TBILLEQ"] = "TBILLÄQUIV",
+        ["TBILLPRICE"] = "TBILLKURS", ["TBILLYIELD"] = "TBILLRENDITE",
+
+        // Database
+        ["DAVERAGE"] = "DBMITTELWERT", ["DCOUNT"] = "DBANZAHL", ["DCOUNTA"] = "DBANZAHL2", ["DGET"] = "DBAUSZUG",
+        ["DMAX"] = "DBMAX", ["DMIN"] = "DBMIN", ["DPRODUCT"] = "DBPRODUKT", ["DSTDEV"] = "DBSTDABW", ["DSTDEVP"] = "DBSTDABWN",
+        ["DSUM"] = "DBSUMME", ["DVAR"] = "DBVARIANZ", ["DVARP"] = "DBVARIANZEN",
+
+        // Engineering
+        ["BIN2DEC"] = "BININDEZ", ["BIN2HEX"] = "BININHEX", ["BIN2OCT"] = "BININOKT", ["DEC2BIN"] = "DEZINBIN",
+        ["DEC2HEX"] = "DEZINHEX", ["DEC2OCT"] = "DEZINOKT", ["HEX2BIN"] = "HEXINBIN", ["HEX2DEC"] = "HEXINDEZ",
+        ["HEX2OCT"] = "HEXINOKT", ["OCT2BIN"] = "OKTINBIN", ["OCT2DEC"] = "OKTINDEZ", ["OCT2HEX"] = "OKTINHEX",
+        ["BITAND"] = "BITUND", ["BITOR"] = "BITODER", ["BITXOR"] = "BITXODER", ["BITLSHIFT"] = "BITLVERSCHIEB",
+        ["BITRSHIFT"] = "BITRVERSCHIEB", ["CONVERT"] = "UMWANDELN", ["GESTEP"] = "GGANZZAHL", ["ERF"] = "GAUSSFEHLER",
+        ["ERFC"] = "GAUSSFKOMPL", ["ERF.PRECISE"] = "GAUSSF.GENAU", ["ERFC.PRECISE"] = "GAUSSFKOMPL.GENAU", ["COMPLEX"] = "KOMPLEXE",
+        ["ENCODEURL"] = "URLCODIEREN",
+    };
+}
