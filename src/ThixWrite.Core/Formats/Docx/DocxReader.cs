@@ -373,8 +373,7 @@ public static class DocxReader
                     text.Append(SpecialCharacters.PageBreak);
                     break;
                 case W.Break when DocxValues.AttributeValue(child, "type") == "column":
-                    context.Count(PreservedKind.ColumnBreak);
-                    AddOpaque(child, PreservedKind.ColumnBreak);
+                    AddOpaque(child, PreservedKind.ColumnBreak); // the layout starts the next column after it
                     break;
                 case W.Break or W.CarriageReturn:
                     text.Append(SpecialCharacters.LineBreak);

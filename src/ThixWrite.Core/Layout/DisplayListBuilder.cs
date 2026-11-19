@@ -57,6 +57,11 @@ public static class DisplayListBuilder
         }
 
         AddCellBorders(page, items);
+        foreach (var (x, top, bottom) in page.ColumnLines)
+        {
+            items.Add(new LineItem(x, top, x, bottom, RgbColor.Black, 0.5));
+        }
+
         if (drawObject is not null)
         {
             foreach (var placed in floats.Where(placed => !placed.Anchor.BehindText))

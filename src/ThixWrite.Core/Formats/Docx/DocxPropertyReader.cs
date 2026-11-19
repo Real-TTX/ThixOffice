@@ -184,6 +184,20 @@ internal static class DocxPropertyReader
                         ColumnSpacing = DocxValues.ParseTwips(DocxValues.AttributeValue(columns, "space")) ?? result.ColumnSpacing,
                     };
                     break;
+                case W.Columns complex:
+                    // Columns of their own widths or with a line between: kept as read, described for the layout.
+                    result = result with
+                    {
+                        ColumnCount = (int)Math.Max(1, DocxValues.ParseInteger(DocxValues.AttributeValue(complex, "num")) ?? 1),
+                        ColumnSpacing = DocxValues.ParseTwips(DocxValues.AttributeValue(complex, "space")) ?? result.ColumnSpacing,
+                        ColumnSeparator = DocxValues.AttributeValue(complex, "sep") is "1" or "true" or "on",
+                        Columns = DocxValues.AttributeValue(complex, "equalWidth") is "0" or "false" or "off"
+                            ? new EquatableArray<(double Width, double Space)>(complex.Elements<W.Column>().Select(column =>
+                                (DocxValues.ParseTwips(DocxValues.AttributeValue(column, "w")) ?? 0, DocxValues.ParseTwips(DocxValues.AttributeValue(column, "space")) ?? 0)))
+                            : EquatableArray<(double Width, double Space)>.Empty,
+                    };
+                    unknown.Add(child);
+                    break;
                 case W.SectionType type:
                     result = result with { Start = ParseSectionStart(DocxValues.AttributeValue(type, "val")) };
                     break;

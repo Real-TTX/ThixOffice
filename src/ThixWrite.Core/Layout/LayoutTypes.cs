@@ -173,6 +173,8 @@ public enum LineEnding
     PageBreak,
     /// <summary>The end of the paragraph.</summary>
     Paragraph,
+    /// <summary>A column break (w:br w:type="column"): the next line starts the next column.</summary>
+    ColumnBreak,
 }
 
 /// <summary>
@@ -250,11 +252,16 @@ public sealed record PlacedFloat(int Block, int Offset, Inline Inline, DrawingAn
     public (double Left, double Top, double Right, double Bottom)? Exclusion => Anchor.Wrap switch
     {
         DrawingWrap.None => null,
-        DrawingWrap.TopAndBottom => (-1e6, Y - Anchor.DistanceTop, 1e6, Y + Height + Anchor.DistanceBottom), // no text beside it
+        DrawingWrap.TopAndBottom => (Math.Min(AreaLeft, X), Y - Anchor.DistanceTop, Math.Max(AreaRight, X + Width), Y + Height + Anchor.DistanceBottom), // no text beside it in its column
         _ => (X - Anchor.DistanceLeft, Y - Anchor.DistanceTop, X + Width + Anchor.DistanceRight, Y + Height + Anchor.DistanceBottom),
     };
 
     public bool Contains(double x, double y) => x >= X && x < X + Width && y >= Y && y < Y + Height;
+
+    /// <summary>The text area (column) of the anchor's paragraph: "Oben und unten" keeps the whole of it free.</summary>
+    public double AreaLeft { get; init; }
+
+    public double AreaRight { get; init; } = double.MaxValue / 4;
 }
 
 /// <summary>One page: size, margins (from its section), the lines on it in order, and the table cells on it.</summary>
@@ -295,6 +302,13 @@ public sealed class PageLayout
     public IReadOnlyList<PlacedLine> RepeatedLines => _repeatedLines;
 
     internal List<PlacedCell> MutableCells => _cells;
+
+    /// <summary>The lines between columns (x, top, bottom) of the column regions on this page that have "Zwischenlinie".</summary>
+    public IReadOnlyList<(double X, double Top, double Bottom)> ColumnLines => _columnLines;
+
+    internal List<(double X, double Top, double Bottom)> MutableColumnLines => _columnLines;
+
+    private readonly List<(double X, double Top, double Bottom)> _columnLines = [];
 
     /// <summary>The floating objects of the body on this page, in the order their anchors were placed.</summary>
     public IReadOnlyList<PlacedFloat> Floats => _floats;
@@ -371,6 +385,7 @@ public sealed class PageLayout
         _lines.RemoveAll(line => line.Block >= block);
         _cells.RemoveAll(cell => cell.TableStart >= block);
         _floats.RemoveAll(placed => placed.Block >= block);
+        _columnLines.Clear();
         _repeatedLines.RemoveAll(line => line.Block >= block);
         RemoveFootnotes(slice => slice.RefBlock >= block);
         _endnotes.Clear();

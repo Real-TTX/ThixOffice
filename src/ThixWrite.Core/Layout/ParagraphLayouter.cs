@@ -108,6 +108,15 @@ internal static class ParagraphLayouter
         }
 
         var tabWidths = new double[text.Length];
+        var columnBreaks = new bool[text.Length];
+        for (var index = 0; index < paragraph.Inlines.Length; index++)
+        {
+            if (paragraph.Inlines[index] is OpaqueInline { Kind: PreservedKind.ColumnBreak })
+            {
+                columnBreaks[paragraph.StartOf(index)] = true;
+            }
+        }
+
         var lines = new List<LineLayout>();
         var lineStart = 0;
         var y = 0.0;
@@ -121,7 +130,7 @@ internal static class ParagraphLayouter
             var end = lineStart;
             for (var attempt = 0; ; attempt++)
             {
-                (end, ending) = FillLine(text, lineStart, startX, lineRight, advances, breaks, graphemeStarts, tabWidths, format, context);
+                (end, ending) = FillLine(text, lineStart, startX, lineRight, advances, breaks, graphemeStarts, tabWidths, format, context, columnBreaks);
                 line = BuildLine(paragraph, lineStart, end, ending, startX, lineRight, isFirst, format, segments, owner, advances, tabWidths,
                     graphemeStarts, isFirst ? labelItem : null, markMetrics, markWidth);
                 if (exclusions is not { Count: > 0 } || attempt >= 12)
@@ -155,7 +164,7 @@ internal static class ParagraphLayouter
             y += line.Height;
             lineStart = end;
 
-            var paragraphEnds = ending == LineEnding.Paragraph || (lineStart >= text.Length && ending == LineEnding.PageBreak);
+            var paragraphEnds = ending == LineEnding.Paragraph || (lineStart >= text.Length && ending is LineEnding.PageBreak or LineEnding.ColumnBreak);
             if (paragraphEnds)
             {
                 break;
@@ -520,7 +529,8 @@ internal static class ParagraphLayouter
         bool[] graphemeStarts,
         double[] tabWidths,
         EffectiveParagraphFormat format,
-        LayoutContext context)
+        LayoutContext context,
+        bool[] columnBreaks)
     {
         var x = startX;
         var lastBreak = -1;
@@ -536,6 +546,11 @@ internal static class ParagraphLayouter
             if (character == SpecialCharacters.PageBreak)
             {
                 return (index + 1, LineEnding.PageBreak);
+            }
+
+            if (columnBreaks[index])
+            {
+                return (index + 1, LineEnding.ColumnBreak);
             }
 
             if (index > lineStart && breaks[index] == LineBreakKind.Allowed)

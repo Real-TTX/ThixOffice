@@ -141,6 +141,22 @@ public sealed class RealWorldTests
         Assert.Equal((2.5 * PointsPerCentimetre, 4.5 * PointsPerCentimetre), (Math.Round(address.X, 1), Math.Round(address.Y, 1)), new ToleranceComparer(0.2));
     }
 
+    [Fact]
+    public void Columns_flow_balance_before_a_continuous_break_and_have_their_line()
+    {
+        var (document, layout) = Open("04-demo-columns-sections.docx");
+        var page = layout.Pages[0];
+        var twoColumns = document.Sections[1];
+        var lefts = page.Lines.Where(line => line.Block >= twoColumns.StartBlock && line.Block <= twoColumns.EndBlock).Select(line => Math.Round(line.Left)).Distinct().ToList();
+        Assert.Equal(2, lefts.Count);
+        var bottoms = lefts.Select(left => page.Lines.Where(line => Math.Round(line.Left) == left && line.Block <= twoColumns.EndBlock && line.Block >= twoColumns.StartBlock).Max(line => line.Top + line.Line.Height)).ToList();
+        Assert.True(Math.Abs(bottoms[0] - bottoms[1]) < 40, $"balanced: {bottoms[0]} / {bottoms[1]}");
+        Assert.Equal(2, page.ColumnLines.Count); // three columns with "Zwischenlinie"
+
+        var (_, newsletter) = Open("14-newsletter.docx");
+        Assert.Equal(3, newsletter.Pages[0].Lines.Where(line => line.Block > 1).Select(line => Math.Round(line.Left)).Distinct().Count());
+    }
+
     private sealed class ToleranceComparer(double tolerance) : IEqualityComparer<(double, double)>
     {
         public bool Equals((double, double) x, (double, double) y) => Math.Abs(x.Item1 - y.Item1) <= tolerance && Math.Abs(x.Item2 - y.Item2) <= tolerance;

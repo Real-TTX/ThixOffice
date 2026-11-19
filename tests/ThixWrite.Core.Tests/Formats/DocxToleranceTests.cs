@@ -95,7 +95,8 @@ public class DocxToleranceTests
         Assert.Equal("", symbol.Text);
         Assert.Equal("Wingdings", symbol.Properties.FontFamily);
         Assert.Equal(SectionProperties.Default.PageWidth, read.FinalSection.PageWidth);
-        Assert.Equal(1, read.FinalSection.ColumnCount);
+        Assert.Equal(2, read.FinalSection.ColumnCount); // columns with a line between: laid out, kept as read
+        Assert.True(read.FinalSection.ColumnSeparator);
         Assert.Contains("w:sep", read.FinalSection.UnknownXml);
         Assert.Equal(SectionStart.NextPage, read.FinalSection.Start);
 

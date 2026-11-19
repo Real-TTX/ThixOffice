@@ -90,7 +90,7 @@ public sealed partial class DocumentLayout
             foreach (var (offset, inline, anchor, width, height) in AnchoredIn(paragraph))
             {
                 var (x, y) = FloatPosition(anchor, width, height, Setup, top, areaLeft, areaWidth);
-                Page.MutableFloats.Add(new PlacedFloat(block, offset, inline, anchor, x, y, width, height));
+                Page.MutableFloats.Add(new PlacedFloat(block, offset, inline, anchor, x, y, width, height) { AreaLeft = areaLeft, AreaRight = areaLeft + areaWidth });
             }
         }
 

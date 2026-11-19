@@ -623,7 +623,8 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
 
     // ---------------------------------------------------------------- pagination
 
-    private sealed record FlowState(int Page, double Y, double PendingAfter, string? PreviousStyle, bool PreviousContextual, bool AfterHardBreak, int Section, System.Collections.Immutable.ImmutableList<NoteSlice>? Carry = null);
+    private sealed record FlowState(int Page, double Y, double PendingAfter, string? PreviousStyle, bool PreviousContextual, bool AfterHardBreak, int Section, System.Collections.Immutable.ImmutableList<NoteSlice>? Carry = null,
+        int Column = 0, double ColumnTop = double.NaN);
 
     private sealed class BlockPlacement(PlacedLine[] lines, int[] pages)
     {
@@ -640,7 +641,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
         {
             _pages.Clear();
             startBlock = 0;
-            state = new FlowState(0, Document.SectionOf(0).Properties.MarginTop, 0, null, false, true, 0);
+            state = new FlowState(0, Document.SectionOf(0).Properties.MarginTop, 0, null, false, true, 0, null, 0, Document.SectionOf(0).Properties.MarginTop);
             _pages.Add(new PageLayout(0, Document.SectionOf(0)));
         }
         else
@@ -670,8 +671,24 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
         private bool _previousContextual = start.PreviousContextual;
         private bool _afterHardBreak = start.AfterHardBreak;
         private int _section = start.Section;
+        private int _column = start.Column;
+        private double _columnTop = double.IsNaN(start.ColumnTop) ? start.Y : start.ColumnTop;
 
-        public FlowState State => new(_page, _y, _pendingAfter, _previousStyle, _previousContextual, _afterHardBreak, _section, _carry);
+        public FlowState State => new(_page, _y, _pendingAfter, _previousStyle, _previousContextual, _afterHardBreak, _section, _carry, _column, _columnTop);
+
+        /// <summary>The setup of the section being placed (the page keeps the one it started with; a continuous section may change the columns).</summary>
+        private SectionProperties Current => owner.Document.Sections[Math.Min(_section, owner.Document.Sections.Count - 1)].Properties;
+
+        /// <summary>The column the text goes into: its left edge on the page and its width.</summary>
+        private (double Left, double Width) ColumnArea
+        {
+            get
+            {
+                var frames = Current.ColumnFrames();
+                var (left, width) = frames[Math.Min(_column, frames.Count - 1)];
+                return (Setup.MarginLeft + Setup.Gutter + left, width);
+            }
+        }
 
         private PageLayout Page => owner._pages[_page];
 
@@ -697,7 +714,8 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
                 return; // the other blocks of a table are placed with its first one
             }
 
-            var layout = owner.EnsureLayout(block, section.Properties.ContentWidth);
+            var (areaLeft, areaWidth) = ColumnArea;
+            var layout = owner.EnsureLayout(block, areaWidth);
             var format = layout.Format;
             if (format.PageBreakBefore && Page.Lines.Count > 0)
             {
@@ -725,7 +743,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
                 var chain = ChainHeight(block, spacing);
                 if (chain > available + Epsilon && chain <= fullPage)
                 {
-                    NewPage(hard: false);
+                    NextColumn(); // the next column, or a new page after the last
                     spacing = SpacingAt(before, after);
                     available = Bottom - (_y + spacing);
                 }
@@ -734,18 +752,23 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
             var keepTogether = format.KeepLinesTogether || layout.IsPreserved;
             if (Page.Lines.Count > 0 && keepTogether && layout.Height > available + Epsilon && layout.Height <= fullPage)
             {
-                NewPage(hard: false);
+                NextColumn();
                 spacing = SpacingAt(before, after);
             }
 
             _y += spacing;
             if (owner.Document.Blocks[block] is Paragraph paragraph)
             {
-                var areaLeft = Setup.MarginLeft + Setup.Gutter;
-                PlaceFloats(block, paragraph, _y, areaLeft, Setup.ContentWidth);
+                (areaLeft, areaWidth) = ColumnArea;
+                if (Math.Abs(layout.Width - areaWidth) > Epsilon)
+                {
+                    layout = owner.EnsureLayout(block, areaWidth); // a page break above moved the paragraph into other columns
+                }
+
+                PlaceFloats(block, paragraph, _y, areaLeft, areaWidth);
                 if (Page.Floats.Count > 0)
                 {
-                    layout = Wrapped(block, paragraph, layout, areaLeft, Setup.ContentWidth);
+                    layout = Wrapped(block, paragraph, layout, areaLeft, areaWidth);
                 }
             }
 
@@ -761,7 +784,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
             var lines = layout.Lines;
             var placed = new PlacedLine[lines.Count];
             var pages = new int[lines.Count];
-            var left = Setup.MarginLeft + Setup.Gutter;
+            var left = ColumnArea.Left;
             var firstOnPage = 0;
             var pageHadContent = Page.Lines.Count > 0;
             var index = 0;
@@ -797,10 +820,10 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
                         index = split;
                     }
 
-                    NewPage(hard: false);
-                    left = Setup.MarginLeft + Setup.Gutter;
+                    NextColumn();
+                    left = ColumnArea.Left;
                     firstOnPage = index;
-                    pageHadContent = false;
+                    pageHadContent = Page.Lines.Count > 0;
                     line = lines[index];
                     notes = owner.NotesIn(block, line);
                 }
@@ -817,12 +840,20 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
 
                 index++;
 
-                if (line.Ending == LineEnding.PageBreak)
+                if (line.Ending is LineEnding.PageBreak or LineEnding.ColumnBreak)
                 {
-                    NewPage(hard: true);
-                    left = Setup.MarginLeft + Setup.Gutter;
+                    if (line.Ending == LineEnding.ColumnBreak)
+                    {
+                        NextColumn();
+                    }
+                    else
+                    {
+                        NewPage(hard: true);
+                    }
+
+                    left = ColumnArea.Left;
                     firstOnPage = index;
-                    pageHadContent = false;
+                    pageHadContent = Page.Lines.Count > 0;
                 }
             }
 
@@ -878,6 +909,12 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
             var continuous = section.Properties.Start == SectionStart.Continuous
                 && Math.Abs(section.Properties.PageWidth - Setup.PageWidth) < Epsilon
                 && Math.Abs(section.Properties.PageHeight - Setup.PageHeight) < Epsilon;
+            if (continuous)
+            {
+                BalanceColumns(); // the columns of the section before end level, the new section starts below them
+            }
+
+            CloseColumnRegion();
             _section = section.Index;
             if (continuous || (Page.Lines.Count == 0 && _page == 0))
             {
@@ -886,6 +923,8 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
                     ReplaceEmptyPage(section);
                 }
 
+                _column = 0;
+                _columnTop = _y;
                 return;
             }
 
@@ -908,12 +947,121 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
             _y = section.Properties.MarginTop;
         }
 
+        /// <summary>Continues in the next column of the section, or on a new page after the last one.</summary>
+        private void NextColumn()
+        {
+            if (_column < Current.ColumnFrames().Count - 1)
+            {
+                _column++;
+                _y = _columnTop;
+                _pendingAfter = 0;
+                return;
+            }
+
+            NewPage(hard: false);
+        }
+
+        /// <summary>
+        /// Word's balanced columns before a continuous section break: the lines of the section's columns on this page are shared out so
+        /// that the columns end at about the same height (not when a table is among them).
+        /// </summary>
+        private void BalanceColumns()
+        {
+            var frames = Current.ColumnFrames();
+            var info = owner.Document.Sections[Math.Min(_section, owner.Document.Sections.Count - 1)];
+            if (frames.Count < 2)
+            {
+                return;
+            }
+
+            var lines = Page.Lines.Select((line, index) => (line, index))
+                .Where(item => item.line.Block >= info.StartBlock && item.line.Block <= info.EndBlock && item.line.Top >= _columnTop - Epsilon)
+                .ToList();
+            if (lines.Count < 2 || Page.Cells.Any(cell => cell.TableStart >= info.StartBlock && cell.TableStart <= info.EndBlock))
+            {
+                return;
+            }
+
+            // The flow of the lines as one column: every line with the gap above it (0 at the top of a column).
+            var flow = new List<(int Index, PlacedLine Line, double Gap)>();
+            PlacedLine? previous = null;
+            foreach (var (line, index) in lines)
+            {
+                var gap = previous is null || line.Left != previous.Left ? 0 : Math.Max(0, line.Top - (previous.Top + previous.Line.Height));
+                flow.Add((index, line, gap));
+                previous = line;
+            }
+
+            var total = flow.Sum(item => item.Gap + item.Line.Line.Height);
+            var target = total / frames.Count;
+            var column = 0;
+            var y = _columnTop;
+            var bottom = _columnTop;
+            var marginLeft = Setup.MarginLeft + Setup.Gutter;
+            var breakAfter = false;
+            foreach (var (index, line, gap) in flow)
+            {
+                var g = y > _columnTop ? gap : 0;
+                if ((breakAfter || (y > _columnTop && y + g + line.Line.Height / 2 > _columnTop + target)) && column < frames.Count - 1)
+                {
+                    column++;
+                    y = _columnTop;
+                    g = 0;
+                }
+
+                var moved = line with { Top = y + g, Left = marginLeft + frames[column].Left };
+                Page.MutableLines[index] = moved;
+                if (owner._placements[line.Block] is { } placement)
+                {
+                    var at = Array.IndexOf(placement.Lines, line);
+                    if (at >= 0)
+                    {
+                        placement.Lines[at] = moved;
+                    }
+                }
+
+                y += g + line.Line.Height;
+                bottom = Math.Max(bottom, y);
+                breakAfter = line.Line.Ending == LineEnding.ColumnBreak;
+            }
+
+            _y = bottom;
+            _column = 0;
+        }
+
+        /// <summary>Notes the line between the columns of the region that ends here (w:cols w:sep).</summary>
+        private void CloseColumnRegion()
+        {
+            var setup = Current;
+            var frames = setup.ColumnFrames();
+            if (!setup.ColumnSeparator || frames.Count < 2)
+            {
+                return;
+            }
+
+            var bottom = Page.Lines.Where(line => line.Top >= _columnTop - Epsilon).Select(line => line.Top + line.Line.Height).DefaultIfEmpty(_columnTop).Max();
+            if (bottom <= _columnTop + Epsilon)
+            {
+                return;
+            }
+
+            var marginLeft = Setup.MarginLeft + Setup.Gutter;
+            for (var index = 1; index < frames.Count; index++)
+            {
+                var x = marginLeft + (frames[index - 1].Left + frames[index - 1].Width + frames[index].Left) / 2;
+                Page.MutableColumnLines.Add((x, _columnTop, bottom));
+            }
+        }
+
         private void NewPage(bool hard, SectionInfo? section = null)
         {
+            CloseColumnRegion();
+            _column = 0;
             var info = section ?? Page.Section;
             _page++;
             owner._pages.Add(new PageLayout(_page, info));
             _y = info.Properties.MarginTop;
+            _columnTop = _y;
             _afterHardBreak = hard;
             _pendingAfter = 0;
             PlaceCarry();

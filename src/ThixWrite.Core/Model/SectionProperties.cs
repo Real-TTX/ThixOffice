@@ -48,10 +48,38 @@ public sealed record SectionProperties
 
     public SectionStart Start { get; init; } = SectionStart.NextPage;
 
-    /// <summary>Number of text columns (columns are laid out from 1b on; 1a keeps the value).</summary>
+    /// <summary>Number of text columns ("Spalten").</summary>
     public int ColumnCount { get; init; } = 1;
 
+    /// <summary>The space between columns of equal width, in points.</summary>
     public double ColumnSpacing { get; init; } = 35.4;
+
+    /// <summary>"Zwischenlinie": a line between the columns (w:cols w:sep).</summary>
+    public bool ColumnSeparator { get; init; }
+
+    /// <summary>Columns of their own widths (w:cols w:equalWidth="0": width and the space after each, points); empty = equal widths.</summary>
+    public EquatableArray<(double Width, double Space)> Columns { get; init; } = EquatableArray<(double Width, double Space)>.Empty;
+
+    /// <summary>The left edge (from the left of the text area) and the width of every column.</summary>
+    public IReadOnlyList<(double Left, double Width)> ColumnFrames()
+    {
+        if (Columns.Count > 1)
+        {
+            var frames = new List<(double, double)>();
+            var x = 0.0;
+            foreach (var (width, space) in Columns)
+            {
+                frames.Add((x, Math.Max(1, width)));
+                x += width + space;
+            }
+
+            return frames;
+        }
+
+        var count = Math.Max(1, ColumnCount);
+        var columnWidth = Math.Max(1, (ContentWidth - (count - 1) * ColumnSpacing) / count);
+        return [.. Enumerable.Range(0, count).Select(index => (index * (columnWidth + ColumnSpacing), columnWidth))];
+    }
 
     /// <summary>"Erste Seite anders".</summary>
     public bool TitlePage { get; init; }

@@ -171,7 +171,8 @@ internal static class DocxPropertyWriter
             ("gutter", Twips(section.Gutter))));
         if (target.GetFirstChild<W.Columns>() is null)
         {
-            Add(target, Element<W.Columns>(("space", Twips(section.ColumnSpacing)), ("num", section.ColumnCount > 1 ? Integer(section.ColumnCount) : null)));
+            Add(target, Element<W.Columns>(("space", Twips(section.ColumnSpacing)), ("num", section.ColumnCount > 1 ? Integer(section.ColumnCount) : null),
+                ("sep", section.ColumnSeparator && section.ColumnCount > 1 ? "1" : null)));
         }
 
         if (section.TitlePage)
