@@ -63,6 +63,9 @@ public sealed class TestData : IDisposable
         DocumentService.ResetUntitledCountForTests();
         OfficeApplication.FileDialogs = Dialogs;
         Ui.OpenExternalForTests = _ => { };
+        TokenStore.UseMemoryForTests(true);
+        CloudService.ResetForTests();
+        MatCloud.Contract.CloudHandoff.Folder = Path.Combine(Folder, "handoff");
     }
 
     public string Folder { get; }
@@ -95,6 +98,9 @@ public sealed class TestData : IDisposable
         UserRegistry.UseForTests(null);
         SettingsService.ResetCache();
         RecentDocuments.ResetCache();
+        CloudService.ResetForTests();
+        TokenStore.UseMemoryForTests(false);
+        MatCloud.Contract.CloudHandoff.Folder = MatCloud.Contract.CloudHandoff.DefaultFolder();
         AppPaths.UseDirectoryForTests(null);
         try
         {
