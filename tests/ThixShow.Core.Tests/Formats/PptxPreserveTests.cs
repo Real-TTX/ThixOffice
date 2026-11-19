@@ -90,7 +90,7 @@ public class PptxPreserveTests
         var presentation = Read(Fixture());
         Assert.True(presentation.IsMacroEnabled);
         var messages = presentation.UnsupportedContent.Select(content => content.Message).ToList();
-        Assert.Contains("1 × Diagramm (wird erhalten, als Platzhalter angezeigt)", messages);
+        Assert.Contains("1 × Diagramm (wird angezeigt und erhalten, aber nicht bearbeitet)", messages);
         Assert.Contains("1 × Makros (werden erhalten, aber nie ausgeführt)", messages);
         Assert.Contains(messages, message => message.StartsWith("1 × Benutzerdefinierte XML-Daten", StringComparison.Ordinal));
         var frame = ShapeTree.All(presentation.Slides[0].Shapes).OfType<GraphicFrame>().Single();

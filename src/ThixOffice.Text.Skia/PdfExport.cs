@@ -38,7 +38,7 @@ public static class PdfExport
         foreach (var page in pages)
         {
             var canvas = document.BeginPage((float)page.Width, (float)page.Height);
-            SkiaPageRenderer.Draw(canvas, page, measurer);
+            SkiaPageRenderer.Draw(canvas, page, measurer, forPaper: true);
             document.EndPage();
         }
 

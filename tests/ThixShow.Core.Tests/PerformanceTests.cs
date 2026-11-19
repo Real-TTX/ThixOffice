@@ -35,7 +35,7 @@ public class PerformanceTests(ITestOutputHelper output)
         watch.Restart();
         foreach (var slide in presentation.Slides.Take(20))
         {
-            SkiaVectorRenderer.RenderPng(SlideRenderer.RenderThumbnail(presentation, slide, measurer, 192), 192, measurer);
+            SkiaPageRenderer.RenderPng(SlideRenderer.RenderThumbnail(presentation, slide, measurer, 192), 192, measurer);
         }
 
         var pixels = watch.Elapsed;

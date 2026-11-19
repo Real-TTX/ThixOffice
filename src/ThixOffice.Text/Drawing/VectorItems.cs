@@ -1,8 +1,9 @@
 namespace ThixOffice.Text.Drawing;
 
-// Vector drawing for display lists: paths with paints (solid, linear/radial gradients, pictures), strokes with dashes, caps and
-// joins, soft shadows, nested transforms, path clips and opacity groups. Additive to DisplayList.cs: renderers that do not know
-// these items skip them; ThixOffice.Text.Skia's SkiaVectorRenderer draws every item (these and the basic ones).
+// The vector layer of every display list (ThixWrite pages, ThixCalc's grid and charts, ThixShow's slides): paths with paints
+// (solid, linear/radial gradients, pictures), strokes with dashes, caps and joins, soft shadows, nested transforms, path clips and
+// opacity groups. ThixOffice.Text.Skia's SkiaPageRenderer draws every item (these and the basic ones of DisplayList.cs) on
+// screen, into PDF and for printing.
 
 /// <summary>The commands of a <see cref="VectorPath"/>.</summary>
 public enum PathVerb : byte
@@ -339,6 +340,9 @@ public readonly record struct Matrix2D(double M11, double M12, double M21, doubl
 
     public double Determinant => (M11 * M22) - (M12 * M21);
 
+    /// <summary>The rotation the matrix applies to the x axis, in degrees (clockwise, y down).</summary>
+    public double RotationDegrees => Math.Atan2(M12, M11) * 180 / Math.PI;
+
     /// <summary>The inverse (identity when the matrix cannot be inverted).</summary>
     public Matrix2D Invert()
     {
@@ -360,7 +364,11 @@ public readonly record struct Matrix2D(double M11, double M12, double M21, doubl
 }
 
 /// <summary>How a path or stroke is painted.</summary>
-public abstract record Paint;
+public abstract record Paint
+{
+    /// <summary>The paint with its coordinates (gradient points, picture rectangle) moved by (<paramref name="dx"/>, <paramref name="dy"/>).</summary>
+    public virtual Paint Translated(double dx, double dy) => this;
+}
 
 /// <summary>One colour.</summary>
 public sealed record SolidPaint(RgbColor Color) : Paint;
@@ -369,10 +377,16 @@ public sealed record SolidPaint(RgbColor Color) : Paint;
 public readonly record struct GradientColorStop(double Offset, RgbColor Color);
 
 /// <summary>A linear gradient from (X1, Y1) to (X2, Y2) in the coordinates the path is drawn in.</summary>
-public sealed record LinearGradientPaint(double X1, double Y1, double X2, double Y2, IReadOnlyList<GradientColorStop> Stops) : Paint;
+public sealed record LinearGradientPaint(double X1, double Y1, double X2, double Y2, IReadOnlyList<GradientColorStop> Stops) : Paint
+{
+    public override Paint Translated(double dx, double dy) => this with { X1 = X1 + dx, Y1 = Y1 + dy, X2 = X2 + dx, Y2 = Y2 + dy };
+}
 
 /// <summary>A radial gradient: offset 0 at the centre, 1 on the ellipse with the radii.</summary>
-public sealed record RadialGradientPaint(double CenterX, double CenterY, double RadiusX, double RadiusY, IReadOnlyList<GradientColorStop> Stops) : Paint;
+public sealed record RadialGradientPaint(double CenterX, double CenterY, double RadiusX, double RadiusY, IReadOnlyList<GradientColorStop> Stops) : Paint
+{
+    public override Paint Translated(double dx, double dy) => this with { CenterX = CenterX + dx, CenterY = CenterY + dy };
+}
 
 /// <summary>
 /// A picture (encoded bytes, named by <see cref="Key"/>) drawn into the rectangle (X, Y, Width, Height) and clipped by the path;
@@ -391,7 +405,10 @@ public sealed record ImagePaint(
     double SourceTop = 0,
     double SourceRight = 0,
     double SourceBottom = 0,
-    bool Tile = false) : Paint;
+    bool Tile = false) : Paint
+{
+    public override Paint Translated(double dx, double dy) => this with { X = X + dx, Y = Y + dy };
+}
 
 /// <summary>Stroke caps.</summary>
 public enum StrokeCap : byte
@@ -427,13 +444,52 @@ public sealed record VectorPathItem(
     Paint? Fill,
     StrokeStyle? Stroke = null,
     DropShadow? Shadow = null,
-    PathFillRule FillRule = PathFillRule.NonZero) : DisplayItem;
+    PathFillRule FillRule = PathFillRule.NonZero) : DisplayItem
+{
+    /// <summary>
+    /// A path in solid colours (chart lines, areas, slices, markers): no fill / no stroke when the colour is null or the width 0.
+    /// A round join gets round caps, the others butt caps.
+    /// </summary>
+    public static VectorPathItem Solid(
+        VectorPath path,
+        RgbColor? fill,
+        RgbColor? stroke = null,
+        double strokeWidth = 0,
+        StrokeJoin join = StrokeJoin.Round,
+        IReadOnlyList<double>? dashes = null)
+    {
+        var strokeStyle = stroke is { } color && strokeWidth > 0
+            ? new StrokeStyle(new SolidPaint(color), strokeWidth, dashes, join == StrokeJoin.Round ? StrokeCap.Round : StrokeCap.Butt, join)
+            : null;
+        return new VectorPathItem(path, fill is { } fillColor ? new SolidPaint(fillColor) : null, strokeStyle);
+    }
+
+    /// <summary>The item moved by (<paramref name="dx"/>, <paramref name="dy"/>): its path and the coordinates of its paints.</summary>
+    public VectorPathItem Translated(double dx, double dy) => this with
+    {
+        Path = Path.Transform(Matrix2D.Translation(dx, dy)),
+        Fill = Fill?.Translated(dx, dy),
+        Stroke = Stroke is null ? null : Stroke with { Paint = Stroke.Paint.Translated(dx, dy) },
+    };
+}
 
 /// <summary>
 /// Starts a transform: items until the matching <see cref="TransformEndItem"/> are drawn through <see cref="Matrix"/> (applied
-/// after the transforms around it). Rotated and flipped shapes, group transforms, the scale of a thumbnail.
+/// after the transforms around it). Rotated text (axis titles, slanted labels, rotated cells), rotated and flipped shapes, group
+/// transforms, the scale of a thumbnail.
 /// </summary>
-public sealed record TransformBeginItem(Matrix2D Matrix) : DisplayItem;
+public sealed record TransformBeginItem(Matrix2D Matrix) : DisplayItem
+{
+    /// <summary>
+    /// Items drawn as from the origin, scaled by <paramref name="scale"/>, rotated by <paramref name="rotation"/> degrees
+    /// (clockwise) and placed at (<paramref name="x"/>, <paramref name="y"/>).
+    /// </summary>
+    public static TransformBeginItem At(double x, double y, double rotation = 0, double scale = 1) =>
+        new(Matrix2D.Scaling(scale, scale) * Matrix2D.Rotation(rotation) * Matrix2D.Translation(x, y));
+
+    /// <summary>The item with its matrix moved by (<paramref name="dx"/>, <paramref name="dy"/>) in the coordinates around it.</summary>
+    public TransformBeginItem Translated(double dx, double dy) => new(Matrix * Matrix2D.Translation(dx, dy));
+}
 
 /// <summary>Ends the innermost <see cref="TransformBeginItem"/>.</summary>
 public sealed record TransformEndItem : DisplayItem

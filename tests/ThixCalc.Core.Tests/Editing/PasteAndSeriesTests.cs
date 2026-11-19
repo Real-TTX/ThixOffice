@@ -172,7 +172,7 @@ public class PasteAndSeriesTests
 
         var items = GridRenderer.Render(new SheetLayout(workbook["T"], metrics).Viewport(400, 200, 1), metrics).Items;
 
-        Assert.Contains(items, item => item is TransformBeginItem { Rotation: -45 });
+        Assert.Contains(items, item => item is TransformBeginItem transform && Math.Round(transform.Matrix.RotationDegrees) == -45);
         var shrunkRun = items.OfType<GlyphRunItem>().Single(run => run.Text.StartsWith("Ein sehr", StringComparison.Ordinal));
         Assert.True(shrunkRun.Font.Size < 11 * 96 / 72.0, "the font shrank");
     }

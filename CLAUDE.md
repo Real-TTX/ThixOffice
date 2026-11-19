@@ -94,18 +94,21 @@ src/ThixOffice.Desktop     shared Avalonia UI
   Controls/                ActionBar, IconLabel, InfoBar, FormErrors (from the reference apps), CloudSignInPanel, FindBarBase
                            (the Suchen/Ersetzen bar of every app), ITextField (a text field that is no TextBox keeps undo/copy keys)
 src/ThixOffice.Text        (no UI, no native code) ITextMeasurer, FontSpec/FontMetrics, ShapedText, FixedWidthTextMeasurer (tests),
-                           Drawing/ display lists (GlyphRunItem, RectangleItem, LineItem, PathItem, Transform/Clip begin-end, in points), Unicode/ LineBreaker (UAX 14),
+                           Drawing/ display lists in points: DisplayList.cs (RgbColor, GlyphRunItem, RectangleItem, LineItem, ImageItem,
+                           ClipBegin/End) + VectorItems.cs = THE vector layer of every app (VectorPath + VectorPathBuilder with arcs as
+                           Béziers, Matrix2D, paints – solid, linear/radial gradient, picture –, StrokeStyle with dashes/caps/joins,
+                           DropShadow, VectorPathItem (+ Solid(…) for plain colours, Translated), TransformBegin(Matrix)/End (+ At(x, y,
+                           rotation, scale)), ClipPathBegin, OpacityBegin/End); no second path or transform type, Unicode/ LineBreaker (UAX 14),
                            TextBoundaries (graphemes, words)
 src/ThixOffice.Charts      (no UI) charts for every app (section "Charts"): Model/ (Chart, ChartPlot, ChartSeries, ChartAxis, ChartLegend,
                            DataLabels, ChartColor + ChartColors (theme accents, colour sets), ChartTemplates (+ ChartFactory: Excel's
                            new charts), ChartEdits (pure element changes)), Data/ (IChartDataSource, IChartValueFormatter,
                            ChartDataResolver → ResolvedChart), Layout/ (AxisScaling, ChartRenderer → display items, ChartCanvas),
                            Formats/ (ChartXml reads c:chartSpace, ChartXmlWriter writes it; unknown XML kept)
-src/ThixOffice.Text.Skia   SkiaTextMeasurer (SkiaSharp typefaces + HarfBuzz shaping, font fallback), SkiaPageRenderer (display list
-                           → any SKCanvas), PdfExport (SKDocument.CreatePdf); SkiaSharp 2.88.9 / HarfBuzzSharp 8.3.1.1 = Avalonia's
-                           Vector items (ThixOffice.Text/Drawing/VectorItems.cs: VectorPath + builder with arcs as Béziers, Matrix2D, paints –
-                           solid, linear/radial gradient, picture –, StrokeStyle with dashes/caps/joins, DropShadow, VectorPathItem,
-                           TransformBegin/End, ClipPathBegin, OpacityBegin/End) are drawn by SkiaVectorRenderer (+ RenderPng, ExportPdf)
+src/ThixOffice.Text.Skia   SkiaTextMeasurer (SkiaSharp typefaces + HarfBuzz shaping, font fallback), SkiaPageRenderer = the ONE renderer
+                           of every display item incl. the vector layer (any SKCanvas: editor surfaces, bitmaps via RenderPng, PDF,
+                           print bands; .Vectors.cs: paths, paints, strokes, shadows), PdfExport (SKDocument.CreatePdf);
+                           SkiaSharp 2.88.9 / HarfBuzzSharp 8.3.1.1 = Avalonia's
 src/ThixCalc.Core          (no UI) ThixCalcApp.Definition (.xlsx default, .xlsm, .csv; .ods planned; cloud id calc); Model/ (Workbook, Worksheet,
                            sparse CellStore, styles, rows/columns, merges, names, validation, conditional formats, PageSetup), Calculation/
                            + Formulas/ (parser, dependency graph, spills; FormulaTokens: the editor's scanner – colours, point mode, F4,
@@ -138,7 +141,9 @@ src/ThixShow.Core          (no UI) ThixShowApp.Definition (.pptx default, .pptm,
                            colours + transforms; GeometryEngine + PresetGeometries: guide formulas, 126 presets, custom geometry, handles),
                            Formatting/ (SlideContext, ShapeResolver: placeholder inheritance, theme styles, text style chain), Layout/
                            (SlideRenderer → display lists, TextBodyLayouter with normAutofit, TableRenderer, Paints, PrintLayouts: slides /
-                           handouts / notes pages, SlideHitTesting: hits, corners, handles; IChartRenderer = the chart seam), Formats/Pptx
+                           handouts / notes pages, SlideHitTesting: hits, corners, handles; IChartRenderer = the chart seam, filled by
+                           default by SharedChartRenderer: the part from the kept package → ChartXml.Read → cached values → ChartRenderer
+                           in the theme's accents and body font; the part itself is never rewritten), Formats/Pptx
                            (PptxReader/PptxWriter: the original package is kept, only changed parts/elements are rewritten; unchanged elements
                            are written as read and relinked), Editing/ (EditingSession: every command one undo step – the presentation before
                            and after –, typing/nudging groups, Group(label, action), PresentationChanged per slide/shape; Snapping, TextEdits,

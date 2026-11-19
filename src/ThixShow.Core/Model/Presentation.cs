@@ -30,7 +30,7 @@ public sealed record UnsupportedContent(string Kind, int Count)
 
     public static string Label(string kind) => kind switch
     {
-        "chart" => "Diagramm (wird erhalten, als Platzhalter angezeigt)",
+        "chart" => "Diagramm (wird angezeigt und erhalten, aber nicht bearbeitet)",
         "diagram" => "SmartArt-Grafik (wird erhalten, als Platzhalter angezeigt)",
         "ole" => "Eingebettetes Objekt (wird erhalten, als Bild angezeigt)",
         "media" => "Video oder Audio (wird erhalten, das Vorschaubild wird angezeigt)",

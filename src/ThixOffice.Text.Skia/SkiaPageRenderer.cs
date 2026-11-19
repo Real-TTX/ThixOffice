@@ -6,12 +6,14 @@ using ThixOffice.Text.Unicode;
 namespace ThixOffice.Text.Skia;
 
 /// <summary>
-/// Draws a <see cref="PageDisplayList"/> on any <see cref="SKCanvas"/> (the editor control through Avalonia's Skia lease, a
-/// bitmap, a PDF page, a printer). Canvas units are points: the caller scales for zoom and device resolution. Glyph runs with
-/// shaped glyphs are drawn glyph by glyph with the measurer's typeface (pass the measurer that produced the layout so that the
-/// glyph ids match); runs without glyphs are drawn as text at their character positions.
+/// THE renderer of display lists: draws every item of ThixOffice.Text (glyph runs, rectangles, lines, pictures, clips, and the
+/// vector layer – paths with solid/gradient/picture paints, dashed strokes, shadows, transforms, path clips, opacity groups) on
+/// any <see cref="SKCanvas"/>: an editor surface through Avalonia's Skia lease, a bitmap (<see cref="RenderPng"/>), a PDF page
+/// (<see cref="PdfExport"/>), a printer band. Canvas units are points: the caller scales for zoom and device resolution. Glyph
+/// runs with shaped glyphs are drawn glyph by glyph with the measurer's typeface (pass the measurer that produced the layout so
+/// that the glyph ids match); runs without glyphs are drawn as text at their character positions.
 /// </summary>
-public static class SkiaPageRenderer
+public static partial class SkiaPageRenderer
 {
     private static readonly ConcurrentDictionary<FontFace, SKTypeface> Typefaces = new();
     private static readonly ConcurrentDictionary<string, SKImage?> Images = new(StringComparer.Ordinal);
@@ -25,46 +27,53 @@ public static class SkiaPageRenderer
         Draw(canvas, page.Items, measurer, forPaper);
 
     /// <summary>
-    /// Draws <paramref name="items"/> in order. <see cref="ClipBeginItem"/> / <see cref="ClipEndItem"/> nest (each clip is
-    /// intersected with the one around it); clips left open at the end are closed, a stray end is ignored – the canvas leaves
-    /// as it came.
+    /// Draws <paramref name="items"/> in order. Clips (rectangle or path), transforms and opacity groups nest; each end item closes
+    /// the innermost open scope, scopes left open at the end are closed, a stray end is ignored – the canvas leaves as it came.
     /// </summary>
     public static void Draw(SKCanvas canvas, IReadOnlyList<DisplayItem> items, SkiaTextMeasurer? measurer = null, bool forPaper = false)
     {
-        var clips = 0;
+        var scopes = 0;
         foreach (var item in items)
         {
             switch (item)
             {
                 case ClipBeginItem clip:
                     canvas.Save();
-                    canvas.ClipRect(SKRect.Create((float)clip.X, (float)clip.Y, (float)Math.Max(0, clip.Width), (float)Math.Max(0, clip.Height)));
-                    clips++;
+                    ClipRectangle(canvas, clip);
+                    scopes++;
                     break;
-                case ClipEndItem when clips > 0:
-                    canvas.Restore();
-                    clips--;
+                case ClipPathBeginItem clipPath:
+                    canvas.Save();
+                    using (var path = ToSkia(clipPath.Path))
+                    {
+                        canvas.ClipPath(path, antialias: true);
+                    }
+
+                    scopes++;
                     break;
                 case TransformBeginItem transform:
                     canvas.Save();
-                    canvas.Translate((float)transform.X, (float)transform.Y);
-                    if (transform.Rotation != 0)
+                    var matrix = ToSkia(transform.Matrix);
+                    canvas.Concat(ref matrix);
+                    scopes++;
+                    break;
+                case OpacityBeginItem opacity:
+                    using (var paint = new SKPaint { Color = SKColors.White.WithAlpha(Alpha(opacity.Opacity)) })
                     {
-                        canvas.RotateDegrees((float)transform.Rotation);
+                        canvas.SaveLayer(paint);
                     }
 
-                    if (transform.Scale != 1)
+                    scopes++;
+                    break;
+                case ClipEndItem or TransformEndItem or OpacityEndItem:
+                    if (scopes > 0)
                     {
-                        canvas.Scale((float)transform.Scale);
+                        canvas.Restore();
+                        scopes--;
                     }
 
-                    clips++;
                     break;
-                case TransformEndItem when clips > 0:
-                    canvas.Restore();
-                    clips--;
-                    break;
-                case PathItem path:
+                case VectorPathItem path:
                     DrawPath(canvas, path);
                     break;
                 case RectangleItem rectangle:
@@ -82,11 +91,42 @@ public static class SkiaPageRenderer
             }
         }
 
-        for (; clips > 0; clips--)
+        for (; scopes > 0; scopes--)
         {
             canvas.Restore();
         }
     }
+
+    /// <summary>Renders a page into a PNG <paramref name="pixelWidth"/> pixels wide (the height follows the page's aspect).</summary>
+    public static byte[] RenderPng(PageDisplayList page, int pixelWidth, SkiaTextMeasurer? measurer = null, RgbColor? background = null)
+    {
+        var scale = pixelWidth / Math.Max(1, page.Width);
+        var pixelHeight = Math.Max(1, (int)Math.Round(page.Height * scale));
+        using var bitmap = new SKBitmap(Math.Max(1, pixelWidth), pixelHeight, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using (var canvas = new SKCanvas(bitmap))
+        {
+            canvas.Clear(ToSkia(background ?? RgbColor.White));
+            canvas.Scale((float)scale);
+            Draw(canvas, page.Items, measurer, forPaper: true);
+        }
+
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        return data.ToArray();
+    }
+
+    /// <summary>
+    /// A rectangle clip: aliased while the canvas is axis-aligned (cell edges stay on whole device pixels, the grid's lines stay
+    /// sharp), antialiased under a rotation or skew.
+    /// </summary>
+    private static void ClipRectangle(SKCanvas canvas, ClipBeginItem clip)
+    {
+        var matrix = canvas.TotalMatrix;
+        var axisAligned = matrix.SkewX == 0 && matrix.SkewY == 0;
+        canvas.ClipRect(SKRect.Create((float)clip.X, (float)clip.Y, (float)Math.Max(0, clip.Width), (float)Math.Max(0, clip.Height)), antialias: !axisAligned);
+    }
+
+    private static byte Alpha(double opacity) => (byte)Math.Round(Math.Clamp(opacity, 0, 1) * 255);
 
     private static SKColor ToSkia(RgbColor color) => new(color.R, color.G, color.B, color.A);
 
@@ -136,64 +176,6 @@ public static class SkiaPageRenderer
                 IsAntialias = true,
             };
             canvas.DrawRect(rect, paint);
-        }
-    }
-
-    private static void DrawPath(SKCanvas canvas, PathItem item)
-    {
-        using var path = new SKPath();
-        var points = item.Points;
-        var index = 0;
-        foreach (var verb in item.Verbs)
-        {
-            switch (verb)
-            {
-                case PathVerb.Move when index + 1 < points.Length:
-                    path.MoveTo((float)points[index], (float)points[index + 1]);
-                    index += 2;
-                    break;
-                case PathVerb.Line when index + 1 < points.Length:
-                    path.LineTo((float)points[index], (float)points[index + 1]);
-                    index += 2;
-                    break;
-                case PathVerb.Cubic when index + 5 < points.Length:
-                    path.CubicTo((float)points[index], (float)points[index + 1], (float)points[index + 2], (float)points[index + 3], (float)points[index + 4], (float)points[index + 5]);
-                    index += 6;
-                    break;
-                case PathVerb.Close:
-                    path.Close();
-                    break;
-            }
-        }
-
-        if (item.Fill is { } fill)
-        {
-            using var paint = new SKPaint { Color = ToSkia(fill), Style = SKPaintStyle.Fill, IsAntialias = true };
-            canvas.DrawPath(path, paint);
-        }
-
-        if (item.Stroke is { } stroke && item.StrokeWidth > 0)
-        {
-            var width = (float)item.StrokeWidth;
-            using var paint = new SKPaint
-            {
-                Color = ToSkia(stroke),
-                Style = SKPaintStyle.Stroke,
-                StrokeWidth = width,
-                IsAntialias = true,
-                StrokeJoin = item.Join == LineJoin.Round ? SKStrokeJoin.Round : SKStrokeJoin.Miter,
-                StrokeCap = item.Join == LineJoin.Round ? SKStrokeCap.Round : SKStrokeCap.Butt,
-            };
-            if (item.Style == LineStyle.Dashed)
-            {
-                paint.PathEffect = SKPathEffect.CreateDash([width * 4, width * 3], 0);
-            }
-            else if (item.Style == LineStyle.Dotted)
-            {
-                paint.PathEffect = SKPathEffect.CreateDash([width, width * 2], 0);
-            }
-
-            canvas.DrawPath(path, paint);
         }
     }
 

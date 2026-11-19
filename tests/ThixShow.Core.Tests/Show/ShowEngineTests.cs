@@ -234,7 +234,7 @@ public class ShowEngineTests
         var second = show.Frame(Ms(1300)).ToDisplayList();
         Assert.Equal(TestDecks.Describe(first.Items), TestDecks.Describe(second.Items));
         Assert.Contains(first.Items, item => item is OpacityBeginItem);
-        var png = SkiaVectorRenderer.RenderPng(first, 320);
+        var png = SkiaPageRenderer.RenderPng(first, 320);
         Assert.True(png.Length > 100);
     }
 

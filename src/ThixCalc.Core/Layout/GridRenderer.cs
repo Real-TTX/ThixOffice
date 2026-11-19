@@ -614,7 +614,7 @@ public static class GridRenderer
         {
             var degrees = rotation <= 90 ? -rotation : rotation - 90;
             var shaped = measurer.Shape(text, font);
-            items.Add(new TransformBeginItem(cell.X + cell.Width / 2, cell.Y + cell.Height / 2, degrees));
+            items.Add(TransformBeginItem.At(cell.X + cell.Width / 2, cell.Y + cell.Height / 2, degrees));
             AddRun(items, -shaped.Width / 2, fontMetrics.Ascent - fontMetrics.LineHeight / 2, shaped, display.TextColor);
             items.Add(TransformEndItem.Instance);
         }

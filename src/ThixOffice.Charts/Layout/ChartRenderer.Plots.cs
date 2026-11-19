@@ -240,7 +240,7 @@ public static partial class ChartRenderer
             {
                 if (segment.Count >= 2)
                 {
-                    var path = new PathBuilder();
+                    var path = new VectorPathBuilder();
                     if (entry.Series.Smooth)
                     {
                         path.Smooth(segment);
@@ -350,7 +350,7 @@ public static partial class ChartRenderer
                 tops[index] = stacked ? baseline[index] + value : value;
             }
 
-            var path = new PathBuilder();
+            var path = new VectorPathBuilder();
             for (var index = 0; index < categories; index++)
             {
                 var x = context.CategoryCenter(index);
@@ -372,7 +372,7 @@ public static partial class ChartRenderer
 
             path.Close();
             var color = SeriesColor(chart, entry, context.SeriesCount, canvas.Options.Accents);
-            canvas.Path(path, color, null, 0, LineJoin.Miter);
+            canvas.Path(path, color, null, 0, StrokeJoin.Miter);
             if (LabelsOf(plot.Plot, entry.Series) is { IsVisible: true } labels)
             {
                 for (var index = 0; index < categories; index++)
@@ -480,7 +480,7 @@ public static partial class ChartRenderer
                 var cx = centerX + Math.Cos(middle) * shift;
                 var cy = centerY + Math.Sin(middle) * shift;
                 var color = PointColor(chart, entry, index, values.Length, canvas.Options.Accents);
-                var path = new PathBuilder();
+                var path = new VectorPathBuilder();
                 if (slices == 1 && !doughnut)
                 {
                     path.Circle(cx, cy, outer);
@@ -498,7 +498,7 @@ public static partial class ChartRenderer
                     path.Close();
                 }
 
-                canvas.Path(path, color, border > 0 ? canvas.Options.Background : null, border, LineJoin.Round);
+                canvas.Path(path, color, border > 0 ? canvas.Options.Background : null, border, StrokeJoin.Round);
                 if (LabelsOf(plot.Plot, entry.Series) is { IsVisible: true } dataLabels)
                 {
                     var text = LabelText(canvas.Options.Formatter, data, entry, index, entry.Values[index] ?? 0, values[index] / total, dataLabels);

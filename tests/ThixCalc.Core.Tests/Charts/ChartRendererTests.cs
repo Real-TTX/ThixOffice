@@ -42,8 +42,8 @@ public class ChartRendererTests
                 GlyphRunItem run => $"T {N(run.X)},{N(run.Y)} {run.Text} {run.Color}",
                 RectangleItem rect => $"R {N(rect.X)},{N(rect.Y)} {N(rect.Width)}x{N(rect.Height)} {rect.Fill} {rect.Stroke}",
                 LineItem line => $"L {N(line.X1)},{N(line.Y1)} {N(line.X2)},{N(line.Y2)} {line.Color}",
-                PathItem path => $"P {path.Verbs.Length} {string.Join(",", path.Points.Select(N))} {path.Fill} {path.Stroke}",
-                TransformBeginItem transform => $"X {N(transform.X)},{N(transform.Y)} {N(transform.Rotation)}",
+                VectorPathItem path => $"P {path.Path} {path.Fill} {path.Stroke}",
+                TransformBeginItem transform => $"X {N(transform.Matrix.OffsetX)},{N(transform.Matrix.OffsetY)} {N(transform.Matrix.RotationDegrees)}",
                 _ => item.GetType().Name,
             }).Append('\n');
         }
@@ -153,7 +153,7 @@ public class ChartRendererTests
 
         var items = Render(chart, 300, 260);
 
-        Assert.Contains(items.OfType<TransformBeginItem>(), item => item.Rotation is -45 or -90);
+        Assert.Contains(items.OfType<TransformBeginItem>(), item => Math.Round(item.Matrix.RotationDegrees) is -45 or -90);
     }
 
     [Fact]
@@ -172,7 +172,7 @@ public class ChartRendererTests
         var chart = ChartFactory.Create(ChartTemplates.Find("pie")!, [Series("Anteile", ["Nord", "Süd", "Ost", "West"], 10, 20, 30, 40)]);
         var items = Render(chart);
 
-        Assert.Equal(4, items.OfType<PathItem>().Count(path => path.Fill is { } fill && ChartRenderOptions.OfficeAccents.Contains(fill)));
+        Assert.Equal(4, items.OfType<VectorPathItem>().Count(path => path.Fill is SolidPaint { Color: var fill } && ChartRenderOptions.OfficeAccents.Contains(fill)));
         var texts = items.OfType<GlyphRunItem>().Select(run => run.Text).ToList();
         Assert.Contains("Nord", texts);
         Assert.Contains("West", texts);

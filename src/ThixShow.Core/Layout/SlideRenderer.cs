@@ -7,17 +7,19 @@ using ThixShow.Core.Model;
 namespace ThixShow.Core.Layout;
 
 /// <summary>
-/// The chart seam: draws a chart graphic frame into a box of <paramref name="width"/> × <paramref name="height"/> points (items in
-/// the frame's coordinates, 0,0 = its top-left). The shared chart project plugs in here; without one ThixShow draws a placeholder.
+/// The chart seam: draws a chart graphic frame into a box of width × height points (items in the frame's coordinates, 0,0 = its
+/// top-left), or returns null (the slide then shows a placeholder). <see cref="SharedChartRenderer"/> (ThixOffice.Charts) is the
+/// default.
 /// </summary>
 public interface IChartRenderer
 {
-    IReadOnlyList<DisplayItem>? Render(GraphicFrame frame, double width, double height, SlideContext context);
+    IReadOnlyList<DisplayItem>? Render(GraphicFrame frame, double width, double height, SlideContext context, ITextMeasurer measurer);
 }
 
 /// <summary>
 /// How a slide is drawn: <see cref="ShowPlaceholderPrompts"/> for the editor (empty placeholders show their prompt and a dashed
-/// frame; off for thumbnails, the show, PDF), the chart renderer, "now" for date fields (null keeps their stored text – deterministic).
+/// frame; off for thumbnails, the show, PDF), the chart renderer (null = <see cref="SharedChartRenderer"/>), "now" for date fields
+/// (null keeps their stored text – deterministic).
 /// </summary>
 public sealed record RenderOptions(bool ShowPlaceholderPrompts = false, IChartRenderer? Charts = null, DateTime? Now = null);
 
@@ -415,7 +417,7 @@ public static class SlideRenderer
         {
             TableRenderer.Render(items, context, table, measurer, width);
         }
-        else if (frame.Kind == GraphicKind.Chart && options.Charts?.Render(frame, width, height, context) is { } chart)
+        else if (frame.Kind == GraphicKind.Chart && (options.Charts ?? SharedChartRenderer.Instance).Render(frame, width, height, context, measurer) is { } chart)
         {
             items.Add(new ClipBeginItem(0, 0, width, height));
             items.AddRange(chart);

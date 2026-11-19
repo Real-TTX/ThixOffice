@@ -11,7 +11,7 @@ public class SkiaRenderingTests
     private static SKBitmap Pixels(Presentation presentation, int width = 960)
     {
         var page = SlideRenderer.Render(presentation, presentation.Slides[0], TestDecks.Measurer);
-        var png = SkiaVectorRenderer.RenderPng(page, width);
+        var png = SkiaPageRenderer.RenderPng(page, width);
         return SKBitmap.Decode(png);
     }
 
@@ -69,7 +69,7 @@ public class SkiaRenderingTests
         foreach (var kind in new[] { PrintKind.Slides, PrintKind.Handouts, PrintKind.NotesPages })
         {
             using var stream = new MemoryStream();
-            SkiaVectorRenderer.ExportPdf(PrintLayouts.Pages(presentation, TestDecks.Measurer, kind, 4), stream, new PdfMetadata("Test", Creator: "ThixShow"));
+            PdfExport.Export(PrintLayouts.Pages(presentation, TestDecks.Measurer, kind, 4), stream, new PdfMetadata("Test", Creator: "ThixShow"));
             var bytes = stream.ToArray();
             Assert.True(bytes.Length > 1000);
             Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(bytes, 0, 4));
@@ -90,7 +90,7 @@ public class SkiaRenderingTests
             TransformEndItem.Instance,
             new RectangleItem(0, 0, 2, 2, new RgbColor(255, 0, 0)),
         };
-        var png = SkiaVectorRenderer.RenderPng(new PageDisplayList(0, 40, 40, items), 40);
+        var png = SkiaPageRenderer.RenderPng(new PageDisplayList(0, 40, 40, items), 40);
         using var bitmap = SKBitmap.Decode(png);
         var inside = bitmap.GetPixel(12, 12);
         Assert.InRange(inside.Red, 120, 135);

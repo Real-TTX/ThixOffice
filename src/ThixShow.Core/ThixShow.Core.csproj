@@ -30,6 +30,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ThixOffice.Core\ThixOffice.Core.csproj" />
     <ProjectReference Include="..\ThixOffice.Text\ThixOffice.Text.csproj" />
+    <ProjectReference Include="..\ThixOffice.Charts\ThixOffice.Charts.csproj" />
   </ItemGroup>
 
 </Project>

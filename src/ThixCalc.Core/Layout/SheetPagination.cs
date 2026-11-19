@@ -227,10 +227,18 @@ public static class SheetPagination
         }
 
         // The grid's own background stays out: the paper is white, and the grid's last line is drawn.
+        // Items inside a transform are in its coordinates: only the transform itself moves.
         var items = new List<DisplayItem>();
+        var depth = 0;
         foreach (var item in grid.Items.Skip(1))
         {
-            items.Add(Translate(item, left, top));
+            items.Add(depth == 0 ? Translate(item, left, top) : item);
+            depth += item switch
+            {
+                TransformBeginItem => 1,
+                TransformEndItem when depth > 0 => -1,
+                _ => 0,
+            };
         }
 
         var context = new HeaderContext(number, count, sheet.Name, fileName, now);
@@ -240,15 +248,16 @@ public static class SheetPagination
     }
 
     /// <summary>A display item moved by (<paramref name="dx"/>, <paramref name="dy"/>).</summary>
-    public static DisplayItem Translate(DisplayItem item, double dx, double dy) => item switch
+    private static DisplayItem Translate(DisplayItem item, double dx, double dy) => item switch
     {
         GlyphRunItem run => run with { X = run.X + dx, Y = run.Y + dy },
         RectangleItem rectangle => rectangle with { X = rectangle.X + dx, Y = rectangle.Y + dy },
         LineItem line => line with { X1 = line.X1 + dx, Y1 = line.Y1 + dy, X2 = line.X2 + dx, Y2 = line.Y2 + dy },
         ClipBeginItem clip => clip with { X = clip.X + dx, Y = clip.Y + dy },
         ImageItem image => image with { X = image.X + dx, Y = image.Y + dy },
-        TransformBeginItem transform => transform with { X = transform.X + dx, Y = transform.Y + dy },
-        PathItem path => path with { Points = path.Points.Select((value, index) => value + (index % 2 == 0 ? dx : dy)).ToArray() },
+        TransformBeginItem transform => transform.Translated(dx, dy),
+        VectorPathItem path => path.Translated(dx, dy),
+        ClipPathBeginItem clipPath => clipPath with { Path = clipPath.Path.Transform(Matrix2D.Translation(dx, dy)) },
         _ => item,
     };
 

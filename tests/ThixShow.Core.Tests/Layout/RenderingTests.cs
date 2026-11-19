@@ -250,7 +250,7 @@ public class RenderingTests
     {
         public string? Seen { get; private set; }
 
-        public IReadOnlyList<DisplayItem>? Render(GraphicFrame frame, double width, double height, SlideContext context)
+        public IReadOnlyList<DisplayItem>? Render(GraphicFrame frame, double width, double height, SlideContext context, ITextMeasurer measurer)
         {
             Seen = frame.ChartPartUri;
             return [new RectangleItem(0, 0, width, height, new RgbColor(1, 2, 3))];

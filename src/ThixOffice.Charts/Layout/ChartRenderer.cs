@@ -129,10 +129,11 @@ public static partial class ChartRenderer
     private static void Placeholder(ChartCanvas canvas, Box bounds, string type)
     {
         var margin = canvas.Pt(6);
-        var path = new PathBuilder()
+        var path = new VectorPathBuilder()
             .MoveTo(bounds.X + margin, bounds.Y + margin).LineTo(bounds.Right - margin, bounds.Y + margin)
             .LineTo(bounds.Right - margin, bounds.Bottom - margin).LineTo(bounds.X + margin, bounds.Bottom - margin).Close();
-        canvas.Items.Add(new PathItem([.. path.Verbs], [.. path.Points], ChartColors.Lighten(ChartColors.Gridline, 0.7), ChartColors.Gridline, canvas.LineWidth(1), LineStyle.Dashed, LineJoin.Miter));
+        var width = canvas.LineWidth(1);
+        canvas.Path(path, ChartColors.Lighten(ChartColors.Gridline, 0.7), ChartColors.Gridline, width, StrokeJoin.Miter, [width * 4, width * 3]);
         var title = $"Diagramm: {type}";
         var note = "Bleibt beim Speichern erhalten, wird aber nicht angezeigt.";
         var lineHeight = canvas.LineHeight(LabelSize + 2);
@@ -383,7 +384,7 @@ public static partial class ChartRenderer
     internal static void DrawMarker(ChartCanvas canvas, MarkerSymbol symbol, double x, double y, double size, RgbColor color)
     {
         var half = size / 2;
-        var path = new PathBuilder();
+        var path = new VectorPathBuilder();
         switch (symbol)
         {
             case MarkerSymbol.None:
@@ -421,7 +422,7 @@ public static partial class ChartRenderer
                 break;
         }
 
-        canvas.Path(path, color, color, canvas.Pt(0.75), LineJoin.Miter);
+        canvas.Path(path, color, color, canvas.Pt(0.75), StrokeJoin.Miter);
     }
 
     // ===== Text helpers =====
