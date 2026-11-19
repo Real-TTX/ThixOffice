@@ -129,4 +129,28 @@ public sealed class EditorTests
         await PressAsync(window, PhysicalKey.Delete);
         Assert.Empty(session.CurrentSlide!.Shapes);
     }
+
+    [AvaloniaFact]
+    public async Task A_chart_is_inserted_its_data_edited_and_its_type_changed()
+    {
+        using var data = new TestData();
+        var window = await NewWindowAsync();
+        var editor = EditorOf(window);
+        await window.Commands[ShowChartCommands.Insert + ".column"].ExecuteAsync();
+        await SettleAsync();
+        var selected = ShowChartCommands.SelectedChart(editor);
+        Assert.NotNull(selected);
+        Assert.Contains(ShowChartCommands.Context, window.RibbonDefinition.ActiveContexts);
+        Assert.Equal(3, selected.Value.Chart.AllSeries.Count());
+
+        var table = ChartDataDialog.ToTable(selected.Value.Chart);
+        Assert.StartsWith("\tDatenreihe 1\tDatenreihe 2\tDatenreihe 3", table, StringComparison.Ordinal);
+        Assert.Contains("Kategorie 1\t4,3\t2,4\t2", table, StringComparison.Ordinal);
+        var specs = ChartDataDialog.FromTable("\tUmsatz\nNord\t12,5\nSüd\t7")!;
+        await editor.RunAsync("Daten", () => editor.Session.SetChart(selected.Value.Frame.Id, ThixOffice.Charts.ChartFactory.Create(ThixOffice.Charts.ChartTemplates.Find("column")!, specs)));
+        Assert.Equal(12.5, ShowChartCommands.SelectedChart(editor)!.Value.Chart.AllSeries.Single().Values.Cache![0].Number);
+
+        await window.Commands[ShowChartCommands.ChangeType + ".pie"].ExecuteAsync();
+        Assert.Equal(ThixOffice.Charts.ChartType.Pie, ShowChartCommands.SelectedChart(editor)!.Value.Chart.Plots[0].Type);
+    }
 }

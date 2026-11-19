@@ -144,7 +144,7 @@ internal static class ShowDesignCommands
                 }
             }))
         {
-            Icon = "clock", CanExecute = () => Transition() is { Kind: not TransitionKind.None }, Description = "Wie lange der Übergang dauert (Sekunden).",
+            CanExecute = () => Transition() is { Kind: not TransitionKind.None }, Description = "Wie lange der Übergang dauert (Sekunden).",
         });
         commands.Add(new OfficeCommand(ShowCommandIds.ApplyToAll, "Auf alle anwenden", () => run("Auf alle anwenden", editor => editor.Session.ApplyTransitionToAll()))
         {
@@ -172,7 +172,7 @@ internal static class ShowDesignCommands
                 editor.Session.SetTransition(editor.SelectedSlideIds, transition with { AdvanceAfterMs = seconds <= 0 ? null : (int)Math.Round(Math.Min(seconds, 86399) * 1000) });
             }))
         {
-            Icon = "clock", CanExecute = HasSlide, Description = "Die nächste Folie kommt nach dieser Zeit (Sekunden; 0 = aus).",
+            CanExecute = HasSlide, Description = "Die nächste Folie kommt nach dieser Zeit (Sekunden; 0 = aus).",
         });
         commands.Add(new OfficeCommand(ShowCommandIds.PreviewTransition, "Vorschau", () => editorOf()?.Preview())
         {
@@ -260,7 +260,7 @@ internal static class ShowDesignCommands
                 }
             }))
         {
-            Icon = "clock", CanExecute = () => SelectedEffect(editorOf()) is not null, Description = "Wie lange der Effekt dauert (Sekunden).",
+            CanExecute = () => SelectedEffect(editorOf()) is not null, Description = "Wie lange der Effekt dauert (Sekunden).",
         });
         commands.Add(new OfficeValueCommand(ShowCommandIds.AnimationDelay, "Verzögerung", OfficeValueKind.Number,
             () => SelectedEffect(editorOf()) is { } entry ? (entry.Effect.DelayMs / 1000.0).ToString("0.##", Invariant) : null,
@@ -275,7 +275,7 @@ internal static class ShowDesignCommands
                 }
             }))
         {
-            Icon = "clock", CanExecute = () => SelectedEffect(editorOf()) is not null, Description = "Wie lange der Effekt nach seinem Start wartet (Sekunden).",
+            CanExecute = () => SelectedEffect(editorOf()) is not null, Description = "Wie lange der Effekt nach seinem Start wartet (Sekunden).",
         });
         commands.Add(new OfficeCommand(ShowCommandIds.AnimationPane, "Animationsbereich", () => editorOf()?.ToggleAnimationPane())
         {

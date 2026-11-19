@@ -351,6 +351,7 @@ public static class ShowCommands
         ShowDrawingCommands.Add(window, Editor, Run);
         ShowDesignCommands.Add(window, Editor, Run);
         ShowContextMenus.AddCommands(window, Editor, Run);
+        ShowChartCommands.Add(window, Editor, Run);
 
         // ===== Bildschirmpräsentation =====
         commands.Add(new OfficeCommand(ShowCommandIds.StartShow, "Von Beginn an", () => Editor() is { } editor ? SlideShowWindow.StartAsync(window, editor, fromCurrent: false) : Task.CompletedTask)
@@ -459,6 +460,8 @@ public static class ShowCommands
                      (ShowCommandIds.BringToFront + ".picture", ShowCommandIds.BringToFront),
                      (ShowCommandIds.SendToBack + ".picture", ShowCommandIds.SendToBack),
                      (ShowCommandIds.RotateRight + ".picture", ShowCommandIds.RotateRight),
+                     (ShowCommandIds.BringToFront + ".chart", ShowCommandIds.BringToFront),
+                     (ShowCommandIds.SendToBack + ".chart", ShowCommandIds.SendToBack),
                      (ShowContextMenus.Height + ".picture", ShowContextMenus.Height),
                      (ShowContextMenus.Width + ".picture", ShowContextMenus.Width),
                      (ShowCommandIds.AlignShapesLeft + ".menu", ShowCommandIds.AlignShapesLeft),

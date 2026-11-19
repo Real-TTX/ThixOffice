@@ -21,7 +21,7 @@ public static class ShowRibbon
         var palette = ShowPalette.Colors(presentation);
         var definition = new MatRibbonDefinition { FileLabel = "Datei" };
         definition.Add(HomeTab(palette), InsertTab(), DesignTab(palette), TransitionsTab(), AnimationsTab(), SlideShowTab(), ViewTab(),
-            ShapeFormatTab(palette), PictureFormatTab(), TableDesignTab(palette), TableLayoutTab());
+            ShapeFormatTab(palette), PictureFormatTab(), TableDesignTab(palette), TableLayoutTab(), ChartDesignTab());
         return definition;
     }
 
@@ -113,7 +113,8 @@ public static class ShowRibbon
             new MatRibbonGroup("images", "Bilder") { Icon = "image" }.Add(
                 Button(ShowCommandIds.InsertPicture, MatRibbonSize.Large)),
             new MatRibbonGroup("illustrations", "Illustrationen") { Icon = "shapes" }.Add(
-                new MatRibbonCustom(ShowGalleries.ShapesGallery + ".insert", "Formen") { IsTall = true }),
+                new MatRibbonCustom(ShowGalleries.ShapesGallery + ".insert", "Formen") { IsTall = true },
+                new MatRibbonMenuButton(ShowChartCommands.Insert, "", menu: [.. ShowChartCommands.Types.Select(type => Button($"{ShowChartCommands.Insert}.{type.Id}"))]) { Size = MatRibbonSize.Large }),
             new MatRibbonGroup("links", "Links") { Icon = "link" }.Add(
                 Button(ShowCommandIds.InsertLink, MatRibbonSize.Large)),
             new MatRibbonGroup("text", "Text") { Icon = "text-box" }.Add(
@@ -250,6 +251,17 @@ public static class ShowRibbon
                 new MatRibbonStack("table-options-2", Toggle(ShowContextMenus.FirstColumn), Toggle(ShowContextMenus.LastColumn), Toggle(ShowContextMenus.BandedColumns))),
             new MatRibbonGroup("table-styles", "Tabellenformatvorlagen") { Icon = "fill" }.Add(
                 ColorPicker(ShowContextMenus.Shading, palette, "Keine Füllung")));
+
+    private static MatRibbonTab ChartDesignTab() =>
+        new MatRibbonTab(ShowChartCommands.DesignTab, "Diagrammentwurf") { Context = ShowChartCommands.Context }.Add(
+            new MatRibbonGroup("chart-type", "Typ") { Icon = "chart-column" }.Add(
+                new MatRibbonMenuButton(ShowChartCommands.ChangeType, "", menu: [.. ShowChartCommands.Types.Select(type => Button($"{ShowChartCommands.ChangeType}.{type.Id}"))]) { Size = MatRibbonSize.Large }),
+            new MatRibbonGroup("chart-data", "Daten") { Icon = "table" }.Add(
+                Button(ShowChartCommands.EditData, MatRibbonSize.Large)),
+            new MatRibbonGroup("chart-arrange", "Anordnen") { Icon = "layers" }.Add(
+                new MatRibbonStack("chart-arrange-rows",
+                    Button(ShowCommandIds.BringToFront + ".chart"),
+                    Button(ShowCommandIds.SendToBack + ".chart"))));
 
     private static MatRibbonTab TableLayoutTab() =>
         new MatRibbonTab(ShowContextMenus.TableLayoutTab, "Layout") { Context = ShowContextMenus.TableContext }.Add(

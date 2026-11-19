@@ -45,8 +45,6 @@ internal static class ShowContextMenus
     public const string LastColumn = "show.table.lastColumn";
     public const string BandedColumns = "show.table.bandedColumns";
 
-    private static readonly CultureInfo German = CultureInfo.GetCultureInfo("de-DE");
-
     /// <summary>Which contextual tabs show: Formformat for shapes, Bildformat for pictures, Tabellenentwurf and Layout in a table.</summary>
     public static void UpdateContextTabs(OfficeWindow window, ShowEditor editor)
     {
@@ -69,6 +67,7 @@ internal static class ShowContextMenus
         Show(ShapeContext, normal && shapes.Any(shape => shape is AutoShape or ConnectorShape or GroupShape));
         Show(PictureContext, normal && shapes.Count > 0 && shapes.All(shape => shape is PictureShape));
         Show(TableContext, normal && shapes.Count == 1 && shapes[0] is GraphicFrame { Table: not null });
+        Show(ShowChartCommands.Context, normal && ShowChartCommands.SelectedChart(editor) is not null);
     }
 
     /// <summary>The menu of the slide area: clipboard, then what applies to the selection (order, group, text), the slide's layout.</summary>
@@ -260,6 +259,5 @@ internal static class ShowContextMenus
 
         var size = Units.CentimetersToEmu(Math.Min(centimetres, 142));
         editor.Session.SetBounds(shape.Id, new EmuRect(box.X, box.Y, height ? box.Width : size, height ? size : box.Height));
-        _ = German;
     }
 }

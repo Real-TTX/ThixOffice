@@ -110,7 +110,21 @@ internal static class ShowGalleries
         }
 
         sample = sample with { Slides = [slide] };
-        return SlidePictures.Record(SlideRenderer.Render(sample, slide, OfficeFonts.Cached));
+        var page = SlideRenderer.Render(sample, slide, OfficeFonts.Cached);
+
+        // The design's six accents as a strip at the foot (PowerPoint's designs show their colours the same way).
+        var master = sample.Masters[0];
+        var colors = new ColorContext(master.Theme.Colors, master.ColorMap);
+        var items = page.Items.ToList();
+        var (width, height) = (page.Width, page.Height);
+        var swatch = width / 6;
+        for (var index = 0; index < 6; index++)
+        {
+            var color = ColorResolver.Resolve(ColorSpec.Scheme($"accent{index + 1}"), colors);
+            items.Add(new RectangleItem(index * swatch, height * 0.9, swatch, height * 0.1, color));
+        }
+
+        return SlidePictures.Record(page with { Items = items });
     }
 
     /// <summary>The internal applies a value command (the design strip).</summary>
@@ -267,8 +281,8 @@ internal sealed class DesignStrip : StackPanel
         foreach (var design in BuiltInThemes.All)
         {
             var picture = ShowGalleries.DesignPicture(design, size);
-            var frame = new Border { Child = new PictureView(picture, size.WidthPoints) { Width = 92, Height = 92 / size.AspectRatio }, BorderThickness = new Thickness(2) };
-            var tile = new Button { Content = frame, Padding = new Thickness(1) }.Themed("MatButton.Icon");
+            var frame = new Border { Child = new PictureView(picture, size.WidthPoints) { Width = 96, Height = 54 }, BorderThickness = new Thickness(2) };
+            var tile = new Button { Content = frame, Padding = new Thickness(2), VerticalAlignment = VerticalAlignment.Top }.Themed("MatRibbon.Item");
             AutomationProperties.SetName(tile, design.Name);
             ToolTip.SetTip(tile, $"Design „{design.Name}“");
             var id = design.Id;
