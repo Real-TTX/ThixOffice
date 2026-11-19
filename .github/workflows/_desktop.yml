@@ -12,8 +12,8 @@ name: _desktop
 #   every build   : workflow artifact "ThixWrite-<version>" (all packages + update manifest)
 #   main (push)   : rolling release "release-channel" + versioned release "thixwrite-v<version>"
 #   dev  (push)   : rolling pre-release "nightly-channel"
-# The publish job uploads only the app's own files (--clobber) and runs in ONE concurrency group for every app, so two apps
-# never edit a channel release at the same time; the shared release keeps its title (it is not retitled per app).
+# The publish job uploads only the app's own files (--clobber) and never retitles the shared release; its concurrency
+# group is per app and branch (a group shared by all apps cancelled waiting publish jobs).
 
 on:
   workflow_call:
@@ -195,9 +195,10 @@ jobs:
     needs: [version, windows, macos]
     if: always() && needs.version.result == 'success' && needs.windows.result == 'success'
     runs-on: ubuntu-latest
-    # One group for every app of the repository: only one publish job edits the channel releases at a time (queued).
+    # Each app uploads only its own files, so apps may publish side by side; one app's runs still queue.
     concurrency:
-      group: thixoffice-publish
+      # Per app and branch: a group keeps only ONE waiting job, so one group for all apps cancelled the third app's publish.
+      group: thixoffice-publish-${{ inputs.app-id }}-${{ github.ref_name }}
       cancel-in-progress: false
     steps:
       - uses: actions/download-artifact@v4
