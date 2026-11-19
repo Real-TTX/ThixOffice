@@ -1,4 +1,5 @@
 using ThixCalc.Core.Formats.Csv;
+using ThixCalc.Core.Formats.Ods;
 using ThixCalc.Core.Formats.Xlsx;
 using ThixCalc.Core.Model;
 
@@ -10,11 +11,11 @@ public enum WorkbookFileFormat
     Xlsx,
     Xlsm,
     Csv,
+    Ods,
 }
 
 /// <summary>
-/// A file format: reads a stream into a workbook and writes one. xlsx/xlsm and csv implement it today; the seam for ods is
-/// this interface (an OdsFormat registered in <see cref="WorkbookFormats.For"/>).
+/// A file format: reads a stream into a workbook and writes one: xlsx/xlsm, csv and ods (OpenDocument Spreadsheet).
 /// </summary>
 public interface IWorkbookFormat
 {
@@ -32,6 +33,7 @@ public static class WorkbookFormats
     {
         WorkbookFileFormat.Csv => new CsvWorkbookFormat(csv ?? new CsvOptions()),
         WorkbookFileFormat.Xlsm => new XlsxWorkbookFormat(macros: true),
+        WorkbookFileFormat.Ods => new OdsWorkbookFormat(),
         _ => new XlsxWorkbookFormat(macros: false),
     };
 
@@ -41,6 +43,7 @@ public static class WorkbookFormats
         ".xlsx" => WorkbookFileFormat.Xlsx,
         ".xlsm" => WorkbookFileFormat.Xlsm,
         ".csv" or ".tsv" or ".txt" => WorkbookFileFormat.Csv,
+        ".ods" => WorkbookFileFormat.Ods,
         _ => null,
     };
 
@@ -54,6 +57,15 @@ public static class WorkbookFormats
         public Workbook Read(Stream stream) => XlsxReader.Read(stream);
 
         public void Write(Workbook workbook, Stream stream) => XlsxWriter.Write(workbook, stream, keepMacros: macros);
+    }
+
+    private sealed class OdsWorkbookFormat : IWorkbookFormat
+    {
+        public WorkbookFileFormat Format => WorkbookFileFormat.Ods;
+
+        public Workbook Read(Stream stream) => OdsReader.Read(stream);
+
+        public void Write(Workbook workbook, Stream stream) => OdsWriter.Write(workbook, stream);
     }
 
     private sealed class CsvWorkbookFormat(CsvOptions options) : IWorkbookFormat

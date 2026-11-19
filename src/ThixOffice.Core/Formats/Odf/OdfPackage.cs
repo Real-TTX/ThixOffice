@@ -61,8 +61,8 @@ public sealed class OdfPackage : IDisposable
 
             return read(package);
         }
-        catch (Exception exception) when (exception is XmlException or IOException or InvalidOperationException or FormatException
-            or ArgumentException or OverflowException or IndexOutOfRangeException or NullReferenceException && exception is not InvalidDataException)
+        catch (Exception exception) when ((exception is XmlException or IOException or InvalidOperationException or FormatException or ArgumentException
+            or OverflowException or IndexOutOfRangeException or NullReferenceException or InvalidDataException) && exception.Message != invalidMessage)
         {
             throw new InvalidDataException(invalidMessage, exception);
         }
