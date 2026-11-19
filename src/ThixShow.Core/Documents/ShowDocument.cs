@@ -1,6 +1,7 @@
 using ThixOffice.Core.Documents;
 using ThixOffice.Core.Models;
 using ThixShow.Core.Editing;
+using ThixShow.Core.Formats.Odp;
 using ThixShow.Core.Formats.Pptx;
 using ThixShow.Core.Model;
 
@@ -11,6 +12,7 @@ public enum ShowFileFormat
 {
     Pptx,
     Pptm,
+    Odp,
 }
 
 /// <summary>
@@ -63,6 +65,7 @@ public sealed class ShowDocument : OfficeDocument
     {
         ".pptx" => ShowFileFormat.Pptx,
         ".pptm" => ShowFileFormat.Pptm,
+        ".odp" => ShowFileFormat.Odp,
         _ => null,
     };
 
@@ -75,8 +78,12 @@ public sealed class ShowDocument : OfficeDocument
 
     protected override void Read(Stream stream)
     {
-        var presentation = PptxReader.Read(stream);
-        LoadedFormat = presentation.IsMacroEnabled ? ShowFileFormat.Pptm : ShowFileFormat.Pptx;
+        using var buffer = new MemoryStream();
+        stream.CopyTo(buffer);
+        buffer.Position = 0;
+        var isOdp = OdpReader.IsOdp(buffer);
+        var presentation = isOdp ? OdpReader.Read(buffer) : PptxReader.Read(buffer);
+        LoadedFormat = isOdp ? ShowFileFormat.Odp : presentation.IsMacroEnabled ? ShowFileFormat.Pptm : ShowFileFormat.Pptx;
         SaveFormat = LoadedFormat;
         Attach(presentation);
     }
@@ -90,6 +97,12 @@ public sealed class ShowDocument : OfficeDocument
     private void Write(Stream stream, ShowFileFormat format)
     {
         Writing?.Invoke(this, EventArgs.Empty);
+        if (format == ShowFileFormat.Odp)
+        {
+            OdpWriter.Write(Presentation, stream);
+            return;
+        }
+
         PptxWriter.Write(Presentation with { IsMacroEnabled = format == ShowFileFormat.Pptm }, stream);
     }
 

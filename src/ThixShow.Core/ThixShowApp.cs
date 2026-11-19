@@ -4,8 +4,8 @@ namespace ThixShow.Core;
 
 /// <summary>
 /// ThixShow as data: the presentation program of ThixOffice (PowerPoint's place), accent: PowerPoint's orange. Its own format is
-/// .pptx (the default type); .pptm keeps its macros (they never run) and stays .pptm. .odp is PLANNED – never registered with the
-/// system, never offered – until its reader exists.
+/// .pptx (the default type); .pptm keeps its macros (they never run) and stays .pptm; .odp is read and written as OpenDocument
+/// Presentation (what the model has – the app asks before content ODF cannot take is left out).
 /// </summary>
 public static class ThixShowApp
 {
@@ -21,7 +21,7 @@ public static class ThixShowApp
                 "application/vnd.openxmlformats-officedocument.presentationml.presentation", "org.openxmlformats.presentationml.presentation"),
             new DocumentType(".pptm", "ThixShow.MacroPresentation", "PowerPoint-Präsentation mit Makros", DocumentTypeSupport.Supported,
                 MimeType: "application/vnd.ms-powerpoint.presentation.macroEnabled.12", MacTypeIdentifier: "com.microsoft.powerpoint.openxml.presentation.macroenabled"),
-            new DocumentType(".odp", "ThixShow.OpenDocumentPresentation", "OpenDocument-Präsentation", DocumentTypeSupport.Planned,
+            new DocumentType(".odp", "ThixShow.OpenDocumentPresentation", "OpenDocument-Präsentation", DocumentTypeSupport.Supported,
                 MimeType: "application/vnd.oasis.opendocument.presentation", MacTypeIdentifier: "org.oasis-open.opendocument.presentation"),
         ])
     {

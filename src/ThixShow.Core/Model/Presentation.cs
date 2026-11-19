@@ -28,6 +28,36 @@ public sealed record UnsupportedContent(string Kind, int Count)
     /// <summary>"2 × SmartArt-Grafik (wird erhalten, als Platzhalter angezeigt)" – German, for the warning.</summary>
     public string Message => $"{Count} × {Label(Kind)}";
 
+    /// <summary>"2 × SmartArt-Grafik" – for content that is NOT kept (an OpenDocument file: what it had or what it cannot take).</summary>
+    public string PlainMessage => $"{Count} × {PlainLabel(Kind)}";
+
+    /// <summary>The German name of a kind of content without a promise to keep it.</summary>
+    public static string PlainLabel(string kind) => kind switch
+    {
+        "chart" => "Diagramm",
+        "diagram" => "SmartArt-Grafik",
+        "ole" => "Eingebettetes Objekt",
+        "media" => "Video oder Audio (nur das Vorschaubild bleibt)",
+        "comments" => "Kommentare",
+        "macros" => "Makros",
+        "customXml" => "Benutzerdefinierte XML-Daten",
+        "fonts" => "Eingebettete Schriftarten",
+        "ink" => "Freihandeingabe",
+        "math" => "Formel",
+        "interactive" => "Interaktive Animation per Auslöser",
+        "animation" => "Animationseffekt (nur Erscheinen und Verblassen werden übernommen)",
+        "transition" => "Folienübergang (als Verblassen übernommen)",
+        "geometry" => "Unbekannte Form (als Rechteck übernommen)",
+        "effects" => "Formeffekt wie Leuchten, Spiegelung oder weiche Kanten",
+        "pattern" => "Musterfüllung (als einfarbige Füllung übernommen)",
+        "sections" => "Abschnitte",
+        "action" => "Aktion beim Klicken auf eine Form",
+        "3d" => "3D-Objekt",
+        "form" => "Formularsteuerelement",
+        "element" => "Unbekanntes Element",
+        _ => "Unbekannter Inhalt",
+    };
+
     public static string Label(string kind) => kind switch
     {
         "chart" => "Diagramm (wird angezeigt und erhalten, aber nicht bearbeitet)",

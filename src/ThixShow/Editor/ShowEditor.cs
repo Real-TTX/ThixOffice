@@ -13,6 +13,7 @@ using ThixOffice.Desktop.Dialogs;
 using ThixOffice.Desktop.Shell;
 using ThixShow.Core.Documents;
 using ThixShow.Core.Editing;
+using ThixShow.Core.Formats.Odp;
 using ThixShow.Core.Model;
 using ThixShow.Show;
 
@@ -238,6 +239,14 @@ public sealed class ShowEditor : OfficeEditor
     {
         get
         {
+            if (Document.LoadedFormat == ShowFileFormat.Odp)
+            {
+                var lost = Document.UnsupportedContent.Select(content => "• " + content.PlainMessage).ToList();
+                return lost.Count == 0
+                    ? null
+                    : $"Diese OpenDocument-Präsentation enthält Inhalte, die ThixShow nicht anzeigt. Beim Speichern sind sie nicht mehr enthalten:{Environment.NewLine}{string.Join(Environment.NewLine, lost)}";
+            }
+
             var notes = Document.UnsupportedContent.Select(content => "• " + content.Message).ToList();
             var macros = Document.HasMacros ? "Diese Präsentation enthält Makros. Makros werden nicht ausgeführt, bleiben aber erhalten." : null;
             if (notes.Count == 0)
@@ -283,12 +292,37 @@ public sealed class ShowEditor : OfficeEditor
         Reading.Stop();
     }
 
+    private bool _odpConfirmed;
+
     /// <summary>
-    /// Before a save: the notes being typed go in; a presentation with macros saved as .pptx is warned that the macros stay behind.
+    /// Before a save: the notes being typed go in; a presentation with macros saved as .pptx is warned that the macros stay behind;
+    /// saving as .odp names what the OpenDocument format cannot take (charts, SmartArt, effects …) and asks once.
     /// </summary>
     public override async Task<bool> ConfirmSaveAsync(string path)
     {
         Notes.Commit();
+        if (Path.GetExtension(path).Equals(".odp", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_odpConfirmed || Document.LoadedFormat == ShowFileFormat.Odp)
+            {
+                return true;
+            }
+
+            var losses = OdpWriter.Losses(Session.Presentation);
+            if (losses.Count == 0)
+            {
+                return true;
+            }
+
+            var list = string.Join(Environment.NewLine, losses.Select(loss => "• " + loss.PlainMessage));
+            var answer = await QuestionDialog.AskAsync(_window, "Als OpenDocument speichern",
+                $"Diese Präsentation enthält Inhalte, die das OpenDocument-Format in ThixShow nicht aufnehmen kann. Sie sind in der .odp-Datei nicht enthalten:{Environment.NewLine}{list}{Environment.NewLine}Möchten Sie trotzdem als OpenDocument speichern?",
+                new DialogChoice("Als OpenDocument speichern", "save", "MatButton.Primary", IsDefault: true),
+                new DialogChoice("Abbrechen", "x", IsCancel: true));
+            _odpConfirmed = answer == 0;
+            return _odpConfirmed;
+        }
+
         if (Path.GetExtension(path).Equals(".pptx", StringComparison.OrdinalIgnoreCase) && Document.HasMacros)
         {
             var save = await QuestionDialog.AskAsync(_window, "Makros gehen verloren",
