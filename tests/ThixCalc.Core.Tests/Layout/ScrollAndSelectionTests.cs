@@ -35,6 +35,34 @@ public class ScrollAndSelectionTests
     }
 
     [Fact]
+    public void Frozen_rows_and_columns_keep_their_cells_when_the_sheet_is_scrolled_both_ways()
+    {
+        // The last frozen row/column used to end at the scrolled position of the next one: its fill went up into the row above
+        // and its text was clipped away (the budget sample scrolled down showed a green band in row 1 and an empty row 2).
+        var (sheet, metrics, layout) = Setup();
+        var workbook = sheet.Workbook;
+        sheet.View = sheet.View with { FrozenRows = 2, FrozenColumns = 1 };
+        TestBooks.Fill(sheet, ("A1", "Titel"), ("A2", "Kopf"));
+        sheet.SetStyleId(1, 0, workbook.Styles.Intern(CellStyle.Default with { Fill = CellFill.Solid(CalcColor.FromRgb(16, 124, 65)) }));
+        workbook.Calculation.Recalculate();
+        var viewport = layout.Viewport(800, 400, 1, layout.ColumnLeft(4, 1), layout.RowTop(12, 1));
+
+        var header = viewport.CellRect(CellAddress.Parse("A2"));
+        Assert.Equal(viewport.RowY(1), header.Y);
+        Assert.Equal(viewport.ScrollTop, header.Bottom);
+        Assert.Equal(viewport.HeaderWidth, header.X);
+        Assert.Equal(viewport.ScrollLeft, header.Right);
+
+        var list = GridRenderer.Render(viewport, metrics);
+        var fill = Assert.Single(list.Items.OfType<RectangleItem>(), item => item.Fill == RgbColor.FromHex("107C41"));
+        Assert.True(fill.Y >= viewport.RowY(1) - 1 && fill.Height > 0, $"the fill stays in row 2: {fill.Y} {fill.Height}");
+        var texts = list.Items.OfType<GlyphRunItem>().ToList();
+        Assert.Contains(texts, run => run.Text == "Titel" && run.Y > viewport.RowY(0) && run.Y < viewport.RowY(1));
+        Assert.Contains(texts, run => run.Text == "Kopf" && run.Y > viewport.RowY(1) && run.Y < viewport.ScrollTop);
+        Assert.DoesNotContain(list.Items.OfType<ClipBeginItem>(), clip => clip.Height < 0 || clip.Width < 0);
+    }
+
+    [Fact]
     public void Selected_rows_and_columns_are_highlighted_in_both_headers()
     {
         var (sheet, metrics, layout) = Setup();

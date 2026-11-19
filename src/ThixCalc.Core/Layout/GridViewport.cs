@@ -378,12 +378,17 @@ public sealed class GridViewport
         return RangeRect(range);
     }
 
+    /// <summary>
+    /// The screen rectangle of a range: from the top of its first row to the bottom of its last row, each edge in the pane of its
+    /// row/column (the last frozen row ends at the freeze line, whatever the scroll position).
+    /// </summary>
     public PixelRect RangeRect(CellRange range)
     {
+        var zoom = Zoom;
         var top = RowY(range.FirstRow);
-        var bottom = RowY(range.LastRow + 1);
+        var bottom = RowY(range.LastRow) + Layout.RowTop(range.LastRow + 1, zoom) - Layout.RowTop(range.LastRow, zoom);
         var left = ColumnX(range.FirstColumn);
-        var right = ColumnX(range.LastColumn + 1);
+        var right = ColumnX(range.LastColumn) + Layout.ColumnLeft(range.LastColumn + 1, zoom) - Layout.ColumnLeft(range.LastColumn, zoom);
         return new PixelRect(left, top, right - left, bottom - top);
     }
 
