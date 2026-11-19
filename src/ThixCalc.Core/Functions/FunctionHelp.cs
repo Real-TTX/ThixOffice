@@ -201,8 +201,10 @@ public static class FunctionHelp
     {
         var parts = words.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         return All(locale)
-            .Where(info => parts.All(part => info.Name.Contains(part, StringComparison.CurrentCultureIgnoreCase) || info.Description.Contains(part, StringComparison.CurrentCultureIgnoreCase)))
-            .OrderBy(info => info.Name.StartsWith(words, StringComparison.CurrentCultureIgnoreCase) ? 0 : 1)
+            .Where(info => parts.All(part => info.Name.Contains(part, StringComparison.CurrentCultureIgnoreCase)
+                || German.ContainsKey(info.Canonical) && info.Description.Contains(part, StringComparison.CurrentCultureIgnoreCase)))
+            .OrderBy(info => info.Name.Equals(words, StringComparison.CurrentCultureIgnoreCase) ? 0 : info.Name.Contains(words, StringComparison.CurrentCultureIgnoreCase) ? 1 : 2)
+            .ThenBy(info => German.ContainsKey(info.Canonical) ? 0 : 1)
             .ThenBy(info => info.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
     }

@@ -9,7 +9,7 @@ und die aussieht wie die übrigen Thix-Apps.
 | Programm | statt | Formate | Stand |
 | --- | --- | --- | --- |
 | **ThixWrite** | Word | docx, txt, später odt | Meilenstein 1b; Dokumente in ThixDrive (Phase 2) |
-| **ThixCalc** | Excel | xlsx, csv, später ods | Logo |
+| **ThixCalc** | Excel | xlsx, xlsm, csv, später ods | erstes Release (Phase 3), Arbeitsmappen in ThixDrive |
 | **ThixShow** | PowerPoint | pptx, später odp | Logo |
 
 Der Plan steht in [docs/PLAN.md](docs/PLAN.md).
@@ -48,10 +48,85 @@ Hinweis, welche es sind.
 | **Einstellungen › Speichern** | **Änderungen speichern?** |
 | ![Einstellungen](docs/images/thixwrite-backstage-settings-save-light.png) | ![Änderungen speichern](docs/images/thixwrite-dialog-save-changes-light.png) |
 
+## ThixCalc – erstes Release
+
+ThixCalc ist eine Tabellenkalkulation mit eigenem, nativem Raster und eigener Formel-Engine (über 400 Funktionen mit deutschen
+Namen: SUMME, SVERWEIS, SUMMEWENNS, XVERWEIS, WENNFEHLER, dynamische Arrays …). Das Raster scrollt pixelgenau und bleibt auch bei
+100.000 Zeilen flüssig; Linien sind bei jedem Zoom und jeder Bildschirmskalierung scharf.
+
+- **Eingeben wie in Excel:** Tippen ersetzt (*Eingeben*), F2 oder Doppelklick bearbeitet (*Bearbeiten*), in Formeln zeigen Pfeiltasten
+  und Klicks Bezüge (*Zeigen*) – jeder Bezug bekommt eine Farbe in der Formel und denselben farbigen Rahmen im Raster; F4 wechselt
+  $A$1 → A$1 → $A1 → A1. Beim Tippen eines Namens erscheint die Funktionsliste (Tab übernimmt), in den Klammern der Argument-Tipp
+  „SVERWEIS(Suchkriterium; Matrix; Spaltenindex; [Bereich_Verweis])“. Eingabe/Tab bewegen sich innerhalb der Markierung,
+  Strg+Eingabe füllt alle markierten Zellen, Strg+Umschalt+Eingabe gibt eine Matrixformel ein. Eingabemethoden (Umlaute, Tottasten,
+  CJK) funktionieren direkt in der Zelle.
+- **Bearbeitungsleiste** mit Namenfeld (Zelle, Bereich, „Tabelle2!B4“ oder Name eingeben und Eingabe; ein neuer Name wird definiert),
+  fx (Funktion einfügen mit Suche, Kategorien und Argumenthilfe), aufklappbar für lange Formeln.
+- **Maus:** markieren, Umschalt/Strg-Klick, Zeilen- und Spaltenköpfe, Spaltenbreite und Zeilenhöhe ziehen (Doppelklick: optimal),
+  Ausfüllkästchen ziehen (Reihen: 1, 2, 3 …, Monate, Wochentage, Datumswerte), Kontextmenüs für Zellen, Zeilen, Spalten und Blätter.
+- **Blätter** unten links: neu, umbenennen per Doppelklick, ziehen zum Verschieben, Registerfarbe, ausblenden/einblenden, verschieben
+  oder kopieren. Die Statusleiste zeigt Bereit/Eingeben/Bearbeiten/Zeigen und Mittelwert, Anzahl, Summe (Rechtsklick: auswählen).
+- **Menüband wie im deutschen Excel:** Start (Zwischenablage mit Inhalte einfügen, Schriftart, Rahmen, Füll- und Schriftfarbe,
+  Ausrichtung, Verbinden, Zahlenformate, Bedingte Formatierung mit Regeln, Datenbalken und Farbskalen, Zellenformatvorlagen, Zellen
+  einfügen/löschen/formatieren, AutoSumme, Ausfüllen, Löschen, Sortieren und Filtern, Suchen), Einfügen (Link, Notiz), Seitenlayout,
+  Formeln (Funktionsbibliothek, Namens-Manager, Formeln anzeigen, Berechnung), Daten (Sortieren, Filtern, Text in Spalten, Duplikate
+  entfernen, Datenüberprüfung, Gruppieren), Überprüfen (Notizen), Ansicht (Gitternetzlinien, Überschriften, Bearbeitungsleiste, Zoom,
+  Fenster fixieren). Dialog **Zellen formatieren** (Strg+1) mit Zahlen | Ausrichtung | Schrift | Rahmen | Ausfüllen.
+- **Zwischenablage:** zwischen ThixCalc-Fenstern exakt (Formeln, Formate), für andere Programme als Text und HTML-Tabelle; Tabellen
+  aus Browsern oder Word und Text werden Zelle für Zelle übernommen.
+- **Drucken und PDF:** Seite einrichten (Papier, Hoch-/Querformat, Ränder, Skalierung oder „auf N × M Seiten“, Druckbereich,
+  Wiederholungszeilen, Gitternetzlinien, Überschriften, Kopf- und Fußzeile mit Seitenzahl), Datei › Drucken mit Vorschau (aktives
+  Blatt, ganze Mappe oder Auswahl), Datei › Exportieren als PDF.
+- **Dateien:** Excel-Arbeitsmappen (.xlsx) sind Standard; .xlsm wird gelesen und mit Makros wieder geschrieben (Makros werden nie
+  ausgeführt); CSV mit Erkennung von Trennzeichen und Zeichensatz (bei Zweifel fragt der Textimport) und einem Hinweis beim
+  Speichern, dass CSV nur die Werte des aktiven Blatts enthält. Was ThixCalc noch nicht zeigt (Diagramme, Bilder, Pivot-Tabellen …),
+  bleibt beim Speichern erhalten – ein Hinweis nennt es beim Öffnen.
+
+![ThixCalc hell](docs/images/thixcalc-main-light.png)
+
+![ThixCalc dunkel](docs/images/thixcalc-main-dark.png)
+
+| Formel eingeben (farbige Bezüge, Funktionsliste) | Zellen formatieren (Strg+1) |
+| --- | --- |
+| ![Formel](docs/images/thixcalc-main-formula-light.png) | ![Zellen formatieren](docs/images/thixcalc-dialog-format-cells-light.png) |
+| **Funktion einfügen** (Umschalt+F3) | **Suchen und Ersetzen** |
+| ![Funktion einfügen](docs/images/thixcalc-dialog-function-light.png) | ![Suchen](docs/images/thixcalc-main-find-light.png) |
+| **Datei › Drucken** (Strg+P) | **Seite einrichten** |
+| ![Drucken](docs/images/thixcalc-backstage-print-light.png) | ![Seite einrichten](docs/images/thixcalc-dialog-page-setup-light.png) |
+| **Formeln** | |
+| ![Formeln](docs/images/thixcalc-main-view-dark.png) | |
+
+### Tastenkürzel in ThixCalc
+
+Wie im deutschen Excel (unter macOS ⌘ statt Strg):
+
+| Kürzel | Befehl |
+| --- | --- |
+| Pfeile, Strg+Pfeile, Umschalt+…, Pos1, Strg+Pos1 / Strg+Ende | bewegen, zum Datenrand springen, markieren |
+| Bild auf/ab, Alt+Bild auf/ab | eine Bildschirmseite nach oben/unten, links/rechts |
+| Eingabe / Tab (Umschalt: zurück) | Eingabe beenden und innerhalb der Markierung weiter |
+| F2, Esc, F4, Alt+Eingabe | Bearbeiten, Abbrechen, $ in Bezügen, Zeilenumbruch in der Zelle |
+| Strg+Eingabe, Strg+Umschalt+Eingabe | alle markierten Zellen füllen, Matrixformel |
+| Entf, Rücktaste | Inhalte löschen, Zelle leeren und bearbeiten |
+| Strg+Leertaste, Umschalt+Leertaste, Strg+A | Spalte, Zeile, Bereich/alles markieren |
+| Strg+Umschalt+F / K / U, Strg+5 (Mac: ⌘B / ⌘I / ⌘U) | Fett, Kursiv, Unterstrichen, Durchgestrichen |
+| Strg+1 | Zellen formatieren |
+| Strg+Umschalt+4 / 5 / 1 | Buchhaltung (€), Prozent, Zahl mit Tausenderpunkt |
+| Strg+U, Strg+R (Mac: ⌘D, ⌘R) | nach unten / nach rechts ausfüllen |
+| Alt+Umschalt+0 | AutoSumme |
+| Strg+F, Strg+H, F5 | Suchen, Ersetzen, Gehe zu (Namenfeld) |
+| Strg+Umschalt+L | Filter ein/aus |
+| Strg+K, Umschalt+F2 | Link, Notiz |
+| Umschalt+F3, Strg+F3, F9 | Funktion einfügen, Namens-Manager, Neu berechnen |
+| Strg+Bild ab / auf (Mac: ⌥⌘→ / ⌥⌘←), Umschalt+F11 | nächstes / voriges Blatt, neues Blatt |
+| Strg+9, Strg+0 | Zeilen / Spalten ausblenden |
+| Strg+C/X/V, Strg+Umschalt+V, Strg+Z/Y, Strg+S, F12, Strg+P | Zwischenablage, Nur Text, Rückgängig/Wiederholen, Speichern, Speichern unter, Drucken |
+| Strg+Mausrad | Zoom |
+
 ## ThixCloud und ThixDrive
 
-ThixWrite öffnet und speichert Dokumente direkt in **ThixDrive**, der Ablage Ihrer **ThixCloud** (MatCloud) – auf jedem
-Computer und im Browser. ThixCalc und ThixShow bekommen dasselbe, sobald es sie gibt.
+ThixWrite und ThixCalc öffnen und speichern Dokumente direkt in **ThixDrive**, der Ablage Ihrer **ThixCloud** (MatCloud) – auf jedem
+Computer und im Browser. ThixShow bekommt dasselbe, sobald es sie gibt.
 
 **Verbinden:**
 
@@ -106,7 +181,7 @@ Wie im deutschen Word, wo sie nicht kollidieren (unter macOS ⌘ statt Strg, ⌥
 
 ## Installieren
 
-- **Windows:** `ThixWriteSetup.exe` aus dem Release-Kanal herunterladen und starten. Das Programm installiert sich selbst für
+- **Windows:** `ThixWriteSetup.exe` bzw. `ThixCalcSetup.exe` aus dem Release-Kanal herunterladen und starten. Das Programm installiert sich selbst für
   das eigene Benutzerkonto (ohne Administratorrechte) nach `%LocalAppData%\Programs\ThixWrite`, trägt sich im Startmenü, unter
   „Installierte Apps“ und unter „Öffnen mit“ für Word-Dokumente (.docx) und Textdateien ein – Standardprogramm wird ThixWrite
   nur, wenn Sie es in den „Standard-Apps“ von Windows wählen. Entfernen über „Installierte Apps“.
@@ -131,6 +206,7 @@ dotnet build ThixOffice.slnx
 dotnet test ThixOffice.slnx
 dotnet run --project src/ThixWrite                      # mit THIXWRITE_DATA_DIR=<Ordner> eine eigene Instanz
 dotnet run --project src/ThixWrite -- --snapshot shots  # alle Fenster hell und dunkel als PNG
+dotnet run --project src/ThixCalc                       # ThixCalc (THIXCALC_DATA_DIR=<Ordner>, --snapshot <Ordner> ebenso)
 cd tools && npm install && node render-icons.js         # Logos rendern
 ```
 

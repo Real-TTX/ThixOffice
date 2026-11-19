@@ -216,6 +216,27 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
 Zellmodell, Formel-Engine (Parser, Abhängigkeitsgraph, Funktionsbibliothek), virtualisiertes Raster,
 Formate, Sortieren/Filtern, Fixieren, bedingte Formatierung, Diagramme, xlsx/csv, danach ods.
 
+- **Stand (2026-11-19): erstes Release von ThixCalc erledigt** (ohne Diagramme). Core (UI-frei): Zellmodell, Formel-Engine mit über
+  400 Funktionen (deutsche Namen, Hilfe mit Argumentnamen), Bearbeiten als rückgängig machbare Befehle, xlsx/xlsm/csv, Viewport mit
+  Pixel-Scrollen, Auswahl-Ebene, Seitenumbruch (SheetPagination) mit Seitenlayout und xlsx-Rundreise. App: Raster über die Skia-Lease
+  in Gerätepixeln (scharfe Linien bei jedem Zoom/DPI, nur Sichtbares wird gelegt; ein Bild ≈ 1 ms, auch bei 100.000 Zeilen), Zeilen-/
+  Spaltenköpfe, fixierte Bereiche, Bildlaufleisten wie Excel, Strg+Mausrad; Eingeben/Bearbeiten/Zeigen mit farbigen Bezügen, F4,
+  Funktionsliste und Argument-Tipp, IME in der Zelle; Bearbeitungsleiste mit Namenfeld; alle Excel-Tasten zum Bewegen und Markieren;
+  Maus inkl. Ausfüllkästchen, Spaltenbreite/Zeilenhöhe ziehen und optimal; Blattregister (neu, umbenennen, ziehen, Farbe,
+  aus-/einblenden, verschieben/kopieren); Statusleiste mit Modus und wählbaren Kennzahlen; Menüband Start/Einfügen/Seitenlayout/
+  Formeln/Daten/Überprüfen/Ansicht wie im deutschen Excel, Dialoge Zellen formatieren, Funktion einfügen, Sortieren,
+  Datenüberprüfung, Text in Spalten, Duplikate entfernen, Namens-Manager, bedingte Formatierung (Regeln, Datenbalken, Farbskalen,
+  Regeln verwalten), Seite einrichten, Zoom, Link, Notiz, Textimport; Suchen/Ersetzen (gemeinsame Leiste); Zwischenablage (eigen,
+  Text, HTML-Tabelle hin und zurück); Drucken mit Vorschau (aktives Blatt, Mappe, Auswahl) und PDF; Hinweise bei CSV und Makros;
+  ThixDrive über die Shell. Gemeinsam gemacht (ThixWrite nutzt sie mit): Skia-Zeichenoperation, Druck- und Exportseite,
+  Dialograhmen, Suchleiste, Kontextmenüs aus Befehlen, Speichern-Rückfrage des Editors.
+- **Lücken (wichtig für Excel-Umsteiger zuerst):** Diagramme (werden erhalten, aber nicht angezeigt – nächster Schritt),
+  AutoFilter-Pfeile mit Werteliste in den Kopfzellen (Filtern schaltet den Filter, wählen geht noch nicht), Dropdown einer
+  Datenüberprüfungs-Liste in der Zelle, Notiz-Dreieck und -Anzeige im Raster, Link per Strg+Klick öffnen, Einfügen › Tabelle,
+  Strg+Plus/Minus (Zellen einfügen/löschen), Dialog Inhalte einfügen (nur Menüeinträge), Reihe ausfüllen (Dialog), Blitzvorschau,
+  „Alle suchen“, Fenster teilen, Seitenumbruchvorschau, Textrichtung/Drehung beim Zeichnen, Teilformatierung in einer Zelle, Rückgängig
+  innerhalb der Zellbearbeitung, ods.
+
 ### Phase 4 – ThixShow
 Folienmodell, Layouts/Designs, Formen/Text/Bilder/Tabellen, Folienübersicht, Übergänge/Animationen,
 Präsentations- und Referentenansicht, pptx, danach odp.

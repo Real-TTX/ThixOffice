@@ -18,7 +18,9 @@ MatRibbon, MatBackstage, MatStatusBar and MatQuickAccess in the window.
 page setup, zoom, PDF export. **Milestone 1b (done):** printing, tables, pictures, headers/footers/page numbers, links, ruler and
 tab stops, the dialogs Schriftart/Absatz, format painter, symbols, HTML paste (see the sections below; gaps in docs/PLAN.md).
 **Phase 2, ThixOffice side (done):** ThixCloud sign-in and documents in ThixDrive for every app (section "ThixCloud and ThixDrive").
-**Next:** 1c (table of contents, footnotes, comments, spelling, odt). Do not build ribbon controls of your own.
+**Phase 3, first release of ThixCalc (done):** the grid, cell and formula editing, sheet tabs, the German Excel ribbon and dialogs,
+find/replace, clipboard, page setup, printing and PDF, CSV/xlsx/xlsm flows (section "ThixCalc's editor"; gaps in docs/PLAN.md).
+**Next:** ThixCalc charts; ThixWrite 1c (table of contents, footnotes, comments, spelling, odt). Do not build ribbon controls of your own.
 
 Stack: **.NET 10** (`global.json` 10.0.100, latestMinor), C#, **Avalonia 11.3.22** with **MatDesktop 0.3.1** (a copy), xunit +
 Avalonia.Headless. Reference apps (sibling folders): ThixCalendar (structure, setup, OTA), ThixNote (document app: file types,
@@ -72,6 +74,8 @@ src/ThixOffice.Desktop     shared Avalonia UI
                            crash reports, theme), NewDocumentWindow, ShowWindow, OpenFilesAsync/OpenFileAsync, HandleActivation,
                            ExitApplication / OnExit (installs a downloaded update); the last window ends the app on Windows, not on
                            macOS (LastWindowEndsApp; ⌘Q ends it, the Dock icon opens a new document); FileDialogs (swappable)
+  Rendering/               SkiaDrawOperation (the Skia lease of every editor surface; device-pixel mode for the grid), PrintablePages
+                           (display lists → print bands / PDF on the app's paper colour)
   OfficeProgram            Main helper: Run<TApp>(args, definition); BuildAvaloniaApp<TApp>()
   OfficeSelfTest, OfficeSnapshot, OfficeSetup (MatSetupWindow), UpdateCoordinator, UiWatchdog, Ui (helpers)
   Shell/                   OfficeWindow (MatWindow per document: title bar with logo, word mark, MatQuickAccess, document name +
@@ -80,16 +84,35 @@ src/ThixOffice.Desktop     shared Avalonia UI
                            OfficeBackstage (MatBackstage with the pages by id; BackstageItem/BackstageContent), OfficeStatusBar
                            (MatStatusBar: texts by id + zoom), OfficeEditor (the app's part; Zoom 10–500 %, OpeningWarning, RequestZoomLevel), CommandSearchBox,
                            IFileDialogs + SystemFileDialogs
+                           OfficeCommandMenu (context menus made of commands), OfficeEditor.ConfirmSaveAsync (the editor may warn before a
+                           save: CSV, macros)
+  Pages/                   OfficePrintPage (Datei › Drucken: IPrintSource gives pages, scopes, Seite einrichten) + OfficeExportPage (PDF),
   Pages/                   NewPage, OpenPage + SaveAsPage (places: Zuletzt verwendet, ThixDrive, Dieser PC), DriveBrowser (the place
                            ThixDrive, open and save mode), SettingsPage (Allgemein | Speichern | Cloud | Updates | Erweitert), AboutPage
-  Dialogs/                 QuestionDialog (+ SaveChangesDialog: Speichern, Abbrechen, gap, Nicht speichern), DriveDialogs (conflict,
+  Dialogs/                 OfficeDialog (heading, body, OK · Abbrechen; every app's dialogs), QuestionDialog (+ SaveChangesDialog: Speichern, Abbrechen, gap, Nicht speichern), DriveDialogs (conflict,
                            replace, pending upload), TextInputDialog, ProblemReportDialog
-  Controls/                ActionBar, IconLabel, InfoBar, FormErrors (from the reference apps), CloudSignInPanel
+  Controls/                ActionBar, IconLabel, InfoBar, FormErrors (from the reference apps), CloudSignInPanel, FindBarBase
+                           (the Suchen/Ersetzen bar of every app), ITextField (a text field that is no TextBox keeps undo/copy keys)
 src/ThixOffice.Text        (no UI, no native code) ITextMeasurer, FontSpec/FontMetrics, ShapedText, FixedWidthTextMeasurer (tests),
                            Drawing/ display lists (GlyphRunItem, RectangleItem, LineItem in points), Unicode/ LineBreaker (UAX 14),
                            TextBoundaries (graphemes, words)
 src/ThixOffice.Text.Skia   SkiaTextMeasurer (SkiaSharp typefaces + HarfBuzz shaping, font fallback), SkiaPageRenderer (display list
                            → any SKCanvas), PdfExport (SKDocument.CreatePdf); SkiaSharp 2.88.9 / HarfBuzzSharp 8.3.1.1 = Avalonia's
+src/ThixCalc.Core          (no UI) ThixCalcApp.Definition (.xlsx default, .xlsm, .csv; .ods planned; cloud id calc); Model/ (Workbook, Worksheet,
+                           sparse CellStore, styles, rows/columns, merges, names, validation, conditional formats, PageSetup), Calculation/
+                           + Formulas/ (parser, dependency graph, spills; FormulaTokens: the editor's scanner – colours, point mode, F4,
+                           argument position), Functions/ (library + FunctionHelp: German descriptions and argument names), Formatting/,
+                           Globalization/ (de-DE, en-US), Formats/ (xlsx with the Open XML SDK incl. page setup, csv with Detect, Html/
+                           HtmlTables for the clipboard), Editing/ (EditingSession: every command undoable – input, array formulas,
+                           styles, borders, AutoSumme, sort, filter, find, duplicates, text to columns, conditional presets, page setup,
+                           print area/titles), Layout/ (GridMetrics, SheetLayout.Viewport by pixels, GridRenderer, SelectionRenderer,
+                           SheetPagination), Documents/CalcDocument
+src/ThixCalc               App, Program, CalcSelfTest, Editor/ (CalcEditor, GridSurface, FormulaTextBox + CellEditing, FormulaBar,
+                           FormulaAssist, SheetTabBar, CalcFindBar, CalcClipboard, CalcCommands / CalcStyleCommands / CalcDataCommands /
+                           CalcPageCommands + CalcCommandIds, CalcRibbon, CalcContextMenus, GridPalette, CalcFonts, SampleWorkbook),
+                           Dialogs/ (Zellen formatieren, Funktion einfügen, Sortieren, Datenüberprüfung, Text in Spalten, Duplikate,
+                           Namens-Manager, Link, Notiz, bedingte Formatierung, Seite einrichten, Zoom, Zellen einfügen/löschen, Blatt
+                           verschieben, Textimport), Pages/ (CalcPrintPage, CalcExportPage)
 src/ThixWrite.Core         (no UI) ThixWriteApp.Definition (.docx Supported + default, .txt Supported, .odt/.rtf Planned);
                            Model/ (Document of immutable blocks, styles, lists, sections, tables, preserved content), Editing/ (EditingSession:
                            selection, every command as a reversible transaction, undo, clipboard fragments, find/replace,
@@ -110,6 +133,9 @@ tests/ThixOffice.Desktop.Tests  headless with a small TestOfficeApp: shell, sear
                                 ThixDrive (DriveUiTests: places, sign-in, browser modes, title bar state, conflict, closing, Cloud tab),
                                 binding, quick access, zoom,
                                 settings + lock, no literal colours, MatDesktop copy
+tests/ThixCalc.Core.Tests       model, engine, functions, formats, editing, layout, pagination, selection layer
+tests/ThixCalc.Tests            the real ThixCalc headless through keys/text/pointer: modes, point mode, F4, suggestions, autofill, resize,
+                                headers, wheel, 100k rows, tabs, ribbon state, find, clipboard, dialogs, printing, CSV, snapshots, colours
 tests/ThixWrite.Core.Tests      model, editing engine (random undo/redo symmetry), layout (fixed-width measurer, 300 pages),
                                 docx/txt round trips and fixtures, Unicode rules, Skia measurer and PDF
 tests/ThixWrite.Tests           the real ThixWrite headless, driven by real key / text / pointer events: typing, caret movement,
@@ -120,7 +146,8 @@ branding/<id>/             logo-icon, logo-small, logo-document(-small), logo-fu
 tools/render-icons.js      renders every app's logos (installed Edge, playwright-core)
 scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoString "<Name> <version>", document types from
                            scripts/macos-document-types/<id>.plist, icns, ad-hoc signature), zip + dmg
-.github/workflows/         _desktop.yml (reusable: version → windows → macos → publish), thixwrite.yml (caller)
+.github/workflows/         _desktop.yml (reusable: version → windows → macos → publish), thixwrite.yml and thixcalc.yml (callers, own
+                           path filters: shared projects trigger both, one app's projects only its own)
 ```
 
 ## The ribbon, the backstage, the status bar
@@ -298,9 +325,69 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
    their own (`IsSearchable = false`). Ids must be unique in the definition (`Problems()`): a second place needs an alias command.
 4. A test through real input in tests/ThixWrite.Tests; check the snapshots.
 
+## ThixCalc's editor
+
+- **Per window:** `CalcDocument` (Workbook + EditingSession) → `CalcEditor` (an `OfficeEditor`): `FormulaBar` above, `GridSurface` with two
+  `ScrollBar`s and an overlay canvas (the cell's `FormulaTextBox`, `FormulaAssist`), below `SheetTabBar` beside the horizontal scrollbar,
+  `CalcFindBar` over the grid. One `GridMetrics` per workbook (measurer `CalcFonts.Grid` = a `CachingTextMeasurer` over Skia), one
+  `SheetLayout` per sheet. Everything that changes the workbook goes through the session; the views follow `CellsChanged` /
+  `SelectionChanged` / `StateChanged` (the ribbon and status bar once per dispatcher round, `ScheduleState`).
+- **Drawing:** `GridSurface.Render` lays the viewport out in DEVICE pixels (`SheetLayout.Viewport(width × scaling, height × scaling,
+  zoom × scaling, scrollX, scrollY)`), records `GridRenderer.Render`'s display list into an `SKPicture` (only when content in view, the
+  scroll, size, zoom or theme changed – a change outside the visible rows does not redraw) and draws it plus `SelectionRenderer`'s layer
+  (fill, border, fill handle, coloured reference frames, AutoFill preview), the copy marquee and a resize line through
+  `SkiaDrawOperation(devicePixels: true)`: grid lines stay one sharp pixel at every zoom/DPI. Scrolling is by pixels (rows may be cut at
+  the pane edge; the renderer clips panes and headers); `View.TopLeft` follows the first whole row/column. The scrollbars span the used
+  range + the view + room (`ScrollExtent`). Numbers: a frame of the budget sheet ≈ 1 ms, 100k rows the same (only visible rows are laid out).
+- **Colours:** chrome from Mat tokens (headers, selection border = accent); document colours (sheet white also in dark mode, grid lines,
+  reference colours, palettes, cell styles, CF presets, the sample) only in `Editor/GridPalette.cs` – the file the colour test exempts.
+- **Editing (`CellEditing`):** two `FormulaTextBox`es (cell and formula bar) show the same text. Typing in the grid starts Eingeben (the
+  grid keeps the keyboard and forwards keys/text to the cell's field – `GridInputClient` lets an IME compose there); F2 / double click /
+  a click in the formula bar = Bearbeiten; in a formula where `FormulaTokens.CanInsertReference` says so, arrows and clicks point
+  references (Zeigen; Umschalt extends, drag selects a range, other sheets via the tabs), F4 cycles `$`. References are coloured in the
+  text and framed on the grid in `GridPalette.ReferenceColors`. `FormulaAssist`: the function list while a name is typed (Tab takes
+  one), else the argument tip (`FormulaTokens.ArgumentAt` + `FunctionHelp`). Eingabe/Tab (+Umschalt) commit and move within the
+  selection, Strg+Eingabe fills the selection, Strg+Umschalt+Eingabe makes an array formula, Esc cancels; Excel closes open
+  parentheses. A `BusinessException` (bad formula, validation) is explained and the cell stays open. Commands that change cells call
+  `Editing.Commit()` first. The grid and the fields implement `ITextField` so the window's undo/copy keys reach the field while editing.
+- **Keys** (Bereit): arrows, Strg+arrows (data edge), Umschalt extends, Pos1, Strg+Pos1/Ende, Bild auf/ab (Alt: sideways), Tab/Eingabe
+  within the selection, F2, Entf, Rücktaste, Strg/Umschalt+Leertaste; command shortcuts are listed in `CalcCommands`' summary (German
+  Excel: Strg+Umschalt+F/K/U, Strg+1, Strg+U/R fill, Strg+Umschalt+4/5/1 formats, Strg+Bild ab/auf sheets, Umschalt+F3, Strg+F3, F9 …;
+  the Mac keeps ⌘B/⌘I/⌘U, ⌥⌘←/→ for sheets, ⌘⇧K/J for grouping so ⌥-arrows stay word movement).
+- **Clipboard (`CalcClipboard`):** own format (a token naming the process's `ClipboardContent`: exact cells, formulas, styles, merges) +
+  tab text + an HTML table (`HtmlTables.Export`, Windows' "HTML Format" envelope); paste order own → HTML table (`HtmlTables.Import`) →
+  text (`PasteText`). Inhalte einfügen = `PasteOptions`.
+- **Printing:** `SheetPagination` (core) cuts the print area / used range / selection into pages by the sheet's `PageSetup` (scale or fit
+  N × M pages, title rows, order) and renders each in points (header/footer codes); `CalcPages` feeds the shared `OfficePrintPage`
+  (scopes Aktives Blatt / Arbeitsmappe / Auswahl) and `OfficeExportPage`.
+- **Files:** `CalcDocument` sniffs zip vs CSV; a CSV keeps its bytes and `CsvDetection` – ambiguous separator/encoding opens the
+  `CsvImportDialog` (reads again, not dirty). `CalcEditor.ConfirmSaveAsync` asks before CSV drops sheets/formulas and before .xlsx drops
+  macros; `OpeningWarning` names unsupported content and says that macros never run but stay.
+
+### Adding a command to ThixCalc
+
+1. An id in `CalcCommandIds` (`calc.<name>`; menu entries `calc.<menu>.<entry>`; value commands note their value).
+2. Register it in `CalcCommands` / `CalcStyleCommands` / `CalcDataCommands` / `CalcPageCommands`: German label, sprite icon,
+   `Shortcut`/`MacShortcut` (no collision with text editing on the Mac), `Description`, `Keywords`, `CanExecute` (usually `Ready`: no cell
+   being edited), `IsChecked` from `Session.ActiveStyle`/the sheet. Act through `With(session => …)` (ends the input first). The logic
+   belongs in `EditingSession` (core, undoable, UI-free) – the command only calls it.
+3. Place it in `CalcRibbon` (and `CalcContextMenus` when it belongs to a right click). A test through real input in tests/ThixCalc.Tests.
+
+### Adding a function
+
+1. In ThixCalc.Core/Functions (the thematic file): `registry.Add("NAME", min, max, kinds, body)`; the German name in
+   `GermanFunctionNames`; newer than Excel 2007 → `FutureFunctions` (written with _xlfn.).
+2. Its help in `FunctionHelp.German` (description, argument names as German Excel names them, `[optional]`, repeats).
+3. Tests in tests/ThixCalc.Core.Tests/Functions; the function then shows in the list while typing, the argument tip, Funktion einfügen
+   and the Formeln tab's category menu (the most used per category).
+
 ## Build / run / test
 
 - `dotnet build ThixOffice.slnx` – expected: 0 warnings, 0 errors. `dotnet test ThixOffice.slnx` – all green.
+- ThixCalc the same way: `dotnet run --project src/ThixCalc` (`THIXCALC_DATA_DIR`), snapshots `-- --snapshot <folder>` (scenes
+  `-main-formula`, `-main-view`, `-main-find`, `-dialog-format-cells`, `-dialog-function`, `-dialog-page-setup`, `-backstage-print` on the
+  budget sample `SampleWorkbook`), `THIXCALC_SCREENSHOTS=<folder> dotnet test tests/ThixCalc.Tests`; its trimmed publish (~46 MB) runs
+  `--self-test` (typed values and German formulas incl. SVERWEIS/SUMMEWENN, format, sort, xlsx round trip, a Skia frame, PDF, GDI print).
 - Run: `dotnet run --project src/ThixWrite`; with `THIXWRITE_DATA_DIR=<folder>` an instance of its own (settings, recent list,
   recovery in that folder) that never meets the installed one. A development build never runs the setup.
 - **Snapshots:** `dotnet run --project src/ThixWrite -- --snapshot <folder>` draws every window headless in light and dark
