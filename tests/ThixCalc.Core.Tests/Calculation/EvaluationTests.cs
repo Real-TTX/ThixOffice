@@ -100,6 +100,22 @@ public class EvaluationTests
     }
 
     [Fact]
+    public void A_spill_over_another_anchor_is_blocked_in_either_order()
+    {
+        foreach (var reversed in new[] { false, true })
+        {
+            var workbook = Create();
+            var sheet = workbook.Sheets[0];
+            var cells = new[] { ("A1", (object?)"=SEQUENCE(2,2)"), ("B1", (object?)"=SEQUENCE(3)") };
+            Fill(sheet, reversed ? cells.Reverse().ToArray() : cells);
+            workbook.Calculation.Recalculate();
+            Assert.Equal(CellError.Spill, sheet["A1"].Error);
+            Assert.Equal(3, sheet["B3"].Number);
+            Assert.True(sheet["A2"].IsBlank);
+        }
+    }
+
+    [Fact]
     public void Shrinking_spills_clear_their_old_cells()
     {
         var workbook = Create();

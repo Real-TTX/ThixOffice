@@ -275,8 +275,13 @@ internal static class LogicalFunctions
         return any ? result : CellError.Value;
     }
 
-    private static string ParameterName(FunctionCall call, int index) =>
-        call.Node?.Arguments[index] is NameNode { SheetId: null } name ? name.Name : throw new CalcErrorException(CellError.Value);
+    /// <summary>A LET/LAMBDA name; LAMBDA's optional parameters are written in brackets ([b]).</summary>
+    private static string ParameterName(FunctionCall call, int index) => call.Node?.Arguments[index] switch
+    {
+        NameNode { SheetId: null } name => name.Name,
+        StructuredReferenceNode { TableName: null, Specifier: ['[', .., ']'] specifier } => specifier[1..^1],
+        _ => throw new CalcErrorException(CellError.Value),
+    };
 
     private static Operand Let(FunctionCall call)
     {

@@ -27,7 +27,7 @@ public static class FunctionRegistry
         "T.TEST", "TEXTJOIN", "UNICHAR", "UNICODE", "VAR.P", "VAR.S", "WEIBULL.DIST", "WORKDAY.INTL", "XOR", "Z.TEST",
         "SEQUENCE", "RANDARRAY", "SORTBY", "UNIQUE", "XLOOKUP", "XMATCH", "LET", "LAMBDA", "MAP", "REDUCE", "SCAN", "MAKEARRAY",
         "BYROW", "BYCOL", "ISOMITTED", "CHOOSECOLS", "CHOOSEROWS", "DROP", "EXPAND", "HSTACK", "VSTACK", "TAKE", "TOCOL", "TOROW",
-        "WRAPCOLS", "WRAPROWS", "TEXTAFTER", "TEXTBEFORE", "TEXTSPLIT", "VALUETOTEXT", "ARRAYTOTEXT",
+        "WRAPCOLS", "WRAPROWS", "BINOM.DIST.RANGE", "TEXTAFTER", "TEXTBEFORE", "TEXTSPLIT", "VALUETOTEXT", "ARRAYTOTEXT",
     };
 
     /// <summary>Functions written as "_xlfn._xlws." (worksheet-only dynamic array functions).</summary>
