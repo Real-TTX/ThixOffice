@@ -71,8 +71,10 @@ public sealed partial class DocumentLayout
             page.HeaderKind = headerKind;
             page.Footer = footer;
             page.FooterKind = footerKind;
-            page.HeaderLines = header is null ? [] : PlaceStory(header, page, today, atBottom: false);
-            page.FooterLines = footer is null ? [] : PlaceStory(footer, page, today, atBottom: true);
+            var floats = new List<PlacedFloat>();
+            page.HeaderLines = header is null ? [] : PlaceStory(header, page, today, atBottom: false, floats);
+            page.FooterLines = footer is null ? [] : PlaceStory(footer, page, today, atBottom: true, floats);
+            page.HeaderFooterFloats = floats;
             _displayLists.Remove(index);
             firstChanged = Math.Min(firstChanged, index);
         }
@@ -86,7 +88,7 @@ public sealed partial class DocumentLayout
     }
 
     /// <summary>The lines of a header (from the header distance down) or a footer (up to the footer distance) of a page.</summary>
-    private PlacedLine[] PlaceStory(Story story, PageLayout page, DateTime today, bool atBottom)
+    private PlacedLine[] PlaceStory(Story story, PageLayout page, DateTime today, bool atBottom, List<PlacedFloat>? floats = null)
     {
         var setup = page.Section.Properties;
         var layouts = LayoutStory(story, setup.ContentWidth, page.Number, _pages.Count, today);
@@ -97,6 +99,15 @@ public sealed partial class DocumentLayout
         foreach (var (block, layout, before, after) in layouts)
         {
             y += before;
+            if (floats is not null && story.Blocks[block] is Paragraph paragraph)
+            {
+                foreach (var (offset, inline, anchor, objectWidth, objectHeight) in AnchoredIn(paragraph))
+                {
+                    var (x, top) = FloatPosition(anchor, objectWidth, objectHeight, setup, y, left, setup.ContentWidth);
+                    floats.Add(new PlacedFloat(block, offset, inline, anchor, x, top, objectWidth, objectHeight, IsHeaderFooter: true));
+                }
+            }
+
             for (var index = 0; index < layout.Lines.Count; index++)
             {
                 lines.Add(new PlacedLine(block, index, y, left, layout.Lines[index], layout));

@@ -89,11 +89,29 @@ public static class DocxReader
                 return;
             case W.SdtBlock sdt when DocxToc.IsTocControl(sdt) && sdt.SdtContentBlock is { } content:
                 // Word's "Inhaltsverzeichnis" control: its paragraphs are the document's (the TOC field inside is read as one).
-                foreach (var inner in content.ChildElements)
+                foreach (var tocChild in content.ChildElements)
                 {
-                    ReadBodyChild(inner, blocks, context, ref finalSection);
+                    ReadBodyChild(tocChild, blocks, context, ref finalSection);
                 }
 
+                return;
+            case W.SdtBlock control when control.SdtContentBlock is { } controlContent && CanUnwrap(controlContent):
+                // A content control around paragraphs (cover pages, rich text): its paragraphs are the document's, marks keep its place.
+                var inner = new List<Block>();
+                foreach (var innerChild in controlContent.ChildElements)
+                {
+                    ReadBodyChild(innerChild, inner, context, ref finalSection);
+                }
+
+                if (inner.Count > 0 && inner[0] is Paragraph { Cell: null } firstInner && inner[^1] is Paragraph { Cell: null })
+                {
+                    var properties = XmlFragments.Join(control.ChildElements.Where(element => element is W.SdtProperties or W.SdtEndCharProperties));
+                    inner[0] = firstInner.WithInlines(firstInner.Inlines.Insert(0, new ContentControlMarkInline(false, properties, CharacterProperties.Empty)));
+                    var lastInner = (Paragraph)inner[^1];
+                    inner[^1] = lastInner.WithInlines(lastInner.Inlines.Add(new ContentControlMarkInline(true, null, CharacterProperties.Empty)));
+                }
+
+                blocks.AddRange(inner);
                 return;
             case W.BookmarkStart or W.BookmarkEnd or W.CommentRangeStart or W.CommentRangeEnd or W.PermStart or W.PermEnd
                 or W.MoveFromRangeStart or W.MoveFromRangeEnd or W.MoveToRangeStart or W.MoveToRangeEnd or W.ProofError:
@@ -117,6 +135,21 @@ public static class DocxReader
         };
         context.Count(kind);
         blocks.Add(new OpaqueBlock(XmlFragments.Canonical(child), kind, LinesOf(child)));
+    }
+
+    /// <summary>
+    /// True for the content of a block-level content control ThixWrite opens as its paragraphs: it starts and ends with a paragraph
+    /// (or such a control), with only paragraphs, tables, such controls and range markers in between.
+    /// </summary>
+    private static bool CanUnwrap(W.SdtContentBlock content)
+    {
+        var children = content.ChildElements.Where(child => !IsMarker(child) && child is not W.ProofError).ToList();
+        static bool IsParagraphLike(OpenXmlElement element) =>
+            element is W.Paragraph || element is W.SdtBlock { SdtContentBlock: { } inner } control && !DocxToc.IsTocControl(control) && CanUnwrap(inner);
+        return children.Count > 0
+               && IsParagraphLike(children[0])
+               && IsParagraphLike(children[^1])
+               && children.All(child => IsParagraphLike(child) || child is W.Table);
     }
 
     /// <summary>
@@ -318,10 +351,10 @@ public static class DocxReader
             }
         }
 
-        void AddOpaque(OpenXmlElement element, PreservedKind kind, double width = 0, double height = 0)
+        void AddOpaque(OpenXmlElement element, PreservedKind kind, double width = 0, double height = 0, DrawingGraphic? graphic = null)
         {
             Flush();
-            inlines.Add(new OpaqueInline(XmlFragments.Canonical(element), kind, true, properties, "", width, height, link));
+            inlines.Add(new OpaqueInline(XmlFragments.Canonical(element), kind, true, properties, "", width, height, link) { Graphic = graphic });
         }
 
         foreach (var child in run.ChildElements)
@@ -373,18 +406,19 @@ public static class DocxReader
                     break;
                 case W.Drawing drawing when DocxPictures.Read(drawing, context.Part, properties, link) is { } picture:
                     Flush();
-                    inlines.Add(picture);
-                    if (picture.IsFloating)
-                    {
-                        context.Count(PreservedKind.FloatingDrawing);
-                    }
-
+                    // A floating picture is placed on its page with the text flowing around it (DrawingAnchor).
+                    inlines.Add(drawing.GetFirstChild<Wp.Anchor>() is { } pictureAnchor ? picture with { Anchor = DocxDrawings.ReadAnchor(pictureAnchor) } : picture);
                     break;
                 case W.Drawing or W.Picture:
                 case AlternateContent when child.Descendants().Any(descendant => descendant is W.Drawing or W.Picture):
-                    context.Count(PreservedKind.Drawing);
-                    var (width, height) = InlineSize(child);
-                    AddOpaque(child, PreservedKind.Drawing, width, height);
+                    var graphic = DocxDrawings.Read(child, context);
+                    if (graphic is null)
+                    {
+                        context.Count(PreservedKind.Drawing);
+                    }
+
+                    var (width, height) = graphic is { Anchor: null } ? (graphic.Width, graphic.Height) : graphic is null ? InlineSize(child) : (0, 0);
+                    AddOpaque(child, PreservedKind.Drawing, width, height, graphic);
                     break;
                 case W.EmbeddedObject:
                     context.Count(PreservedKind.EmbeddedObject);
@@ -537,8 +571,38 @@ public static class DocxReader
         return copy.ToArray();
     }
 
-    private sealed class ReadContext(MainDocumentPart main)
+    private sealed class ReadContext(MainDocumentPart main) : DocxDrawings.IDrawingContext
     {
+        private Theme? _theme;
+
+        public Theme Theme => _theme ??= DocxStyles.ReadTheme(Main.ThemePart);
+
+        /// <summary>The paragraphs and tables of a text box (w:txbxContent), read like the body; the markers around it stay where they were.</summary>
+        public Story ReadTextBox(OpenXmlElement textBoxContent)
+        {
+            var markers = TakeMarkers();
+            try
+            {
+                var blocks = new List<Block>();
+                SectionProperties? ignored = null;
+                foreach (var child in textBoxContent.ChildElements)
+                {
+                    ReadBodyChild(child, blocks, this, ref ignored);
+                }
+
+                if (PendingMarkers.Count > 0)
+                {
+                    blocks.Add(new Paragraph(TakeMarkers()));
+                }
+
+                return new Story(blocks);
+            }
+            finally
+            {
+                PendingMarkers.AddRange(markers);
+            }
+        }
+
         private readonly Dictionary<PreservedKind, int> _counts = [];
 
         public MainDocumentPart Main { get; } = main;

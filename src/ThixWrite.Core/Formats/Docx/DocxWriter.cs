@@ -104,26 +104,32 @@ public static class DocxWriter
     private static W.Body WriteBody(Document document, WriteContext context)
     {
         var body = new W.Body();
+        var nesting = new ControlNesting();
         for (var index = 0; index < document.Blocks.Count; index++)
         {
             switch (document.Blocks[index])
             {
                 case Paragraph { Cell: not null }:
                     var span = TableSpan.At(document, index)!;
-                    body.AppendChild(WriteTable(document, span, context));
+                    nesting.Add(WriteTable(document, span, context), null);
                     index = span.End;
                     break;
                 case Paragraph paragraph:
-                    body.AppendChild(WriteParagraph(paragraph, context));
+                    nesting.Add(WriteParagraph(paragraph, context), paragraph);
                     break;
                 case OpaqueBlock opaque:
                     foreach (var element in XmlFragments.Parse<W.Body>(opaque.Xml))
                     {
-                        body.AppendChild(element);
+                        nesting.Add(element, null);
                     }
 
                     break;
             }
+        }
+
+        foreach (var element in nesting.Elements)
+        {
+            body.AppendChild(element);
         }
 
         body.AppendChild(DocxPropertyWriter.WriteSection(document.FinalSection, context.ReferencesOf));
@@ -258,6 +264,8 @@ public static class DocxWriter
             case TocMarkInline toc:
                 yield return FieldCharRun(toc.Properties, W.FieldCharValues.End);
                 break;
+            case ContentControlMarkInline:
+                break; // the w:sdt around the paragraphs is written by ControlNesting
             case NoteMarkInline mark:
                 var markRun = NewRun(mark.Properties);
                 markRun.AppendChild<OpenXmlElement>(mark.Kind == NoteKind.Footnote ? new W.FootnoteReferenceMark() : new W.EndnoteReferenceMark());
@@ -389,25 +397,80 @@ public static class DocxWriter
     {
         // A story that is not the body gets a document of its own (same styles), so that tables find their blocks.
         var story = new Document(blocks, document.Styles, document.Numbering, document.FinalSection, document.Theme, document.Settings);
+        var nesting = new ControlNesting();
         for (var index = 0; index < story.Blocks.Count; index++)
         {
             switch (story.Blocks[index])
             {
                 case Paragraph { Cell: not null }:
                     var span = TableSpan.At(story, index)!;
-                    yield return WriteTable(story, span, context);
+                    nesting.Add(WriteTable(story, span, context), null);
                     index = span.End;
                     break;
                 case Paragraph paragraph:
-                    yield return WriteParagraph(paragraph.WithSectionBreak(null), context);
+                    nesting.Add(WriteParagraph(paragraph.WithSectionBreak(null), context), paragraph);
                     break;
                 case OpaqueBlock opaque:
                     foreach (var element in XmlFragments.Parse<W.Body>(opaque.Xml))
                     {
-                        yield return element;
+                        nesting.Add(element, null);
                     }
 
                     break;
+            }
+        }
+
+        return nesting.Elements;
+    }
+
+    /// <summary>
+    /// Puts the elements of a story into the block-level content controls the marks of their paragraphs open and close
+    /// (<see cref="ContentControlMarkInline"/>): a start mark opens a w:sdt before its paragraph, an end mark closes the innermost one
+    /// after it; unbalanced marks are tolerated (an end without a start is ignored, an open control ends with the story).
+    /// </summary>
+    private sealed class ControlNesting
+    {
+        private readonly List<OpenXmlElement> _top = [];
+        private readonly Stack<W.SdtContentBlock> _open = new();
+
+        public IReadOnlyList<OpenXmlElement> Elements => _top;
+
+        public void Add(OpenXmlElement element, Paragraph? paragraph)
+        {
+            var marks = paragraph?.Inlines.OfType<ContentControlMarkInline>().ToList() ?? [];
+            foreach (var start in marks.Where(mark => !mark.IsEnd))
+            {
+                var control = new W.SdtBlock();
+                foreach (var properties in XmlFragments.Parse<W.SdtBlock>(start.PropertiesXml))
+                {
+                    control.AppendChild(properties);
+                }
+
+                var content = new W.SdtContentBlock();
+                control.AppendChild(content);
+                Append(control);
+                _open.Push(content);
+            }
+
+            Append(element);
+            foreach (var _ in marks.Where(mark => mark.IsEnd))
+            {
+                if (_open.Count > 0)
+                {
+                    _open.Pop();
+                }
+            }
+        }
+
+        private void Append(OpenXmlElement element)
+        {
+            if (_open.Count > 0)
+            {
+                _open.Peek().AppendChild(element);
+            }
+            else
+            {
+                _top.Add(element);
             }
         }
     }

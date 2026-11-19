@@ -237,6 +237,9 @@ public sealed record ImageInline(
 
     public override string Characters => "￼";
 
+    /// <summary>Where a floating picture (wp:anchor) sits and how text flows around it; null for a picture in the line.</summary>
+    public DrawingAnchor? Anchor { get; init; }
+
     /// <summary>The same picture at another size (no longer the drawing as read).</summary>
     public ImageInline WithSize(double width, double height) => this with { Width = Math.Max(1, width), Height = Math.Max(1, height), SourceXml = null };
 
@@ -249,7 +252,8 @@ public sealed record ImageInline(
         && Properties == other.Properties
         && Description == other.Description
         && Link == other.Link
-        && IsFloating == other.IsFloating;
+        && IsFloating == other.IsFloating
+        && Anchor == other.Anchor;
 
     public override int GetHashCode() => HashCode.Combine(Image, Math.Round(Width), Math.Round(Height), Description, IsFloating);
 }

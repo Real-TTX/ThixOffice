@@ -264,8 +264,18 @@ public class DocxRoundTripTests
 
         var read = RoundTrip(document);
 
-        AssertSameContent(document, read);
-        Assert.Equal([new UnsupportedContent(PreservedKind.ContentControl, 1)], read.UnsupportedContent);
+        // The bookmarks stay as they were; the content control around a paragraph opens as that paragraph between two marks …
+        Assert.Equal(((Paragraph)document.Blocks[0]).Inlines.ToList(), ((Paragraph)read.Blocks[0]).Inlines.ToList());
+        var opened = (Paragraph)read.Blocks[1];
+        Assert.Equal("Zelle", opened.Text.Replace("￼", "", StringComparison.Ordinal));
+        Assert.Equal([false, true], opened.Inlines.OfType<ContentControlMarkInline>().Select(mark => mark.IsEnd));
+        Assert.Empty(read.UnsupportedContent);
+
+        // … and is written back as the same w:sdt, again and again.
+        var again = RoundTrip(read);
+        AssertSameContent(read, again);
+        var xml = DocumentXml(Write(again));
+        Assert.Contains("<w:sdt><w:sdtPr><w:alias w:val=\"Feld\" /></w:sdtPr><w:sdtContent><w:p><w:r><w:t>Zelle</w:t></w:r></w:p></w:sdtContent></w:sdt>", xml);
     }
 
     [Fact]

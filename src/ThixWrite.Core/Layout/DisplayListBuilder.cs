@@ -15,19 +15,32 @@ public static class DisplayListBuilder
     private static readonly RgbColor PlaceholderStroke = new(0xA6, 0xA6, 0xA6);
     private static readonly RgbColor PlaceholderFill = new(0xF2, 0xF2, 0xF2);
 
-    public static PageDisplayList Build(PageLayout page)
+    /// <summary>
+    /// The display list of a page. <paramref name="drawObject"/> draws an object into a box (floating pictures, shapes, text boxes,
+    /// charts; inline drawings ThixWrite keeps as XML) – without it they are left out (pictures in the line are always drawn).
+    /// </summary>
+    public static PageDisplayList Build(PageLayout page, Func<Inline, double, double, double, double, IEnumerable<DisplayItem>>? drawObject = null)
     {
         var items = new List<DisplayItem>();
+        var floats = page.HeaderFooterFloats.Concat(page.Floats).OrderBy(placed => placed.Anchor.ZOrder).ToList();
+        if (drawObject is not null)
+        {
+            foreach (var placed in floats.Where(placed => placed.Anchor.BehindText))
+            {
+                items.AddRange(drawObject(placed.Inline, placed.X, placed.Y, placed.Width, placed.Height));
+            }
+        }
+
         AddCellFills(page, items);
         AddPreservedFrames(page, items);
         foreach (var placed in page.HeaderLines.Concat(page.FooterLines).Concat(page.RepeatedLines))
         {
-            AddLine(placed, items);
+            AddLine(placed, items, drawObject);
         }
 
         foreach (var placed in page.Lines)
         {
-            AddLine(placed, items);
+            AddLine(placed, items, drawObject);
         }
 
         foreach (var separator in new[] { page.FootnoteSeparator, page.EndnoteSeparator })
@@ -40,10 +53,18 @@ public static class DisplayListBuilder
 
         foreach (var placed in page.Footnotes.Concat(page.Endnotes).SelectMany(note => note.Lines))
         {
-            AddLine(placed, items);
+            AddLine(placed, items, drawObject);
         }
 
         AddCellBorders(page, items);
+        if (drawObject is not null)
+        {
+            foreach (var placed in floats.Where(placed => !placed.Anchor.BehindText))
+            {
+                items.AddRange(drawObject(placed.Inline, placed.X, placed.Y, placed.Width, placed.Height));
+            }
+        }
+
         return new PageDisplayList(page.Index, page.Width, page.Height, items);
     }
 
@@ -140,7 +161,7 @@ public static class DisplayListBuilder
         }
     }
 
-    private static void AddLine(PlacedLine placed, List<DisplayItem> items)
+    private static void AddLine(PlacedLine placed, List<DisplayItem> items, Func<Inline, double, double, double, double, IEnumerable<DisplayItem>>? drawObject = null)
     {
         var line = placed.Line;
         var baseline = placed.Top + line.Baseline;
@@ -169,6 +190,9 @@ public static class DisplayListBuilder
                     var style = tab.Leader is TabLeader.Hyphen ? LineStyle.Dashed : tab.Leader is TabLeader.Underscore or TabLeader.Heavy ? LineStyle.Solid : LineStyle.Dotted;
                     items.Add(new LineItem(placed.Left + tab.X + 1, baseline, placed.Left + tab.X + tab.Width - 1, baseline, ColorOf(tab.Format),
                         tab.Leader == TabLeader.Heavy ? 1.2 : 0.6, style));
+                    break;
+                case ObjectItem { Inline: OpaqueInline { Graphic: not null } } drawing when drawObject is not null:
+                    items.AddRange(drawObject(drawing.Inline, placed.Left + drawing.X, baseline - drawing.Height, drawing.Width, drawing.Height));
                     break;
                 case ObjectItem box:
                     AddObject(items, placed, box, baseline);

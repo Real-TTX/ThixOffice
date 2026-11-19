@@ -76,7 +76,16 @@ internal static class ParagraphLayouter
         public double ObjectHeight;
     }
 
-    public static ParagraphLayout Layout(Paragraph paragraph, EffectiveParagraphFormat format, ListLabel? label, double width, LayoutContext context)
+    /// <summary>The narrowest line text is set in beside a floating object; a narrower gap is skipped (the line moves below the object).</summary>
+    private const double MinimumWrapWidth = 36;
+
+    /// <summary>
+    /// Lays out a paragraph at <paramref name="width"/>. <paramref name="exclusions"/>: the areas of floating objects the text keeps clear
+    /// of, in the paragraph's coordinates (x from the left of the text area, y from the top of its first line) – a line beside one is
+    /// set in the wider gap next to it, a line with no room left moves below it.
+    /// </summary>
+    public static ParagraphLayout Layout(Paragraph paragraph, EffectiveParagraphFormat format, ListLabel? label, double width, LayoutContext context,
+        IReadOnlyList<(double Left, double Top, double Right, double Bottom)>? exclusions = null)
     {
         var text = paragraph.Text;
         var styleId = format.StyleKey;
@@ -101,13 +110,49 @@ internal static class ParagraphLayouter
         var tabWidths = new double[text.Length];
         var lines = new List<LineLayout>();
         var lineStart = 0;
+        var y = 0.0;
         while (true)
         {
             var isFirst = lines.Count == 0;
-            var startX = isFirst ? firstStart : left;
-            var (end, ending) = FillLine(text, lineStart, startX, right, advances, breaks, graphemeStarts, tabWidths, format, context);
-            lines.Add(BuildLine(paragraph, lineStart, end, ending, startX, right, isFirst, format, segments, owner, advances, tabWidths,
-                graphemeStarts, isFirst ? labelItem : null, markMetrics, markWidth));
+            var baseStart = isFirst ? firstStart : left;
+            var (startX, lineRight, skip) = (baseStart, right, 0.0);
+            LineLayout line;
+            LineEnding ending;
+            var end = lineStart;
+            for (var attempt = 0; ; attempt++)
+            {
+                (end, ending) = FillLine(text, lineStart, startX, lineRight, advances, breaks, graphemeStarts, tabWidths, format, context);
+                line = BuildLine(paragraph, lineStart, end, ending, startX, lineRight, isFirst, format, segments, owner, advances, tabWidths,
+                    graphemeStarts, isFirst ? labelItem : null, markMetrics, markWidth);
+                if (exclusions is not { Count: > 0 } || attempt >= 12)
+                {
+                    break;
+                }
+
+                var (newStart, newRight, below) = Room(exclusions, baseStart, right, y + skip, y + skip + line.Height);
+                if (below > 0)
+                {
+                    skip = below - y;
+                    (startX, lineRight) = (baseStart, right);
+                    continue;
+                }
+
+                if (Math.Abs(newStart - startX) < Epsilon && Math.Abs(newRight - lineRight) < Epsilon)
+                {
+                    break;
+                }
+
+                (startX, lineRight) = (newStart, newRight);
+            }
+
+            if (skip > 0)
+            {
+                line = new LineLayout(line.Start, line.End, line.Height + skip, line.Baseline + skip, line.Ascent, line.Descent, line.Items, line.Stops,
+                    line.StopX, line.Ending, line.IsFirst, line.IsLast, line.MarkWidth);
+            }
+
+            lines.Add(line);
+            y += line.Height;
             lineStart = end;
 
             var paragraphEnds = ending == LineEnding.Paragraph || (lineStart >= text.Length && ending == LineEnding.PageBreak);
@@ -125,7 +170,39 @@ internal static class ParagraphLayouter
                 last.StopX, last.Ending, last.IsFirst, true, last.MarkWidth);
         }
 
-        return new ParagraphLayout(paragraph, width, label?.Text, format, lines);
+        return new ParagraphLayout(paragraph, width, label?.Text, format, lines) { IsWrapped = exclusions is { Count: > 0 } };
+    }
+
+    /// <summary>
+    /// Where a line between <paramref name="top"/> and <paramref name="bottom"/> has room beside the exclusions it meets: the wider
+    /// side of each; when no gap of <see cref="MinimumWrapWidth"/> is left, the y below the lowest blocking exclusion (else 0).
+    /// </summary>
+    private static (double Start, double Right, double Below) Room(IReadOnlyList<(double Left, double Top, double Right, double Bottom)> exclusions,
+        double start, double right, double top, double bottom)
+    {
+        var (newStart, newRight) = (start, right);
+        var lowest = 0.0;
+        foreach (var exclusion in exclusions)
+        {
+            if (exclusion.Bottom <= top + Epsilon || exclusion.Top >= bottom - Epsilon || exclusion.Right <= start || exclusion.Left >= right)
+            {
+                continue;
+            }
+
+            lowest = Math.Max(lowest, exclusion.Bottom);
+            var roomLeft = exclusion.Left - start;
+            var roomRight = right - exclusion.Right;
+            if (roomRight >= roomLeft)
+            {
+                newStart = Math.Max(newStart, exclusion.Right);
+            }
+            else
+            {
+                newRight = Math.Min(newRight, exclusion.Left);
+            }
+        }
+
+        return newRight - newStart < MinimumWrapWidth && lowest > 0 ? (start, right, lowest) : (newStart, newRight, 0);
     }
 
     /// <summary>The lines of a preserved block: a short German caption, then its text lines, in the body font, grey.</summary>
@@ -248,13 +325,13 @@ internal static class ParagraphLayouter
                 {
                     Start = start,
                     End = start + 1,
-                    Kind = SegmentKind.Object,
+                    Kind = image.Anchor is null ? SegmentKind.Object : SegmentKind.Marker, // a floating picture is placed by the page
                     Format = format,
                     Font = font,
                     Metrics = metrics,
                     Object = image,
-                    ObjectWidth = image.Width,
-                    ObjectHeight = image.Height,
+                    ObjectWidth = image.Anchor is null ? image.Width : 0,
+                    ObjectHeight = image.Anchor is null ? image.Height : 0,
                 };
                 advances[start] = picture.ObjectWidth;
                 owner[start] = segments.Count;

@@ -292,6 +292,15 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
     /// <summary>The rectangle of the inline object (a picture) at <paramref name="position"/>, or null when there is none.</summary>
     public PageRect? GetObjectRect(DocumentPosition position)
     {
+        Update();
+        for (var index = 0; index < _pages.Count; index++)
+        {
+            if (_pages[index].Floats.FirstOrDefault(placed => placed.Block == position.Block && placed.Offset == position.Offset) is { } floating)
+            {
+                return new PageRect(index, floating.X, floating.Y, floating.Width, floating.Height);
+            }
+        }
+
         var (page, placed) = Locate(new CaretPlace(position));
         foreach (var item in placed.Line.Items)
         {
@@ -312,6 +321,12 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
         if (page < 0 || page >= _pages.Count)
         {
             return null;
+        }
+
+        // Floating pictures first (in front of the text), the topmost of them.
+        if (_pages[page].Floats.Where(placed => placed.Inline is ImageInline && placed.Contains(x, y)).OrderByDescending(placed => placed.Anchor.ZOrder).FirstOrDefault() is { } floating)
+        {
+            return new DocumentPosition(floating.Block, floating.Offset);
         }
 
         foreach (var placed in _pages[page].Lines)
@@ -362,7 +377,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
             return cached;
         }
 
-        var list = DisplayListBuilder.Build(_pages[page]);
+        var list = DisplayListBuilder.Build(_pages[page], DrawObject);
         _displayLists[page] = list;
         return list;
     }
@@ -586,7 +601,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
         var current = Document.Blocks[block];
         var label = block < _labels.Length ? _labels[block] : null;
         var notes = block < _noteStarts.Length ? _noteStarts[block] : (0, 0);
-        if (cached is not null && ReferenceEquals(cached.Block, current) && Math.Abs(cached.Width - width) < Epsilon && cached.Label == label?.Text && cached.NoteStart == notes)
+        if (cached is not null && !cached.IsWrapped && ReferenceEquals(cached.Block, current) && Math.Abs(cached.Width - width) < Epsilon && cached.Label == label?.Text && cached.NoteStart == notes)
         {
             return cached;
         }
@@ -724,6 +739,16 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
             }
 
             _y += spacing;
+            if (owner.Document.Blocks[block] is Paragraph paragraph)
+            {
+                var areaLeft = Setup.MarginLeft + Setup.Gutter;
+                PlaceFloats(block, paragraph, _y, areaLeft, Setup.ContentWidth);
+                if (Page.Floats.Count > 0)
+                {
+                    layout = Wrapped(block, paragraph, layout, areaLeft, Setup.ContentWidth);
+                }
+            }
+
             PlaceLines(block, layout);
 
             _pendingAfter = format.SpacingAfter;

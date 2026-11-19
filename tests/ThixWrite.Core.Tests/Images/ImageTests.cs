@@ -143,7 +143,7 @@ public class ImageTests
     }
 
     [Fact]
-    public void A_floating_picture_shows_in_the_text_with_a_note_and_keeps_its_anchor()
+    public void A_floating_picture_is_placed_by_its_anchor_and_keeps_it()
     {
         const string W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
         var anchor = "<w:r><w:drawing><wp:anchor distT=\"0\" distB=\"0\" distL=\"114300\" distR=\"114300\" simplePos=\"0\" relativeHeight=\"1\" behindDoc=\"0\" locked=\"0\" layoutInCell=\"1\" allowOverlap=\"1\">"
@@ -162,7 +162,9 @@ public class ImageTests
         Assert.True(image.IsFloating);
         Assert.Equal(75, image.Width, 2);
         Assert.Equal("Logo", image.Description);
-        Assert.Equal([new UnsupportedContent(PreservedKind.FloatingDrawing, 1)], document.UnsupportedContent);
+        Assert.Equal(DrawingWrap.Square, image.Anchor!.Wrap); // placed by its anchor, the text flows around it
+        Assert.Equal(DrawingFrame.Column, image.Anchor.HorizontalFrame);
+        Assert.Empty(document.UnsupportedContent);
 
         var written = DocxTestSupport.Write(document);
         DocxTestSupport.AssertValid(written);

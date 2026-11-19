@@ -83,7 +83,7 @@ public class DocxFixtureTests
         Assert.False(notes.ContainsKey(PreservedKind.Comment)); // a comment is a comment now
         Assert.Equal(2, notes[PreservedKind.TrackedChange]);
         Assert.False(notes.ContainsKey(PreservedKind.Field)); // PAGE and NUMPAGES are fields ThixWrite updates
-        Assert.Equal(2, notes[PreservedKind.ContentControl]);
+        Assert.Equal(1, notes[PreservedKind.ContentControl]); // the inline control; the block control opens as its paragraph
         Assert.False(notes.ContainsKey(PreservedKind.Bookmark));
         Assert.All(document.UnsupportedContent, note => Assert.False(string.IsNullOrWhiteSpace(note.Message)));
     }
@@ -113,8 +113,8 @@ public class DocxFixtureTests
         Assert.Equal(["A1", "B1", "A2", "B2"], cells.Select(paragraph => paragraph.Text));
         Assert.Equal([(0, 0), (0, 1), (1, 0), (1, 1)], cells.Select(paragraph => (paragraph.Cell!.Value.Row, paragraph.Cell!.Value.Cell)));
         Assert.All(cells, paragraph => Assert.Same(cells[0].Cell!.Value.Table, paragraph.Cell!.Value.Table));
-        var control = document.Blocks.OfType<OpaqueBlock>().Single(block => block.Kind == PreservedKind.ContentControl);
-        Assert.Equal(["Block-Steuerelement"], control.Lines);
+        var control = paragraphs.Single(paragraph => paragraph.Text.Contains("Block-Steuerelement", StringComparison.Ordinal));
+        Assert.Equal([false, true], control.Inlines.OfType<ContentControlMarkInline>().Select(mark => mark.IsEnd)); // a block control opens as its paragraphs
 
         Assert.Contains(paragraphs.SelectMany(paragraph => paragraph.Inlines), inline => inline is OpaqueInline { Kind: PreservedKind.Bookmark, IsMarker: true });
         Assert.Equal("Kopfzeile", ((Paragraph)document.FinalSection.Headers.Default!.Blocks[0]).Text); // the header is read

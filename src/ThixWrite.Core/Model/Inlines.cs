@@ -101,6 +101,9 @@ public sealed record OpaqueInline(
 {
     public override int Length => 1;
 
+    /// <summary>What the drawing shows (shapes, text boxes, groups, charts, SmartArt) when this is a w:drawing ThixWrite can draw; null otherwise.</summary>
+    public DrawingGraphic? Graphic { get; init; }
+
     public override string Characters => ObjectText;
 
     private const string ObjectText = "\uFFFC";

@@ -206,6 +206,9 @@ public sealed class ParagraphLayout
 
     public bool IsPreserved => Block is OpaqueBlock;
 
+    /// <summary>True when the lines keep clear of floating objects on the page (laid out for that place, not reused elsewhere).</summary>
+    internal bool IsWrapped { get; init; }
+
     /// <summary>The numbers of the paragraph's first footnote and endnote it was laid out with ((0, 0) without notes).</summary>
     internal (int Footnote, int Endnote) NoteStart { get; set; }
 }
@@ -236,12 +239,31 @@ public sealed record PlacedCell(
     public bool Contains(double x, double y) => x >= X && x < X + Width && y >= Y && y < Y + Height;
 }
 
+/// <summary>
+/// A floating object placed on a page (a picture, shape, text box, group, chart with a wp:anchor): the block and the inline that
+/// anchors it, its rectangle (page points), the anchor (wrap, behind the text, z order). Pictures are drawn from <see cref="Inline"/>,
+/// the rest from its <see cref="OpaqueInline.Graphic"/>. <see cref="IsHeaderFooter"/>: anchored in the page's header or footer.
+/// </summary>
+public sealed record PlacedFloat(int Block, int Offset, Inline Inline, DrawingAnchor Anchor, double X, double Y, double Width, double Height, bool IsHeaderFooter = false)
+{
+    /// <summary>The area text keeps clear of (the rectangle with the distances to the text), or null when the text ignores it.</summary>
+    public (double Left, double Top, double Right, double Bottom)? Exclusion => Anchor.Wrap switch
+    {
+        DrawingWrap.None => null,
+        DrawingWrap.TopAndBottom => (-1e6, Y - Anchor.DistanceTop, 1e6, Y + Height + Anchor.DistanceBottom), // no text beside it
+        _ => (X - Anchor.DistanceLeft, Y - Anchor.DistanceTop, X + Width + Anchor.DistanceRight, Y + Height + Anchor.DistanceBottom),
+    };
+
+    public bool Contains(double x, double y) => x >= X && x < X + Width && y >= Y && y < Y + Height;
+}
+
 /// <summary>One page: size, margins (from its section), the lines on it in order, and the table cells on it.</summary>
 public sealed class PageLayout
 {
     private readonly List<PlacedLine> _lines = [];
     private readonly List<PlacedCell> _cells = [];
     private readonly List<PlacedLine> _repeatedLines = [];
+    private readonly List<PlacedFloat> _floats = [];
 
     internal PageLayout(int index, SectionInfo section)
     {
@@ -273,6 +295,14 @@ public sealed class PageLayout
     public IReadOnlyList<PlacedLine> RepeatedLines => _repeatedLines;
 
     internal List<PlacedCell> MutableCells => _cells;
+
+    /// <summary>The floating objects of the body on this page, in the order their anchors were placed.</summary>
+    public IReadOnlyList<PlacedFloat> Floats => _floats;
+
+    internal List<PlacedFloat> MutableFloats => _floats;
+
+    /// <summary>The floating objects of the page's header and footer.</summary>
+    public IReadOnlyList<PlacedFloat> HeaderFooterFloats { get; internal set; } = [];
 
     /// <summary>The header this page shows (its lines in <see cref="HeaderLines"/>, block numbers of the story), or null.</summary>
     public Story? Header { get; internal set; }
@@ -340,6 +370,7 @@ public sealed class PageLayout
     {
         _lines.RemoveAll(line => line.Block >= block);
         _cells.RemoveAll(cell => cell.TableStart >= block);
+        _floats.RemoveAll(placed => placed.Block >= block);
         _repeatedLines.RemoveAll(line => line.Block >= block);
         RemoveFootnotes(slice => slice.RefBlock >= block);
         _endnotes.Clear();
