@@ -14,6 +14,20 @@ public sealed partial class DocumentLayout
     private readonly Dictionary<(Block Block, string Fields, double Width), ParagraphLayout> _storyLayouts = [];
     private readonly List<(Story? Header, string HeaderKey, Story? Footer, string FooterKey)> _pageStories = [];
 
+    /// <summary>
+    /// What fields show in this layout's own paragraphs (null: their last result). The editor of a header sets it to the numbers of
+    /// the page being edited; setting it lays everything out again.
+    /// </summary>
+    public Func<FieldInline, string>? FieldText
+    {
+        get => _context.FieldText;
+        set
+        {
+            _context.FieldText = value;
+            _clearAll = true;
+        }
+    }
+
     /// <summary>Places the headers and footers of all pages; returns the first page that looks different now (int.MaxValue: none).</summary>
     private int PlaceHeadersAndFooters()
     {
@@ -100,6 +114,7 @@ public sealed partial class DocumentLayout
     {
         var fields = story.HasPageFields ? $"{page}/{pages}" : "";
         var result = new List<(int, ParagraphLayout, double, double)>();
+        var previous = _context.FieldText;
         _context.FieldText = field => field.Text(page, pages, today);
         try
         {
@@ -124,7 +139,7 @@ public sealed partial class DocumentLayout
         }
         finally
         {
-            _context.FieldText = null;
+            _context.FieldText = previous;
         }
 
         return result;

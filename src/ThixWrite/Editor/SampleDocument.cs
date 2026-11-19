@@ -88,6 +88,13 @@ public static class SampleDocument
         session.ApplyStyle(BuiltInStyles.Normal);
         session.InsertText("Anna Berger");
 
+        // A header with the title at the right and the page number in the footer.
+        var header = session.NewHeaderFooter(footer: false);
+        var title = (Paragraph)header.Blocks[0];
+        session.SetHeaderFooter(0, HeaderFooterKind.Default, false, header.WithBlocks([
+            title.WithInlines([new TextRun("Webshop – Projektbericht", new CharacterProperties { Color = TextColor.FromHex("7F7F7F") })]).WithProperties(title.Properties with { Alignment = ParagraphAlignment.Right })]));
+        session.InsertPageNumber(top: false, ParagraphAlignment.Center);
+
         session.ClearHistory();
         return document;
     }

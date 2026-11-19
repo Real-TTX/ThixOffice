@@ -17,6 +17,9 @@ public static class DocumentPalette
     /// <summary>The paper of every page.</summary>
     public static readonly Color Paper = Color.FromRgb(0xFF, 0xFF, 0xFF);
 
+    /// <summary>The paper over the body while a header or footer is edited (the body shows dimmed through it, as in Word).</summary>
+    public static readonly Color DimmedBody = Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF);
+
     /// <summary>The paper for Skia.</summary>
     public static readonly SKColor PaperSkia = new(0xFF, 0xFF, 0xFF);
 

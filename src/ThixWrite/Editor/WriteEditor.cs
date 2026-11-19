@@ -38,6 +38,8 @@ public sealed class WriteEditor : OfficeEditor
     private readonly Grid _view;
     private bool _statePending;
     private long _countedVersion = -1;
+    private readonly Canvas _overlay = new();
+    private StoryEditing? _story;
     private DocumentStatistics _statistics = new(0, 0, 0, 0);
 
     public WriteEditor(OfficeWindow window, WordDocument document)
@@ -49,7 +51,7 @@ public sealed class WriteEditor : OfficeEditor
         _surface = new DocumentSurface(document.Session, Layout);
         _scroller = new ScrollViewer
         {
-            Content = _surface,
+            Content = new Panel { Children = { _surface, _overlay } },
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
@@ -60,6 +62,9 @@ public sealed class WriteEditor : OfficeEditor
         FindBar = new FindBar(this) { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 10, 26, 0) };
         _view = new Grid { Children = { _scroller, FindBar } };
         _surface.ContextMenu = BuildContextMenu();
+        _surface.HeaderFooterRequested += (_, area) => EditHeaderFooter(area.Page, area.Footer);
+        _surface.BodyRequested += (_, _) => CloseHeaderFooter();
+        Document.Writing += OnWriting;
         _surface.DropPicture = (path, position) => OfficeWindow.RunAsync(_window, "Bild einfügen", () => Task.FromResult(InsertPictureFile(path, position)));
 
         document.Session.StateChanged += OnStateChanged;
@@ -70,7 +75,17 @@ public sealed class WriteEditor : OfficeEditor
 
     public WordDocument Document { get; }
 
-    public EditingSession Session => Document.Session;
+    /// <summary>The session the commands act on: the header or footer being edited, else the document's.</summary>
+    public EditingSession Session => _story?.Session ?? Document.Session;
+
+    /// <summary>The page and kind (footer?) of the header or footer being edited, else the caret's page and header.</summary>
+    public (int Page, bool Footer) EditedPlace => _story is { } story ? (story.Page, story.Footer) : (CaretPage, false);
+
+    /// <summary>True while a header or footer is edited.</summary>
+    public bool IsEditingHeaderFooter => _story is not null;
+
+    /// <summary>The surface of the header or footer being edited (tests), or null.</summary>
+    internal DocumentSurface? StorySurface => _story?.Surface;
 
     public DocumentLayout Layout { get; }
 
@@ -146,13 +161,162 @@ public sealed class WriteEditor : OfficeEditor
 
     public override void Detach()
     {
-        Session.StateChanged -= OnStateChanged;
+        CloseHeaderFooter();
+        Document.Session.StateChanged -= OnStateChanged;
+        Document.Writing -= OnWriting;
         Document.ContentReplaced -= OnContentReplaced;
         _surface.Detach();
         Layout.Dispose();
     }
 
-    protected override void OnZoomChanged(double zoom) => _surface.Scale = zoom / 100 * DocumentSurface.PointsToDips;
+    protected override void OnZoomChanged(double zoom)
+    {
+        _surface.Scale = zoom / 100 * DocumentSurface.PointsToDips;
+        if (_story is { } story)
+        {
+            story.Surface.Scale = _surface.Scale;
+            Dispatcher.UIThread.Post(PositionStory, DispatcherPriority.Loaded);
+        }
+    }
+
+    // ===== Headers and footers =====
+
+    /// <summary>
+    /// Opens the header (or footer) of a page for editing, as in Word: it is edited in place, the body dimmed; the tab Kopf- und
+    /// Fußzeile shows. The story is the page's (one of a section before when the page takes it from there); a page without one gets
+    /// a new, empty one.
+    /// </summary>
+    public void EditHeaderFooter(int page, bool footer)
+    {
+        CloseHeaderFooter();
+        Layout.Update();
+        page = Math.Clamp(page, 0, Layout.PageCount - 1);
+        var pageLayout = Layout.Pages[page];
+        var setup = pageLayout.Section.Properties;
+        var kind = footer ? pageLayout.FooterKind : pageLayout.HeaderKind;
+        var original = (footer ? pageLayout.Footer : pageLayout.Header) ?? Document.Session.NewHeaderFooter(footer);
+        var section = Document.Session.DefiningSection(pageLayout.Section.Index, kind, footer);
+        var content = Document.Content;
+        var storySection = setup with
+        {
+            PageHeight = 5000,
+            MarginTop = 0,
+            MarginBottom = 0,
+            TitlePage = false,
+            Headers = HeaderFooterSet.Empty,
+            Footers = HeaderFooterSet.Empty,
+        };
+        var document = new Core.Model.Document(original.Blocks, content.Styles, content.Numbering, storySection, content.Theme, content.Settings);
+        var session = new EditingSession(document);
+        var pages = Layout.PageCount;
+        var layout = new DocumentLayout(document, WriteFonts.Measurer, LayoutOptions.Default, session.Resolver)
+        {
+            FieldText = field => field.Text(page + 1, pages, DateTime.Today),
+        };
+        session.Navigator = layout;
+        var surface = new DocumentSurface(session, layout)
+        {
+            IsStory = true,
+            MinimumHeight = Math.Max(12, footer ? setup.MarginBottom - setup.FooterDistance : setup.MarginTop - setup.HeaderDistance),
+            Scale = _surface.Scale,
+        };
+        Avalonia.Automation.AutomationProperties.SetName(surface, footer ? "Fußzeile" : "Kopfzeile");
+        _story = new StoryEditing(document, session, layout, surface, section, kind, footer, page, original);
+        _overlay.Children.Add(surface);
+        session.StateChanged += OnStateChanged;
+        session.ContentChanged += OnStoryChanged;
+        surface.Refreshed += (_, _) => ScheduleState();
+        surface.KeyDown += OnStoryKey;
+        _surface.DimBody = true;
+        PositionStory();
+        session.SetCaret(document.End);
+        Dispatcher.UIThread.Post(() => surface.Focus(), DispatcherPriority.Input);
+        ScheduleState();
+    }
+
+    /// <summary>Puts the edited header or footer into the document (one step) and closes it; nothing when none is open.</summary>
+    public void CloseHeaderFooter()
+    {
+        if (_story is not { } story)
+        {
+            return;
+        }
+
+        CommitHeaderFooter();
+        story.Session.StateChanged -= OnStateChanged;
+        story.Session.ContentChanged -= OnStoryChanged;
+        story.Surface.KeyDown -= OnStoryKey;
+        story.Surface.Detach();
+        story.Layout.Dispose();
+        _overlay.Children.Remove(story.Surface);
+        _story = null;
+        _surface.DimBody = false;
+        _surface.Focus();
+        ScheduleState();
+    }
+
+    /// <summary>The text of the open header or footer into the document (before saving, when closing).</summary>
+    private void CommitHeaderFooter()
+    {
+        if (_story is not { } story)
+        {
+            return;
+        }
+
+        var edited = story.Original.WithBlocks(story.Document.Blocks);
+        Document.Session.AdoptDefinitions(story.Document.Styles, story.Document.Numbering);
+        var current = (story.Footer ? Document.Content.Sections[Math.Min(story.Section, Document.Content.Sections.Count - 1)].Properties.Footers
+            : Document.Content.Sections[Math.Min(story.Section, Document.Content.Sections.Count - 1)].Properties.Headers)[story.Kind];
+        if (current is null || !current.Equals(edited))
+        {
+            Document.Session.SetHeaderFooter(story.Section, story.Kind, story.Footer, edited);
+        }
+    }
+
+    private void OnWriting(object? sender, EventArgs e) => CommitHeaderFooter();
+
+    private void OnStoryChanged(object? sender, EventArgs e)
+    {
+        _story?.Surface.InvalidateMeasure();
+        Dispatcher.UIThread.Post(PositionStory, DispatcherPriority.Loaded);
+    }
+
+    private void OnStoryKey(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            CloseHeaderFooter();
+        }
+    }
+
+    /// <summary>The story surface over its page: the header from the header distance down, the footer up to the footer distance.</summary>
+    private void PositionStory()
+    {
+        if (_story is not { } story || story.Page >= Layout.PageCount)
+        {
+            return;
+        }
+
+        var setup = Layout.Pages[story.Page].Section.Properties;
+        var page = _surface.PageRect(story.Page);
+        var top = story.Footer
+            ? page.Y + ((setup.PageHeight - setup.FooterDistance - story.Surface.StoryHeight) * _surface.Scale)
+            : page.Y + (setup.HeaderDistance * _surface.Scale);
+        Canvas.SetLeft(story.Surface, page.X);
+        Canvas.SetTop(story.Surface, top);
+    }
+
+    private sealed record StoryEditing(
+        Core.Model.Document Document,
+        EditingSession Session,
+        DocumentLayout Layout,
+        DocumentSurface Surface,
+        int Section,
+        HeaderFooterKind Kind,
+        bool Footer,
+        int Page,
+        Story Original);
 
     // ===== Zoom =====
 
@@ -338,6 +502,15 @@ public sealed class WriteEditor : OfficeEditor
     /// <summary>Tabellenentwurf and Layout (contextual) show while the caret is in a table, Bildformat while a picture is selected, as in Word.</summary>
     private void ShowTableTabs()
     {
+        if (_story is not null)
+        {
+            _window.RibbonDefinition.ShowContext(HeaderFooterCommands.Context);
+        }
+        else
+        {
+            _window.RibbonDefinition.HideContext(HeaderFooterCommands.Context);
+        }
+
         if (Session.SelectedImage is not null)
         {
             _window.RibbonDefinition.ShowContext(PictureCommands.Context);

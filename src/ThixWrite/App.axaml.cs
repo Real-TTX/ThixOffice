@@ -27,12 +27,13 @@ public partial class App : OfficeApplication
     public const string PrintScene = "backstage-print";
     public const string TableScene = "main-table";
     public const string PictureScene = "main-picture";
+    public const string HeaderScene = "main-header";
     public const string LayoutScene = "main-layout";
     public const string ViewScene = "main-view";
 
     public override OfficeAppDefinition Definition => ThixWriteApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, TableScene, PictureScene, FindScene, PageSetupScene, PrintScene, ExportScene];
+    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, TableScene, PictureScene, HeaderScene, FindScene, PageSetupScene, PrintScene, ExportScene];
 
     public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => WriteRibbon.Create(window);
 
@@ -56,6 +57,7 @@ public partial class App : OfficeApplication
         WriteCommands.Add(window);
         TableCommands.Add(window);
         PictureCommands.Add(window);
+        HeaderFooterCommands.Add(window);
         window.Commands.Add(new ThixOffice.Core.Commands.OfficeCommand(WriteCommandIds.Print, "Drucken", () => window.ShowBackstage(PrintPage.PageId))
         {
             Icon = "print",
@@ -111,6 +113,12 @@ public partial class App : OfficeApplication
             case PrintScene:
                 window.ShowBackstage(PrintPage.PageId);
                 return window;
+            case HeaderScene:
+                // The header of the first page edited in place: the body dimmed, the tab Kopf- und Fußzeile.
+                editor.EditHeaderFooter(0, footer: false);
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                window.Ribbon.SelectTab("headerFooterTab");
+                return window;
             case PictureScene:
                 // The chart selected: its frame and handles, Bildformat open.
                 var picture = editor.Document.Content.Blocks.OfType<ThixWrite.Core.Model.Paragraph>().Select((paragraph, index) => (paragraph, index)).First(item => item.paragraph.Inlines.Any(inline => inline is ThixWrite.Core.Model.ImageInline));
@@ -142,6 +150,11 @@ public partial class App : OfficeApplication
                 break;
             case ViewScene:
                 editor.Zoom = 100;
+                window.Ribbon.SelectTab("home");
+                break;
+            case HeaderScene:
+                editor.CloseHeaderFooter();
+                editor.Session.SetCaret(new ThixWrite.Core.Model.DocumentPosition(SampleDocument.BodyParagraph, 0));
                 window.Ribbon.SelectTab("home");
                 break;
             case TableScene or PictureScene:

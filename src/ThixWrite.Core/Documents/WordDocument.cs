@@ -104,8 +104,12 @@ public sealed class WordDocument : OfficeDocument
     /// <summary>Saved (or opened) as <paramref name="type"/>: the next "Speichern" writes that format.</summary>
     protected override void OnSaved(DocumentType type) => SaveFormat = FormatOf(type.Extension) ?? SaveFormat;
 
+    /// <summary>Raised before the document is written (an open header editor puts its text into the document first).</summary>
+    public event EventHandler? Writing;
+
     private void Write(Stream stream, WordFileFormat format)
     {
+        Writing?.Invoke(this, EventArgs.Empty);
         if (format == WordFileFormat.PlainText)
         {
             PlainTextFormat.Write(Content, stream, TextEncoding);

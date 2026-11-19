@@ -59,6 +59,9 @@ public static class WriteCommandIds
     public const string TablePicker = "write.tablePicker"; // the grid of the ribbon (a control of its own)
     public const string InsertTable = "write.insertTable";
     public const string InsertPicture = "write.insertPicture";
+    public const string Header = "write.header"; // menu entries write.header.edit / .remove
+    public const string Footer = "write.footer";
+    public const string PageNumber = "write.pageNumber"; // the places are write.pageNumber.<top|bottom>.<left|center|right>
     public const string PageBreak = "write.pageBreak";
     public const string InsertDateTime = "write.insertDateTime";
 
@@ -111,6 +114,14 @@ public static class WriteCommandIds
     public const string PictureHeight = "write.picture.height"; // value: cm, invariant
     public const string PictureWidth = "write.picture.width"; // value: cm, invariant
 
+    // Kopf- und Fußzeile (contextual, while one is edited)
+    public const string HeaderFooterPage = "write.hf.page";
+    public const string HeaderFooterPages = "write.hf.pages";
+    public const string HeaderFooterDate = "write.hf.date";
+    public const string HeaderFooterFirstPage = "write.hf.firstPage";
+    public const string HeaderFooterEvenOdd = "write.hf.evenOdd";
+    public const string HeaderFooterClose = "write.hf.close";
+
     // Ansicht
     public const string Ruler = "write.ruler";
     public const string ShowMarksView = "write.showMarks.view";
@@ -150,7 +161,7 @@ public static class WriteRibbon
     {
         var theme = (window.Document as WordDocument)?.Content.Theme ?? Theme.Office;
         var definition = new MatRibbonDefinition { FileLabel = "Datei" };
-        definition.Add(HomeTab(theme), InsertTab(), LayoutTab(), ViewTab(), TableDesignTab(theme), TableLayoutTab(), PictureTab());
+        definition.Add(HomeTab(theme), InsertTab(), LayoutTab(), ViewTab(), TableDesignTab(theme), TableLayoutTab(), PictureTab(), HeaderFooterTab());
         return definition;
     }
 
@@ -212,6 +223,15 @@ public static class WriteRibbon
                 Button(WriteCommandIds.InsertPicture, MatRibbonSize.Large)),
             new MatRibbonGroup("pages", "Seiten") { Icon = "page-break" }.Add(
                 Button(WriteCommandIds.PageBreak, MatRibbonSize.Large)),
+            new MatRibbonGroup("header-footer", "Kopf- und Fußzeile") { Icon = "header" }.Add(
+                new MatRibbonMenuButton(WriteCommandIds.Header, "", null,
+                    Button($"{WriteCommandIds.Header}.edit"),
+                    Button($"{WriteCommandIds.Header}.remove")) { Size = MatRibbonSize.Large },
+                new MatRibbonMenuButton(WriteCommandIds.Footer, "", null,
+                    Button($"{WriteCommandIds.Footer}.edit"),
+                    Button($"{WriteCommandIds.Footer}.remove")) { Size = MatRibbonSize.Large },
+                new MatRibbonMenuButton(WriteCommandIds.PageNumber, "", null,
+                    [.. HeaderFooterCommands.PageNumberPlaces.Select(place => Button($"{WriteCommandIds.PageNumber}.{place.Id}"))]) { Size = MatRibbonSize.Large }),
             new MatRibbonGroup("text", "Text") { Icon = "clock" }.Add(
                 Button(WriteCommandIds.InsertDateTime, MatRibbonSize.Large)));
 
@@ -315,6 +335,19 @@ public static class WriteRibbon
                 new MatRibbonStack("picture-size-fields",
                     Labelled(Number(WriteCommandIds.PictureHeight, 0.1, 55.87, 0.1, "cm", 2), "Höhe"),
                     Labelled(Number(WriteCommandIds.PictureWidth, 0.1, 55.87, 0.1, "cm", 2), "Breite"))));
+
+    /// <summary>Kopf- und Fußzeile (contextual, while one is edited): fields, options, close.</summary>
+    private static MatRibbonTab HeaderFooterTab() =>
+        new MatRibbonTab("headerFooterTab", "Kopf- und Fußzeile") { Context = HeaderFooterCommands.Context }.Add(
+            new MatRibbonGroup("hf-insert", "Einfügen") { Icon = "page-number" }.Add(
+                Button(WriteCommandIds.HeaderFooterPage, MatRibbonSize.Large),
+                Button(WriteCommandIds.HeaderFooterPages),
+                Button(WriteCommandIds.HeaderFooterDate)),
+            new MatRibbonGroup("hf-options", "Optionen") { Icon = "file" }.Add(
+                Toggle(WriteCommandIds.HeaderFooterFirstPage),
+                Toggle(WriteCommandIds.HeaderFooterEvenOdd)),
+            new MatRibbonGroup("hf-close", "Schließen") { Icon = "x" }.Add(
+                new MatRibbonButton(WriteCommandIds.HeaderFooterClose, "Schließen") { Size = MatRibbonSize.Large }));
 
     private static MatRibbonItem Align((string Id, string Label, Core.Model.CellVerticalAlignment Vertical, ParagraphAlignment Horizontal) alignment) =>
         Toggle($"{WriteCommandIds.TableAlign}.{alignment.Id}", "cellAlign", MatRibbonSize.Small);

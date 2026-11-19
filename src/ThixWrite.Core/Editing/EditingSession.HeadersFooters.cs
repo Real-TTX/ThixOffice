@@ -72,6 +72,43 @@ public sealed partial class EditingSession
         });
     }
 
+    /// <summary>Takes the styles and list definitions of another story's document (a header that used a style the body had not).</summary>
+    public void AdoptDefinitions(StyleSheet styles, NumberingDefinitions numbering)
+    {
+        if (ReferenceEquals(styles, Document.Styles) && ReferenceEquals(numbering, Document.Numbering))
+        {
+            return;
+        }
+
+        Run("Formatvorlagen", EditKind.Other, null, () =>
+        {
+            if (!ReferenceEquals(styles, Document.Styles))
+            {
+                Apply(DocumentSteps.Styles(Document, styles));
+            }
+
+            if (!ReferenceEquals(numbering, Document.Numbering))
+            {
+                Apply(DocumentSteps.Numbering(Document, numbering));
+            }
+        });
+    }
+
+    /// <summary>The section whose header (or footer) of <paramref name="kind"/> page of section <paramref name="section"/> shows (it may be one before).</summary>
+    public int DefiningSection(int section, HeaderFooterKind kind, bool footer)
+    {
+        for (var index = section; index >= 0; index--)
+        {
+            var properties = Document.Sections[index].Properties;
+            if ((footer ? properties.Footers : properties.Headers)[kind] is not null)
+            {
+                return index;
+            }
+        }
+
+        return section;
+    }
+
     /// <summary>An empty header or footer story (one paragraph in the style "Kopfzeile" / "Fußzeile", added to the styles when missing).</summary>
     public Story NewHeaderFooter(bool footer)
     {

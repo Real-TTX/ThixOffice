@@ -40,6 +40,7 @@ internal sealed class DocumentSurface : Control
     private readonly Cursor _columnCursor = new(StandardCursorType.SizeWestEast);
     private ColumnDrag? _columnDrag;
     private ImageDrag? _imageDrag;
+    private bool _dimBody;
     private readonly DispatcherTimer _blink;
     private readonly DispatcherTimer _autoScroll;
     private readonly IBrush _paper = new SolidColorBrush(DocumentPalette.Paper);
@@ -118,6 +119,47 @@ internal sealed class DocumentSurface : Control
         }
     }
 
+    /// <summary>
+    /// A header or footer being edited: the surface shows only the story's one page, from its top left, as tall as its text (at
+    /// least <see cref="MinimumHeight"/> points), on paper without a frame – laid over the page of the document.
+    /// </summary>
+    public bool IsStory { get; init; }
+
+    /// <summary>The least height of a story surface (points): the header or footer area it covers.</summary>
+    public double MinimumHeight { get; set; }
+
+    /// <summary>While a header or footer is edited the body of every page is dimmed and the areas are marked (as in Word).</summary>
+    public bool DimBody
+    {
+        get => _dimBody;
+        set
+        {
+            _dimBody = value;
+            InvalidateVisual();
+        }
+    }
+
+    /// <summary>A double click in the header (false) or footer (true) area of a page: the editor opens it.</summary>
+    public event EventHandler<(int Page, bool Footer)>? HeaderFooterRequested;
+
+    /// <summary>A double click on the body while a header or footer is edited: the editor closes it.</summary>
+    public event EventHandler? BodyRequested;
+
+    /// <summary>The height of the story's text (points).</summary>
+    public double StoryHeight
+    {
+        get
+        {
+            var lines = Layout.Pages.Count > 0 ? Layout.Pages[0].Lines : [];
+            var bottom = lines.Count == 0 ? 0 : lines.Max(line => line.Top + line.Line.Height);
+            return Math.Max(MinimumHeight, bottom + 2);
+        }
+    }
+
+    private double Side => IsStory ? 0 : SideMargin;
+
+    private double Top => IsStory ? 0 : TopMargin;
+
     /// <summary>Scrolls the ScrollViewer (auto-scroll while dragging a selection); set by the editor.</summary>
     public Action<double>? ScrollBy { get; set; }
 
@@ -134,6 +176,11 @@ internal sealed class DocumentSurface : Control
     {
         var layout = Layout.Pages[page];
         var width = layout.Width * _scale;
+        if (IsStory)
+        {
+            return new Rect(0, 0, width, StoryHeight * _scale);
+        }
+
         var x = Math.Max(SideMargin, (Bounds.Width - width) / 2);
         return new Rect(x, TopMargin + (Layout.PageTop(page) * _scale), width, layout.Height * _scale);
     }
@@ -148,7 +195,7 @@ internal sealed class DocumentSurface : Control
     /// <summary>The caret place nearest to a point of this control.</summary>
     public HitResult HitAt(Point point)
     {
-        var (page, y) = Layout.PageAt((point.Y - TopMargin) / _scale);
+        var (page, y) = Layout.PageAt((point.Y - Top) / _scale);
         var rect = PageRect(page);
         return Layout.HitTest(page, (point.X - rect.X) / _scale, y);
     }
@@ -156,7 +203,7 @@ internal sealed class DocumentSurface : Control
     /// <summary>The page under a point, or -1 on the workspace.</summary>
     public int PageUnder(Point point)
     {
-        var (page, _) = Layout.PageAt((point.Y - TopMargin) / _scale);
+        var (page, _) = Layout.PageAt((point.Y - Top) / _scale);
         return PageRect(page).Contains(point) ? page : -1;
     }
 
@@ -179,6 +226,11 @@ internal sealed class DocumentSurface : Control
         var pages = Layout.Pages;
         var width = pages.Count == 0 ? 0 : pages.Max(page => page.Width) * _scale;
         _caretLayer.Measure(availableSize);
+        if (IsStory)
+        {
+            return new Size(width, StoryHeight * _scale);
+        }
+
         return new Size(width + (2 * SideMargin), (Layout.StackedHeight * _scale) + (2 * TopMargin));
     }
 
@@ -198,7 +250,7 @@ internal sealed class DocumentSurface : Control
         var drawn = new List<int>();
         if (Layout.PageCount > 0)
         {
-            var (first, _) = Layout.PageAt(Math.Max(0, (visible.Top - TopMargin) / _scale));
+            var (first, _) = Layout.PageAt(Math.Max(0, (visible.Top - Top) / _scale));
             for (var page = first; page < Layout.PageCount; page++)
             {
                 var rect = PageRect(page);
@@ -212,7 +264,15 @@ internal sealed class DocumentSurface : Control
                     continue;
                 }
 
-                context.DrawRectangle(_paper, border, new RoundedRect(rect.Inflate(0.5)), shadows);
+                if (IsStory)
+                {
+                    context.FillRectangle(_paper, rect);
+                }
+                else
+                {
+                    context.DrawRectangle(_paper, border, new RoundedRect(rect.Inflate(0.5)), shadows);
+                }
+
                 pages.Add((rect, Pictures.Get(Layout, page)));
                 drawn.Add(page);
             }
@@ -224,7 +284,38 @@ internal sealed class DocumentSurface : Control
             context.Custom(new PageDrawOperation(visible.Inflate(2), pages, _scale));
         }
 
+        if (_dimBody)
+        {
+            DrawHeaderFooterAreas(context, drawn);
+        }
+
         DrawSelection(context, visible);
+    }
+
+    /// <summary>While a header or footer is edited: the bodies dimmed, the areas bounded by a dashed line with their names.</summary>
+    private void DrawHeaderFooterAreas(DrawingContext context, IReadOnlyList<int> pages)
+    {
+        var dim = new SolidColorBrush(DocumentPalette.DimmedBody);
+        var line = new Pen(Ui.Brush("Mat.Accent"), 1, new DashStyle([4, 3], 0));
+        var label = Ui.Brush("Mat.Accent");
+        foreach (var page in pages)
+        {
+            var setup = Layout.Pages[page].Section.Properties;
+            var rect = PageRect(page);
+            var top = rect.Y + (setup.MarginTop * _scale);
+            var bottom = rect.Y + ((setup.PageHeight - setup.MarginBottom) * _scale);
+            context.FillRectangle(dim, new Rect(rect.X, top, rect.Width, Math.Max(0, bottom - top)));
+            context.DrawLine(line, new Point(rect.X, top), new Point(rect.Right, top));
+            context.DrawLine(line, new Point(rect.X, bottom), new Point(rect.Right, bottom));
+            DrawAreaLabel(context, "Kopfzeile", new Point(rect.X + 6, top + 2), label);
+            DrawAreaLabel(context, "Fußzeile", new Point(rect.X + 6, bottom - 16), label);
+        }
+    }
+
+    private static void DrawAreaLabel(DrawingContext context, string text, Point at, IBrush brush)
+    {
+        var formatted = new FormattedText(text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typeface.Default, 11, brush);
+        context.DrawText(formatted, at);
     }
 
     private void DrawSelection(DrawingContext context, Rect visible)
@@ -470,6 +561,22 @@ internal sealed class DocumentSurface : Control
         }
 
         Focus();
+        if (!IsStory && e.ClickCount == 2 && AreaAt(point.Position) is { } area && (area.Footer is not null || _dimBody))
+        {
+            // A double click in the margin above or below the text: the header or the footer of that page (and back to the body).
+            e.Handled = true;
+            if (area.Footer is { } footer)
+            {
+                HeaderFooterRequested?.Invoke(this, (area.Page, footer));
+            }
+            else if (_dimBody)
+            {
+                BodyRequested?.Invoke(this, EventArgs.Empty);
+            }
+
+            return;
+        }
+
         if (SelectedImageRect() is { } selected && HandleAt(selected, point.Position) is { } handle)
         {
             // A handle of the selected picture: dragging sizes it (corners keep its proportions unless Umschalt is held).
@@ -627,6 +734,21 @@ internal sealed class DocumentSurface : Control
     }
 
     private const double HandleSize = 7;
+
+    /// <summary>Where a point is on a page: the header area (Footer false), the footer area (true) or the body (null).</summary>
+    private (int Page, bool? Footer)? AreaAt(Point point)
+    {
+        var page = PageUnder(point);
+        if (page < 0)
+        {
+            return null;
+        }
+
+        var setup = Layout.Pages[page].Section.Properties;
+        var y = (point.Y - PageRect(page).Y) / _scale;
+        bool? footer = y < setup.MarginTop ? false : y > setup.PageHeight - setup.MarginBottom ? true : null;
+        return (page, footer);
+    }
 
     /// <summary>True while a handle of the selected picture is dragged (tests).</summary>
     internal bool IsSizingImage => _imageDrag is not null;

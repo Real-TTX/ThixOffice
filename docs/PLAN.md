@@ -171,6 +171,12 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   Ausrichtung, Höhe/Breite); docx lesen/schreiben (Medienteil je Bild einmal; frei positionierte Bilder werden im Textfluss
   angezeigt, gemeldet und mit ihrer Position zurückgeschrieben). **Lücken:** SVG (SkiaSharp 2.88 hat keinen SVG-Decoder),
   Zuschneiden, Bildeffekte, Textumbruch um frei positionierte Bilder, EMF/WMF bleiben Platzhalter.
+- **Kopf-/Fußzeilen und Seitenzahlen erledigt (1b):** je Abschnitt Standard / erste Seite / gerade Seiten (geerbt vom
+  Abschnitt davor), Bearbeiten an Ort und Stelle per Doppelklick (Text abgeblendet, Karte Kopf- und Fußzeile: Seitenzahl,
+  Seitenanzahl, Datum, Erste Seite anders, Gerade & ungerade Seiten unterschiedlich, Schließen), Einfügen › Kopfzeile / Fußzeile /
+  Seitenzahl (oben/unten, links/zentriert/rechts), Felder PAGE / NUMPAGES / DATE, docx lesen/schreiben (Teile werden
+  wiederverwendet, andere Felder bleiben mit ihrem Ergebnis erhalten). **Lücken:** hohe Kopfzeilen schieben den Text nicht nach
+  unten, Seitenzahlformate und Neubeginn (w:pgNumType) werden nur erhalten, Tabellen in Kopfzeilen werden als Absätze gezeigt.
 - **1b:** Drucken, Tabellen, Bilder, Kopf-/Fußzeilen, Seitenzahlen, Hyperlinks, Tabstopps (Lineal), Dialoge Schriftart/Absatz,
   HTML/RTF einfügen.
 - **1c:** Inhaltsverzeichnis, Fußnoten, Kommentare, Rechtschreibprüfung, odt; Karten Referenzen/Überprüfen.

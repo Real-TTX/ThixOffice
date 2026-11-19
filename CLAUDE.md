@@ -205,6 +205,25 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   picture file dropped on the page, a click selects a picture (frame + eight handles; corners keep the proportions, Umschalt frees
   them), contextual tab Bildformat (`PictureCommands`: Alternativtext, Bild ändern, Größe zurücksetzen, Anordnen, Höhe/Breite).
 
+### Headers, footers, fields
+
+- **Model:** `SectionProperties.Headers/Footers` (`HeaderFooterSet`: Default, First, Even; a kind a section lacks comes from the section
+  before) of `Story` (immutable blocks, equal by content, `SourcePart` = the part it was read from); `DocumentSettings.EvenAndOddHeaders`,
+  `SectionProperties.TitlePage`; `Document.HeaderFooterOf(section, pageInSection, pageNumber, footer)` picks a page's story.
+  `FieldInline` (PAGE, NUMPAGES, DATE) shows its `Result` in the body and the page's numbers where the layout sets
+  `LayoutContext.FieldText`; other fields stay preserved.
+- **Layout:** `DocumentLayout.HeadersFooters.cs` places every page's header (from the header distance) and footer (up to the footer
+  distance) after each update (`PageLayout.HeaderLines/FooterLines`, story layouts cached per page number); the body is not pushed
+  down by a tall header (gap).
+- **docx:** header/footer references read into stories (`DocxPropertyReader.ReadSection` with `ReadContext.ReadStory`, the part's own
+  relationships for links and pictures), written back into the part they came from or new parts (`WriteContext.ReferencesOf`);
+  `DocxFields` collapses w:fldSimple and complex PAGE/NUMPAGES/DATE fields, writes w:fldSimple.
+- **Editing:** a double click in the margin above / below the text (or Einfügen › Kopfzeile / Fußzeile) opens the page's story in
+  place: `WriteEditor.EditHeaderFooter` makes a story document (the body's styles) with its own session, layout (fields show that
+  page) and a `DocumentSurface { IsStory = true }` laid over the page in an overlay canvas; the body is dimmed (`DimBody`), the tab
+  Kopf- und Fußzeile shows, `WriteEditor.Session` is the story's (the commands act there). Esc, a double click on the body or
+  "Schließen" put the story into the document as ONE step (`SetHeaderFooter`); saving commits first (`WordDocument.Writing`).
+
 ### Adding a command to ThixWrite
 
 1. An id in `WriteCommandIds` (`write.<name>`; value commands note their value format).
@@ -225,7 +244,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   (`thixwrite-main`, `-main-ribbon-collapsed`, `-backstage-{new,open,saveas,settings,settings-save,settings-updates,about}`,
   `-dialog-save-changes`, `-setup-{welcome,options,update,uninstall}` on Windows, and the app's scenes
   (`OfficeApplication.SnapshotScenes`; ThixWrite: `-main-layout`, `-main-view`, `-main-find`, `-dialog-page-setup`,
-  `-main-table`, `-main-picture`, `-backstage-print`, `-backstage-export`)): the sample report (`SampleDocument`), version 0.1.0, ANNA-PC, C:\Users\Anna\Dokumente, a sample recent
+  `-main-table`, `-main-picture`, `-main-header`, `-backstage-print`, `-backstage-export`)): the sample report (`SampleDocument`), version 0.1.0, ANNA-PC, C:\Users\Anna\Dokumente, a sample recent
   list – no real path shows. `THIXWRITE_SCREENSHOTS=<folder> dotnet test tests/ThixWrite.Tests` does the same from the tests.
   LOOK at the pictures after a change of the UI; `docs/images` has the ones of the README.
 - The Windows publish (win-x64) is a **trimmed** single file (`TrimMode=partial`, own assemblies + ThixOffice.Text(.Skia) rooted,
