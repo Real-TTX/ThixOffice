@@ -22,6 +22,7 @@ internal static class TestApp
         ])
     {
         UntitledBaseName = "Test",
+        CloudAppId = MatCloud.Contract.CloudApps.Write,
     };
 }
 
@@ -78,6 +79,8 @@ internal sealed class TestData : IDisposable
         SettingsService.ResetCache();
         RecentDocuments.ResetCache();
         DocumentService.ResetUntitledCountForTests();
+        CloudService.ResetForTests();
+        MatCloud.Contract.CloudHandoff.Folder = Path.Combine(Folder, "handoff");
     }
 
     public string Folder { get; }
@@ -107,6 +110,8 @@ internal sealed class TestData : IDisposable
             InstallService.UseLocationsForTests(null);
         }
 
+        CloudService.ResetForTests();
+        MatCloud.Contract.CloudHandoff.Folder = MatCloud.Contract.CloudHandoff.DefaultFolder();
         TokenStore.UseMemoryForTests(false);
         AccessPolicy.UsePolicyReaderForTests(null);
         UserRegistry.UseForTests(null);

@@ -39,6 +39,21 @@ public abstract class OfficeDocument
     /// <summary>True for a new document nobody touched: a file opened in its place replaces it (like Word's "Dokument1").</summary>
     public bool IsPristine => FilePath is null && !IsDirty && !IsRecovered;
 
+    /// <summary>
+    /// The ThixDrive item this document belongs to, or null for a local file. A Drive document's <see cref="FilePath"/> is its local
+    /// working copy (<see cref="Business.DriveService"/>); saving writes it, then uploads a new version.
+    /// </summary>
+    public DriveOrigin? Drive { get; private set; }
+
+    /// <summary>Where the upload of a ThixDrive document stands (<see cref="DriveSyncState.Uploaded"/> for a local file).</summary>
+    public DriveSyncState DriveState { get; private set; }
+
+    /// <summary>True for a document of ThixDrive.</summary>
+    public bool IsInDrive => Drive is not null;
+
+    /// <summary>Where the document lives, for people: the file path, "ThixDrive: /Projekte/Bericht.docx" or "Noch nicht gespeichert".</summary>
+    public string LocationText => Drive is { } drive ? $"ThixDrive: {drive.DisplayPath}" : FilePath ?? "Noch nicht gespeichert";
+
     public abstract bool CanUndo { get; }
 
     public abstract bool CanRedo { get; }
@@ -90,6 +105,14 @@ public abstract class OfficeDocument
         IsDirty = false;
         IsRecovered = false;
         OnSaved(type);
+        RaiseChanged();
+    }
+
+    /// <summary>The business layer ties the document to a ThixDrive item (null: a local file again) and sets its upload state.</summary>
+    internal void SetDrive(DriveOrigin? origin, DriveSyncState state)
+    {
+        Drive = origin;
+        DriveState = origin is null ? DriveSyncState.Uploaded : state;
         RaiseChanged();
     }
 

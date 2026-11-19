@@ -38,6 +38,11 @@ public sealed record AppSettings
     /// <summary>How often unsaved changes are written to a recovery file (minutes, 0 = never).</summary>
     public int AutoRecoverMinutes { get; init; } = 5;
 
+    // ===== ThixCloud =====
+
+    /// <summary>The sign-in at ThixCloud (only CloudService changes it).</summary>
+    public CloudSettings Cloud { get; init; } = new();
+
     // ===== Remembered by the app =====
 
     /// <summary>The ribbon shows only its tabs (Strg+F1).</summary>

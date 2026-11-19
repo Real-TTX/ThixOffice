@@ -30,5 +30,6 @@ public static class ThixWriteApp
     {
         UntitledBaseName = "Dokument",
         BlankDocumentLabel = "Leeres Dokument",
+        CloudAppId = MatCloud.Contract.CloudApps.Write, // documents in ThixDrive (the Drive grants its routes to "write")
     };
 }

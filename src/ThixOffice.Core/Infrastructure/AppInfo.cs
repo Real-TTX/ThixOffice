@@ -40,6 +40,9 @@ public static class AppInfo
 
     public static bool IsLocalBuild => Channel == "local";
 
+    /// <summary>The platform as the cloud shows it with the device ("Windows", "macOS").</summary>
+    public static string PlatformName => OperatingSystem.IsWindows() ? "Windows" : OperatingSystem.IsMacOS() ? "macOS" : "Linux";
+
     /// <summary>The name of this computer (pinned in snapshots).</summary>
     public static string MachineName => _pinned?.MachineName ?? Environment.MachineName;
 

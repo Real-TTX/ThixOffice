@@ -23,6 +23,12 @@ public static class AppPaths
     /// <summary>The automatic recovery files of documents with unsaved changes (deleted when the document is saved or closed).</summary>
     public static string RecoveryDirectory => Path.Combine(DataDirectory, "recovery");
 
+    /// <summary>
+    /// The local working copies of documents opened from ThixDrive (one folder per account and item, the document and its sidecar
+    /// drive.json): a document saved while the cloud cannot be reached waits here until it is uploaded.
+    /// </summary>
+    public static string DriveDirectory => Path.Combine(DataDirectory, "drive");
+
     public static string UpdateDirectory => Path.Combine(DataDirectory, "updates");
 
     public static string LogDirectory => Path.Combine(DataDirectory, "logs");

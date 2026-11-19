@@ -22,14 +22,14 @@ public static class RecentDocuments
         if (!string.IsNullOrWhiteSpace(search))
         {
             var words = search.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            documents = documents.Where(document => words.All(word => document.Path.Contains(word, StringComparison.CurrentCultureIgnoreCase)));
+            documents = documents.Where(document => words.All(word => SearchText(document).Contains(word, StringComparison.CurrentCultureIgnoreCase)));
         }
 
         var pinnedFirst = documents.OrderByDescending(document => document.IsPinned);
         var ordered = order == RecentDocumentOrder.Name
             ? pinnedFirst.ThenBy(document => document.FileName, StringComparer.CurrentCultureIgnoreCase)
             : pinnedFirst.ThenByDescending(document => document.LastOpened);
-        return ordered.Select(document => new RecentDocumentItem(document, FileSystemProbe.FileExists(document.Path))).ToList();
+        return ordered.Select(document => new RecentDocumentItem(document, CanOpen(document))).ToList();
     }
 
     /// <summary>
@@ -39,7 +39,7 @@ public static class RecentDocuments
     public static IReadOnlyList<string> RecentFolders(int maximum = 6)
     {
         var folders = new List<string> { SettingsService.SaveFolder };
-        foreach (var document in Store.Read().Documents.OrderByDescending(document => document.LastOpened))
+        foreach (var document in Store.Read().Documents.Where(document => !document.IsInDrive).OrderByDescending(document => document.LastOpened))
         {
             var folder = document.Folder;
             if (folders.Count >= maximum)
@@ -57,14 +57,23 @@ public static class RecentDocuments
     }
 
     /// <summary>A document was opened or saved: it comes first (a pinned one keeps its pin).</summary>
-    public static void Add(string path, DateTimeOffset? openedAt = null)
+    public static void Add(string path, DateTimeOffset? openedAt = null) => Add(path, null, openedAt);
+
+    /// <summary>
+    /// A document of ThixDrive was opened or saved: its working copy <paramref name="workingCopy"/> comes first, marked as the Drive item
+    /// of <paramref name="origin"/> (it opens from the Drive again).
+    /// </summary>
+    public static void AddDrive(string workingCopy, DriveOrigin origin, DateTimeOffset? openedAt = null) =>
+        Add(workingCopy, new RecentDriveItem(origin.ServerUrl, origin.UserName, origin.ItemId, origin.Location), openedAt);
+
+    private static void Add(string path, RecentDriveItem? drive, DateTimeOffset? openedAt)
     {
         var fullPath = FullPath(path);
         var limit = SettingsService.Get().RecentListSize;
         Update(list =>
         {
             var existing = list.Documents.FirstOrDefault(document => SamePath(document.Path, fullPath));
-            var entry = new RecentDocument(fullPath, openedAt ?? DateTimeOffset.Now, existing?.IsPinned ?? false);
+            var entry = new RecentDocument(fullPath, openedAt ?? DateTimeOffset.Now, existing?.IsPinned ?? false) { Drive = drive };
             var others = list.Documents.Where(document => !SamePath(document.Path, fullPath)).ToList();
             return list with { Documents = Trim([entry, .. others], limit) };
         });
@@ -101,15 +110,28 @@ public static class RecentDocuments
         var removed = 0;
         Update(list =>
         {
-            var kept = list.Documents.Where(document => FileSystemProbe.FileExists(document.Path)).ToList();
+            var kept = list.Documents.Where(CanOpen).ToList();
             removed = list.Documents.Count - kept.Count;
             return list with { Documents = kept };
         });
         return removed;
     }
 
+    /// <summary>The entry of a path (a ThixDrive working copy tells its item), or null.</summary>
+    public static RecentDocument? Find(string path)
+    {
+        var fullPath = FullPath(path);
+        return Store.Read().Documents.FirstOrDefault(document => SamePath(document.Path, fullPath));
+    }
+
     /// <summary>Drops the cache (tests).</summary>
     internal static void ResetCache() => Store.Reset();
+
+    /// <summary>A file that is there; a ThixDrive document whose working copy is there or whose account this app is signed in to.</summary>
+    private static bool CanOpen(RecentDocument document) =>
+        FileSystemProbe.FileExists(document.Path) || (document.Drive is { } drive && CloudService.IsSignedInTo(drive.ServerUrl, drive.UserName));
+
+    private static string SearchText(RecentDocument document) => document.IsInDrive ? $"{document.FileName} {document.Folder}" : document.Path;
 
     /// <summary>Pinned ones always stay; of the others the newest <paramref name="limit"/>.</summary>
     internal static List<RecentDocument> Trim(IReadOnlyList<RecentDocument> documents, int limit)

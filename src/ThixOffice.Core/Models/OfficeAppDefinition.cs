@@ -84,6 +84,15 @@ public sealed record OfficeAppDefinition
     /// <summary>The tile of "Neu" that makes an empty document ("Leeres Dokument", "Leere Arbeitsmappe").</summary>
     public string BlankDocumentLabel { get; init; } = "Leeres Dokument";
 
+    /// <summary>
+    /// The app's id at ThixCloud (MatCloud's <c>CloudApps</c>: <c>write</c>, <c>calc</c>, <c>show</c>): its devices sign in as this app and
+    /// reach the Drive of their account (ThixDrive). Null: the app has no cloud (sign-in, the ThixDrive places and the Cloud tab are hidden).
+    /// </summary>
+    public string? CloudAppId { get; init; }
+
+    /// <summary>True when the app can connect to ThixCloud (it has a <see cref="CloudAppId"/>).</summary>
+    public bool HasCloud => CloudAppId is not null;
+
     /// <summary>The part of the name after "Thix", drawn in the accent of the word mark: <c>Write</c>.</summary>
     public string Suffix => Name[SuiteMarkPrefix.Length..];
 

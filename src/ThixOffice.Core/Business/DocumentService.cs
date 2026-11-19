@@ -23,6 +23,15 @@ public static class DocumentService
         var fullPath = FullPath(path);
         var type = AppInfo.Definition.SupportedTypeOf(fullPath)
                    ?? throw new BusinessException($"{AppInfo.ProductName} kann „{Path.GetFileName(fullPath)}“ (noch) nicht öffnen. Unterstützt: {SupportedList()}.");
+        var document = Load(fullPath, type, create);
+        RecentDocuments.Add(fullPath);
+        return document;
+    }
+
+    /// <summary>Reads a file into a new document of <paramref name="type"/> (also a ThixDrive working copy); not added to the recent list.</summary>
+    internal static T Load<T>(string fullPath, DocumentType type, Func<string, T> create)
+        where T : OfficeDocument
+    {
         var document = create(NextUntitledName());
         using (var content = DocumentFiles.ReadAll(fullPath))
         {
@@ -37,13 +46,17 @@ public static class DocumentService
         }
 
         document.MarkSaved(fullPath, type);
-        RecentDocuments.Add(fullPath);
         return document;
     }
 
     /// <summary>Saves the document into its own file ("Speichern"); a document without a file needs <see cref="SaveAs"/>.</summary>
     public static void Save(OfficeDocument document)
     {
+        if (document.IsInDrive)
+        {
+            throw new BusinessException("Dieses Dokument liegt in ThixDrive und wird dort gespeichert.");
+        }
+
         if (document.FilePath is null)
         {
             throw new BusinessException("Das Dokument hat noch keinen Speicherort. Bitte „Speichern unter“ verwenden.");
@@ -62,6 +75,11 @@ public static class DocumentService
         var type = AppInfo.Definition.SupportedTypeOf(target)!;
         DocumentFiles.SaveAtomic(target, stream => document.WriteContentAs(stream, type), SettingsService.Get().KeepBackupCopy);
         document.MarkSaved(target, type);
+        if (document.IsInDrive)
+        {
+            document.SetDrive(null, DriveSyncState.Uploaded); // saved on this computer: a local file from now on
+        }
+
         DocumentFiles.DeleteRecovery(document.RecoveryId);
         RecentDocuments.Add(target);
         Log.Info($"Document saved ({type.Name})");
@@ -108,7 +126,7 @@ public static class DocumentService
 
     /// <summary>The folder "Speichern unter" starts in: the document's own, else the default save folder.</summary>
     public static string SuggestedFolder(OfficeDocument document) =>
-        document.FilePath is { } path && Path.GetDirectoryName(path) is { } folder && Directory.Exists(folder) ? folder : SettingsService.SaveFolder;
+        !document.IsInDrive && document.FilePath is { } path &&Path.GetDirectoryName(path) is { } folder && Directory.Exists(folder) ? folder : SettingsService.SaveFolder;
 
     // ===== Recovery =====
 

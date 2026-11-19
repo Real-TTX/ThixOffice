@@ -49,6 +49,9 @@ public static class SettingsService
     /// <summary>Where "Speichern unter" starts: the chosen folder when it still exists, otherwise the documents folder.</summary>
     public static string SaveFolder => Get().DefaultSaveFolder is { Length: > 0 } folder && FileSystemProbe.FolderExists(folder) ? folder : FileSystemProbe.DocumentsFolder;
 
+    /// <summary>The sign-in at ThixCloud (CloudService only; no configuration lock: DisableCloud governs the cloud).</summary>
+    internal static AppSettings UpdateCloud(Func<CloudSettings, CloudSettings> change) => Save(settings => settings with { Cloud = change(settings.Cloud) });
+
     /// <summary>Drops the cached settings (tests, the self test read the file again).</summary>
     internal static void ResetCache() => Store.Reset();
 
