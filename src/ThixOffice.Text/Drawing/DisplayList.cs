@@ -75,5 +75,11 @@ public sealed record LineItem(
     double Thickness,
     LineStyle Style = LineStyle.Solid) : DisplayItem;
 
+/// <summary>
+/// A picture: its encoded bytes (PNG, JPEG, GIF, BMP) drawn into the rectangle (points). <see cref="Key"/> names the bytes
+/// (a hash), so that a renderer decodes each picture once.
+/// </summary>
+public sealed record ImageItem(double X, double Y, double Width, double Height, string Key, byte[] Data) : DisplayItem;
+
 /// <summary>Everything on one page, in drawing order; the size in points.</summary>
 public sealed record PageDisplayList(int PageIndex, double Width, double Height, IReadOnlyList<DisplayItem> Items);

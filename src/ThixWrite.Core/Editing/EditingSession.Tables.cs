@@ -302,9 +302,10 @@ public sealed partial class EditingSession
         }
 
         var span = cells.Span;
-        var first = span.BlocksOf(cells.FirstRow, 0).First;
-        var lastRow = span.Table.Rows[cells.LastRow];
-        var last = span.BlocksOf(cells.LastRow, lastRow.CellCount - 1).Last;
+        var (firstRow, firstCell) = span.Table.MergeOrigin(cells.FirstRow, 0);
+        var (lastRow, lastCell) = span.Table.MergeOrigin(cells.LastRow, span.Table.Rows[cells.LastRow].CellCount - 1);
+        var first = span.BlocksOf(firstRow, firstCell).First;
+        var last = span.BlocksOf(lastRow, lastCell).Last;
         SetSelection(new Selection(new DocumentPosition(first, 0), new DocumentPosition(last, Document.Blocks[last].Length)));
     }
 
@@ -325,7 +326,7 @@ public sealed partial class EditingSession
             return;
         }
 
-        var (bottomOrigin, bottomCell) = (bottomRow, bottom);
+        var (bottomOrigin, bottomCell) = table.MergeOrigin(bottomRow, bottom);
         var first = cells.Span.BlocksOf(0, top).First;
         var last = cells.Span.BlocksOf(bottomOrigin, bottomCell).Last;
         SetSelection(new Selection(new DocumentPosition(first, 0), new DocumentPosition(last, Document.Blocks[last].Length)));

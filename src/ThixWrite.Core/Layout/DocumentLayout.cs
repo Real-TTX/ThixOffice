@@ -274,6 +274,54 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
         }
     }
 
+    /// <summary>The rectangle of the inline object (a picture) at <paramref name="position"/>, or null when there is none.</summary>
+    public PageRect? GetObjectRect(DocumentPosition position)
+    {
+        var (page, placed) = Locate(new CaretPlace(position));
+        foreach (var item in placed.Line.Items)
+        {
+            if (item is ObjectItem box && box.Start == position.Offset)
+            {
+                var height = box.Height > 0 ? box.Height : placed.Line.Ascent;
+                return new PageRect(page, placed.Left + box.X, placed.Top + placed.Line.Baseline - height, box.Width, height);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The position of the picture under a point of a page, or null.</summary>
+    public DocumentPosition? ImageAt(int page, double x, double y)
+    {
+        Update();
+        if (page < 0 || page >= _pages.Count)
+        {
+            return null;
+        }
+
+        foreach (var placed in _pages[page].Lines)
+        {
+            if (y < placed.Top || y > placed.Top + placed.Line.Height)
+            {
+                continue;
+            }
+
+            foreach (var item in placed.Line.Items)
+            {
+                if (item is ObjectItem { Inline: ImageInline } box)
+                {
+                    var top = placed.Top + placed.Line.Baseline - box.Height;
+                    if (x >= placed.Left + box.X && x <= placed.Left + box.X + box.Width && y >= top && y <= top + box.Height)
+                    {
+                        return new DocumentPosition(placed.Block, box.Start);
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>The cell placed at a point of a page (not a repeated heading row), or null.</summary>
     public PlacedCell? CellAt(int page, double x, double y)
     {

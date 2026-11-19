@@ -14,6 +14,8 @@ namespace ThixOffice.Text.Skia;
 public static class SkiaPageRenderer
 {
     private static readonly ConcurrentDictionary<FontFace, SKTypeface> Typefaces = new();
+    private static readonly ConcurrentDictionary<string, SKImage?> Images = new(StringComparer.Ordinal);
+    private const int ImageCacheLimit = 64;
 
     /// <summary>
     /// Draws every item of <paramref name="page"/> in order (no page background: the caller fills it). <paramref name="forPaper"/>:
@@ -34,11 +36,41 @@ public static class SkiaPageRenderer
                 case GlyphRunItem run:
                     DrawGlyphRun(canvas, run, measurer, forPaper);
                     break;
+                case ImageItem image:
+                    DrawImage(canvas, image);
+                    break;
             }
         }
     }
 
     private static SKColor ToSkia(RgbColor color) => new(color.R, color.G, color.B, color.A);
+
+    /// <summary>The picture, decoded once per key (a picture Skia cannot decode is a grey box with a cross).</summary>
+    public static SKImage? DecodeImage(string key, byte[] data)
+    {
+        if (Images.Count > ImageCacheLimit)
+        {
+            Images.Clear();
+        }
+
+        return Images.GetOrAdd(key, _ => SKImage.FromEncodedData(data));
+    }
+
+    private static void DrawImage(SKCanvas canvas, ImageItem item)
+    {
+        var rect = SKRect.Create((float)item.X, (float)item.Y, (float)item.Width, (float)item.Height);
+        if (DecodeImage(item.Key, item.Data) is { } image)
+        {
+            using var paint = new SKPaint { FilterQuality = SKFilterQuality.High, IsAntialias = true };
+            canvas.DrawImage(image, rect, paint);
+            return;
+        }
+
+        using var stroke = new SKPaint { Color = new SKColor(0xA6, 0xA6, 0xA6), Style = SKPaintStyle.Stroke, StrokeWidth = 0.75f, IsAntialias = true };
+        canvas.DrawRect(rect, stroke);
+        canvas.DrawLine(rect.Left, rect.Top, rect.Right, rect.Bottom, stroke);
+        canvas.DrawLine(rect.Left, rect.Bottom, rect.Right, rect.Top, stroke);
+    }
 
     private static void DrawRectangle(SKCanvas canvas, RectangleItem item)
     {

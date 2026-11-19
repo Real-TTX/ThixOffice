@@ -1277,7 +1277,9 @@ public sealed partial class EditingSession
                 case OpaqueBlock opaque when ReferencesParts(opaque.Xml):
                     continue;
                 case Paragraph paragraph:
-                    var inlines = paragraph.Inlines.Where(inline => inline is not OpaqueInline opaque || !ReferencesParts(opaque.Xml));
+                    var inlines = paragraph.Inlines
+                        .Where(inline => inline is not OpaqueInline opaque || !ReferencesParts(opaque.Xml))
+                        .Select(inline => inline is ImageInline image ? image with { SourceXml = null, SourcePart = null } : inline); // its part is the other file's
                     var properties = paragraph.Properties;
                     if (properties.Numbering is { IsNone: false } numbering)
                     {

@@ -62,7 +62,7 @@ internal static class ParagraphLayouter
         public FontMetrics Metrics;
         public double BaselineShift;
         public ShapedText? Shaped;
-        public OpaqueInline? Object;
+        public Inline? Object;
         public double ObjectWidth;
         public double ObjectHeight;
     }
@@ -231,6 +231,26 @@ internal static class ParagraphLayouter
                 VerticalPosition.Subscript => format.FontSize * 0.14,
                 _ => 0,
             };
+
+            if (inline is ImageInline image)
+            {
+                var picture = new Segment
+                {
+                    Start = start,
+                    End = start + 1,
+                    Kind = SegmentKind.Object,
+                    Format = format,
+                    Font = font,
+                    Metrics = metrics,
+                    Object = image,
+                    ObjectWidth = image.Width,
+                    ObjectHeight = image.Height,
+                };
+                advances[start] = picture.ObjectWidth;
+                owner[start] = segments.Count;
+                segments.Add(picture);
+                continue;
+            }
 
             if (inline is OpaqueInline opaque)
             {

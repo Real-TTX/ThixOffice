@@ -38,13 +38,13 @@ public sealed record TextItem(
 public sealed record TabItem(int Start, double X, double Width, TabLeader Leader, EffectiveCharacterFormat Format, FontSpec Font)
     : LayoutItem(Start, Start + 1, X, Width);
 
-/// <summary>An inline object: a placeholder box (images) or its non-editable text (field results, tracked insertions).</summary>
+/// <summary>An inline object: a picture (<see cref="ImageInline"/>), a placeholder box (preserved drawings) or its non-editable text (field results, tracked insertions).</summary>
 public sealed record ObjectItem(
     int Start,
     double X,
     double Width,
     double Height,
-    OpaqueInline Inline,
+    Inline Inline,
     ShapedText? Shaped,
     EffectiveCharacterFormat Format,
     FontSpec Font,

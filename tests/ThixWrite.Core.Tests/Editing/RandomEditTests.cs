@@ -59,7 +59,7 @@ public class RandomEditTests
         {
             RandomSelection(session, random);
             var before = session.Selection;
-            var command = random.Next(45);
+            var command = random.Next(46);
             clipboard = RandomCommand(session, random, clipboard, command);
             try
             {
@@ -269,6 +269,10 @@ public class RandomEditTests
                 break;
             case 43:
                 session.SelectTableColumn();
+                break;
+            case 44:
+                session.InsertImage(ImageData.FromBytes(Images.ImageTests.Png(40 + random.Next(400), 30))!);
+                session.SetImageSize(20 + random.Next(100), 20 + random.Next(100));
                 break;
             default:
                 if (session.CanUndo && random.Next(2) == 0)

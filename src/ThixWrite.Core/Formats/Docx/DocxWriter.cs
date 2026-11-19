@@ -200,7 +200,7 @@ public static class DocxWriter
                 }
             }
 
-            foreach (var child in WriteInline(inline))
+            foreach (var child in WriteInline(inline, context))
             {
                 container.AppendChild(child);
             }
@@ -209,12 +209,21 @@ public static class DocxWriter
         return element;
     }
 
-    private static IEnumerable<OpenXmlElement> WriteInline(Inline inline)
+    private static IEnumerable<OpenXmlElement> WriteInline(Inline inline, WriteContext context)
     {
         switch (inline)
         {
             case TextRun run:
                 yield return WriteRun(run);
+                break;
+            case ImageInline image:
+                var pictureRun = NewRun(image.Properties);
+                foreach (var child in DocxPictures.Write(image, context.Pictures))
+                {
+                    pictureRun.AppendChild(child);
+                }
+
+                yield return pictureRun;
                 break;
             case OpaqueInline { IsRunContent: true } opaque:
                 var element = NewRun(opaque.Properties);
@@ -323,6 +332,8 @@ public static class DocxWriter
 
     private sealed class WriteContext(MainDocumentPart main)
     {
+        public DocxPictures.PictureContext Pictures { get; } = new(main);
+
         private readonly Dictionary<string, string> _relationships = main.HyperlinkRelationships
             .GroupBy(relationship => relationship.Uri.OriginalString)
             .ToDictionary(group => group.Key, group => group.First().Id);

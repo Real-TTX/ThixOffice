@@ -75,6 +75,8 @@ public enum PreservedKind
     ColumnBreak,
     /// <summary>Positional tab, smart tag, custom XML …</summary>
     Markup,
+    /// <summary>A picture Word positions freely (wp:anchor): ThixWrite shows it in the text flow and keeps its position.</summary>
+    FloatingDrawing,
 }
 
 /// <summary>

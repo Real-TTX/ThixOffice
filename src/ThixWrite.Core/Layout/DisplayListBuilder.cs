@@ -201,6 +201,12 @@ public static class DisplayListBuilder
     private static void AddObject(List<DisplayItem> items, PlacedLine placed, ObjectItem box, double baseline)
     {
         var x = placed.Left + box.X;
+        if (box.Inline is ImageInline image)
+        {
+            items.Add(new ImageItem(x, baseline - box.Height, box.Width, box.Height, image.Image.Key, image.Image.Bytes));
+            return;
+        }
+
         if (box.Height > 0)
         {
             items.Add(new RectangleItem(x, baseline - box.Height, box.Width, box.Height, PlaceholderFill, PlaceholderStroke, 0.75));

@@ -77,7 +77,7 @@ public class DocxFixtureTests
 
         var notes = document.UnsupportedContent.ToDictionary(note => note.Kind, note => note.Count);
         Assert.False(notes.ContainsKey(PreservedKind.Table)); // tables are real tables now
-        Assert.Equal(1, notes[PreservedKind.Drawing]);
+        Assert.False(notes.ContainsKey(PreservedKind.Drawing)); // an inline picture is a picture now
         Assert.Equal(1, notes[PreservedKind.Footnote]);
         Assert.Equal(1, notes[PreservedKind.Comment]);
         Assert.Equal(2, notes[PreservedKind.TrackedChange]);
@@ -102,8 +102,9 @@ public class DocxFixtureTests
         Assert.Equal("eingefügt", tracked[0].DisplayText);
         Assert.Equal("", tracked[1].DisplayText);
 
-        var image = paragraphs.SelectMany(paragraph => paragraph.Inlines).OfType<OpaqueInline>().Single(inline => inline.Kind == PreservedKind.Drawing);
-        Assert.True(image.IsRunContent);
+        var image = paragraphs.SelectMany(paragraph => paragraph.Inlines).OfType<ImageInline>().Single();
+        Assert.Equal(ImageFormat.Png, image.Image.Format);
+        Assert.False(image.IsFloating);
         Assert.Equal(75, image.Width, 3);
         Assert.Equal(37.5, image.Height, 3);
 

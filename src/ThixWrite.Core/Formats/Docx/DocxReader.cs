@@ -356,6 +356,15 @@ public static class DocxReader
                 case W.FieldCode:
                     AddOpaque(child, PreservedKind.Field);
                     break;
+                case W.Drawing drawing when DocxPictures.Read(drawing, context.Main, properties, link) is { } picture:
+                    Flush();
+                    inlines.Add(picture);
+                    if (picture.IsFloating)
+                    {
+                        context.Count(PreservedKind.FloatingDrawing);
+                    }
+
+                    break;
                 case W.Drawing or W.Picture:
                 case AlternateContent when child.Descendants().Any(descendant => descendant is W.Drawing or W.Picture):
                     context.Count(PreservedKind.Drawing);

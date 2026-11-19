@@ -63,6 +63,7 @@ public sealed record UnsupportedContent(PreservedKind Kind, int Count)
     public static string Label(PreservedKind kind) => kind switch
     {
         PreservedKind.Drawing => "Grafik oder Bild (Platzhalter, wird beim Speichern erhalten)",
+        PreservedKind.FloatingDrawing => "Frei positioniertes Bild (wird im Textfluss angezeigt, seine Position bleibt erhalten)",
         PreservedKind.Field => "Feld (Ergebnis wird angezeigt, nicht aktualisiert)",
         PreservedKind.TrackedChange => "Nachverfolgte Änderung (angezeigt, nicht bearbeitbar)",
         PreservedKind.Comment => "Kommentar (wird erhalten, nicht angezeigt)",
