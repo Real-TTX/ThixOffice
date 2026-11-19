@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
 
-namespace ThixShow.Core.Drawing;
+namespace ThixOffice.Text.Drawing.Geometry;
 
 /// <summary>
 /// The preset shapes ThixShow draws, written from the guide formulas of ECMA-376 Part 1 Annex D (presetShapeDefinitions.xml) in

@@ -273,7 +273,7 @@ public static class PptxReader
                 case PreservedElement:
                     Count("element");
                     break;
-                case AutoShape { Geometry.Preset: { } preset } when !Drawing.PresetGeometries.IsKnown(preset):
+                case AutoShape { Geometry.Preset: { } preset } when !PresetGeometries.IsKnown(preset):
                     Count("geometry");
                     break;
                 case AutoShape { Text: { } text } when text.Paragraphs.Any(paragraph => paragraph.Runs.OfType<PreservedRun>().Any()):

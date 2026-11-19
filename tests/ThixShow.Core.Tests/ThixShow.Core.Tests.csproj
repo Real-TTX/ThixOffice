@@ -30,4 +30,9 @@
     <ProjectReference Include="..\..\src\ThixShow.Core\ThixShow.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- the shared preset geometry engine (lifted from ThixShow.Core into ThixOffice.Text) -->
+    <Using Include="ThixOffice.Text.Drawing.Geometry" />
+  </ItemGroup>
+
 </Project>

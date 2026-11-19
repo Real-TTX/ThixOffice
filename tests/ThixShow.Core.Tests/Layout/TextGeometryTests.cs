@@ -52,6 +52,6 @@ public class TextGeometryTests
         Assert.Equal("Folie 2", SlideTitles.TitleOf(presentation, presentation.Slides[1]));
         Assert.Equal("Folie 1", SlideTitles.TitleOf(presentation, presentation.Slides[0]));
         Assert.Contains(ShapeCatalog.Categories, category => category.Name == "Blockpfeile" && category.Presets.Contains("rightArrow"));
-        Assert.All(ShapeCatalog.Categories.SelectMany(category => category.Presets), preset => Assert.True(ShapeCatalog.IsLine(preset) || Drawing.PresetGeometries.IsKnown(preset)));
+        Assert.All(ShapeCatalog.Categories.SelectMany(category => category.Presets), preset => Assert.True(ShapeCatalog.IsLine(preset) || PresetGeometries.IsKnown(preset)));
     }
 }

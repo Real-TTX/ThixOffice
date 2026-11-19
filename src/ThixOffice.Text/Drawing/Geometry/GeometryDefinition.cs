@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Xml.Linq;
 
-namespace ThixShow.Core.Drawing;
+namespace ThixOffice.Text.Drawing.Geometry;
 
 /// <summary>How a path of a geometry is filled (a:path fill): normally, not at all, or with a lightened/darkened fill (3-D looks).</summary>
 public enum PathFillMode
