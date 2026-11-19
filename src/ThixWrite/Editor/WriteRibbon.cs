@@ -132,6 +132,11 @@ public static class WriteCommandIds
     public const string HeaderFooterEvenOdd = "write.hf.evenOdd";
     public const string HeaderFooterClose = "write.hf.close";
 
+    // Referenzen
+    public const string InsertFootnote = "write.footnote";
+    public const string InsertEndnote = "write.endnote";
+    public const string NextFootnote = "write.nextNote"; // the menu's entries are write.nextNote.<footnote|endnote>.<next|previous>
+
     // Ansicht
     public const string Ruler = "write.ruler";
     public const string ShowMarksView = "write.showMarks.view";
@@ -179,7 +184,7 @@ public static class WriteRibbon
             }
         }
 
-        definition.Add(HomeTab(theme, Launch), InsertTab(), LayoutTab(), ViewTab(), TableDesignTab(theme), TableLayoutTab(), PictureTab(), HeaderFooterTab());
+        definition.Add(HomeTab(theme, Launch), InsertTab(), LayoutTab(), ReferencesTab(), ViewTab(),TableDesignTab(theme), TableLayoutTab(), PictureTab(), HeaderFooterTab());
         return definition;
     }
 
@@ -378,6 +383,16 @@ public static class WriteRibbon
 
     private static MatRibbonItem Align((string Id, string Label, Core.Model.CellVerticalAlignment Vertical, ParagraphAlignment Horizontal) alignment) =>
         Toggle($"{WriteCommandIds.TableAlign}.{alignment.Id}", "cellAlign", MatRibbonSize.Small);
+
+    /// <summary>Referenzen, like Word's: Inhaltsverzeichnis, Fußnoten.</summary>
+    private static MatRibbonTab ReferencesTab() =>
+        new MatRibbonTab("references", "Referenzen").Add(
+            new MatRibbonGroup("footnotes", "Fußnoten") { Icon = "footnote" }.Add(
+                Button(WriteCommandIds.InsertFootnote, MatRibbonSize.Large),
+                new MatRibbonStack("footnote-more",
+                    Button(WriteCommandIds.InsertEndnote),
+                    new MatRibbonMenuButton(WriteCommandIds.NextFootnote, "", null,
+                        [.. ReferenceCommands.NoteSteps.Select(step => Button($"{WriteCommandIds.NextFootnote}.{step.Id}"))]))));
 
     private static MatRibbonTab ViewTab() =>
         new MatRibbonTab("view", "Ansicht").Add(

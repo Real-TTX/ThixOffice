@@ -30,10 +30,11 @@ public partial class App : OfficeApplication
     public const string HeaderScene = "main-header";
     public const string LayoutScene = "main-layout";
     public const string ViewScene = "main-view";
+    public const string ReferencesScene = "main-references";
 
     public override OfficeAppDefinition Definition => ThixWriteApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, TableScene, PictureScene, HeaderScene, FindScene, PageSetupScene, PrintScene, ExportScene];
+    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, TableScene, PictureScene, HeaderScene, ReferencesScene, FindScene, PageSetupScene, PrintScene, ExportScene];
 
     public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => WriteRibbon.Create(window);
 
@@ -62,6 +63,7 @@ public partial class App : OfficeApplication
         HeaderFooterCommands.Add(window);
         LinkCommands.Add(window);
         TextCommands.Add(window);
+        ReferenceCommands.Add(window);
         window.Commands.Add(new ThixOffice.Core.Commands.OfficeCommand(WriteCommandIds.Print, "Drucken", () => window.ShowBackstage(PrintPage.PageId))
         {
             Icon = "print",
@@ -118,6 +120,14 @@ public partial class App : OfficeApplication
             case PrintScene:
                 window.ShowBackstage(PrintPage.PageId);
                 return window;
+            case ReferencesScene:
+                // Referenzen open, the foot of the first page with its footnote in view.
+                window.Ribbon.SelectTab("references");
+                editor.Layout.Update();
+                var foot = editor.Layout.Pages[0].Footnotes.FirstOrDefault()?.Lines[0].Top ?? 0;
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                editor.Scroller.Offset = new Avalonia.Vector(0, Math.Max(0, editor.Surface.ToSurface(0, 0, foot, 0, 0).Y - 360));
+                return window;
             case HeaderScene:
                 // The header of the first page edited in place: the body dimmed, the tab Kopf- und Fußzeile.
                 editor.EditHeaderFooter(0, footer: false);
@@ -151,6 +161,10 @@ public partial class App : OfficeApplication
         {
             case LayoutScene:
                 editor.ShowMarks = false;
+                window.Ribbon.SelectTab("home");
+                break;
+            case ReferencesScene:
+                editor.Scroller.Offset = default;
                 window.Ribbon.SelectTab("home");
                 break;
             case ViewScene:

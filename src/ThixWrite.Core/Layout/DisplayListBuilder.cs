@@ -30,6 +30,19 @@ public static class DisplayListBuilder
             AddLine(placed, items);
         }
 
+        foreach (var separator in new[] { page.FootnoteSeparator, page.EndnoteSeparator })
+        {
+            if (separator is { } line)
+            {
+                items.Add(new LineItem(line.X, line.Y, line.X + line.Width, line.Y, RgbColor.Black, 0.5));
+            }
+        }
+
+        foreach (var placed in page.Footnotes.Concat(page.Endnotes).SelectMany(note => note.Lines))
+        {
+            AddLine(placed, items);
+        }
+
         AddCellBorders(page, items);
         return new PageDisplayList(page.Index, page.Width, page.Height, items);
     }
@@ -217,7 +230,7 @@ public static class DisplayListBuilder
 
         if (box.Shaped is { } shaped)
         {
-            AddText(items, x, baseline, shaped, 0, shaped.Text.Length, box.Font, ColorOf(box.Format), 0);
+            AddText(items, x, baseline + box.BaselineShift, shaped, 0, shaped.Text.Length, box.Font, ColorOf(box.Format), 0);
         }
     }
 

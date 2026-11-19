@@ -48,7 +48,8 @@ public sealed record ObjectItem(
     ShapedText? Shaped,
     EffectiveCharacterFormat Format,
     FontSpec Font,
-    FontMetrics Metrics) : LayoutItem(Start, Start + 1, X, Width);
+    FontMetrics Metrics,
+    double BaselineShift = 0) : LayoutItem(Start, Start + 1, X, Width);
 
 /// <summary>The label of a list item ("1.", "•").</summary>
 public sealed record LabelItem(double X, double Width, ShapedText Shaped, EffectiveCharacterFormat Format, FontSpec Font, FontMetrics Metrics)
@@ -204,6 +205,9 @@ public sealed class ParagraphLayout
     public double Height { get; }
 
     public bool IsPreserved => Block is OpaqueBlock;
+
+    /// <summary>The numbers of the paragraph's first footnote and endnote it was laid out with ((0, 0) without notes).</summary>
+    internal (int Footnote, int Endnote) NoteStart { get; set; }
 }
 
 /// <summary>A line placed on a page: its block, its index in the block's layout, the top (page y) and the left of the text area (page x).</summary>
@@ -292,12 +296,54 @@ public sealed class PageLayout
 
     internal List<PlacedLine> MutableRepeatedLines => _repeatedLines;
 
+    private readonly List<DocumentLayout.NoteSlice> _footnoteSlices = [];
+    private readonly List<PlacedNote> _endnotes = [];
+
+    internal List<DocumentLayout.NoteSlice> MutableFootnoteSlices => _footnoteSlices;
+
+    internal List<PlacedNote> MutableEndnotes => _endnotes;
+
+    /// <summary>The footnotes (or their parts) at the foot of this page, top to bottom (lines: block numbers of each note's story).</summary>
+    public IReadOnlyList<PlacedNote> Footnotes { get; internal set; } = [];
+
+    /// <summary>The separator above the footnotes (a short line; across the text width above a continued note), or null.</summary>
+    public NoteSeparator? FootnoteSeparator { get; internal set; }
+
+    /// <summary>The endnotes (or parts) on this page, after the end of the text.</summary>
+    public IReadOnlyList<PlacedNote> Endnotes => _endnotes;
+
+    /// <summary>The separator above the endnotes when they start on this page, or null.</summary>
+    public NoteSeparator? EndnoteSeparator { get; internal set; }
+
+    /// <summary>The height the footnotes take at the foot of the page (separator included; 0 without footnotes).</summary>
+    public double FootnoteHeight { get; private set; }
+
+    internal void AddFootnote(DocumentLayout.NoteSlice slice)
+    {
+        _footnoteSlices.Add(slice);
+        UpdateFootnoteHeight();
+    }
+
+    internal void RemoveFootnotes(Predicate<DocumentLayout.NoteSlice> match)
+    {
+        if (_footnoteSlices.RemoveAll(match) > 0)
+        {
+            UpdateFootnoteHeight();
+        }
+    }
+
+    private void UpdateFootnoteHeight() =>
+        FootnoteHeight = _footnoteSlices.Count == 0 ? 0 : DocumentLayout.NoteSeparatorHeight + _footnoteSlices.Sum(slice => slice.Height);
+
     /// <summary>Removes what blocks from <paramref name="block"/> on placed here (re-pagination from that block).</summary>
     internal void RemoveFrom(int block)
     {
         _lines.RemoveAll(line => line.Block >= block);
         _cells.RemoveAll(cell => cell.TableStart >= block);
         _repeatedLines.RemoveAll(line => line.Block >= block);
+        RemoveFootnotes(slice => slice.RefBlock >= block);
+        _endnotes.Clear();
+        EndnoteSeparator = null;
     }
 
     public override string ToString() => $"Page {Index + 1}: {_lines.Count} lines, blocks {FirstBlock}–{LastBlock}";

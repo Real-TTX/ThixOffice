@@ -71,6 +71,14 @@ public sealed class WriteEditor : OfficeEditor
         _surface.HeaderFooterRequested += (_, area) => EditHeaderFooter(area.Page, area.Footer);
         _surface.LinkClicked += (_, address) => _ = LinkCommands.Open(_window, address);
         _surface.BodyRequested += (_, _) => CloseHeaderFooter();
+        _surface.NoteRequested += OnNoteRequested;
+        _surface.AddHandler(InputElement.PointerPressedEvent, (_, _) =>
+        {
+            if (IsEditingNote)
+            {
+                CloseHeaderFooter(); // a click on the text leaves the note (the click itself goes on)
+            }
+        }, RoutingStrategies.Tunnel);
         _surface.SelectedByPointer += (_, _) => Paint();
         Document.Writing += OnWriting;
         _surface.DropPicture = (path, position) => OfficeWindow.RunAsync(_window, "Bild einfügen", () => Task.FromResult(InsertPictureFile(path, position)));
@@ -137,7 +145,7 @@ public sealed class WriteEditor : OfficeEditor
     }
 
     /// <summary>True while a header or footer is edited.</summary>
-    public bool IsEditingHeaderFooter => _story is not null;
+    public bool IsEditingHeaderFooter => _story is { Note: null };
 
     /// <summary>The surface of the header or footer being edited (tests), or null.</summary>
     internal DocumentSurface? StorySurface => _story?.Surface;
@@ -333,6 +341,12 @@ public sealed class WriteEditor : OfficeEditor
 
         var edited = story.Original.WithBlocks(story.Document.Blocks);
         Document.Session.AdoptDefinitions(story.Document.Styles, story.Document.Numbering);
+        if (story.Note is { } reference)
+        {
+            Document.Session.SetNoteContent(reference, edited);
+            return;
+        }
+
         var current = (story.Footer ? Document.Content.Sections[Math.Min(story.Section, Document.Content.Sections.Count - 1)].Properties.Footers
             : Document.Content.Sections[Math.Min(story.Section, Document.Content.Sections.Count - 1)].Properties.Headers)[story.Kind];
         if (current is null || !current.Equals(edited))
@@ -368,7 +382,8 @@ public sealed class WriteEditor : OfficeEditor
 
         var setup = Layout.Pages[story.Page].Section.Properties;
         var page = _surface.PageRect(story.Page);
-        var top = story.Footer
+        var top = story.Note is not null ? page.Y + (story.NoteTop * _surface.Scale)
+            : story.Footer
             ? page.Y + ((setup.PageHeight - setup.FooterDistance - story.Surface.StoryHeight) * _surface.Scale)
             : page.Y + (setup.HeaderDistance * _surface.Scale);
         Canvas.SetLeft(story.Surface, page.X);
@@ -384,7 +399,97 @@ public sealed class WriteEditor : OfficeEditor
         HeaderFooterKind Kind,
         bool Footer,
         int Page,
-        Story Original);
+        Story Original)
+    {
+        /// <summary>The reference of the footnote or endnote being edited (null: a header or footer).</summary>
+        public DocumentPosition? Note { get; init; }
+
+        /// <summary>The top of the note's text on its page (points).</summary>
+        public double NoteTop { get; init; }
+    }
+
+    // ===== Footnotes and endnotes =====
+
+    /// <summary>True while the text of a footnote or endnote is edited.</summary>
+    public bool IsEditingNote => _story?.Note is not null;
+
+    /// <summary>The reference of the note being edited, or null.</summary>
+    public DocumentPosition? EditedNote => _story?.Note;
+
+    /// <summary>Referenzen › Fußnote / Endnote einfügen: the reference at the caret, then its text opened for typing.</summary>
+    public void InsertNote(NoteKind kind)
+    {
+        CloseHeaderFooter();
+        var reference = Document.Session.InsertNote(kind);
+        EditNote(reference);
+    }
+
+    /// <summary>
+    /// Opens the text of the note referenced at <paramref name="reference"/> in place, at the foot of its page (or after the text for an
+    /// endnote): typing goes there, the reference keeps its place; a click on the text, Esc or saving puts it into the document as one step.
+    /// <paramref name="at"/>: where the user clicked (page points), the caret goes there; else to the end.
+    /// </summary>
+    public void EditNote(DocumentPosition reference, Point? at = null)
+    {
+        CloseHeaderFooter();
+        Layout.Update();
+        if (Document.Session.NoteAt(reference) is not { } note || Layout.FindNote(reference) is not { } found)
+        {
+            return;
+        }
+
+        var (page, placed) = found;
+        var setup = Layout.Pages[page].Section.Properties;
+        var content = Document.Content;
+        var storySection = setup with
+        {
+            PageHeight = 5000,
+            MarginTop = 0,
+            MarginBottom = 0,
+            TitlePage = false,
+            Headers = HeaderFooterSet.Empty,
+            Footers = HeaderFooterSet.Empty,
+        };
+        var document = new Core.Model.Document(note.Content.Blocks, content.Styles, content.Numbering, storySection, content.Theme, content.Settings);
+        var session = new EditingSession(document);
+        var layout = new DocumentLayout(document, WriteFonts.Measurer, LayoutOptions.Default, session.Resolver) { NoteMarkText = placed.Label };
+        session.Navigator = layout;
+        var height = Layout.Pages.SelectMany(each => each.Footnotes.Concat(each.Endnotes)).Where(each => each.Reference == reference)
+            .Sum(each => each.Lines.Sum(line => line.Line.Height));
+        var surface = new DocumentSurface(session, layout) { IsStory = true, MinimumHeight = Math.Max(12, height), Scale = _surface.Scale };
+        Avalonia.Automation.AutomationProperties.SetName(surface, NoteNumbering.Label(note.Kind));
+        _story = new StoryEditing(document, session, layout, surface, -1, HeaderFooterKind.Default, false, page, note.Content)
+        {
+            Note = reference,
+            NoteTop = placed.Lines[0].Top,
+        };
+        _overlay.Children.Add(surface);
+        session.StateChanged += OnStateChanged;
+        session.ContentChanged += OnStoryChanged;
+        surface.Refreshed += (_, _) => ScheduleState();
+        surface.KeyDown += OnStoryKey;
+        PositionStory();
+        var caret = at is { } point ? layout.HitTest(0, point.X, point.Y - placed.Lines[0].Top).Position : document.End;
+        session.SetCaret(caret);
+        Dispatcher.UIThread.Post(() =>
+        {
+            surface.Focus();
+            surface.BringIntoView();
+        }, DispatcherPriority.Input);
+        ScheduleState();
+    }
+
+    /// <summary>A click on the text of a note at the foot of a page (or after the text) opens it there.</summary>
+    private void OnNoteRequested(object? sender, (PlacedNote Note, Point At) request)
+    {
+        if (request.Note.IsContinuation)
+        {
+            EditNote(request.Note.Reference);
+            return;
+        }
+
+        EditNote(request.Note.Reference, request.At);
+    }
 
     // ===== Zoom =====
 
@@ -605,7 +710,7 @@ public sealed class WriteEditor : OfficeEditor
     /// <summary>Tabellenentwurf and Layout (contextual) show while the caret is in a table, Bildformat while a picture is selected, as in Word.</summary>
     private void ShowTableTabs()
     {
-        if (_story is not null)
+        if (IsEditingHeaderFooter)
         {
             _window.RibbonDefinition.ShowContext(HeaderFooterCommands.Context);
         }

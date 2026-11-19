@@ -54,6 +54,7 @@ public static class DocxWriter
         root.Body = WriteBody(document, context);
         XmlFragments.RemoveRedundantDeclarations(root);
         root.Save();
+        DocxNotes.Write(document, main, context.Notes, (blocks, part) => WriteBlocks(document, blocks, new WriteContext(main, part, document)));
 
         var stylesPart = main.StyleDefinitionsPart;
         if (stylesPart is null)
@@ -221,6 +222,17 @@ public static class DocxWriter
                 result.AppendChild(new W.Text(field.Result) { Space = SpaceProcessingModeValues.Preserve });
                 yield return DocxFields.Write(field, result);
                 break;
+            case NoteInline note:
+                var noteRun = NewRun(note.Properties);
+                var id = context.NoteId(note);
+                noteRun.AppendChild<OpenXmlElement>(note.Kind == NoteKind.Footnote ? new W.FootnoteReference { Id = id } : new W.EndnoteReference { Id = id });
+                yield return noteRun;
+                break;
+            case NoteMarkInline mark:
+                var markRun = NewRun(mark.Properties);
+                markRun.AppendChild<OpenXmlElement>(mark.Kind == NoteKind.Footnote ? new W.FootnoteReferenceMark() : new W.EndnoteReferenceMark());
+                yield return markRun;
+                break;
             case ImageInline image:
                 var pictureRun = NewRun(image.Properties);
                 foreach (var child in DocxPictures.Write(image, context.Pictures))
@@ -370,6 +382,11 @@ public static class DocxWriter
         public DocxPictures.PictureContext Pictures { get; } = new(part);
 
         public Document? Document { get; set; } = document;
+
+        /// <summary>The notes written so far (their ids allocated), in order of appearance.</summary>
+        public DocxNotes.Allocation Notes { get; } = new(main, document);
+
+        public long NoteId(NoteInline note) => Notes.Allocate(note);
 
         /// <summary>The header and footer references of a section, their parts written (each story once, into the part it was read from).</summary>
         public IEnumerable<OpenXmlElement> ReferencesOf(SectionProperties section)

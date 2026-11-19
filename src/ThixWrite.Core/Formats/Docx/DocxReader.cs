@@ -377,6 +377,10 @@ public static class DocxReader
                     context.Count(PreservedKind.EmbeddedObject);
                     AddOpaque(child, PreservedKind.EmbeddedObject);
                     break;
+                case W.FootnoteReference or W.EndnoteReference when ReadNote(child, properties, link, context) is { } note:
+                    Flush();
+                    inlines.Add(note);
+                    break;
                 case W.FootnoteReference:
                     context.Count(PreservedKind.Footnote);
                     AddOpaque(child, PreservedKind.Footnote);
@@ -384,6 +388,14 @@ public static class DocxReader
                 case W.EndnoteReference:
                     context.Count(PreservedKind.Endnote);
                     AddOpaque(child, PreservedKind.Endnote);
+                    break;
+                case W.FootnoteReferenceMark:
+                    Flush();
+                    inlines.Add(new NoteMarkInline(NoteKind.Footnote, properties, link));
+                    break;
+                case W.EndnoteReferenceMark:
+                    Flush();
+                    inlines.Add(new NoteMarkInline(NoteKind.Endnote, properties, link));
                     break;
                 case W.CommentReference:
                     context.Count(PreservedKind.Comment);
@@ -401,6 +413,19 @@ public static class DocxReader
         }
 
         Flush();
+    }
+
+    /// <summary>A footnote or endnote reference with its text from the notes part; null when the note is missing or has its own mark (then kept as it is).</summary>
+    private static NoteInline? ReadNote(OpenXmlElement reference, CharacterProperties properties, Hyperlink? link, ReadContext context)
+    {
+        if (DocxValues.AttributeValue(reference, "customMarkFollows") is { } custom && custom.Trim() is "1" or "true" or "on")
+        {
+            return null;
+        }
+
+        var kind = reference is W.EndnoteReference ? NoteKind.Endnote : NoteKind.Footnote;
+        var id = DocxValues.AttributeValue(reference, "id");
+        return id is not null && context.ReadNote(id, kind) is { } content ? new NoteInline(kind, content, properties, link, id) : null;
     }
 
     private static Hyperlink ReadHyperlink(W.Hyperlink hyperlink, ReadContext context)
@@ -555,6 +580,48 @@ public static class DocxReader
             finally
             {
                 Part = previous;
+            }
+        }
+
+        /// <summary>The text of footnote / endnote <paramref name="id"/> from its part (null when there is no such note or it is a separator).</summary>
+        public Story? ReadNote(string id, NoteKind kind)
+        {
+            OpenXmlPart? part = kind == NoteKind.Footnote ? Main.FootnotesPart : Main.EndnotesPart;
+            OpenXmlCompositeElement? root = part switch
+            {
+                FootnotesPart footnotes => footnotes.Footnotes,
+                EndnotesPart endnotes => endnotes.Endnotes,
+                _ => null,
+            };
+            var element = root?.ChildElements.FirstOrDefault(child => child is W.Footnote or W.Endnote && DocxValues.AttributeValue(child, "id") == id);
+            if (element is null || DocxValues.AttributeValue(element, "type") is { } type && type != "normal")
+            {
+                return null;
+            }
+
+            var previous = Part;
+            var markers = TakeMarkers();
+            Part = part!;
+            try
+            {
+                var blocks = new List<Block>();
+                SectionProperties? ignored = null;
+                foreach (var child in element.ChildElements)
+                {
+                    ReadBodyChild(child, blocks, this, ref ignored);
+                }
+
+                if (PendingMarkers.Count > 0)
+                {
+                    blocks.Add(new Paragraph(TakeMarkers()));
+                }
+
+                return new Story(blocks);
+            }
+            finally
+            {
+                Part = previous;
+                PendingMarkers.AddRange(markers);
             }
         }
 

@@ -97,13 +97,15 @@ internal static class WriteSelfTest
         var image = ImageData.FromBytes(SampleDocument.ChartPng()) ?? throw new InvalidOperationException("the chart is no PNG");
         document.Session.InsertImage(image);
         document.Session.InsertPageNumber(top: false, ParagraphAlignment.Center);
+        SampleDocument.Note(document.Session, NoteKind.Footnote, "Eine Fußnote.");
         var path = DocumentService.SaveAs(document, Path.Combine(folder, "Bild.docx"));
         var reopened = DocumentService.Open(path, app.CreateDocument) as WordDocument ?? throw new InvalidOperationException("not a WordDocument");
         Ensure(reopened.Content.ParagraphAt(0)?.Inlines.FirstOrDefault() is ImageInline { Image.PixelWidth: 600 }, "the picture is lost in the docx");
         Ensure(reopened.Content.FinalSection.Footers.Default?.HasPageFields == true, "the page number is lost in the docx");
+        Ensure(NoteNumbering.All(reopened.Content).SingleOrDefault().Note?.PlainText.Trim() == "Eine Fußnote.", "the footnote is lost in the docx");
         Ensure(SkiaPageRenderer.DecodeImage(image.Key, image.Bytes) is { Width: 600 }, "Skia cannot decode the picture");
         Ensure(Core.Formats.Html.HtmlImport.Import("<p><b>HTML</b></p>") is { } html && html.Blocks.Count > 0, "HTML is not read");
-        return $"picture and footer {new FileInfo(path).Length} bytes";
+        return $"picture, footer and footnote {new FileInfo(path).Length} bytes";
     }
 
     /// <summary>

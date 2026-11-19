@@ -129,7 +129,12 @@ public sealed class Paragraph : Block
         }
 
         var inline = InlineAt(Math.Clamp(offset - 1, 0, Length - 1));
-        return inline?.Properties ?? MarkProperties;
+        return inline switch
+        {
+            NoteInline note => note.Properties with { StyleId = null }, // text after a note's number is not raised
+            null => MarkProperties,
+            _ => inline.Properties,
+        };
     }
 
     /// <summary>The inlines of [<paramref name="start"/>, <paramref name="end"/>), text runs cut at the edges.</summary>

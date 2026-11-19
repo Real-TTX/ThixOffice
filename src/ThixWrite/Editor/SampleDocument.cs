@@ -27,7 +27,9 @@ public static class SampleDocument
         Formatted(session, "412 Bestellungen", s => s.SetBold(true), s => s.SetBold(false));
         session.InsertText(", ein Viertel davon über das Smartphone. Die Rückgabequote liegt mit ");
         Formatted(session, "4,8 %", s => s.SetTextColor(DocumentPalette.StandardColors[5].TrimStart('#')), s => s.SetTextColor(null));
-        session.InsertText(" deutlich unter dem Ziel von 8 %. ");
+        session.InsertText(" deutlich unter dem Ziel von 8 %");
+        Note(session, NoteKind.Footnote, "Ziel aus dem Projektplan vom 12. September.");
+        session.InsertText(". ");
         Formatted(session, "Wichtig:", s => s.SetHighlight(HighlightColor.Yellow), s => s.SetHighlight(HighlightColor.None));
         session.InsertText(" Die Versandkosten für Österreich und die Schweiz sind noch offen.");
         session.InsertParagraphBreak();
@@ -133,6 +135,15 @@ public static class SampleDocument
         session.ApplyStyle(style);
         session.InsertText(text);
         session.InsertParagraphBreak();
+    }
+
+    /// <summary>A note at the caret with its text, the caret behind its reference.</summary>
+    public static void Note(EditingSession session, NoteKind kind, string text)
+    {
+        var reference = session.InsertNote(kind);
+        var content = NoteNumbering.NewContent(kind);
+        var paragraph = (Paragraph)content.Blocks[0];
+        session.SetNoteContent(reference, content.WithBlocks([paragraph.WithInlines([paragraph.Inlines[0], new TextRun(" " + text, CharacterProperties.Empty)])]));
     }
 
     private static void Formatted(EditingSession session, string text, Action<EditingSession> on, Action<EditingSession> off)

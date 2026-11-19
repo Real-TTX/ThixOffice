@@ -189,6 +189,16 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
 - **1b:** Drucken, Tabellen, Bilder, Kopf-/Fußzeilen, Seitenzahlen, Hyperlinks, Tabstopps (Lineal), Dialoge Schriftart/Absatz,
   HTML/RTF einfügen.
 - **1c:** Inhaltsverzeichnis, Fußnoten, Kommentare, Rechtschreibprüfung, odt; Karten Referenzen/Überprüfen.
+- **Fußnoten und Endnoten erledigt (1c):** Modell (die Notiz reist mit ihrem Verweis: `NoteInline` mit dem Text als Story; Löschen,
+  Kopieren, Rückgängig ohne zweite Liste), Nummerierung in Dokumentreihenfolge (Fußnoten 1, 2, 3; Endnoten i, ii, iii), Layout am
+  Seitenende unter einem kurzen Trennstrich (eine Zeile mit Verweis kommt nur auf die Seite, wenn kurze Notizen ganz und lange mit
+  zwei Zeilen passen; der Rest läuft unter einem Strich über die ganze Breite auf der nächsten Seite weiter), Endnoten nach dem Text,
+  Bearbeiten an Ort und Stelle (Klick auf die Notiz, Doppelklick auf die Nummer; Esc / Klick in den Text / Speichern übernimmt als
+  ein Schritt), Referenzen › Fußnote einfügen (Strg+Alt+F), Endnote einfügen (Strg+Alt+D), Nächste/Vorherige Fuß-/Endnote, docx
+  (footnotes.xml/endnotes.xml: Trennlinien bleiben, Ids werden wiederverwendet, Notizen, auf die erhaltenes XML zeigt, bleiben).
+  **Lücken:** Nummernformat/Neubeginn je Abschnitt (w:footnotePr wird nur erhalten), eigene Zeichen (customMarkFollows bleibt
+  erhalten, nicht bearbeitbar), Fußnoten in Tabellenzellen schieben die Zeile nicht auf die nächste Seite, Endnoten am
+  Abschnittsende, Fußnoten unter dem Text statt am Seitenende.
 - Danach: Launcher-Eintrag (siehe 6).
 
 ### Phase 2 – Drive in ThixCloud

@@ -104,6 +104,18 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
         }
 
         _labels = labels;
+        var noteStarts = ComputeNoteStarts();
+        for (var index = 0; index < noteStarts.Length; index++)
+        {
+            var old = index < _noteStarts.Length ? _noteStarts[index] : (0, 0);
+            if (old != noteStarts[index])
+            {
+                _dirtyFrom = Math.Min(_dirtyFrom, index);
+                break;
+            }
+        }
+
+        _noteStarts = noteStarts;
         var start = ResumeBlock(Math.Min(_dirtyFrom, Document.Blocks.Count - 1));
         var laidOut = Paginate(start);
         _dirtyFrom = int.MaxValue;
@@ -114,6 +126,8 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
         {
             _displayLists.Remove(page);
         }
+
+        PlaceFootnoteAreas(firstPage);
 
         _pageTops = BuildPageTops();
         firstPage = Math.Min(firstPage, PlaceHeadersAndFooters());
@@ -529,7 +543,9 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
         _context.Clear();
         _storyLayouts.Clear();
         _pageStories.Clear();
+        _noteLayouts.Clear();
         _labels = [];
+        _noteStarts = [];
         for (var index = 0; index < Document.Blocks.Count; index++)
         {
             _layouts.Add(null);
@@ -567,18 +583,21 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
         var cached = _layouts[block];
         var current = Document.Blocks[block];
         var label = block < _labels.Length ? _labels[block] : null;
-        if (cached is not null && ReferenceEquals(cached.Block, current) && Math.Abs(cached.Width - width) < Epsilon && cached.Label == label?.Text)
+        var notes = block < _noteStarts.Length ? _noteStarts[block] : (0, 0);
+        if (cached is not null && ReferenceEquals(cached.Block, current) && Math.Abs(cached.Width - width) < Epsilon && cached.Label == label?.Text && cached.NoteStart == notes)
         {
             return cached;
         }
 
         _laidOut++;
+        _context.NoteStart = notes;
         var layout = current switch
         {
             Paragraph paragraph => ParagraphLayouter.Layout(paragraph, _context.Resolver.ResolveParagraph(paragraph), label, width, _context),
             OpaqueBlock opaque => ParagraphLayouter.LayoutPreserved(opaque, width, _context),
             _ => throw new NotSupportedException($"Unknown block {current.GetType().Name}."),
         };
+        layout.NoteStart = notes;
         _layouts[block] = layout;
         return layout;
     }
@@ -587,7 +606,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
 
     // ---------------------------------------------------------------- pagination
 
-    private sealed record FlowState(int Page, double Y, double PendingAfter, string? PreviousStyle, bool PreviousContextual, bool AfterHardBreak, int Section);
+    private sealed record FlowState(int Page, double Y, double PendingAfter, string? PreviousStyle, bool PreviousContextual, bool AfterHardBreak, int Section, System.Collections.Immutable.ImmutableList<NoteSlice>? Carry = null);
 
     private sealed class BlockPlacement(PlacedLine[] lines, int[] pages)
     {
@@ -620,6 +639,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
             flow.Place(block);
         }
 
+        flow.Finish();
         return _laidOut;
     }
 
@@ -634,13 +654,13 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
         private bool _afterHardBreak = start.AfterHardBreak;
         private int _section = start.Section;
 
-        public FlowState State => new(_page, _y, _pendingAfter, _previousStyle, _previousContextual, _afterHardBreak, _section);
+        public FlowState State => new(_page, _y, _pendingAfter, _previousStyle, _previousContextual, _afterHardBreak, _section, _carry);
 
         private PageLayout Page => owner._pages[_page];
 
         private SectionProperties Setup => Page.Section.Properties;
 
-        private double Bottom => Setup.PageHeight - Setup.MarginBottom;
+        private double Bottom => Setup.PageHeight - Setup.MarginBottom - Page.FootnoteHeight;
 
         public void Place(int block)
         {
@@ -721,7 +741,8 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
             while (index < lines.Count)
             {
                 var line = lines[index];
-                if (_y + line.Height > Bottom + Epsilon && Page.Lines.Count > 0)
+                var notes = owner.NotesIn(block, line);
+                if (_y + line.Height + NoteReserve(notes, Setup.ContentWidth) > Bottom + Epsilon && Page.Lines.Count > 0)
                 {
                     var split = index;
                     if (layout.Format.WidowControl && lines.Count > 1 && !layout.IsPreserved)
@@ -745,6 +766,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
                     if (split < index)
                     {
                         Page.MutableLines.RemoveRange(Page.Lines.Count - (index - split), index - split);
+                        RemoveFootnotesFrom(block, split);
                         index = split;
                     }
 
@@ -753,6 +775,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
                     firstOnPage = index;
                     pageHadContent = false;
                     line = lines[index];
+                    notes = owner.NotesIn(block, line);
                 }
 
                 var placedLine = new PlacedLine(block, index, _y, left, line, layout);
@@ -760,6 +783,11 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
                 placed[index] = placedLine;
                 pages[index] = _page;
                 _y += line.Height;
+                if (notes.Count > 0)
+                {
+                    AddFootnotes(block, index, notes, _y);
+                }
+
                 index++;
 
                 if (line.Ending == LineEnding.PageBreak)
@@ -861,6 +889,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
             _y = info.Properties.MarginTop;
             _afterHardBreak = hard;
             _pendingAfter = 0;
+            PlaceCarry();
         }
     }
 

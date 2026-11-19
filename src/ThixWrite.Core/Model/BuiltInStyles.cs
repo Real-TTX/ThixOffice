@@ -26,6 +26,12 @@ public static class BuiltInStyles
     public const string Footer = "Footer";
     public const string TableNormal = "TableNormal";
     public const string TableGrid = "TableGrid";
+    public const string Toc1 = "TOC1";
+    public const string Toc2 = "TOC2";
+    public const string Toc3 = "TOC3";
+    public const string TocHeading = "TOCHeading";
+    public const string CommentText = "CommentText";
+    public const string CommentReference = "CommentReference";
 
     public const string BodyFont = "Calibri";
     public const string HeadingFont = "Calibri Light";
@@ -71,7 +77,9 @@ public static class BuiltInStyles
         ["footnote text"] = "Fußnotentext",
         ["footnote reference"] = "Fußnotenzeichen",
         ["endnote text"] = "Endnotentext",
+        ["endnote reference"] = "Endnotenzeichen",
         ["annotation text"] = "Kommentartext",
+        ["annotation reference"] = "Kommentarzeichen",
         ["toc 1"] = "Verzeichnis 1",
         ["toc 2"] = "Verzeichnis 2",
         ["toc 3"] = "Verzeichnis 3",
@@ -284,6 +292,60 @@ public static class BuiltInStyles
                 UiPriority = 39,
                 Paragraph = new ParagraphProperties { SpacingAfter = 0, LineSpacing = LineSpacing.Single },
                 Table = new TableProperties { Borders = BorderSet.All(BorderLine.Single) },
+            },
+            NoteNumbering.FootnoteText or NoteNumbering.EndnoteText or CommentText => new Style
+            {
+                Id = id,
+                Name = id == NoteNumbering.FootnoteText ? "footnote text" : id == NoteNumbering.EndnoteText ? "endnote text" : "annotation text",
+                BasedOn = Normal,
+                UiPriority = 99,
+                SemiHidden = true,
+                UnhideWhenUsed = true,
+                Paragraph = new ParagraphProperties { SpacingAfter = 0, LineSpacing = LineSpacing.Single },
+                Character = new CharacterProperties { FontSize = 10 },
+            },
+            NoteNumbering.FootnoteReference or NoteNumbering.EndnoteReference => new Style
+            {
+                Id = id,
+                Name = id == NoteNumbering.FootnoteReference ? "footnote reference" : "endnote reference",
+                Type = StyleType.Character,
+                BasedOn = DefaultParagraphFont,
+                UiPriority = 99,
+                SemiHidden = true,
+                UnhideWhenUsed = true,
+                Character = new CharacterProperties { VerticalPosition = VerticalPosition.Superscript },
+            },
+            CommentReference => new Style
+            {
+                Id = id,
+                Name = "annotation reference",
+                Type = StyleType.Character,
+                BasedOn = DefaultParagraphFont,
+                UiPriority = 99,
+                SemiHidden = true,
+                UnhideWhenUsed = true,
+                Character = new CharacterProperties { FontSize = 8 },
+            },
+            Toc1 or Toc2 or Toc3 => new Style
+            {
+                Id = id,
+                Name = $"toc {id[^1]}",
+                BasedOn = Normal,
+                Next = Normal,
+                UiPriority = 39,
+                UnhideWhenUsed = true,
+                Paragraph = new ParagraphProperties { SpacingAfter = 5, IndentLeft = (id[^1] - '1') * 11.0 },
+            },
+            TocHeading => new Style
+            {
+                Id = TocHeading,
+                Name = "TOC Heading",
+                BasedOn = Heading1,
+                Next = Normal,
+                UiPriority = 39,
+                UnhideWhenUsed = true,
+                QuickFormat = true,
+                Paragraph = new ParagraphProperties { OutlineLevel = 9 },
             },
             HyperlinkStyle => new Style
             {

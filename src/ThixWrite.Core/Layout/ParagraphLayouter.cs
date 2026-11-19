@@ -31,6 +31,12 @@ internal sealed class LayoutContext(ITextMeasurer measurer, StyleResolver resolv
 
     /// <summary>The text a field shows where it is laid out now (a header on page 3: "3"); null shows its last result.</summary>
     public Func<FieldInline, string>? FieldText { get; set; }
+
+    /// <summary>The numbers of the first footnote and endnote of the paragraph being laid out (its references count on from them).</summary>
+    public (int Footnote, int Endnote) NoteStart { get; set; } = (1, 1);
+
+    /// <summary>What a note's own mark shows in the note being laid out ("3"); null shows nothing.</summary>
+    public string? NoteMarkText { get; set; }
 }
 
 /// <summary>
@@ -221,6 +227,7 @@ internal static class ParagraphLayouter
         advances = new double[text.Length];
         owner = new int[text.Length];
         var segments = new List<Segment>();
+        var (footnote, endnote) = context.NoteStart;
         for (var index = 0; index < paragraph.Inlines.Length; index++)
         {
             var inline = paragraph.Inlines[index];
@@ -255,9 +262,15 @@ internal static class ParagraphLayouter
                 continue;
             }
 
-            if (inline is FieldInline field)
+            if (inline is FieldInline or NoteInline or NoteMarkInline)
             {
-                var shown = context.FieldText?.Invoke(field) ?? field.Result;
+                var shown = inline switch
+                {
+                    FieldInline field => context.FieldText?.Invoke(field) ?? field.Result,
+                    NoteInline { Kind: NoteKind.Endnote } => NoteNumbering.Format(NoteKind.Endnote, endnote++),
+                    NoteInline => NoteNumbering.Format(NoteKind.Footnote, footnote++),
+                    _ => context.NoteMarkText ?? "",
+                };
                 var value = new Segment
                 {
                     Start = start,
@@ -266,7 +279,8 @@ internal static class ParagraphLayouter
                     Format = format,
                     Font = font,
                     Metrics = metrics,
-                    Object = field,
+                    Object = inline,
+                    BaselineShift = shift,
                     Shaped = context.Measurer.Shape(shown.Length == 0 ? " " : shown, font),
                 };
                 value.ObjectWidth = value.Shaped.Width;
@@ -657,8 +671,8 @@ internal static class ParagraphLayouter
                     descent = Math.Max(descent, segment.Metrics.Descent);
                     break;
                 case SegmentKind.Object:
-                    items.Add(new ObjectItem(from, itemX, itemWidth, segment.ObjectHeight, segment.Object!, segment.Shaped, segment.Format, segment.Font, segment.Metrics));
-                    ascent = Math.Max(ascent, segment.ObjectHeight > 0 ? segment.ObjectHeight : segment.Metrics.Ascent);
+                    items.Add(new ObjectItem(from, itemX, itemWidth, segment.ObjectHeight, segment.Object!, segment.Shaped, segment.Format, segment.Font, segment.Metrics, segment.BaselineShift));
+                    ascent = Math.Max(ascent, segment.ObjectHeight > 0 ? segment.ObjectHeight : segment.Metrics.Ascent - segment.BaselineShift);
                     descent = Math.Max(descent, segment.Metrics.Descent);
                     break;
             }

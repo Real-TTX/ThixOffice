@@ -26,8 +26,12 @@ Fußzeilen mit Seitenzahlen (Doppelklick in den Rand), Links, Lineal mit Einzüg
 Format übertragen, Symbole und Einfügen aus anderen Programmen (HTML: Formatierung, Listen, Tabellen, Links, Bilder). Eingabemethoden
 (Umlaute, Akzente mit Tottasten, Emoji-Panel, chinesisch/japanisch) funktionieren.
 
+Meilenstein 1c bringt die Karte **Referenzen**: **Fußnoten** (Strg+Alt+F) stehen unten auf ihrer Seite unter einem kurzen Strich,
+lange Fußnoten laufen auf der nächsten Seite weiter; **Endnoten** (Strg+Alt+D) folgen nach dem Text (i, ii, iii …). Den Text einer
+Notiz schreiben Sie direkt an Ort und Stelle; ein Klick auf eine Fußnote öffnet sie, ein Doppelklick auf ihre Nummer im Text auch.
+
 Word-Dokumente (.docx) sind das Standardformat; .txt wird als reiner Text gelesen und geschrieben. Inhalte, die ThixWrite noch
-nicht anzeigt (Kommentare, Fußnoten, verschachtelte Tabellen, Formeln …), bleiben beim Speichern erhalten – beim Öffnen sagt ein
+nicht anzeigt (Kommentare, verschachtelte Tabellen, Formeln …), bleiben beim Speichern erhalten – beim Öffnen sagt ein
 Hinweis, welche es sind.
 
 ![ThixWrite hell](docs/images/thixwrite-main-light.png)
@@ -37,6 +41,8 @@ Hinweis, welche es sind.
 | Tabelle (Kontext-Karte Layout) | Bild (Kontext-Karte Bildformat) |
 | --- | --- |
 | ![Tabelle](docs/images/thixwrite-main-table-light.png) | ![Bild](docs/images/thixwrite-main-picture-light.png) |
+| **Referenzen** (Fußnote am Seitenende) | |
+| ![Referenzen](docs/images/thixwrite-main-references-light.png) | |
 | **Kopfzeile bearbeiten** (Doppelklick in den Rand) | **Datei › Drucken** (Strg+P) |
 | ![Kopfzeile](docs/images/thixwrite-main-header-light.png) | ![Drucken](docs/images/thixwrite-backstage-print-light.png) |
 | **Suchen und Ersetzen** (Strg+F, Strg+H) | **Layout und Formatierungszeichen** |

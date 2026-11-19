@@ -22,7 +22,8 @@ tab stops, the dialogs Schriftart/Absatz, format painter, symbols, HTML paste (s
 find/replace, clipboard, page setup, printing and PDF, CSV/xlsx/xlsm flows (section "ThixCalc's editor"; gaps in docs/PLAN.md).
 **ThixCalc charts (done):** the shared `ThixOffice.Charts` (section "Charts"). **Phase 4, first version of ThixShow (done):** the
 slide editor, thumbnails, sorter, show and presenter view, the German PowerPoint ribbon, printing/PDF (section "ThixShow's editor";
-gaps in docs/PLAN.md). **Next:** ThixWrite 1c (table of contents, footnotes, comments, spelling, odt). Do not build ribbon controls of
+gaps in docs/PLAN.md). **ThixWrite 1c (in progress):** footnotes/endnotes done; next table of contents, comments, spelling,
+Referenzen/Überprüfen, odt. Do not build ribbon controls of
 your own (a picture gallery is a `RibbonFlyoutButton` through `CreateRibbonContent`).
 
 Stack: **.NET 10** (`global.json` 10.0.100, latestMinor), C#, **Avalonia 11.3.22** with **MatDesktop 0.3.1** (a copy), xunit +
@@ -355,6 +356,21 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   page) and a `DocumentSurface { IsStory = true }` laid over the page in an overlay canvas; the body is dimmed (`DimBody`), the tab
   Kopf- und Fußzeile shows, `WriteEditor.Session` is the story's (the commands act there). Esc, a double click on the body or
   "Schließen" put the story into the document as ONE step (`SetHeaderFooter`); saving commits first (`WordDocument.Writing`).
+
+### Footnotes and endnotes
+
+- **Model:** `NoteInline(Kind, Content: Story, …, SourceId)` = the reference (one object character) WITH its text; `NoteMarkInline` = the
+  number mark inside the text (w:footnoteRef). Deleting/copying/undoing the reference does the same to the note – no second list.
+  `NoteNumbering` (labels 1, 2, 3 / i, ii, iii; styles FootnoteText/FootnoteReference/Endnote*; `NewContent`; `All(document)`).
+- **Layout** (`DocumentLayout.Notes.cs`): note numbers per paragraph (`_noteStarts`, a paragraph whose numbers change is laid out again;
+  `LayoutContext.NoteStart`/`NoteMarkText`); the flow places a line only when it and its notes fit (`NoteReserve`), adds its footnotes
+  (`AddFootnotes`, `PageLayout.FootnoteHeight` shrinks `Bottom`), carries what does not fit (`FlowState.Carry`, placed first on the next
+  page, continuation separator across the width); `Finish` places the carry and the endnotes after the last block. `PageLayout.Footnotes`
+  / `Endnotes` (`PlacedNote`: reference, label, lines of the note's story), `FootnoteSeparator` / `EndnoteSeparator`; `NoteAt`,
+  `FindNote`, `NoteLabel`.
+- **Editing:** `EditingSession.InsertNote(kind)` (returns the reference), `SetNoteContent(reference, story)` (one step), `NextNote`.
+  `WriteEditor.EditNote(reference, at)` opens the note like a header (story surface over its text, `NoteMarkText` = its label; no dimming);
+  a click on the body, Esc or saving commits. **docx:** `DocxNotes` (ids reused, separators kept, notes referenced from preserved XML kept).
 
 ### Links, dialogs, format painter, symbols, ruler
 

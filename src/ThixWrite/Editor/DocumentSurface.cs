@@ -152,6 +152,9 @@ internal sealed class DocumentSurface : Control
     /// <summary>A double click on the body while a header or footer is edited: the editor closes it.</summary>
     public event EventHandler? BodyRequested;
 
+    /// <summary>A click on the text of a footnote or endnote (or a double click on its reference): the note and the point (page points).</summary>
+    public event EventHandler<(PlacedNote Note, Point At)>? NoteRequested;
+
     /// <summary>The height of the story's text (points).</summary>
     public double StoryHeight
     {
@@ -250,6 +253,11 @@ internal sealed class DocumentSurface : Control
     public override void Render(DrawingContext context)
     {
         var visible = _viewport.Width > 0 && _viewport.Height > 0 ? _viewport : new Rect(Bounds.Size);
+        if (IsStory)
+        {
+            // A story lies over a page: it draws (and is hit) only where it is, not over the whole viewport.
+            visible = visible.Intersect(new Rect(Bounds.Size));
+        }
         var border = new Pen(Ui.Brush("Mat.Border"), 1);
         var shadow = ShadowColor();
         var shadows = new BoxShadows(new BoxShadow { OffsetY = 1, Blur = 6, Color = shadow });
@@ -575,6 +583,25 @@ internal sealed class DocumentSurface : Control
             return;
         }
 
+        if (!IsStory && !_dimBody && PageUnder(point.Position) is >= 0 and var notePage)
+        {
+            var origin = PageRect(notePage);
+            var local = new Point((point.Position.X - origin.X) / _scale, (point.Position.Y - origin.Y) / _scale);
+            if (Layout.NoteAt(notePage, local.X, local.Y) is { } note)
+            {
+                e.Handled = true;
+                NoteRequested?.Invoke(this, (note, local));
+                return;
+            }
+
+            if (e.ClickCount == 2 && NoteReferenceAt(hit.Position) is { } reference && Layout.FindNote(reference) is { } found)
+            {
+                e.Handled = true;
+                NoteRequested?.Invoke(this, (found.Note, new Point(found.Note.Lines[0].Left, found.Note.Lines[0].Top)));
+                return;
+            }
+        }
+
         if (SelectedImageRect() is { } selected && HandleAt(selected, point.Position) is { } handle)
         {
             // A handle of the selected picture: dragging sizes it (corners keep its proportions unless Umschalt is held).
@@ -778,6 +805,18 @@ internal sealed class DocumentSurface : Control
         _tipLink = address;
         var key = OperatingSystem.IsMacOS() ? "⌘" : "Strg";
         ToolTip.SetTip(this, address is null ? null : $"{address}\n{key}+Klicken, um dem Link zu folgen");
+    }
+
+    /// <summary>The reference of a note at or just before a position (a double click lands beside the small number), or null.</summary>
+    private DocumentPosition? NoteReferenceAt(DocumentPosition position)
+    {
+        if (Session.NoteAt(position) is not null)
+        {
+            return position;
+        }
+
+        var before = position with { Offset = position.Offset - 1 };
+        return position.Offset > 0 && Session.NoteAt(before) is not null ? before : null;
     }
 
     /// <summary>Where a point is on a page: the header area (Footer false), the footer area (true) or the body (null).</summary>

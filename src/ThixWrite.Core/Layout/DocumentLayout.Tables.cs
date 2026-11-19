@@ -455,6 +455,11 @@ public sealed partial class DocumentLayout
             }
 
             Page.MutableLines.Add(line);
+            if (owner.NotesIn(line.Block, line.Line) is { Count: > 0 } notes)
+            {
+                AddFootnotes(line.Block, line.LineIndex, notes, Math.Max(_y, line.Top + line.Line.Height));
+            }
+
             if (!_tablePlacements.TryGetValue(line.Block, out var placement))
             {
                 placement = ([], []);

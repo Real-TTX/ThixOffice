@@ -1300,7 +1300,9 @@ public sealed partial class EditingSession
     private static IEnumerable<string> UsedStyles(IEnumerable<Block> blocks)
     {
         var ids = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var paragraph in blocks.OfType<Paragraph>())
+        var all = blocks.ToList();
+        all.AddRange(all.OfType<Paragraph>().SelectMany(paragraph => paragraph.Inlines).OfType<NoteInline>().SelectMany(note => note.Content.Blocks).ToList());
+        foreach (var paragraph in all.OfType<Paragraph>())
         {
             if (paragraph.Properties.StyleId is { } paragraphStyle)
             {
