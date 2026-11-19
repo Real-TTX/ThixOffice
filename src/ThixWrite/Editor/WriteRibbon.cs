@@ -58,6 +58,7 @@ public static class WriteCommandIds
     // Einfügen
     public const string TablePicker = "write.tablePicker"; // the grid of the ribbon (a control of its own)
     public const string InsertTable = "write.insertTable";
+    public const string InsertPicture = "write.insertPicture";
     public const string PageBreak = "write.pageBreak";
     public const string InsertDateTime = "write.insertDateTime";
 
@@ -100,6 +101,16 @@ public static class WriteCommandIds
     public const string TableAlign = "write.table.align"; // the nine are write.table.align.<topLeft|…|bottomRight>
     public const string TableRepeatHeader = "write.table.repeatHeader";
 
+    // Bildformat (contextual, while a picture is selected)
+    public const string PictureAltText = "write.picture.altText";
+    public const string PictureChange = "write.picture.change";
+    public const string PictureResetSize = "write.picture.resetSize";
+    public const string PictureAlignLeft = "write.picture.alignLeft";
+    public const string PictureAlignCenter = "write.picture.alignCenter";
+    public const string PictureAlignRight = "write.picture.alignRight";
+    public const string PictureHeight = "write.picture.height"; // value: cm, invariant
+    public const string PictureWidth = "write.picture.width"; // value: cm, invariant
+
     // Ansicht
     public const string Ruler = "write.ruler";
     public const string ShowMarksView = "write.showMarks.view";
@@ -139,7 +150,7 @@ public static class WriteRibbon
     {
         var theme = (window.Document as WordDocument)?.Content.Theme ?? Theme.Office;
         var definition = new MatRibbonDefinition { FileLabel = "Datei" };
-        definition.Add(HomeTab(theme), InsertTab(), LayoutTab(), ViewTab(), TableDesignTab(theme), TableLayoutTab());
+        definition.Add(HomeTab(theme), InsertTab(), LayoutTab(), ViewTab(), TableDesignTab(theme), TableLayoutTab(), PictureTab());
         return definition;
     }
 
@@ -197,6 +208,8 @@ public static class WriteRibbon
         new MatRibbonTab("insert", "Einfügen").Add(
             new MatRibbonGroup("tables", "Tabellen") { Icon = "table" }.Add(
                 new MatRibbonCustom(WriteCommandIds.TablePicker, "Tabelle") { IsTall = true }),
+            new MatRibbonGroup("illustrations", "Illustrationen") { Icon = "image" }.Add(
+                Button(WriteCommandIds.InsertPicture, MatRibbonSize.Large)),
             new MatRibbonGroup("pages", "Seiten") { Icon = "page-break" }.Add(
                 Button(WriteCommandIds.PageBreak, MatRibbonSize.Large)),
             new MatRibbonGroup("text", "Text") { Icon = "clock" }.Add(
@@ -284,6 +297,24 @@ public static class WriteRibbon
                     new MatRibbonRow("table-align-bottom", [.. TableCommands.CellAlignments.Skip(6).Select(Align)]))),
             new MatRibbonGroup("table-data", "Daten") { Icon = "header" }.Add(
                 Toggle(WriteCommandIds.TableRepeatHeader)));
+
+    /// <summary>Bildformat (contextual): alternative text, change and reset, the alignment of the picture's paragraph, its size.</summary>
+    private static MatRibbonTab PictureTab() =>
+        new MatRibbonTab("pictureFormat", "Bildformat") { Context = PictureCommands.Context }.Add(
+            new MatRibbonGroup("picture-accessibility", "Barrierefreiheit") { Icon = "text-box" }.Add(
+                Button(WriteCommandIds.PictureAltText, MatRibbonSize.Large)),
+            new MatRibbonGroup("picture-adjust", "Anpassen") { Icon = "refresh" }.Add(
+                Button(WriteCommandIds.PictureChange),
+                Button(WriteCommandIds.PictureResetSize)),
+            new MatRibbonGroup("picture-arrange", "Anordnen") { Icon = "align-center" }.Add(
+                new MatRibbonRow("picture-align",
+                    Toggle(WriteCommandIds.PictureAlignLeft, "pictureAlign", MatRibbonSize.Small),
+                    Toggle(WriteCommandIds.PictureAlignCenter, "pictureAlign", MatRibbonSize.Small),
+                    Toggle(WriteCommandIds.PictureAlignRight, "pictureAlign", MatRibbonSize.Small))),
+            new MatRibbonGroup("picture-size", "Größe") { Icon = "crop" }.Add(
+                new MatRibbonStack("picture-size-fields",
+                    Labelled(Number(WriteCommandIds.PictureHeight, 0.1, 55.87, 0.1, "cm", 2), "Höhe"),
+                    Labelled(Number(WriteCommandIds.PictureWidth, 0.1, 55.87, 0.1, "cm", 2), "Breite"))));
 
     private static MatRibbonItem Align((string Id, string Label, Core.Model.CellVerticalAlignment Vertical, ParagraphAlignment Horizontal) alignment) =>
         Toggle($"{WriteCommandIds.TableAlign}.{alignment.Id}", "cellAlign", MatRibbonSize.Small);

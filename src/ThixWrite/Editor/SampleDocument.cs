@@ -73,6 +73,15 @@ public static class SampleDocument
         session.SetRepeatHeaderRows(true);
         session.SetCaret(new DocumentPosition(session.CurrentTable!.End + 1, 0));
 
+        // A chart as a picture, centred, with its alternative text.
+        session.SetAlignment(ParagraphAlignment.Center);
+        session.InsertImage(ImageData.FromBytes(ChartPng())!);
+        session.SetImageSize(300, 150);
+        session.SetImageDescription("Bestellungen pro Tag in den ersten zwei Wochen");
+        session.SetCaret(session.Selection.End);
+        session.InsertParagraphBreak();
+        session.SetAlignment(ParagraphAlignment.Left);
+
         session.ApplyStyle(BuiltInStyles.Quote);
         session.InsertText("„Der Start ist besser gelaufen, als wir erwartet hatten.“");
         session.InsertParagraphBreak();
@@ -81,6 +90,35 @@ public static class SampleDocument
 
         session.ClearHistory();
         return document;
+    }
+
+    /// <summary>A bar chart of fourteen days (drawn with Skia, as a PNG) – the picture of the sample report.</summary>
+    public static byte[] ChartPng()
+    {
+        int[] orders = [18, 22, 25, 31, 28, 24, 30, 33, 29, 35, 38, 34, 32, 33];
+        using var bitmap = new SkiaSharp.SKBitmap(600, 300);
+        using (var canvas = new SkiaSharp.SKCanvas(bitmap))
+        {
+            canvas.Clear(DocumentPalette.PaperSkia);
+            using var grid = new SkiaSharp.SKPaint { Color = DocumentPalette.SampleChart[1], StrokeWidth = 2 };
+            for (var line = 0; line <= 4; line++)
+            {
+                canvas.DrawLine(20, 280 - (line * 60), 580, 280 - (line * 60), grid);
+            }
+
+            using var bar = new SkiaSharp.SKPaint { Color = DocumentPalette.SampleChart[0], IsAntialias = true };
+            for (var day = 0; day < orders.Length; day++)
+            {
+                var height = orders[day] * 6f;
+                canvas.DrawRoundRect(new SkiaSharp.SKRect(32 + (day * 39), 280 - height, 62 + (day * 39), 280), 3, 3, bar);
+            }
+
+            using var axis = new SkiaSharp.SKPaint { Color = DocumentPalette.SampleChart[2], StrokeWidth = 3 };
+            canvas.DrawLine(20, 280, 580, 280, axis);
+        }
+
+        using var data = bitmap.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+        return data.ToArray();
     }
 
     private static void Paragraph(EditingSession session, string style, string text)

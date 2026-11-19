@@ -38,6 +38,11 @@ public sealed class FakeFileDialogs : IFileDialogs
         Task.FromResult(SaveTargets.Count > 0 ? SaveTargets.Dequeue() : null);
 
     public Task<string?> PickFolderAsync(Window owner, string startFolder) => Task.FromResult<string?>(startFolder);
+
+    /// <summary>The pictures "Bild einfügen" answers with, in order (null: cancelled).</summary>
+    public Queue<string?> Pictures { get; } = new();
+
+    public Task<string?> PickPictureAsync(Window owner, string startFolder) => Task.FromResult(Pictures.Count > 0 ? Pictures.Dequeue() : null);
 }
 
 /// <summary>

@@ -190,6 +190,21 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   einfügen …"), contextual tabs Tabellenentwurf / Layout (`TableCommands`, context `table`, shown by `WriteEditor` while the caret is
   in a table), dialogs InsertTable / SplitCells / DeleteCells, column borders dragged in `DocumentSurface`.
 
+### Pictures
+
+- **Model:** `ImageData` (the bytes of a PNG/JPEG/GIF/BMP, format, pixel size and resolution read from the header – the core
+  decodes nothing; equal by SHA-256 `Key`) inside an `ImageInline` (one object character, size in points, alternative text;
+  `SourceXml`/`SourcePart`: the w:drawing as read, written back unchanged while the picture is; `IsFloating`: a wp:anchor,
+  shown in the text flow, noted in `UnsupportedContent` as FloatingDrawing). Session: `InsertImage` (fitted to the text or cell
+  width, then selected), `SelectedImage`, `SetImageSize`, `ResetImageSize`, `SetImageDescription`, `ReplaceImage`.
+- **Drawing:** the layout makes an `ObjectItem` as tall as the picture; the display list has an `ImageItem` (key + bytes);
+  `SkiaPageRenderer` decodes each key once (screen, PDF, printing alike).
+- **docx:** `DocxPictures` (read pic:pic with one a:blip from its image part; write new pictures as wp:inline with one media part
+  per picture and unique wp:docPr ids).
+- **UI:** Einfügen › Bilder (`IFileDialogs.PickPictureAsync`, `ImageFiles.Read` in the business layer), paste of a bitmap, a
+  picture file dropped on the page, a click selects a picture (frame + eight handles; corners keep the proportions, Umschalt frees
+  them), contextual tab Bildformat (`PictureCommands`: Alternativtext, Bild ändern, Größe zurücksetzen, Anordnen, Höhe/Breite).
+
 ### Adding a command to ThixWrite
 
 1. An id in `WriteCommandIds` (`write.<name>`; value commands note their value format).
@@ -210,7 +225,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   (`thixwrite-main`, `-main-ribbon-collapsed`, `-backstage-{new,open,saveas,settings,settings-save,settings-updates,about}`,
   `-dialog-save-changes`, `-setup-{welcome,options,update,uninstall}` on Windows, and the app's scenes
   (`OfficeApplication.SnapshotScenes`; ThixWrite: `-main-layout`, `-main-view`, `-main-find`, `-dialog-page-setup`,
-  `-main-table`, `-backstage-print`, `-backstage-export`)): the sample report (`SampleDocument`), version 0.1.0, ANNA-PC, C:\Users\Anna\Dokumente, a sample recent
+  `-main-table`, `-main-picture`, `-backstage-print`, `-backstage-export`)): the sample report (`SampleDocument`), version 0.1.0, ANNA-PC, C:\Users\Anna\Dokumente, a sample recent
   list – no real path shows. `THIXWRITE_SCREENSHOTS=<folder> dotnet test tests/ThixWrite.Tests` does the same from the tests.
   LOOK at the pictures after a change of the UI; `docs/images` has the ones of the README.
 - The Windows publish (win-x64) is a **trimmed** single file (`TrimMode=partial`, own assemblies + ThixOffice.Text(.Skia) rooted,

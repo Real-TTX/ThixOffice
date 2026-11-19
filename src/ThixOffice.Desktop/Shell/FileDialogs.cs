@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
+using ThixOffice.Core.Business;
 using ThixOffice.Core.Infrastructure;
 
 namespace ThixOffice.Desktop.Shell;
@@ -25,6 +26,9 @@ public interface IFileDialogs
     /// </summary>
     Task<string?> PickExportTargetAsync(Window owner, string suggestedFileName, string startFolder, string typeDescription, string extension) =>
         PickSaveTargetAsync(owner, suggestedFileName, startFolder);
+
+    /// <summary>A picture to insert (PNG, JPEG, GIF, BMP); null: cancelled. The default asks nothing (test doubles).</summary>
+    Task<string?> PickPictureAsync(Window owner, string startFolder) => Task.FromResult<string?>(null);
 }
 
 /// <summary>The dialogs of Windows and macOS through Avalonia's storage provider; the filters are the app's supported types.</summary>
@@ -68,6 +72,27 @@ public sealed class SystemFileDialogs : IFileDialogs
             ShowOverwritePrompt = true,
         });
         return file?.TryGetLocalPath();
+    }
+
+    public async Task<string?> PickPictureAsync(Window owner, string startFolder)
+    {
+        var files = await owner.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Bild einfügen",
+            AllowMultiple = false,
+            SuggestedStartLocation = await Folder(owner, startFolder),
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Bilder")
+                {
+                    Patterns = [.. ImageFiles.Extensions.Select(extension => $"*{extension}")],
+                    MimeTypes = ["image/png", "image/jpeg", "image/gif", "image/bmp"],
+                    AppleUniformTypeIdentifiers = ["public.png", "public.jpeg", "com.compuserve.gif", "com.microsoft.bmp"],
+                },
+                FilePickerFileTypes.All,
+            ],
+        });
+        return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }
 
     public async Task<string?> PickFolderAsync(Window owner, string startFolder)

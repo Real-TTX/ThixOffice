@@ -82,11 +82,25 @@ internal static class WriteSelfTest
         PdfExport.Export(editor.Layout.GetDisplayLists(), pdf, new PdfMetadata("Selbsttest"), WriteFonts.Measurer);
         var bytes = pdf.ToArray();
         Ensure(bytes.Length > 1000 && bytes[0] == '%' && bytes[1] == 'P' && bytes[2] == 'D' && bytes[3] == 'F', "the PDF is not a PDF");
+        var picture = CheckPicture(app, folder);
         var printed = await PrintAsync(editor, folder);
 
         window.Close();
         await Settle();
-        return $"{WriteFonts.Default.Body}, {WriteFonts.Families.Count} font families, docx {new FileInfo(path).Length} bytes, PDF {bytes.Length} bytes, {printed}";
+        return $"{WriteFonts.Default.Body}, {WriteFonts.Families.Count} font families, docx {new FileInfo(path).Length} bytes, PDF {bytes.Length} bytes, {picture}, {printed}";
+    }
+
+    /// <summary>A picture inserted, saved in a docx, read back and drawn by Skia (the trimmed build decodes it).</summary>
+    private static string CheckPicture(App app, string folder)
+    {
+        var document = (WordDocument)app.CreateDocument("Bild");
+        var image = ImageData.FromBytes(SampleDocument.ChartPng()) ?? throw new InvalidOperationException("the chart is no PNG");
+        document.Session.InsertImage(image);
+        var path = DocumentService.SaveAs(document, Path.Combine(folder, "Bild.docx"));
+        var reopened = DocumentService.Open(path, app.CreateDocument) as WordDocument ?? throw new InvalidOperationException("not a WordDocument");
+        Ensure(reopened.Content.ParagraphAt(0)?.Inlines.FirstOrDefault() is ImageInline { Image.PixelWidth: 600 }, "the picture is lost in the docx");
+        Ensure(SkiaPageRenderer.DecodeImage(image.Key, image.Bytes) is { Width: 600 }, "Skia cannot decode the picture");
+        return $"picture {new FileInfo(path).Length} bytes";
     }
 
     /// <summary>

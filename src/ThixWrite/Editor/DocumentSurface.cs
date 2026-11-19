@@ -3,8 +3,10 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.TextInput;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using SkiaSharp;
+using ThixOffice.Core.Business;
 using ThixOffice.Desktop;
 using ThixOffice.Text.Unicode;
 using ThixWrite.Core.Editing;
@@ -37,6 +39,7 @@ internal sealed class DocumentSurface : Control
     private readonly Cursor _ibeam = new(StandardCursorType.Ibeam);
     private readonly Cursor _columnCursor = new(StandardCursorType.SizeWestEast);
     private ColumnDrag? _columnDrag;
+    private ImageDrag? _imageDrag;
     private readonly DispatcherTimer _blink;
     private readonly DispatcherTimer _autoScroll;
     private readonly IBrush _paper = new SolidColorBrush(DocumentPalette.Paper);
@@ -73,7 +76,13 @@ internal sealed class DocumentSurface : Control
         };
         ActualThemeVariantChanged += (_, _) => InvalidateVisual();
         AddHandler(InputElement.TextInputMethodClientRequestedEvent, (_, e) => e.Client = InputClient);
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        AddHandler(DragDrop.DropEvent, OnDrop);
     }
+
+    /// <summary>Inserts a picture file dropped at a position (the editor reads it through the business layer); set by the editor.</summary>
+    public Func<string, DocumentPosition, Task>? DropPicture { get; set; }
 
     public EditingSession Session { get; }
 
@@ -226,6 +235,12 @@ internal sealed class DocumentSurface : Control
             return;
         }
 
+        if (SelectedImageRect() is { } image)
+        {
+            DrawImageFrame(context, _imageDrag is { } drag ? Resized(drag, image) : image);
+            return;
+        }
+
         var brush = Ui.Brush("Mat.Selection");
         foreach (var rect in Layout.GetSelectionRects(selection.Range))
         {
@@ -234,6 +249,19 @@ internal sealed class DocumentSurface : Control
             {
                 context.FillRectangle(brush, surface);
             }
+        }
+    }
+
+    /// <summary>A selected picture: a frame in the accent with eight handles (Word's sizing handles).</summary>
+    private static void DrawImageFrame(DrawingContext context, Rect rect)
+    {
+        var accent = Ui.Brush("Mat.Accent");
+        context.DrawRectangle(null, new Pen(accent, 1), rect);
+        var fill = Ui.Brush("Mat.Surface");
+        var pen = new Pen(accent, 1);
+        foreach (var (_, center) in Handles(rect))
+        {
+            context.DrawRectangle(fill, pen, new Rect(center.X - (HandleSize / 2), center.Y - (HandleSize / 2), HandleSize, HandleSize));
         }
     }
 
@@ -442,6 +470,22 @@ internal sealed class DocumentSurface : Control
         }
 
         Focus();
+        if (SelectedImageRect() is { } selected && HandleAt(selected, point.Position) is { } handle)
+        {
+            // A handle of the selected picture: dragging sizes it (corners keep its proportions unless Umschalt is held).
+            _imageDrag = new ImageDrag(handle, point.Position, point.Position, selected);
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
+        if (ImageUnder(point.Position) is { } picture && e.ClickCount == 1 && !e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            Session.Select(picture, picture with { Offset = picture.Offset + 1 });
+            e.Handled = true;
+            return;
+        }
+
         if (ColumnBorderAt(point.Position) is { } border)
         {
             // A column border of a table: dragging it changes the widths of the columns beside it.
@@ -488,7 +532,17 @@ internal sealed class DocumentSurface : Control
     {
         base.OnPointerMoved(e);
         var position = e.GetPosition(this);
-        var cursor = _columnDrag is not null || (!_dragging && ColumnBorderAt(position) is not null) ? _columnCursor
+        if (_imageDrag is { } drag)
+        {
+            _imageDrag = drag with { Current = position };
+            InvalidateVisual();
+            return;
+        }
+
+        var handle = !_dragging && SelectedImageRect() is { } selected ? HandleAt(selected, position) : null;
+        var cursor = handle is { } index ? HandleCursor(index)
+            : _columnDrag is not null || (!_dragging && ColumnBorderAt(position) is not null) ? _columnCursor
+            : !_dragging && ImageUnder(position) is not null ? Cursor.Default
             : _dragging || PageUnder(position) >= 0 ? _ibeam : Cursor.Default;
         if (!ReferenceEquals(Cursor, cursor))
         {
@@ -522,6 +576,18 @@ internal sealed class DocumentSurface : Control
             ResizeColumn(drag, e.GetPosition(this));
         }
 
+        if (_imageDrag is { } sizing && SelectedImageRect() is { } before)
+        {
+            _imageDrag = null;
+            var after = Resized(sizing with { Current = e.GetPosition(this), Free = e.KeyModifiers.HasFlag(KeyModifiers.Shift) }, before);
+            if (Math.Abs(after.Width - before.Width) > 0.5 || Math.Abs(after.Height - before.Height) > 0.5)
+            {
+                Session.SetImageSize(after.Width / _scale, after.Height / _scale);
+            }
+
+            InvalidateVisual();
+        }
+
         EndDrag();
         e.Pointer.Capture(null);
     }
@@ -536,6 +602,7 @@ internal sealed class DocumentSurface : Control
     {
         _dragging = false;
         _columnDrag = null;
+        _imageDrag = null;
         _autoScroll.Stop();
     }
 
@@ -556,6 +623,115 @@ internal sealed class DocumentSurface : Control
         else
         {
             Session.Select(word.Start, DocumentPosition.Max(word.End, hit.Position with { Offset = end }));
+        }
+    }
+
+    private const double HandleSize = 7;
+
+    /// <summary>True while a handle of the selected picture is dragged (tests).</summary>
+    internal bool IsSizingImage => _imageDrag is not null;
+
+    /// <summary>A handle of the selected picture being dragged: which (0 = top left, clockwise), where the drag began and is, the picture's rectangle (DIP).</summary>
+    private sealed record ImageDrag(int Handle, Point Start, Point Current, Rect Original, bool Free = false);
+
+    /// <summary>The rectangle (DIP) of the selected picture, or null.</summary>
+    private Rect? SelectedImageRect()
+    {
+        if (Session.SelectedImage is not { } selected || Layout.GetObjectRect(selected.Position) is not { } rect)
+        {
+            return null;
+        }
+
+        return ToSurface(rect.Page, rect.X, rect.Y, rect.Width, rect.Height);
+    }
+
+    /// <summary>The eight handles of a frame: corners and the middles of the sides, clockwise from the top left.</summary>
+    private static IEnumerable<(int Handle, Point Center)> Handles(Rect rect)
+    {
+        yield return (0, rect.TopLeft);
+        yield return (1, new Point(rect.Center.X, rect.Top));
+        yield return (2, rect.TopRight);
+        yield return (3, new Point(rect.Right, rect.Center.Y));
+        yield return (4, rect.BottomRight);
+        yield return (5, new Point(rect.Center.X, rect.Bottom));
+        yield return (6, rect.BottomLeft);
+        yield return (7, new Point(rect.Left, rect.Center.Y));
+    }
+
+    private static int? HandleAt(Rect rect, Point point)
+    {
+        foreach (var (handle, center) in Handles(rect))
+        {
+            if (Math.Abs(point.X - center.X) <= HandleSize && Math.Abs(point.Y - center.Y) <= HandleSize)
+            {
+                return handle;
+            }
+        }
+
+        return null;
+    }
+
+    private static Cursor HandleCursor(int handle) => new(handle switch
+    {
+        0 or 4 => StandardCursorType.TopLeftCorner,
+        2 or 6 => StandardCursorType.TopRightCorner,
+        1 or 5 => StandardCursorType.SizeNorthSouth,
+        _ => StandardCursorType.SizeWestEast,
+    });
+
+    /// <summary>The frame a handle drag gives: corners scale both sides in proportion (Umschalt frees them), side handles one side.</summary>
+    private static Rect Resized(ImageDrag drag, Rect original)
+    {
+        var dx = drag.Current.X - drag.Start.X;
+        var dy = drag.Current.Y - drag.Start.Y;
+        var horizontal = drag.Handle switch { 0 or 6 or 7 => -1, 2 or 3 or 4 => 1, _ => 0 };
+        var vertical = drag.Handle switch { 0 or 1 or 2 => -1, 4 or 5 or 6 => 1, _ => 0 };
+        var width = Math.Max(4, original.Width + (horizontal * dx));
+        var height = Math.Max(4, original.Height + (vertical * dy));
+        var corner = horizontal != 0 && vertical != 0;
+        if (corner && !drag.Free && original.Width > 0 && original.Height > 0)
+        {
+            // The side that moved more (relatively) decides; the other follows.
+            var (scaleX, scaleY) = (width / original.Width, height / original.Height);
+            var scale = Math.Abs(scaleX - 1) >= Math.Abs(scaleY - 1) ? scaleX : scaleY;
+            (width, height) = (original.Width * scale, original.Height * scale);
+        }
+
+        return new Rect(original.X, original.Bottom - height, width, height);
+    }
+
+    /// <summary>The picture under a point of this control, or null.</summary>
+    private DocumentPosition? ImageUnder(Point point)
+    {
+        var page = PageUnder(point);
+        if (page < 0)
+        {
+            return null;
+        }
+
+        var rect = PageRect(page);
+        return Layout.ImageAt(page, (point.X - rect.X) / _scale, (point.Y - rect.Y) / _scale);
+    }
+
+    private void OnDragOver(object? sender, DragEventArgs e) =>
+        e.DragEffects = e.DataTransfer.TryGetFiles() is { Length: > 0 } files && files.Any(file => file.TryGetLocalPath() is { } path && ImageFiles.IsPicture(path))
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
+
+    /// <summary>Picture files dropped on the page go in where they were dropped (one after the other).</summary>
+    private async void OnDrop(object? sender, DragEventArgs e)
+    {
+        if (DropPicture is null || e.DataTransfer.TryGetFiles() is not { Length: > 0 } files)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        var position = HitAt(e.GetPosition(this)).Position;
+        foreach (var path in files.Select(file => file.TryGetLocalPath()).OfType<string>().Where(ImageFiles.IsPicture))
+        {
+            await DropPicture(path, position);
+            position = Session.Selection.End;
         }
     }
 

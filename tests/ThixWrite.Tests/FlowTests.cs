@@ -257,9 +257,9 @@ public sealed class FlowTests
         await SettleAsync();
 
         Assert.Equal(["Start", "Einfügen", "Layout", "Ansicht"], window.RibbonDefinition.VisibleTabs.Select(tab => tab.Label));
-        Assert.Equal(["Tabellenentwurf", "Layout"], window.RibbonDefinition.Tabs.Where(tab => tab.Context == TableCommands.Context).Select(tab => tab.Label));
+        Assert.Equal(["Tabellenentwurf", "Layout", "Bildformat"], window.RibbonDefinition.Tabs.Where(tab => tab.Context is not null).Select(tab => tab.Label));
         Assert.Equal(["Rückgängig", "Zwischenablage", "Schriftart", "Absatz", "Formatvorlagen", "Bearbeiten"], window.RibbonDefinition.Tabs[0].Groups.Select(group => group.Label));
-        Assert.Equal(["Tabellen", "Seiten", "Text"], window.RibbonDefinition.Tabs[1].Groups.Select(group => group.Label));
+        Assert.Equal(["Tabellen", "Illustrationen", "Seiten", "Text"], window.RibbonDefinition.Tabs[1].Groups.Select(group => group.Label));
         Assert.Equal(["Seite einrichten", "Absatz"], window.RibbonDefinition.Tabs[2].Groups.Select(group => group.Label));
         Assert.Equal(["Anzeigen", "Zoom", "Menüband"], window.RibbonDefinition.Tabs[3].Groups.Select(group => group.Label));
         Assert.Empty(window.RibbonDefinition.Problems());

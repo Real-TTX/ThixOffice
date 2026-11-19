@@ -20,6 +20,9 @@ public static class DocumentPalette
     /// <summary>The paper for Skia.</summary>
     public static readonly SKColor PaperSkia = new(0xFF, 0xFF, 0xFF);
 
+    /// <summary>The bars and the grid of the chart picture of the sample report (Word's accent blue, a light grey).</summary>
+    public static readonly SKColor[] SampleChart = [new(0x44, 0x72, 0xC4), new(0xD9, 0xD9, 0xD9), new(0x40, 0x40, 0x40)];
+
     /// <summary>The caret on the paper.</summary>
     public static readonly Color Ink = Color.FromRgb(0x00, 0x00, 0x00);
 

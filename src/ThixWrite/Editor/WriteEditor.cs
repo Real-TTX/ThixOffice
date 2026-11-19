@@ -6,12 +6,15 @@ using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Threading;
+using ThixOffice.Core.Business;
 using ThixOffice.Core.Commands;
+using ThixOffice.Core.Models;
 using ThixOffice.Desktop;
 using ThixOffice.Desktop.Shell;
 using ThixWrite.Core.Documents;
 using ThixWrite.Core.Editing;
 using ThixWrite.Core.Layout;
+using ThixWrite.Core.Model;
 using ThixWrite.Dialogs;
 
 namespace ThixWrite.Editor;
@@ -57,6 +60,7 @@ public sealed class WriteEditor : OfficeEditor
         FindBar = new FindBar(this) { HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 10, 26, 0) };
         _view = new Grid { Children = { _scroller, FindBar } };
         _surface.ContextMenu = BuildContextMenu();
+        _surface.DropPicture = (path, position) => OfficeWindow.RunAsync(_window, "Bild einfügen", () => Task.FromResult(InsertPictureFile(path, position)));
 
         document.Session.StateChanged += OnStateChanged;
         _surface.Refreshed += (_, _) => ScheduleState();
@@ -234,8 +238,62 @@ public sealed class WriteEditor : OfficeEditor
         if (await clipboard.TryGetTextAsync() is { Length: > 0 } text)
         {
             Session.PasteText(text);
+            return;
+        }
+
+        if (!textOnly && await clipboard.TryGetBitmapAsync() is { } bitmap)
+        {
+            // A picture of another program (a screenshot, a picture copied in a browser): as PNG into the document.
+            using var png = new MemoryStream();
+            bitmap.Save(png);
+            if (ImageData.FromBytes(png.ToArray()) is { } image)
+            {
+                Session.InsertImage(image);
+            }
         }
     }
+
+    // ===== Pictures =====
+
+    /// <summary>Einfügen › Bilder: the system's dialog, then the picture at the caret.</summary>
+    public async Task InsertPictureFromDialogAsync()
+    {
+        var path = await OfficeApplication.FileDialogs.PickPictureAsync(_window, DocumentService.SuggestedFolder(Document));
+        if (path is not null)
+        {
+            await OfficeWindow.RunAsync(_window, "Bild einfügen", () => Task.FromResult(InsertPictureFile(path)));
+        }
+    }
+
+    /// <summary>Bildformat › Bild ändern: the system's dialog, then the selected picture replaced.</summary>
+    public async Task ChangePictureFromDialogAsync()
+    {
+        var path = await OfficeApplication.FileDialogs.PickPictureAsync(_window, DocumentService.SuggestedFolder(Document));
+        if (path is not null)
+        {
+            await OfficeWindow.RunAsync(_window, "Bild ändern", () =>
+            {
+                Session.ReplaceImage(ReadPicture(path));
+                return Task.FromResult(true);
+            });
+        }
+    }
+
+    /// <summary>Inserts the picture file at the caret (or at <paramref name="at"/>: a file dropped on the page); a business error when it is none.</summary>
+    public bool InsertPictureFile(string path, DocumentPosition? at = null)
+    {
+        var image = ReadPicture(path);
+        if (at is { } position)
+        {
+            Session.SetCaret(position);
+        }
+
+        Session.InsertImage(image);
+        return true;
+    }
+
+    private static ImageData ReadPicture(string path) =>
+        ImageData.FromBytes(ImageFiles.Read(path)) ?? throw new BusinessException($"„{Path.GetFileName(path)}“ ist kein lesbares Bild.");
 
     private async Task PutOnClipboardAsync(DocumentFragment fragment)
     {
@@ -277,9 +335,18 @@ public sealed class WriteEditor : OfficeEditor
         }, DispatcherPriority.Background);
     }
 
-    /// <summary>Tabellenentwurf and Layout (contextual) show while the caret is in a table, as in Word.</summary>
+    /// <summary>Tabellenentwurf and Layout (contextual) show while the caret is in a table, Bildformat while a picture is selected, as in Word.</summary>
     private void ShowTableTabs()
     {
+        if (Session.SelectedImage is not null)
+        {
+            _window.RibbonDefinition.ShowContext(PictureCommands.Context);
+        }
+        else
+        {
+            _window.RibbonDefinition.HideContext(PictureCommands.Context);
+        }
+
         if (Session.CurrentTable is not null)
         {
             _window.RibbonDefinition.ShowContext(TableCommands.Context);
