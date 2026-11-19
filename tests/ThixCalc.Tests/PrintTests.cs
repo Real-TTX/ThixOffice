@@ -75,6 +75,20 @@ public sealed class PrintTests
     }
 
     [AvaloniaFact]
+    public async Task Speichern_unter_PDF_writes_the_sheet_and_the_workbook_stays_unsaved()
+    {
+        using var data = new TestData();
+        var window = await NewWindowAsync();
+        Fill(EditorOf(window), 20);
+        var pdf = Path.Combine(data.DocumentsFolder, "Budget.pdf");
+        Assert.True(await window.SaveToAsync(pdf));
+        Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(File.ReadAllBytes(pdf), 0, 4));
+        Assert.Null(window.Document.FilePath);
+        Assert.True(window.Document.IsDirty);
+        Assert.Contains("Als PDF gespeichert", window.MessageBar.Text);
+    }
+
+    [AvaloniaFact]
     public async Task Als_PDF_exportieren_writes_the_sheet()
     {
         using var data = new TestData();

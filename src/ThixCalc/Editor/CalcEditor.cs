@@ -141,6 +141,9 @@ public sealed class CalcEditor : OfficeEditor
     /// <summary>Which aggregates the status bar shows (its context menu; Excel's default: Mittelwert, Anzahl, Summe).</summary>
     public HashSet<string> StatusAggregates { get; } = [AverageItem, CountItem, SumItem];
 
+    /// <summary>The active sheet's pages as printed ("Speichern unter" › PDF, "Als PDF speichern").</summary>
+    public override PdfSource Pdf => new(() => ThixCalc.Pages.CalcPages.DisplayLists(this, 0, _window.Document.Title, out _), CalcFonts.Skia);
+
     public override string? OpeningWarning
     {
         get

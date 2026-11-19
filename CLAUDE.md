@@ -41,7 +41,8 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
                            ManifestFileName <id>-update.json, MacPackageFileName, DataDirectoryVariable <APP>_DATA_DIR, CloudAppId
                            (write/calc/show; null = no cloud) + HasCloud,
                            ScreenshotsVariable, DocumentIconFileName, SupportedTypes, DefaultType, SaveType, SupportedTypeOf),
-                           DocumentType (Extension, ProgId, Description, Support Supported|Planned, IsDefault, MimeType, UTI),
+                           DocumentType (Extension, ProgId, Description, Support Supported|Planned|Export, IsDefault, MimeType, UTI;
+                           DocumentType.Pdf), ExportTypes (written as a copy only: PDF in every app) + SaveAsTypes + ExportTypeOf,
                            AppSettings (+ CloudSettings: address, account, device, protected token; AppValues: an app's small remembered
                            choices – SettingsService.AppValue/RememberAppValue, no lock like the window size), DriveOrigin (+ DriveSyncState),
                            RecentDocument (+ Drive: RecentDriveItem, Item, Order), BusinessException(message, field), Printing
@@ -87,6 +88,10 @@ src/ThixOffice.Desktop     shared Avalonia UI
   Rendering/               SkiaDrawOperation (the Skia lease of every editor surface; device-pixel mode for the grid), PrintablePages
                            (display lists → print bands / PDF on the app's paper colour, Grayscale), OfficeFonts (THE measurer of the
                            process: Skia + a cache for the UI thread; CalcFonts/WriteFonts are names for it)
+  Shell/PdfSource          the pages + measurer of a PDF; OfficeEditor.Pdf gives it (every app): "Speichern unter" › PDF (local and
+                           ThixDrive: DocumentService.ExportTypeOf → OfficeWindow.ExportToAsync / DriveService.ExportAsync) and the
+                           command file.saveAsPdf "Als PDF speichern" write a COPY – the document keeps file, type and dirty state;
+                           the message bar says "Als PDF gespeichert" with "Öffnen" (InfoBar action)
   OfficeProgram            Main helper: Run<TApp>(args, definition); BuildAvaloniaApp<TApp>()
   OfficeSelfTest, OfficeSnapshot, OfficeSetup (MatSetupWindow), UpdateCoordinator, UiWatchdog, Ui (helpers)
   Shell/                   OfficeWindow (MatWindow per document: title bar with logo, word mark, MatQuickAccess, document name +

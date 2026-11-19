@@ -14,6 +14,10 @@ und die aussieht wie die übrigen Thix-Apps.
 
 Der Plan steht in [docs/PLAN.md](docs/PLAN.md).
 
+**PDF in allen drei Programmen:** *Datei › Speichern unter* bietet „PDF (*.pdf)“ als Dateityp an – auf diesem Computer wie in
+ThixDrive – und der Befehl „Als PDF speichern“ ist über „Was möchten Sie tun?“ zu finden. Wie in Word entsteht eine Kopie: das
+Dokument bleibt die .docx/.xlsx/.pptx, die es war (samt ungespeicherter Änderungen); die Meldung „Als PDF gespeichert“ öffnet das PDF.
+
 ## ThixWrite – Stand Meilenstein 1c
 
 ThixWrite ist eine Textverarbeitung mit eigenem, nativem Editor: Seiten wie auf Papier (weiß, auch im dunklen

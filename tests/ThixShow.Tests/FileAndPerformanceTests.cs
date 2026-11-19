@@ -36,6 +36,21 @@ public sealed class FileAndPerformanceTests(ITestOutputHelper output)
     }
 
     [AvaloniaFact]
+    public async Task Als_PDF_speichern_writes_one_page_per_slide_and_the_presentation_keeps_its_file()
+    {
+        using var data = new TestData();
+        var window = await SampleWindowAsync();
+        var before = window.Document.FilePath;
+        var pdf = Path.Combine(data.DocumentsFolder, "Vortrag");
+        data.Dialogs.SaveTargets.Enqueue(pdf);
+        Assert.True(await window.Commands.ExecuteAsync(ThixOffice.Core.Commands.CommonCommandIds.SaveAsPdf));
+        var bytes = File.ReadAllBytes(pdf + ".pdf");
+        Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(bytes, 0, 4));
+        Assert.Equal(6, System.Text.RegularExpressions.Regex.Matches(System.Text.Encoding.Latin1.GetString(bytes), @"/Type\s*/Page[^s]").Count);
+        Assert.Equal(before, window.Document.FilePath);
+    }
+
+    [AvaloniaFact]
     public async Task Exportieren_writes_every_slide_as_a_picture_or_the_current_one_as_JPEG()
     {
         using var data = new TestData();

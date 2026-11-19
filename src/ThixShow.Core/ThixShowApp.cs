@@ -27,6 +27,7 @@ public static class ThixShowApp
     {
         UntitledBaseName = "Präsentation",
         BlankDocumentLabel = "Leere Präsentation",
+        ExportTypes = [DocumentType.Pdf], // "Speichern unter" › PDF writes a copy
         CloudAppId = MatCloud.Contract.CloudApps.Show, // presentations in ThixDrive (the Drive grants its routes to "show")
     };
 }

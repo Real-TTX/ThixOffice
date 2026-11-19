@@ -318,6 +318,9 @@ public sealed class WriteEditor : OfficeEditor
     /// <summary>The colour the Hervorhebung button applies (the last one chosen; null = none).</summary>
     public string? HighlightColor { get; set; } = DocumentPalette.HighlightColors[0];
 
+    /// <summary>The pages as laid out ("Speichern unter" › PDF, "Als PDF speichern").</summary>
+    public override PdfSource Pdf => new(() => [.. Layout.GetDisplayLists()], WriteFonts.Measurer);
+
     public override string? OpeningWarning
     {
         get

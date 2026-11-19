@@ -225,6 +225,27 @@ public sealed class FeatureTests
     }
 
     [AvaloniaFact]
+    public async Task Speichern_unter_PDF_writes_a_copy_and_the_document_stays_a_docx()
+    {
+        using var data = new TestData();
+        var window = await NewWindowAsync();
+        await TypeAsync(window, "Ein Brief");
+        var docx = Path.Combine(data.DocumentsFolder, "Brief.docx");
+        Assert.True(await window.SaveToAsync(docx));
+        await TypeAsync(window, " mit Nachtrag");
+
+        var pdf = Path.Combine(data.DocumentsFolder, "Brief.pdf");
+        Assert.True(await window.SaveToAsync(pdf));
+        await SettleAsync();
+
+        Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(File.ReadAllBytes(pdf), 0, 4));
+        Assert.Equal(docx, window.Document.FilePath);
+        Assert.Equal(".docx", window.Document.FileType!.Extension);
+        Assert.True(window.ShowsUnsavedMarker);
+        Assert.Contains("Als PDF gespeichert", window.MessageBar.Text);
+    }
+
+    [AvaloniaFact]
     public async Task Formatting_marks_and_the_commands_of_Einfuegen_work_from_the_search()
     {
         using var data = new TestData();

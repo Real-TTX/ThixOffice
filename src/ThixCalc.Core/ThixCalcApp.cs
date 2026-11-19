@@ -29,6 +29,7 @@ public static class ThixCalcApp
     {
         UntitledBaseName = "Mappe",
         BlankDocumentLabel = "Leere Arbeitsmappe",
+        ExportTypes = [DocumentType.Pdf], // "Speichern unter" › PDF writes a copy
         CloudAppId = MatCloud.Contract.CloudApps.Calc, // workbooks in ThixDrive (the Drive grants its routes to "calc")
     };
 }

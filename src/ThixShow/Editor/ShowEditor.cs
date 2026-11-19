@@ -231,6 +231,9 @@ public sealed class ShowEditor : OfficeEditor
         }
     }
 
+    /// <summary>The slides, one page each ("Speichern unter" › PDF, "Als PDF speichern").</summary>
+    public override PdfSource Pdf => new(() => ThixShow.Pages.ShowPages.DisplayLists(this, 0), ThixOffice.Desktop.Rendering.OfficeFonts.Skia);
+
     public override string? OpeningWarning
     {
         get
