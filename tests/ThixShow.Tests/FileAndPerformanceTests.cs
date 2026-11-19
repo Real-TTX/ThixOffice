@@ -36,6 +36,37 @@ public sealed class FileAndPerformanceTests(ITestOutputHelper output)
     }
 
     [AvaloniaFact]
+    public async Task Exportieren_writes_every_slide_as_a_picture_or_the_current_one_as_JPEG()
+    {
+        using var data = new TestData();
+        var window = await SampleWindowAsync();
+        window.ShowBackstage(ThixShow.Pages.ShowExportPage.PageId);
+        await SettleAsync();
+        var page = Assert.IsType<ThixShow.Pages.ShowExportPage>(window.Backstage.CurrentPage);
+
+        data.Dialogs.SaveTargets.Enqueue(Path.Combine(data.DocumentsFolder, "Vortrag.png"));
+        Assert.True(await page.ExportPicturesAsync());
+        var files = Directory.GetFiles(data.DocumentsFolder, "Vortrag – Folie *.png");
+        Assert.Equal(6, files.Length);
+        using (var picture = SkiaSharp.SKBitmap.Decode(files.Order().First()))
+        {
+            Assert.Equal(1920, picture.Width);
+            Assert.Equal(1080, picture.Height);
+        }
+
+        EditorOf(window).Session.GoToSlide(EditorOf(window).Session.Presentation.Slides[2].Id);
+        page.Scope.SelectedIndex = 1;
+        page.Format.SelectedIndex = 1;
+        page.PictureSize.SelectedIndex = 0;
+        data.Dialogs.SaveTargets.Enqueue(Path.Combine(data.DocumentsFolder, "Diagramm"));
+        Assert.True(await page.ExportPicturesAsync());
+        var jpeg = File.ReadAllBytes(Path.Combine(data.DocumentsFolder, "Diagramm.jpg"));
+        Assert.Equal(0xFF, jpeg[0]);
+        Assert.Equal(0xD8, jpeg[1]);
+        Assert.Contains("Diagramm.jpg", page.Message.Text, StringComparison.Ordinal);
+    }
+
+    [AvaloniaFact]
     public async Task Saving_a_presentation_with_macros_as_pptx_asks_first()
     {
         using var data = new TestData();

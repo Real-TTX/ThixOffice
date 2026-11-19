@@ -26,6 +26,7 @@ public class OfficeExportPage : UserControl
     private readonly InfoBar _message = new();
     private readonly Func<IReadOnlyList<PageDisplayList>> _pages;
     private readonly SkiaTextMeasurer _measurer;
+    private readonly StackPanel _panel;
 
     public OfficeExportPage(OfficeWindow window, Func<IReadOnlyList<PageDisplayList>> pages, SkiaTextMeasurer measurer, string description = "Die Seiten genau wie im Dokument – Schriften eingebettet, Text bleibt durchsuchbar")
     {
@@ -37,18 +38,15 @@ public class OfficeExportPage : UserControl
         ExportButton.Click += async (_, _) => await ExportPdfAsync();
         AutomationProperties.SetName(ExportButton, "Als PDF exportieren");
 
-        Content = new ScrollViewer
+        _panel = new StackPanel
         {
-            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-            Content = new StackPanel
-            {
-                Margin = new Thickness(32, 26),
-                Spacing = 16,
-                MaxWidth = 900,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Children = { title, ExportButton, _message },
-            },
+            Margin = new Thickness(32, 26),
+            Spacing = 16,
+            MaxWidth = 900,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Children = { title, ExportButton, _message },
         };
+        Content = new ScrollViewer { VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto, Content = _panel };
     }
 
     /// <summary>"Als PDF exportieren" (tests click it).</summary>
@@ -56,6 +54,9 @@ public class OfficeExportPage : UserControl
 
     /// <summary>The result of the last export (tests).</summary>
     public InfoBar Message => _message;
+
+    /// <summary>An app's further way of exporting (ThixShow: slides as pictures), below "Als PDF exportieren" and above the result.</summary>
+    protected void AddSection(Control section) => _panel.Children.Insert(_panel.Children.IndexOf(_message), section);
 
     /// <summary>Asks where, writes the PDF and says where it is; false when cancelled or refused.</summary>
     public async Task<bool> ExportPdfAsync()

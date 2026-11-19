@@ -98,7 +98,14 @@ public static partial class SkiaPageRenderer
     }
 
     /// <summary>Renders a page into a PNG <paramref name="pixelWidth"/> pixels wide (the height follows the page's aspect).</summary>
-    public static byte[] RenderPng(PageDisplayList page, int pixelWidth, SkiaTextMeasurer? measurer = null, RgbColor? background = null)
+    public static byte[] RenderPng(PageDisplayList page, int pixelWidth, SkiaTextMeasurer? measurer = null, RgbColor? background = null) =>
+        RenderImage(page, pixelWidth, RasterFormat.Png, measurer, background);
+
+    /// <summary>
+    /// Renders a page into an encoded picture <paramref name="pixelWidth"/> pixels wide: PNG (lossless) or JPEG (<paramref name="quality"/>
+    /// 1–100). Slides exported as pictures, thumbnails, tests.
+    /// </summary>
+    public static byte[] RenderImage(PageDisplayList page, int pixelWidth, RasterFormat format, SkiaTextMeasurer? measurer = null, RgbColor? background = null, int quality = 92)
     {
         var scale = pixelWidth / Math.Max(1, page.Width);
         var pixelHeight = Math.Max(1, (int)Math.Round(page.Height * scale));
@@ -111,7 +118,7 @@ public static partial class SkiaPageRenderer
         }
 
         using var image = SKImage.FromBitmap(bitmap);
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var data = format == RasterFormat.Jpeg ? image.Encode(SKEncodedImageFormat.Jpeg, Math.Clamp(quality, 1, 100)) : image.Encode(SKEncodedImageFormat.Png, 100);
         return data.ToArray();
     }
 
@@ -282,4 +289,11 @@ public static partial class SkiaPageRenderer
             key.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal,
             SKFontStyleWidth.Normal,
             key.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright) ?? SKTypeface.Default);
+}
+
+/// <summary>The picture formats a page renders into.</summary>
+public enum RasterFormat
+{
+    Png,
+    Jpeg,
 }

@@ -29,10 +29,11 @@ public partial class App : OfficeApplication
     public const string PresenterScene = "presenter";
     public const string PrintScene = "backstage-print";
     public const string ContentScene = "main-content";
+    public const string ExportScene = "backstage-export";
 
     public override OfficeAppDefinition Definition => ThixShowApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [ContentScene, DesignScene, ShapesScene, TransitionsScene, AnimationsScene, SorterScene, PresenterScene, PrintScene];
+    public override IReadOnlyList<string> SnapshotScenes => [ContentScene, DesignScene, ShapesScene, TransitionsScene, AnimationsScene, SorterScene, PresenterScene, PrintScene, ExportScene];
 
     public override string SampleDocumentName => "Jahresrückblick 2026";
 
@@ -120,6 +121,9 @@ public partial class App : OfficeApplication
             case PrintScene:
                 window.ShowBackstage(ShowPrintPage.PageId);
                 break;
+            case ExportScene:
+                window.ShowBackstage(ShowExportPage.PageId);
+                break;
         }
 
         Dispatcher.UIThread.RunJobs();
@@ -134,7 +138,7 @@ public partial class App : OfficeApplication
             case PresenterScene when shown is Window presenter:
                 presenter.Close();
                 break;
-            case PrintScene:
+            case PrintScene or ExportScene:
                 window.Backstage.Close();
                 break;
             case SorterScene:
