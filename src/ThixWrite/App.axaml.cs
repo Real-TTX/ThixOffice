@@ -39,7 +39,9 @@ public partial class App : OfficeApplication
 
     /// <summary>The grid of Einfügen › Tabelle.</summary>
     public override Control? CreateRibbonContent(OfficeWindow window, MatRibbonCustom item) =>
-        item.Id == WriteCommandIds.TablePicker ? new TablePicker(window) : null;
+        item.Id == WriteCommandIds.TablePicker
+            ? new ThixOffice.Desktop.Controls.TablePicker(window, WriteCommandIds.TablePicker, (rows, columns) => (window.Editor as WriteEditor)?.Session.InsertTable(rows, columns), WriteCommandIds.InsertTable)
+            : null;
 
     public override void Initialize()
     {

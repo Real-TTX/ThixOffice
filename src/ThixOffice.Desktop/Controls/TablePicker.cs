@@ -7,14 +7,14 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using MatDesktop;
 using ThixOffice.Desktop;
-using ThixOffice.Desktop.Controls;
 using ThixOffice.Desktop.Shell;
 
-namespace ThixWrite.Editor;
+namespace ThixOffice.Desktop.Controls;
 
 /// <summary>
-/// Einfügen › Tabelle, like Word: a large ribbon button that opens a grid of 10 × 8 cells – pointing at a cell shows the size
-/// ("3 × 4 Tabelle"), a click (or Enter after the arrow keys) inserts that table – and below it "Tabelle einfügen …" (the dialog).
+/// Einfügen › Tabelle of every app (Word's and PowerPoint's grid): a large ribbon button that opens a grid of 10 × 8 cells – pointing at
+/// a cell shows the size ("3 × 4 Tabelle"), a click (or Enter after the arrow keys) inserts that table through the app's callback –
+/// and below it the app's dialog command ("Tabelle einfügen …"), when it has one. Enabled while the app's picker command is.
 /// </summary>
 public sealed class TablePicker : Button
 {
@@ -23,14 +23,18 @@ public sealed class TablePicker : Button
     private const double CellSize = 18;
 
     private readonly OfficeWindow _window;
+    private readonly string _commandId;
+    private readonly Action<int, int> _insert;
     private readonly Border[,] _cells = new Border[GridRows, GridColumns];
     private readonly TextBlock _caption = new() { FontWeight = FontWeight.SemiBold, Margin = new Thickness(2, 0, 0, 8) };
     private readonly Flyout _flyout;
     private (int Rows, int Columns) _chosen = (1, 1);
 
-    public TablePicker(OfficeWindow window)
+    public TablePicker(OfficeWindow window, string commandId, Action<int, int> insert, string? dialogCommandId = null)
     {
         _window = window;
+        _commandId = commandId;
+        _insert = insert;
         this.Themed("MatRibbon.Item");
         Height = MatRibbon.ContentHeight;
         MinWidth = 46;
@@ -55,11 +59,12 @@ public sealed class TablePicker : Button
         DialogButton.Click += async (_, _) =>
         {
             _flyout!.Hide();
-            if (_window.Commands.Find(WriteCommandIds.InsertTable) is { } command)
+            if (dialogCommandId is not null && _window.Commands.Find(dialogCommandId) is { } command)
             {
                 await OfficeWindow.RunCommandAsync(_window, command);
             }
         };
+        DialogButton.IsVisible = dialogCommandId is not null;
         var panel = new StackPanel { Margin = new Thickness(10), Children = { _caption, Grid, DialogButton } };
         panel.KeyDown += OnGridKey;
         _flyout = new Flyout { Content = panel, Placement = PlacementMode.BottomEdgeAlignedLeft, ShowMode = FlyoutShowMode.Standard };
@@ -94,11 +99,8 @@ public sealed class TablePicker : Button
     public void Choose(int rows, int columns)
     {
         _flyout.Hide();
-        if (_window.Editor is WriteEditor editor)
-        {
-            editor.Session.InsertTable(rows, columns);
-            editor.FocusDocument();
-        }
+        _insert(rows, columns);
+        _window.Editor.FocusDocument();
     }
 
     private Grid BuildGrid()
@@ -182,5 +184,5 @@ public sealed class TablePicker : Button
         Highlight(rows, columns);
     }
 
-    private void SyncEnabled() => IsEnabled = _window.Commands.Find(WriteCommandIds.TablePicker)?.IsEnabled ?? false;
+    private void SyncEnabled() => IsEnabled = _window.Commands.Find(_commandId)?.IsEnabled ?? false;
 }

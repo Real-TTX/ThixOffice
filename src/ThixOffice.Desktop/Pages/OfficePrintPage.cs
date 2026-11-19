@@ -32,6 +32,21 @@ public interface IPrintSource
 
     /// <summary>Opens the app's Seite einrichten; true when something changed (null: the app has none).</summary>
     Func<Task<bool>>? PageSetup { get; }
+
+    /// <summary>A second choice of the app below the first (ThixShow: Farbe / Graustufen), empty when it has none.</summary>
+    IReadOnlyList<string> Variants => [];
+
+    /// <summary>The label of <see cref="Variants"/>' field.</summary>
+    string VariantLabel => "Farbe";
+
+    /// <summary>The chosen variant (index into <see cref="Variants"/>).</summary>
+    int Variant
+    {
+        get => 0;
+        set
+        {
+        }
+    }
 }
 
 /// <summary>
@@ -51,6 +66,7 @@ public class OfficePrintPage : UserControl
     private readonly OfficeWindow _window;
     private readonly IPrintSource _source;
     private readonly ComboBox _scope = new() { MinWidth = 280, HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly ComboBox _variant = new() { MinWidth = 280, HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly IReadOnlyList<PrinterInfo> _printers;
     private readonly ComboBox _printer = new() { MinWidth = 280, HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly ComboBox _range = new() { MinWidth = 280, HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -124,6 +140,7 @@ public class OfficePrintPage : UserControl
                 Field("Drucker", _printer, PrintService.PrinterField),
                 Section("Einstellungen"),
                 Field("Drucken", _scope, null),
+                Field(source.VariantLabel, _variant, null),
                 Field("Seiten", _range, null),
                 Field("Seitenangabe", _custom, PrintService.PagesField),
                 Fact("orientation", _orientation),
@@ -180,9 +197,30 @@ public class OfficePrintPage : UserControl
             }
         };
 
+        _variant.ItemsSource = source.Variants;
+        _variant.SelectedIndex = source.Variants.Count > 0 ? Math.Clamp(source.Variant, 0, source.Variants.Count - 1) : -1;
+        AutomationProperties.SetName(_variant, source.VariantLabel);
+        if (_variant.Parent is Control variantField)
+        {
+            variantField.IsVisible = source.Variants.Count > 0;
+        }
+
+        _variant.SelectionChanged += (_, _) =>
+        {
+            if (_variant.SelectedIndex >= 0 && _variant.SelectedIndex != _source.Variant)
+            {
+                _source.Variant = _variant.SelectedIndex;
+                _pages = Snapshot();
+                OnChoiceChanged();
+            }
+        };
+
         ShowAvailability();
         OnChoiceChanged();
     }
+
+    /// <summary>The app's second choice (ThixShow: Farbe / Graustufen).</summary>
+    public ComboBox VariantChoice => _variant;
 
     /// <summary>The app's choice of what to print (ThixCalc: Aktives Blatt, Gesamte Arbeitsmappe, Auswahl).</summary>
     public ComboBox ScopeChoice => _scope;

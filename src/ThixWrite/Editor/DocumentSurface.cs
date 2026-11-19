@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using SkiaSharp;
 using ThixOffice.Core.Business;
 using ThixOffice.Desktop;
+using ThixOffice.Desktop.Controls;
 using ThixOffice.Text.Unicode;
 using ThixWrite.Core.Editing;
 using ThixWrite.Core.Layout;
@@ -351,17 +352,7 @@ internal sealed class DocumentSurface : Control
     }
 
     /// <summary>A selected picture: a frame in the accent with eight handles (Word's sizing handles).</summary>
-    private static void DrawImageFrame(DrawingContext context, Rect rect)
-    {
-        var accent = Ui.Brush("Mat.Accent");
-        context.DrawRectangle(null, new Pen(accent, 1), rect);
-        var fill = Ui.Brush("Mat.Surface");
-        var pen = new Pen(accent, 1);
-        foreach (var (_, center) in Handles(rect))
-        {
-            context.DrawRectangle(fill, pen, new Rect(center.X - (HandleSize / 2), center.Y - (HandleSize / 2), HandleSize, HandleSize));
-        }
-    }
+    private static void DrawImageFrame(DrawingContext context, Rect rect) => SelectionHandles.Draw(context, rect);
 
     /// <summary>The page shadow: the overlay token of the theme, much lighter.</summary>
     private static Color ShadowColor()
@@ -821,59 +812,15 @@ internal sealed class DocumentSurface : Control
         return ToSurface(rect.Page, rect.X, rect.Y, rect.Width, rect.Height);
     }
 
-    /// <summary>The eight handles of a frame: corners and the middles of the sides, clockwise from the top left.</summary>
-    private static IEnumerable<(int Handle, Point Center)> Handles(Rect rect)
-    {
-        yield return (0, rect.TopLeft);
-        yield return (1, new Point(rect.Center.X, rect.Top));
-        yield return (2, rect.TopRight);
-        yield return (3, new Point(rect.Right, rect.Center.Y));
-        yield return (4, rect.BottomRight);
-        yield return (5, new Point(rect.Center.X, rect.Bottom));
-        yield return (6, rect.BottomLeft);
-        yield return (7, new Point(rect.Left, rect.Center.Y));
-    }
+    private static int? HandleAt(Rect rect, Point point) => SelectionHandles.At(rect, point, HandleSize);
 
-    private static int? HandleAt(Rect rect, Point point)
-    {
-        foreach (var (handle, center) in Handles(rect))
-        {
-            if (Math.Abs(point.X - center.X) <= HandleSize && Math.Abs(point.Y - center.Y) <= HandleSize)
-            {
-                return handle;
-            }
-        }
-
-        return null;
-    }
-
-    private static Cursor HandleCursor(int handle) => new(handle switch
-    {
-        0 or 4 => StandardCursorType.TopLeftCorner,
-        2 or 6 => StandardCursorType.TopRightCorner,
-        1 or 5 => StandardCursorType.SizeNorthSouth,
-        _ => StandardCursorType.SizeWestEast,
-    });
+    private static Cursor HandleCursor(int handle) => SelectionHandles.CursorOf(handle);
 
     /// <summary>The frame a handle drag gives: corners scale both sides in proportion (Umschalt frees them), side handles one side.</summary>
     private static Rect Resized(ImageDrag drag, Rect original)
     {
-        var dx = drag.Current.X - drag.Start.X;
-        var dy = drag.Current.Y - drag.Start.Y;
-        var horizontal = drag.Handle switch { 0 or 6 or 7 => -1, 2 or 3 or 4 => 1, _ => 0 };
-        var vertical = drag.Handle switch { 0 or 1 or 2 => -1, 4 or 5 or 6 => 1, _ => 0 };
-        var width = Math.Max(4, original.Width + (horizontal * dx));
-        var height = Math.Max(4, original.Height + (vertical * dy));
-        var corner = horizontal != 0 && vertical != 0;
-        if (corner && !drag.Free && original.Width > 0 && original.Height > 0)
-        {
-            // The side that moved more (relatively) decides; the other follows.
-            var (scaleX, scaleY) = (width / original.Width, height / original.Height);
-            var scale = Math.Abs(scaleX - 1) >= Math.Abs(scaleY - 1) ? scaleX : scaleY;
-            (width, height) = (original.Width * scale, original.Height * scale);
-        }
-
-        return new Rect(original.X, original.Bottom - height, width, height);
+        var size = SelectionHandles.Resize(original, drag.Handle, drag.Current.X - drag.Start.X, drag.Current.Y - drag.Start.Y, proportional: !drag.Free);
+        return new Rect(original.X, original.Bottom - size.Height, size.Width, size.Height);
     }
 
     /// <summary>The picture under a point of this control, or null.</summary>

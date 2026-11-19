@@ -3,6 +3,7 @@ using Avalonia.Input;
 using SkiaSharp;
 using ThixCalc.Core.Layout;
 using ThixCalc.Core.Model;
+using ThixOffice.Desktop.Controls;
 using PixelRect = ThixCalc.Core.Layout.PixelRect;
 
 namespace ThixCalc.Editor;
@@ -88,20 +89,9 @@ internal sealed partial class GridSurface
             return true;
         }
 
-        var horizontal = handle switch { 0 or 6 or 7 => -1, 2 or 3 or 4 => 1, _ => 0 };
-        var vertical = handle switch { 0 or 1 or 2 => -1, 4 or 5 or 6 => 1, _ => 0 };
-        var minimum = 12 * RenderScaling;
-        var width = Math.Max(minimum, original.Width + horizontal * dx);
-        var height = Math.Max(minimum, original.Height + vertical * dy);
-        if (horizontal != 0 && vertical != 0 && (drag.Proportional || modifiers.HasFlag(KeyModifiers.Shift)))
-        {
-            var scale = Math.Abs(width / original.Width - 1) >= Math.Abs(height / original.Height - 1) ? width / original.Width : height / original.Height;
-            (width, height) = (original.Width * scale, original.Height * scale);
-        }
-
-        var x = horizontal < 0 ? original.Right - width : original.X;
-        var y = vertical < 0 ? original.Bottom - height : original.Y;
-        drag.Current = new PixelRect(x, y, width, height);
+        var proportional = drag.Proportional || modifiers.HasFlag(KeyModifiers.Shift);
+        var sized = SelectionHandles.Resize(new Rect(original.X, original.Y, original.Width, original.Height), handle, dx, dy, proportional, 12 * RenderScaling);
+        drag.Current = new PixelRect(sized.X, sized.Y, sized.Width, sized.Height);
         InvalidateVisual();
         return true;
     }
@@ -203,33 +193,12 @@ internal sealed partial class GridSurface
         return ChartLayer.HitTest(viewport, device.X, device.Y) is not null ? new Cursor(StandardCursorType.SizeAll) : null;
     }
 
-    private int? HandleAt(PixelRect rect, Point device)
-    {
-        var reach = ChartHandleSize * RenderScaling * 0.75;
-        foreach (var (handle, x, y) in Handles(rect))
-        {
-            if (Math.Abs(device.X - x) <= reach && Math.Abs(device.Y - y) <= reach)
-            {
-                return handle;
-            }
-        }
+    private int? HandleAt(PixelRect rect, Point device) => SelectionHandles.At(ToRect(rect), device, ChartHandleSize * RenderScaling * 0.75);
 
-        return null;
-    }
+    private static Rect ToRect(PixelRect rect) => new(rect.X, rect.Y, rect.Width, rect.Height);
 
-    private static IEnumerable<(int Handle, double X, double Y)> Handles(PixelRect rect)
-    {
-        var centerX = rect.X + rect.Width / 2;
-        var centerY = rect.Y + rect.Height / 2;
-        yield return (0, rect.X, rect.Y);
-        yield return (1, centerX, rect.Y);
-        yield return (2, rect.Right, rect.Y);
-        yield return (3, rect.Right, centerY);
-        yield return (4, rect.Right, rect.Bottom);
-        yield return (5, centerX, rect.Bottom);
-        yield return (6, rect.X, rect.Bottom);
-        yield return (7, rect.X, centerY);
-    }
+    private static IEnumerable<(int Handle, double X, double Y)> Handles(PixelRect rect) =>
+        SelectionHandles.Of(ToRect(rect)).Select(handle => (handle.Handle, handle.Center.X, handle.Center.Y));
 
     /// <summary>The selected chart's frame and handles and the outline of a move or size (device pixels; theme colours).</summary>
     private void DrawChartSelection(SKCanvas canvas, GridViewport viewport, PixelRect? frame, PixelRect? outline, double scaling)

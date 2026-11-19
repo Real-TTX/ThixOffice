@@ -4,6 +4,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 using MatDesktop;
+using ThixOffice.Desktop.Controls;
 using ThixOffice.Desktop.Shell;
 using ThixWrite.Core.Model;
 using ThixWrite.Dialogs;
