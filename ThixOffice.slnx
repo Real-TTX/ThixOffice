@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/ThixCalc/ThixCalc.csproj" />
     <Project Path="src/ThixOffice.Core/ThixOffice.Core.csproj" />
     <Project Path="src/ThixOffice.Desktop/ThixOffice.Desktop.csproj" />
     <Project Path="src/ThixOffice.Text/ThixOffice.Text.csproj" />
@@ -10,6 +11,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ThixCalc.Core.Tests/ThixCalc.Core.Tests.csproj" />
+    <Project Path="tests/ThixCalc.Tests/ThixCalc.Tests.csproj" />
     <Project Path="tests/ThixOffice.Core.Tests/ThixOffice.Core.Tests.csproj" />
     <Project Path="tests/ThixOffice.Desktop.Tests/ThixOffice.Desktop.Tests.csproj" />
     <Project Path="tests/ThixWrite.Core.Tests/ThixWrite.Core.Tests.csproj" />

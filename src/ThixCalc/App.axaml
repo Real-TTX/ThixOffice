@@ -1,0 +1,11 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ThixCalc.App"
+             Name="ThixCalc"
+             RequestedThemeVariant="Default">
+  <!--
+    The look is MatDesktop's (ThixOffice.Desktop/MatDesktop, copied from MatDesign): OfficeApplication.Initialize installs
+    its theme with ThixCalc's accent (ThixCalcApp.Accent) – Fluent in the colours of the tokens, a brush per token in light and dark,
+    the control themes, the icons of the sprite; every window takes the app's icon from it.
+  -->
+</Application>
