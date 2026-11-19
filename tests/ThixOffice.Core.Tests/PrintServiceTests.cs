@@ -1,6 +1,5 @@
 using ThixOffice.Core.Business;
 using ThixOffice.Core.Models;
-using ThixOffice.Core.Platform.MacOS;
 using Xunit;
 
 namespace ThixOffice.Core.Tests;
@@ -41,8 +40,8 @@ public sealed class PrintServiceTests
     {
         Assert.Equal("a4", PaperSize.Find(841.9, 595.3)?.Id);
         Assert.Null(PaperSize.Find(500, 700));
-        Assert.Equal("Letter", CupsPrinterSystem.Media(612, 792));
-        Assert.Equal("Custom.500x700", CupsPrinterSystem.Media(700, 500));
+        Assert.Equal("Letter", PaperSize.CupsMedia(612, 792));
+        Assert.Equal("Custom.500x700", PaperSize.CupsMedia(700, 500));
         Assert.Equal("Benutzerdefiniert (17,64 × 24,69 cm)", PaperSize.Describe(500, 700));
     }
 }

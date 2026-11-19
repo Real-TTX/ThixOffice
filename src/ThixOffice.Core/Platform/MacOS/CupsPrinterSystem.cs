@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using ThixOffice.Core.Models;
@@ -67,7 +66,7 @@ internal sealed unsafe partial class CupsPrinterSystem : IPrinterSystem
         try
         {
             var (width, height) = job.Source.SizeOf(job.Pages[0]);
-            optionCount = cupsAddOption("media", Media(width, height), optionCount, &options);
+            optionCount = cupsAddOption("media", PaperSize.CupsMedia(width, height), optionCount, &options);
             var id = cupsPrintFile(job.PrinterName, file, job.Title, optionCount, options);
             if (id == 0)
             {
@@ -90,18 +89,6 @@ internal sealed unsafe partial class CupsPrinterSystem : IPrinterSystem
     /// sichern") does the same.
     /// </summary>
     internal static IReadOnlyList<int> ExpandCopies(PrintJob job) => [.. Enumerable.Range(0, job.Copies).SelectMany(_ => job.Pages)];
-
-    /// <summary>The CUPS media name of a page: A4, Letter …, or a size of its own in points.</summary>
-    internal static string Media(double width, double height)
-    {
-        if (PaperSize.Find(width, height) is { } paper)
-        {
-            return paper.CupsName;
-        }
-
-        var (shorter, longer) = (Math.Min(width, height), Math.Max(width, height));
-        return string.Create(CultureInfo.InvariantCulture, $"Custom.{shorter:0.##}x{longer:0.##}");
-    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct CupsDestination

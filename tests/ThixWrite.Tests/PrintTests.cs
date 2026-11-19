@@ -172,6 +172,7 @@ public sealed class PrintTests
         var bytes = await File.ReadAllBytesAsync(output);
         if (Environment.GetEnvironmentVariable(ThixWriteApp.Definition.ScreenshotsVariable) is { Length: > 0 } pictures)
         {
+            Directory.CreateDirectory(pictures);
             File.Copy(output, Path.Combine(pictures, "thixwrite-printed-gdi.pdf"), overwrite: true); // to look at
         }
 

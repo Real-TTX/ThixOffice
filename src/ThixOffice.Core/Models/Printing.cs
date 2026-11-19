@@ -34,6 +34,18 @@ public sealed record PaperSize(string Id, string Label, double Width, double Hei
         return All.FirstOrDefault(size => Math.Abs(size.Width - shorter) < 2 && Math.Abs(size.Height - longer) < 2);
     }
 
+    /// <summary>The CUPS media name of a page: A4, Letter …, or a size of its own in points ("Custom.500x700").</summary>
+    public static string CupsMedia(double width, double height)
+    {
+        if (Find(width, height) is { } paper)
+        {
+            return paper.CupsName;
+        }
+
+        var (shorter, longer) = (Math.Min(width, height), Math.Max(width, height));
+        return string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Custom.{shorter:0.##}x{longer:0.##}");
+    }
+
     /// <summary>"A4 (21 × 29,7 cm)" or "Benutzerdefiniert (12 × 18 cm)" for a page of that size.</summary>
     public static string Describe(double width, double height)
     {
