@@ -116,6 +116,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
         }
 
         _pageTops = BuildPageTops();
+        firstPage = Math.Min(firstPage, PlaceHeadersAndFooters());
         LastUpdate = new LayoutUpdateInfo(laidOut, firstPage, _pages.Count, watch.Elapsed);
         Changed?.Invoke(this, new LayoutChangedEventArgs(firstPage, _pages.Count));
     }
@@ -526,6 +527,8 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
         _displayLists.Clear();
         _rescued.Clear();
         _context.Clear();
+        _storyLayouts.Clear();
+        _pageStories.Clear();
         _labels = [];
         for (var index = 0; index < Document.Blocks.Count; index++)
         {

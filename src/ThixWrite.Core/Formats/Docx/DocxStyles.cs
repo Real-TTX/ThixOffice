@@ -129,14 +129,20 @@ internal static class DocxStyles
     {
         var tab = settings?.GetFirstChild<W.DefaultTabStop>();
         var value = tab is null ? null : DocxValues.ParseTwips(DocxValues.AttributeValue(tab, "val"));
-        return value is > 0 ? new DocumentSettings { DefaultTabStop = value.Value } : DocumentSettings.Default;
+        var evenAndOdd = settings?.GetFirstChild<W.EvenAndOddHeaders>() is { } flag && DocxValues.ParseOnOff(flag);
+        return new DocumentSettings { DefaultTabStop = value is > 0 ? value.Value : DocumentSettings.Default.DefaultTabStop, EvenAndOddHeaders = evenAndOdd };
     }
 
-    /// <summary>Sets the default tab stop in <paramref name="settings"/>, keeping everything else.</summary>
+    /// <summary>Sets the default tab stop and "Gerade & ungerade Seiten unterschiedlich" in <paramref name="settings"/>, keeping everything else.</summary>
     public static void WriteSettings(DocumentSettings model, W.Settings settings)
     {
         settings.RemoveAllChildren<W.DefaultTabStop>();
         XmlFragments.Add(settings, DocxPropertyWriter.Element<W.DefaultTabStop>(("val", DocxPropertyWriter.Twips(model.DefaultTabStop))));
+        settings.RemoveAllChildren<W.EvenAndOddHeaders>();
+        if (model.EvenAndOddHeaders)
+        {
+            XmlFragments.Add(settings, new W.EvenAndOddHeaders());
+        }
     }
 
     /// <summary>The settings of a new document: default tab stop, Word 2013+ compatibility.</summary>

@@ -20,7 +20,7 @@ internal static class DocxPictures
     private const string PictureUri = "http://schemas.openxmlformats.org/drawingml/2006/picture";
 
     /// <summary>The picture of a w:drawing, or null when it is something else (a chart, a shape, a group, an EMF …).</summary>
-    public static ImageInline? Read(W.Drawing drawing, MainDocumentPart main, CharacterProperties properties, Hyperlink? link)
+    public static ImageInline? Read(W.Drawing drawing, OpenXmlPart main, CharacterProperties properties, Hyperlink? link)
     {
         var inline = drawing.GetFirstChild<Dw.Inline>();
         var anchor = drawing.GetFirstChild<Dw.Anchor>();
@@ -115,7 +115,7 @@ internal static class DocxPictures
     }
 
     /// <summary>The media parts and drawing ids of one write: a picture's part is made once, ids never repeat.</summary>
-    internal sealed class PictureContext(MainDocumentPart main)
+    internal sealed class PictureContext(OpenXmlPart main)
     {
         private readonly Dictionary<string, string> _parts = new(StringComparer.Ordinal);
         private readonly HashSet<uint> _ids = [];
@@ -177,7 +177,12 @@ internal static class DocxPictures
                 return id;
             }
 
-            var part = main.AddImagePart(image.ContentType);
+            var part = main switch
+            {
+                HeaderPart header => header.AddImagePart(image.ContentType),
+                FooterPart footer => footer.AddImagePart(image.ContentType),
+                _ => ((MainDocumentPart)main).AddImagePart(image.ContentType),
+            };
             using (var stream = new MemoryStream(image.Bytes, writable: false))
             {
                 part.FeedData(stream);

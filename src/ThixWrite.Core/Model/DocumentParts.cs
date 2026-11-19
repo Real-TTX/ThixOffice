@@ -48,6 +48,9 @@ public sealed record DocumentSettings
 
     /// <summary>The distance of the default tab stops (Word: 1.25 cm).</summary>
     public double DefaultTabStop { get; init; } = 35.4;
+
+    /// <summary>"Gerade & ungerade Seiten unterschiedlich" (w:evenAndOddHeaders): even pages show the Even headers and footers.</summary>
+    public bool EvenAndOddHeaders { get; init; }
 }
 
 /// <summary>

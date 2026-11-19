@@ -132,6 +132,31 @@ public sealed class Document
         return sections[low];
     }
 
+    /// <summary>
+    /// The header (or footer) a page shows: page <paramref name="pageInSection"/> (0-based) of section <paramref name="section"/>,
+    /// page number <paramref name="pageNumber"/> (1-based). The first page of a section with "Erste Seite anders" shows First, even
+    /// pages show Even when the document says so, the others Default; a kind a section does not set comes from the sections before
+    /// it. Also the kind, for the editor.
+    /// </summary>
+    public (Story? Story, HeaderFooterKind Kind) HeaderFooterOf(int section, int pageInSection, int pageNumber, bool footer)
+    {
+        var sections = Sections;
+        var properties = sections[Math.Clamp(section, 0, sections.Count - 1)].Properties;
+        var kind = properties.TitlePage && pageInSection == 0 ? HeaderFooterKind.First
+            : Settings.EvenAndOddHeaders && pageNumber % 2 == 0 ? HeaderFooterKind.Even
+            : HeaderFooterKind.Default;
+        for (var index = Math.Clamp(section, 0, sections.Count - 1); index >= 0; index--)
+        {
+            var set = footer ? sections[index].Properties.Footers : sections[index].Properties.Headers;
+            if (set[kind] is { } story)
+            {
+                return (story, kind);
+            }
+        }
+
+        return (null, kind);
+    }
+
     /// <summary>The whole text, paragraphs separated by "\n" (preserved blocks give their lines).</summary>
     public string GetPlainText() =>
         string.Join("\n", _blocks.Select(block => block switch

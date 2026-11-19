@@ -84,7 +84,7 @@ public static class DocxReader
                 ReadTable(table, blocks, context);
                 return;
             case W.SectionProperties section:
-                finalSection = DocxPropertyReader.ReadSection(section);
+                finalSection = DocxPropertyReader.ReadSection(section, context.ReadStory);
                 return;
             case W.BookmarkStart or W.BookmarkEnd or W.CommentRangeStart or W.CommentRangeEnd or W.PermStart or W.PermEnd
                 or W.MoveFromRangeStart or W.MoveFromRangeEnd or W.MoveToRangeStart or W.MoveToRangeEnd or W.ProofError:
@@ -242,11 +242,13 @@ public static class DocxReader
             ReadParagraphChild(child, inlines, null, context);
         }
 
+        DocxFields.Collapse(inlines, context.Uncount);
+
         return new Paragraph(
             inlines,
             DocxPropertyReader.ReadParagraph(properties),
             DocxPropertyReader.ReadCharacter(properties?.ParagraphMarkRunProperties),
-            properties?.SectionProperties is { } section ? DocxPropertyReader.ReadSection(section) : null);
+            properties?.SectionProperties is { } section ? DocxPropertyReader.ReadSection(section, context.ReadStory) : null);
     }
 
     private static void ReadParagraphChild(OpenXmlElement child, List<Inline> inlines, Hyperlink? link, ReadContext context)
@@ -356,7 +358,7 @@ public static class DocxReader
                 case W.FieldCode:
                     AddOpaque(child, PreservedKind.Field);
                     break;
-                case W.Drawing drawing when DocxPictures.Read(drawing, context.Main, properties, link) is { } picture:
+                case W.Drawing drawing when DocxPictures.Read(drawing, context.Part, properties, link) is { } picture:
                     Flush();
                     inlines.Add(picture);
                     if (picture.IsFloating)
@@ -407,7 +409,7 @@ public static class DocxReader
         string? uri = null;
         if (id is not null)
         {
-            uri = context.Main.HyperlinkRelationships.FirstOrDefault(relationship => relationship.Id == id)?.Uri.OriginalString;
+            uri = context.Part.HyperlinkRelationships.FirstOrDefault(relationship => relationship.Id == id)?.Uri.OriginalString;
         }
 
         var history = DocxValues.AttributeValue(hyperlink, "history") is { } value && value.Trim() is "1" or "true" or "on";
@@ -497,6 +499,65 @@ public static class DocxReader
 
         public MainDocumentPart Main { get; } = main;
 
+        /// <summary>The part being read (the main document, a header, a footer): its relationships name pictures and links.</summary>
+        public OpenXmlPart Part { get; private set; } = main;
+
+        public void Uncount(PreservedKind kind)
+        {
+            if (_counts.TryGetValue(kind, out var count))
+            {
+                _counts[kind] = Math.Max(0, count - 1);
+            }
+        }
+
+        /// <summary>The story of a header or footer part (null when the relationship is no such part: then the reference is kept).</summary>
+        public Story? ReadStory(string id, bool footer)
+        {
+            OpenXmlPart? part;
+            try
+            {
+                part = Main.GetPartById(id);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return null;
+            }
+
+            OpenXmlCompositeElement? root = part switch
+            {
+                HeaderPart header when !footer => header.Header,
+                FooterPart foot when footer => foot.Footer,
+                _ => null,
+            };
+            if (root is null)
+            {
+                return null;
+            }
+
+            var previous = Part;
+            Part = part!;
+            try
+            {
+                var blocks = new List<Block>();
+                SectionProperties? ignored = null;
+                foreach (var child in root.ChildElements)
+                {
+                    ReadBodyChild(child, blocks, this, ref ignored);
+                }
+
+                if (PendingMarkers.Count > 0)
+                {
+                    blocks.Add(new Paragraph(TakeMarkers()));
+                }
+
+                return new Story(blocks, id);
+            }
+            finally
+            {
+                Part = previous;
+            }
+        }
+
         public List<Inline> PendingMarkers { get; } = [];
 
         public void Count(PreservedKind kind)
@@ -517,6 +578,6 @@ public static class DocxReader
         }
 
         public IReadOnlyList<UnsupportedContent> Notes() =>
-            _counts.OrderBy(pair => pair.Key).Select(pair => new UnsupportedContent(pair.Key, pair.Value)).ToList();
+            _counts.Where(pair => pair.Value > 0).OrderBy(pair => pair.Key).Select(pair => new UnsupportedContent(pair.Key, pair.Value)).ToList();
     }
 }

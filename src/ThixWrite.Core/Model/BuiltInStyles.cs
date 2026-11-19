@@ -22,6 +22,8 @@ public static class BuiltInStyles
     public const string Strong = "Strong";
     public const string Emphasis = "Emphasis";
     public const string HyperlinkStyle = "Hyperlink";
+    public const string Header = "Header";
+    public const string Footer = "Footer";
     public const string TableNormal = "TableNormal";
     public const string TableGrid = "TableGrid";
 
@@ -247,6 +249,20 @@ public static class BuiltInStyles
                 QuickFormat = true,
                 UiPriority = 20,
                 Character = new CharacterProperties { Italic = true },
+            },
+            Header or Footer => new Style
+            {
+                Id = id,
+                Name = id == Header ? "header" : "footer",
+                BasedOn = Normal,
+                UiPriority = 99,
+                UnhideWhenUsed = true,
+                Paragraph = new ParagraphProperties
+                {
+                    SpacingAfter = 0,
+                    LineSpacing = LineSpacing.Single,
+                    Tabs = [new TabStop(226.8, TabAlignment.Center), new TabStop(453.6, TabAlignment.Right)],
+                },
             },
             TableNormal => new Style
             {

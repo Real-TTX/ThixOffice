@@ -28,6 +28,9 @@ internal sealed class LayoutContext(ITextMeasurer measurer, StyleResolver resolv
     }
 
     public void Clear() => _metrics.Clear();
+
+    /// <summary>The text a field shows where it is laid out now (a header on page 3: "3"); null shows its last result.</summary>
+    public Func<FieldInline, string>? FieldText { get; set; }
 }
 
 /// <summary>
@@ -249,6 +252,27 @@ internal static class ParagraphLayouter
                 advances[start] = picture.ObjectWidth;
                 owner[start] = segments.Count;
                 segments.Add(picture);
+                continue;
+            }
+
+            if (inline is FieldInline field)
+            {
+                var shown = context.FieldText?.Invoke(field) ?? field.Result;
+                var value = new Segment
+                {
+                    Start = start,
+                    End = start + 1,
+                    Kind = SegmentKind.Object,
+                    Format = format,
+                    Font = font,
+                    Metrics = metrics,
+                    Object = field,
+                    Shaped = context.Measurer.Shape(shown.Length == 0 ? " " : shown, font),
+                };
+                value.ObjectWidth = value.Shaped.Width;
+                advances[start] = value.ObjectWidth;
+                owner[start] = segments.Count;
+                segments.Add(value);
                 continue;
             }
 

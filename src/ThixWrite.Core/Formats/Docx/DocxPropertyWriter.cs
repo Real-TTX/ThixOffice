@@ -76,7 +76,8 @@ internal static class DocxPropertyWriter
         ParagraphProperties properties,
         T target,
         CharacterProperties? markProperties = null,
-        SectionProperties? sectionBreak = null) where T : OpenXmlCompositeElement
+        SectionProperties? sectionBreak = null,
+        Func<SectionProperties, IEnumerable<OpenXmlElement>>? references = null) where T : OpenXmlCompositeElement
     {
         XmlFragments.AddTo(target, properties.UnknownXml);
         if (properties.StyleId is not null)
@@ -128,16 +129,22 @@ internal static class DocxPropertyWriter
 
         if (sectionBreak is not null)
         {
-            Add(target, WriteSection(sectionBreak));
+            Add(target, WriteSection(sectionBreak, references));
         }
 
         return target.HasChildren ? target : null;
     }
 
-    public static W.SectionProperties WriteSection(SectionProperties section)
+    /// <summary>A w:sectPr; <paramref name="references"/> gives the w:headerReference / w:footerReference elements of its headers and footers.</summary>
+    public static W.SectionProperties WriteSection(SectionProperties section, Func<SectionProperties, IEnumerable<OpenXmlElement>>? references = null)
     {
         var target = new W.SectionProperties();
         XmlFragments.AddTo(target, section.UnknownXml);
+        foreach (var reference in references?.Invoke(section) ?? [])
+        {
+            Add(target, reference);
+        }
+
         if (section.Start != SectionStart.NextPage)
         {
             var value = section.Start switch

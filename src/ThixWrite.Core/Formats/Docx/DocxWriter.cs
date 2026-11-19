@@ -50,7 +50,7 @@ public static class DocxWriter
         main.Document ??= new W.Document();
         var root = main.Document;
         XmlFragments.DeclareBasicNamespaces(root);
-        var context = new WriteContext(main);
+        var context = new WriteContext(main, main, document);
         root.Body = WriteBody(document, context);
         XmlFragments.RemoveRedundantDeclarations(root);
         root.Save();
@@ -123,7 +123,7 @@ public static class DocxWriter
             }
         }
 
-        body.AppendChild(DocxPropertyWriter.WriteSection(document.FinalSection));
+        body.AppendChild(DocxPropertyWriter.WriteSection(document.FinalSection, context.ReferencesOf));
         return body;
     }
 
@@ -180,7 +180,7 @@ public static class DocxWriter
     private static W.Paragraph WriteParagraph(Paragraph paragraph, WriteContext context)
     {
         var element = new W.Paragraph();
-        if (DocxPropertyWriter.WriteParagraph(paragraph.Properties, new W.ParagraphProperties(), paragraph.MarkProperties, paragraph.SectionBreak) is { } properties)
+        if (DocxPropertyWriter.WriteParagraph(paragraph.Properties, new W.ParagraphProperties(), paragraph.MarkProperties, paragraph.SectionBreak, context.ReferencesOf) is { } properties)
         {
             element.AppendChild(properties);
         }
@@ -215,6 +215,11 @@ public static class DocxWriter
         {
             case TextRun run:
                 yield return WriteRun(run);
+                break;
+            case FieldInline field:
+                var result = NewRun(field.Properties);
+                result.AppendChild(new W.Text(field.Result) { Space = SpaceProcessingModeValues.Preserve });
+                yield return DocxFields.Write(field, result);
                 break;
             case ImageInline image:
                 var pictureRun = NewRun(image.Properties);
@@ -330,11 +335,116 @@ public static class DocxWriter
     /// <summary>XML 1.0 characters outside the surrogate range (pairs are handled by the caller).</summary>
     private static bool IsXmlCharacter(char character) => character >= ' ' && character < (char)0xFFFE;
 
-    private sealed class WriteContext(MainDocumentPart main)
+    /// <summary>The blocks of a story (body, header, footer) as WordprocessingML elements.</summary>
+    private static IEnumerable<OpenXmlElement> WriteBlocks(Document document, IReadOnlyList<Block> blocks, WriteContext context)
     {
-        public DocxPictures.PictureContext Pictures { get; } = new(main);
+        // A story that is not the body gets a document of its own (same styles), so that tables find their blocks.
+        var story = new Document(blocks, document.Styles, document.Numbering, document.FinalSection, document.Theme, document.Settings);
+        for (var index = 0; index < story.Blocks.Count; index++)
+        {
+            switch (story.Blocks[index])
+            {
+                case Paragraph { Cell: not null }:
+                    var span = TableSpan.At(story, index)!;
+                    yield return WriteTable(story, span, context);
+                    index = span.End;
+                    break;
+                case Paragraph paragraph:
+                    yield return WriteParagraph(paragraph.WithSectionBreak(null), context);
+                    break;
+                case OpaqueBlock opaque:
+                    foreach (var element in XmlFragments.Parse<W.Body>(opaque.Xml))
+                    {
+                        yield return element;
+                    }
 
-        private readonly Dictionary<string, string> _relationships = main.HyperlinkRelationships
+                    break;
+            }
+        }
+    }
+
+    private sealed class WriteContext(MainDocumentPart main, OpenXmlPart part, Document? document = null)
+    {
+        private readonly Dictionary<Story, string> _stories = new(ReferenceEqualityComparer.Instance);
+
+        public DocxPictures.PictureContext Pictures { get; } = new(part);
+
+        public Document? Document { get; set; } = document;
+
+        /// <summary>The header and footer references of a section, their parts written (each story once, into the part it was read from).</summary>
+        public IEnumerable<OpenXmlElement> ReferencesOf(SectionProperties section)
+        {
+            var references = new List<OpenXmlElement>();
+            foreach (var (set, footer) in new[] { (section.Headers, false), (section.Footers, true) })
+            {
+                foreach (var kind in new[] { HeaderFooterKind.Default, HeaderFooterKind.First, HeaderFooterKind.Even })
+                {
+                    if (set[kind] is not { } story || Document is null)
+                    {
+                        continue;
+                    }
+
+                    var id = WriteStory(story, footer);
+                    var type = kind switch { HeaderFooterKind.First => "first", HeaderFooterKind.Even => "even", _ => "default" };
+                    OpenXmlElement reference = footer ? new W.FooterReference() : new W.HeaderReference();
+                    reference.SetAttribute(new OpenXmlAttribute("w", "type", DocxValues.WordNamespace, type));
+                    reference.SetAttribute(new OpenXmlAttribute("r", "id", DocxValues.RelationshipNamespace, id));
+                    references.Add(reference);
+                }
+            }
+
+            return references;
+        }
+
+        private string WriteStory(Story story, bool footer)
+        {
+            if (_stories.TryGetValue(story, out var known))
+            {
+                return known;
+            }
+
+            OpenXmlPart? existing = null;
+            if (story.SourcePart is { } source)
+            {
+                try
+                {
+                    existing = main.GetPartById(source);
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                }
+            }
+
+            OpenXmlPart target = footer
+                ? existing as FooterPart ?? main.AddNewPart<FooterPart>()
+                : existing as HeaderPart ?? main.AddNewPart<HeaderPart>();
+            OpenXmlCompositeElement root = footer ? new W.Footer() : new W.Header();
+            XmlFragments.DeclareBasicNamespaces(root);
+            var context = new WriteContext(main, target, Document);
+            foreach (var element in WriteBlocks(Document!, story.Blocks, context))
+            {
+                root.AppendChild(element);
+            }
+
+            XmlFragments.RemoveRedundantDeclarations(root);
+            if (target is FooterPart footerPart)
+            {
+                footerPart.Footer = (W.Footer)root;
+                footerPart.Footer.Save();
+            }
+            else
+            {
+                var headerPart = (HeaderPart)target;
+                headerPart.Header = (W.Header)root;
+                headerPart.Header.Save();
+            }
+
+            var id = main.GetIdOfPart(target);
+            _stories[story] = id;
+            return id;
+        }
+
+        private readonly Dictionary<string, string> _relationships = part.HyperlinkRelationships
             .GroupBy(relationship => relationship.Uri.OriginalString)
             .ToDictionary(group => group.Key, group => group.First().Id);
 
@@ -375,7 +485,7 @@ public static class DocxWriter
                 return null;
             }
 
-            var relationship = main.AddHyperlinkRelationship(parsed, parsed.IsAbsoluteUri);
+            var relationship = part.AddHyperlinkRelationship(parsed, parsed.IsAbsoluteUri);
             _relationships[uri] = relationship.Id;
             return relationship.Id;
         }

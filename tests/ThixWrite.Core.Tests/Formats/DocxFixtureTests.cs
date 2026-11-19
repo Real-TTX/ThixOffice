@@ -81,7 +81,7 @@ public class DocxFixtureTests
         Assert.Equal(1, notes[PreservedKind.Footnote]);
         Assert.Equal(1, notes[PreservedKind.Comment]);
         Assert.Equal(2, notes[PreservedKind.TrackedChange]);
-        Assert.Equal(2, notes[PreservedKind.Field]);
+        Assert.False(notes.ContainsKey(PreservedKind.Field)); // PAGE and NUMPAGES are fields ThixWrite updates
         Assert.Equal(2, notes[PreservedKind.ContentControl]);
         Assert.False(notes.ContainsKey(PreservedKind.Bookmark));
         Assert.All(document.UnsupportedContent, note => Assert.False(string.IsNullOrWhiteSpace(note.Message)));
@@ -94,8 +94,8 @@ public class DocxFixtureTests
         var paragraphs = document.Blocks.OfType<Paragraph>().ToList();
 
         var field = paragraphs.Single(paragraph => paragraph.Text.StartsWith("Seite", StringComparison.Ordinal));
-        Assert.Contains(field.Inlines, inline => inline is OpaqueInline { Kind: PreservedKind.Field, DisplayText: "3" });
-        Assert.Contains("1", field.Inlines.OfType<TextRun>().Select(run => run.Text));
+        Assert.Contains(field.Inlines, inline => inline is FieldInline { Kind: FieldKind.NumPages, Result: "3" });
+        Assert.Contains(field.Inlines, inline => inline is FieldInline { Kind: FieldKind.Page, Result: "1" });
 
         var changes = paragraphs.Single(paragraph => paragraph.Inlines.Any(inline => inline is OpaqueInline { Kind: PreservedKind.TrackedChange }));
         var tracked = changes.Inlines.OfType<OpaqueInline>().ToList();
@@ -116,7 +116,7 @@ public class DocxFixtureTests
         Assert.Equal(["Block-Steuerelement"], control.Lines);
 
         Assert.Contains(paragraphs.SelectMany(paragraph => paragraph.Inlines), inline => inline is OpaqueInline { Kind: PreservedKind.Bookmark, IsMarker: true });
-        Assert.Contains("headerReference", document.FinalSection.UnknownXml);
+        Assert.Equal("Kopfzeile", ((Paragraph)document.FinalSection.Headers.Default!.Blocks[0]).Text); // the header is read
     }
 
     [Fact]
@@ -149,9 +149,8 @@ public class DocxFixtureTests
         Assert.Single(body.Descendants<W.CommentReference>());
         Assert.Equal("Marke", body.Descendants<W.BookmarkStart>().Single().Name!.Value);
         Assert.Single(body.Descendants<W.BookmarkEnd>());
-        Assert.Equal(3, body.Descendants<W.FieldChar>().Count());
-        Assert.Single(body.Descendants<W.FieldCode>());
-        Assert.Single(body.Descendants<W.SimpleField>());
+        Assert.Empty(body.Descendants<W.FieldChar>()); // the complex PAGE field is written as a simple one
+        Assert.Equal(2, body.Descendants<W.SimpleField>().Count());
         Assert.Single(body.Descendants<W.InsertedRun>());
         Assert.Equal("gelöscht", body.Descendants<W.DeletedText>().Single().Text);
         Assert.Single(body.Descendants<W.SdtRun>());

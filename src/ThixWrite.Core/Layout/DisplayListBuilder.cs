@@ -20,7 +20,7 @@ public static class DisplayListBuilder
         var items = new List<DisplayItem>();
         AddCellFills(page, items);
         AddPreservedFrames(page, items);
-        foreach (var placed in page.RepeatedLines)
+        foreach (var placed in page.HeaderLines.Concat(page.FooterLines).Concat(page.RepeatedLines))
         {
             AddLine(placed, items);
         }

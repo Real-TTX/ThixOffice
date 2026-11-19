@@ -18,8 +18,8 @@ public enum SectionStart
 }
 
 /// <summary>
-/// Page setup of a section, immutable, lengths in points. Headers/footers (1b), page number formats, line numbering, the
-/// document grid … are kept as <see cref="UnknownXml"/> (relationship ids stay valid: see Formats.Docx.DocxWriter).
+/// Page setup of a section, immutable, lengths in points, with its headers and footers. Page number formats, line numbering,
+/// the document grid … are kept as <see cref="UnknownXml"/> (relationship ids stay valid: see Formats.Docx.DocxWriter).
 /// </summary>
 public sealed record SectionProperties
 {
@@ -55,6 +55,12 @@ public sealed record SectionProperties
 
     /// <summary>"Erste Seite anders".</summary>
     public bool TitlePage { get; init; }
+
+    /// <summary>The headers of the section (kinds it does not set come from the section before).</summary>
+    public HeaderFooterSet Headers { get; init; } = HeaderFooterSet.Empty;
+
+    /// <summary>The footers of the section.</summary>
+    public HeaderFooterSet Footers { get; init; } = HeaderFooterSet.Empty;
 
     /// <summary>Section properties ThixWrite does not model (header/footer references, page numbering …), as XML.</summary>
     public string? UnknownXml { get; init; }

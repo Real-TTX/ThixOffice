@@ -140,7 +140,11 @@ internal static class DocxPropertyReader
         return result with { UnknownXml = XmlFragments.Join(unknown) };
     }
 
-    public static SectionProperties ReadSection(W.SectionProperties? properties)
+    /// <summary>
+    /// A section's properties; <paramref name="readStory"/> reads the header or footer of a w:headerReference / w:footerReference
+    /// (relationship id, footer?) – a reference it cannot read stays as unknown XML.
+    /// </summary>
+    public static SectionProperties ReadSection(W.SectionProperties? properties, Func<string, bool, Story?>? readStory = null)
     {
         if (properties is null)
         {
@@ -186,6 +190,11 @@ internal static class DocxPropertyReader
                 case W.TitlePage:
                     result = result with { TitlePage = DocxValues.ParseOnOff(child) };
                     break;
+                case W.HeaderReference or W.FooterReference when readStory is not null && ReadReference(child, readStory) is { } reference:
+                    result = reference.Footer
+                        ? result with { Footers = result.Footers.With(reference.Kind, reference.Story) }
+                        : result with { Headers = result.Headers.With(reference.Kind, reference.Story) };
+                    break;
                 default:
                     unknown.Add(child);
                     break;
@@ -193,6 +202,24 @@ internal static class DocxPropertyReader
         }
 
         return result with { UnknownXml = XmlFragments.Join(unknown) };
+    }
+
+    private static (HeaderFooterKind Kind, bool Footer, Story Story)? ReadReference(OpenXmlElement reference, Func<string, bool, Story?> readStory)
+    {
+        var footer = reference is W.FooterReference;
+        var id = DocxValues.AttributeValue(reference, "id");
+        if (id is null || readStory(id, footer) is not { } story)
+        {
+            return null;
+        }
+
+        var kind = DocxValues.AttributeValue(reference, "type") switch
+        {
+            "first" => HeaderFooterKind.First,
+            "even" => HeaderFooterKind.Even,
+            _ => HeaderFooterKind.Default,
+        };
+        return (kind, footer, story);
     }
 
     /// <summary>The (family, theme) pair a w:rFonts says, as the reader and the writer understand it.</summary>

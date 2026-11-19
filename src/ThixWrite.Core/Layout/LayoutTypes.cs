@@ -270,6 +270,26 @@ public sealed class PageLayout
 
     internal List<PlacedCell> MutableCells => _cells;
 
+    /// <summary>The header this page shows (its lines in <see cref="HeaderLines"/>, block numbers of the story), or null.</summary>
+    public Story? Header { get; internal set; }
+
+    public HeaderFooterKind HeaderKind { get; internal set; }
+
+    public Story? Footer { get; internal set; }
+
+    public HeaderFooterKind FooterKind { get; internal set; }
+
+    /// <summary>The lines of the header, placed (the block numbers are the story's).</summary>
+    public IReadOnlyList<PlacedLine> HeaderLines { get; internal set; } = [];
+
+    public IReadOnlyList<PlacedLine> FooterLines { get; internal set; } = [];
+
+    /// <summary>The number of the page as its fields show it (1-based).</summary>
+    public int Number => Index + 1;
+
+    /// <summary>The index of this page within its section (0 = the section's first page).</summary>
+    public int IndexInSection { get; internal set; }
+
     internal List<PlacedLine> MutableRepeatedLines => _repeatedLines;
 
     /// <summary>Removes what blocks from <paramref name="block"/> on placed here (re-pagination from that block).</summary>
