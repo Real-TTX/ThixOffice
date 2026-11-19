@@ -628,7 +628,7 @@ public static partial class OdpReader
             Outline? Border(string side)
             {
                 var text = (string?)cellProperties?.Attribute(FoNs + "border-" + side) ?? (string?)cellProperties?.Attribute(FoNs + "border")
-                    ?? (string?)props.Of("paragraph-properties")?.Attribute(FoNs + "border-" + side);
+                    ?? (string?)props.Of("paragraph-properties")?.Attribute(FoNs + "border-" + side) ?? (string?)props.Of("paragraph-properties")?.Attribute(FoNs + "border");
                 if (text is null)
                 {
                     return null;

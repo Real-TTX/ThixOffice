@@ -414,14 +414,17 @@ public static partial class OdpWriter
                 element.Add(new XAttribute(FoNs + "text-indent", OdpNames.Cm(indent)));
             }
 
-            if (paragraph.SpaceBefore is { IsPoints: true } before)
+            // Spacing in lines (DrawingML's percentages) becomes points: a line is 1.2 × the font size.
+            var fontSize = (paragraph.DefaultRun?.Size ?? 1800) / 100.0;
+            double PointsOf(TextSpacing spacing) => spacing.IsPoints ? spacing.Value / 100.0 : spacing.Value / 100000.0 * fontSize * 1.2;
+            if (paragraph.SpaceBefore is { } before)
             {
-                element.Add(new XAttribute(FoNs + "margin-top", Length(before.Value / 100.0)));
+                element.Add(new XAttribute(FoNs + "margin-top", Length(PointsOf(before))));
             }
 
-            if (paragraph.SpaceAfter is { IsPoints: true } after)
+            if (paragraph.SpaceAfter is { } after)
             {
-                element.Add(new XAttribute(FoNs + "margin-bottom", Length(after.Value / 100.0)));
+                element.Add(new XAttribute(FoNs + "margin-bottom", Length(PointsOf(after))));
             }
 
             if (paragraph.LineSpacing is { } spacing)

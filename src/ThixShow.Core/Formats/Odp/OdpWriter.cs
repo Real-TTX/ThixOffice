@@ -243,7 +243,7 @@ public static partial class OdpWriter
             AddFill(graphic, resolved.Fill ?? NoFill.Instance, resolved.Colors);
             AddStroke(graphic, resolved.Outline ?? Outline.None, resolved.Colors);
             AddBody(graphic, EffectiveBody(resolved.Body));
-            var paragraph = ShapeResolver.ParagraphOf(resolved, TextParagraph.Empty);
+            var paragraph = Complete(ShapeResolver.ParagraphOf(resolved, TextParagraph.Empty));
             return scope.Sink.Add("graphic", "gr", [graphic, ParagraphProperties(Reduced(paragraph)), TextProperties(paragraph.DefaultRun, scope.Colors)])!;
         }
 
@@ -307,6 +307,7 @@ public static partial class OdpWriter
                 AddBody(graphic, EffectiveBody(shape.Body));
             }
 
+            paragraph = Complete(paragraph);
             element.Add(graphic, ParagraphProperties(Reduced(paragraph)), TextProperties(paragraph.DefaultRun, colors));
             return element;
         }
@@ -316,6 +317,14 @@ public static partial class OdpWriter
             ShapeResolver.DefaultHorizontalInset, ShapeResolver.DefaultVerticalInset, ShapeResolver.DefaultHorizontalInset, ShapeResolver.DefaultVerticalInset,
             TextAnchor.Top, Wrap: true).Merge(body);
 
+        /// <summary>
+        /// A style's paragraph with every value it can carry set (alignment, indents, spacing; not bold, not italic …): a style read back
+        /// is complete, so it says the same when written again over other styles.
+        /// </summary>
+        private static ParagraphProperties Complete(ParagraphProperties paragraph) => new ParagraphProperties(
+            Alignment: TextAlignment.Left, LeftMargin: 0, RightMargin: 0, Indent: 0, LineSpacing: TextSpacing.Percent(100000), SpaceBefore: TextSpacing.Points(0), SpaceAfter: TextSpacing.Points(0),
+            DefaultRun: new RunProperties(Bold: false, Italic: false, Underline: "none", Strike: "noStrike", Baseline: 0, Caps: "none", Spacing: 0)).Merge(paragraph);
+
         /// <summary>The paragraph properties ODF's paragraph-properties carry (bullets and run defaults are written elsewhere).</summary>
         private static ParagraphProperties Reduced(ParagraphProperties paragraph) => new(
             Alignment: paragraph.Alignment,
@@ -324,7 +333,8 @@ public static partial class OdpWriter
             Indent: paragraph.Indent,
             LineSpacing: paragraph.LineSpacing,
             SpaceBefore: paragraph.SpaceBefore,
-            SpaceAfter: paragraph.SpaceAfter);
+            SpaceAfter: paragraph.SpaceAfter,
+            DefaultRun: paragraph.DefaultRun is { Size: { } size } ? new RunProperties(Size: size) : null);
 
         /// <summary>office:styles: the base graphic style, every master page's presentation styles.</summary>
         private List<XElement> CommonStyles()
@@ -339,7 +349,7 @@ public static partial class OdpWriter
             if (context is not null)
             {
                 var resolved = ShapeResolver.Resolve(context, new AutoShape { Id = 1, Text = TextBody.Empty });
-                var paragraph = ShapeResolver.ParagraphOf(resolved, TextParagraph.Empty);
+                var paragraph = Complete(ShapeResolver.ParagraphOf(resolved, TextParagraph.Empty));
                 baseStyle.Add(ParagraphProperties(Reduced(paragraph)), TextProperties(paragraph.DefaultRun, ColorsOf(context)));
             }
 

@@ -376,6 +376,69 @@ public sealed class OdpTests
         Assert.DoesNotContain(ShapeTree.All(read.Slides[0].Shapes), shape => shape is GraphicFrame);
     }
 
+    [Fact]
+    public void Slides_of_every_layout_and_design_keep_their_text_and_read_the_same_again()
+    {
+        foreach (var design in BuiltInThemes.All)
+        {
+            var presentation = MasterFactory.CreatePresentation(design);
+            var slides = presentation.Masters[0].Layouts.Select((layout, index) =>
+            {
+                var slide = MasterFactory.CreateSlide(layout, (uint)(256 + index));
+                return slide with
+                {
+                    Shapes = [.. slide.Shapes.Select(shape => shape is AutoShape { Placeholder: { } placeholder } auto && placeholder.Type != PlaceholderType.Picture
+                        ? auto with { Text = TextBody.FromText($"{layout.Name}: {placeholder.Type}") }
+                        : shape)],
+                };
+            }).ToList();
+            presentation = presentation with { Slides = slides };
+
+            var first = RoundTrip(presentation);
+            Assert.Equal(slides.Count, first.SlideCount);
+            for (var index = 0; index < slides.Count; index++)
+            {
+                var expected = slides[index].Shapes.OfType<AutoShape>().Where(shape => shape.Text is { IsEmpty: false }).Select(shape => shape.Text!.PlainText).Order();
+                var actual = first.Slides[index].Shapes.OfType<AutoShape>().Where(shape => shape.Text is { IsEmpty: false }).Select(shape => shape.Text!.PlainText).Order();
+                Assert.Equal(expected, actual);
+            }
+
+            PptxTestSupport.AssertSameModel(first, RoundTrip(first));
+
+            // Read slides draw.
+            foreach (var slide in first.Slides)
+            {
+                Assert.NotEmpty(ThixShow.Core.Layout.SlideRenderer.Render(first, slide, TestDecks.Measurer).Items);
+            }
+        }
+    }
+
+    [Fact]
+    public void Unknown_elements_are_skipped()
+    {
+        const string content = """
+            <office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" xmlns:x="urn:example">
+              <x:header/>
+              <office:body><office:presentation>
+                <x:before/>
+                <draw:page draw:name="Eins">
+                  <x:shape svg:x="1cm"/>
+                  <draw:future-shape svg:x="1cm"/>
+                  <draw:custom-shape svg:x="1cm" svg:y="1cm" svg:width="2cm" svg:height="2cm"><text:p>Text <x:mark/>bleibt</text:p><draw:enhanced-geometry draw:type="mso-spt-unknown" draw:enhanced-path="M 0 0 L ?nowhere 10 Z"/></draw:custom-shape>
+                  <draw:frame svg:x="1cm" svg:y="4cm" svg:width="2cm" svg:height="1cm"/>
+                </draw:page>
+              </office:presentation></office:body>
+            </office:document-content>
+            """;
+        var presentation = Read(Package(("content.xml", content)));
+        var slide = Assert.Single(presentation.Slides);
+        var shape = Assert.IsType<AutoShape>(Assert.Single(slide.Shapes));
+        Assert.Equal("Text bleibt", shape.Text!.PlainText);
+        Assert.Equal(ShapeGeometry.Rectangle, shape.Geometry);
+        Assert.Contains(presentation.UnsupportedContent, content => content.Kind == "geometry");
+        Assert.NotEmpty(presentation.Masters);
+    }
+
     // ------------------------------------------------------------ helpers
 
     internal static XDocument Content(byte[] bytes)
