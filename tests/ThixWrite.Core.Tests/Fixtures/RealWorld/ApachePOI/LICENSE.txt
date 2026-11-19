@@ -1,0 +1,10 @@
+These .docx files were written by Microsoft Word and come unchanged from the test data of Apache POI
+(https://github.com/apache/poi, folder test-data/document, branch trunk, downloaded 2026-11-19):
+
+  ComplexNumberedLists.docx, IllustrativeCases.docx, VariousPictures.docx, WithTabs.docx, chartex.docx,
+  checkboxes.docx, delins.docx, drawing.docx, heading123.docx, sample.docx, shapes-with-text.docx,
+  table-alignment.docx
+
+Apache POI is licensed under the Apache License, Version 2.0 (https://www.apache.org/licenses/LICENSE-2.0).
+Copyright The Apache Software Foundation. The files are used here as test data only (ThixWrite's real-world
+corpus: reading, layout and round-trip tests).
