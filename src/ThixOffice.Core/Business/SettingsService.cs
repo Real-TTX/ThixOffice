@@ -69,6 +69,16 @@ public static class SettingsService
         return settings with { AppValues = values };
     });
 
+    /// <summary>The author of new comments: the name set in Allgemein, else the user's name from the system.</summary>
+    public static string AuthorName => Get().UserName is { Length: > 0 } name ? name : UserIdentity.DisplayName;
+
+    /// <summary>The initials of the author: set in Allgemein, else from the name ("Anna Berger" → "AB").</summary>
+    public static string AuthorInitials => Get().UserInitials is { Length: > 0 } initials ? initials : InitialsOf(AuthorName);
+
+    /// <summary>"AB" from "Anna Berger".</summary>
+    public static string InitialsOf(string name) =>
+        string.Concat(name.Split([' ', '.', '-'], StringSplitOptions.RemoveEmptyEntries).Take(2).Select(part => char.ToUpperInvariant(part[0])));
+
     /// <summary>Where "Speichern unter" starts: the chosen folder when it still exists, otherwise the documents folder.</summary>
     public static string SaveFolder => Get().DefaultSaveFolder is { Length: > 0 } folder && FileSystemProbe.FolderExists(folder) ? folder : FileSystemProbe.DocumentsFolder;
 
@@ -78,7 +88,12 @@ public static class SettingsService
     /// <summary>Drops the cached settings (tests, the self test read the file again).</summary>
     internal static void ResetCache() => Store.Reset();
 
-    private static AppSettings Normalize(AppSettings settings) => settings with { DefaultSaveFolder = settings.DefaultSaveFolder.Trim() };
+    private static AppSettings Normalize(AppSettings settings) => settings with
+    {
+        DefaultSaveFolder = settings.DefaultSaveFolder.Trim(),
+        UserName = settings.UserName.Trim(),
+        UserInitials = settings.UserInitials.Trim(),
+    };
 
     private static AppSettings Save(Func<AppSettings, AppSettings> change)
     {
@@ -102,6 +117,16 @@ public static class SettingsService
         if (settings.AutoRecoverMinutes is < 0 or > 120)
         {
             throw new BusinessException("Wiederherstellungsdaten werden höchstens alle 120 Minuten gespeichert (0 = nie).", nameof(AppSettings.AutoRecoverMinutes));
+        }
+
+        if (settings.UserName.Length > 80 || settings.UserName.Any(char.IsControl))
+        {
+            throw new BusinessException("Der Benutzername darf höchstens 80 Zeichen lang sein.", nameof(AppSettings.UserName));
+        }
+
+        if (settings.UserInitials.Length > 9 || settings.UserInitials.Any(character => char.IsControl(character) || char.IsWhiteSpace(character)))
+        {
+            throw new BusinessException("Initialen sind bis zu 9 Zeichen ohne Leerzeichen.", nameof(AppSettings.UserInitials));
         }
 
         if (settings.DefaultSaveFolder.Length > 0 && (!Path.IsPathFullyQualified(settings.DefaultSaveFolder) || !Directory.Exists(settings.DefaultSaveFolder)))

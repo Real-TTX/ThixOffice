@@ -65,13 +65,22 @@ public sealed class WriteEditor : OfficeEditor
         RulerView = new Ruler(this) { IsVisible = false };
         _scroller.ScrollChanged += (_, _) => RulerView.InvalidateVisual();
         Navigation = new NavigationPane(this) { IsVisible = false };
+        CommentsView = new CommentsPane(this) { IsVisible = Core.Model.Comments.All(document.Content).Count > 0 };
         Grid.SetRow(_scroller, 1);
         Grid.SetRow(FindBar, 1);
         Grid.SetColumn(RulerView, 1);
         Grid.SetColumn(_scroller, 1);
         Grid.SetColumn(FindBar, 1);
         Grid.SetRowSpan(Navigation, 2);
-        _view = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), ColumnDefinitions = new ColumnDefinitions("Auto,*"), Children = { Navigation, RulerView, _scroller, FindBar } };
+        Grid.SetRowSpan(CommentsView, 2);
+        Grid.SetColumn(CommentsView, 2);
+        _view = new Grid
+        {
+            RowDefinitions = new RowDefinitions("Auto,*"),
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
+            Children = { Navigation, RulerView, _scroller, FindBar, CommentsView },
+        };
+        _surface.Shading = CommentShading;
         _surface.ContextMenu = BuildContextMenu();
         _surface.HeaderFooterRequested += (_, area) => EditHeaderFooter(area.Page, area.Footer);
         _surface.LinkClicked += (_, link) => _ = LinkCommands.Follow(_window, this, link);
@@ -164,6 +173,59 @@ public sealed class WriteEditor : OfficeEditor
 
     /// <summary>Ansicht › Lineal (hidden at first, as in Word).</summary>
     public Ruler RulerView { get; }
+
+    /// <summary>Überprüfen › Kommentare anzeigen: the comments at the right (shown at first when the document has comments).</summary>
+    internal CommentsPane CommentsView { get; }
+
+    public bool ShowComments
+    {
+        get => CommentsView.IsVisible;
+        set
+        {
+            CommentsView.IsVisible = value;
+            CommentsView.Refresh();
+            _surface.InvalidateVisual();
+            ScheduleState();
+        }
+    }
+
+    /// <summary>Neuer Kommentar: on the selection (or the word at the caret) by the author of the settings; the card opens for its text.</summary>
+    public void AddComment()
+    {
+        CloseHeaderFooter();
+        Document.Session.AddComment(ThixOffice.Core.Business.SettingsService.AuthorName, ThixOffice.Core.Business.SettingsService.AuthorInitials);
+        var id = Document.Session.CommentAtCaret?.Comment.Id ?? Document.Session.Comments().LastOrDefault()?.Comment.Id;
+        CommentsView.IsVisible = true;
+        if (id is not null)
+        {
+            CommentsView.FocusComment(id);
+        }
+
+        ScheduleState();
+    }
+
+    private (long Version, Selection Selection, IReadOnlyList<(DocumentRange, bool)> Ranges)? _shading;
+
+    /// <summary>The text of the comments to shade while the pane shows them (cached per document version and selection).</summary>
+    private IReadOnlyList<(DocumentRange Range, bool Active)> CommentShading()
+    {
+        if (!CommentsView.IsVisible)
+        {
+            return [];
+        }
+
+        var session = Document.Session;
+        if (_shading is { } cached && cached.Version == Document.Content.Version && cached.Selection == session.Selection)
+        {
+            return cached.Ranges;
+        }
+
+        var active = session.CommentAtCaret;
+        var ranges = session.Comments().Where(placed => !placed.Range.IsEmpty)
+            .Select(placed => (placed.Range, active is not null && placed.Reference == active.Reference)).ToList();
+        _shading = (Document.Content.Version, session.Selection, ranges);
+        return ranges;
+    }
 
     /// <summary>Ansicht › Navigationsbereich: the headings at the left (hidden at first).</summary>
     internal NavigationPane Navigation { get; }
@@ -722,6 +784,7 @@ public sealed class WriteEditor : OfficeEditor
             ShowTableTabs();
             RulerView.InvalidateVisual();
             Navigation.Refresh();
+            CommentsView.Refresh();
             _window.Commands.Invalidate();
             UpdateStatus(_window.StatusBar);
         }, DispatcherPriority.Background);
@@ -787,7 +850,8 @@ public sealed class WriteEditor : OfficeEditor
         [
             WriteCommandIds.Cut, WriteCommandIds.Copy, WriteCommandIds.Paste, WriteCommandIds.PasteText, null,
             WriteCommandIds.FontDialog, WriteCommandIds.ParagraphDialog, null,
-            WriteCommandIds.Hyperlink, WriteCommandIds.HyperlinkOpen, WriteCommandIds.HyperlinkRemove,
+            WriteCommandIds.Hyperlink, WriteCommandIds.HyperlinkOpen, WriteCommandIds.HyperlinkRemove, null,
+            WriteCommandIds.NewComment,
         ],
         [WriteCommandIds.HyperlinkOpen, WriteCommandIds.HyperlinkRemove]);
 }

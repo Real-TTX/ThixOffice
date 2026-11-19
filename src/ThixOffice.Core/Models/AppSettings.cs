@@ -17,6 +17,15 @@ public sealed record AppSettings
 {
     public ThemeChoice Theme { get; init; } = ThemeChoice.System;
 
+    /// <summary>"Benutzername" – the author of comments (empty: the user's name from the system).</summary>
+    public string UserName { get; init; } = "";
+
+    /// <summary>"Initialen" (empty: from the name).</summary>
+    public string UserInitials { get; init; } = "";
+
+    /// <summary>"Rechtschreibung während der Eingabe überprüfen" (red wavy lines under unknown words).</summary>
+    public bool CheckSpellingAsYouType { get; init; } = true;
+
     // ===== Updates =====
 
     public bool CheckForUpdates { get; init; } = true;

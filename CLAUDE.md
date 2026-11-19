@@ -22,7 +22,7 @@ tab stops, the dialogs Schriftart/Absatz, format painter, symbols, HTML paste (s
 find/replace, clipboard, page setup, printing and PDF, CSV/xlsx/xlsm flows (section "ThixCalc's editor"; gaps in docs/PLAN.md).
 **ThixCalc charts (done):** the shared `ThixOffice.Charts` (section "Charts"). **Phase 4, first version of ThixShow (done):** the
 slide editor, thumbnails, sorter, show and presenter view, the German PowerPoint ribbon, printing/PDF (section "ThixShow's editor";
-gaps in docs/PLAN.md). **ThixWrite 1c (in progress):** footnotes/endnotes and the table of contents done; next comments, spelling,
+gaps in docs/PLAN.md). **ThixWrite 1c (in progress):** footnotes/endnotes, the table of contents and comments done; next spelling,
 Referenzen/Überprüfen, odt. Do not build ribbon controls of
 your own (a picture gallery is a `RibbonFlyoutButton` through `CreateRibbonContent`).
 
@@ -386,6 +386,18 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   control, which is unwrapped) back into the marks; nested PAGEREF fields stay preserved and are not reported.
 - **UI:** Referenzen › Inhaltsverzeichnis (menu: Automatisches Verzeichnis, entfernen), Tabelle aktualisieren; Ansicht ›
   Navigationsbereich (`NavigationPane`, column 0 of the editor's grid, refreshed with the ribbon state).
+
+### Comments
+
+- **Model** (`Model/Comments.cs`): `CommentAnchorInline(Id)` (start marker) … `CommentInline(Comment)` (end marker carrying the
+  `Comment`: id, author, initials, date, `Content` story, `ParaId`/`ParentParaId`/`Done` of Word's threads, `SourceXml`/`SourceContent`);
+  `Comments.All(document)` pairs them (`PlacedComment`: range, reference). Session (`EditingSession.Comments.cs`): `AddComment`,
+  `SetCommentText`, `SetCommentDone`, `DeleteComment` (with its replies), `DeleteAllComments`, `NextComment`, `CommentAtCaret`, `RepliesTo`.
+- **docx** (`DocxComments`): read lazily in the body only (comments in stories stay preserved); ids paired in document order before the
+  body is written (`Allocation.Prepare`, the model's id when free); an unchanged comment is written from `SourceXml`; thread parts tidied.
+- **UI:** `CommentsPane` (column 2 of the editor's grid; cards, text committed on LostFocus), `DocumentSurface.Shading` (ranges drawn over
+  the pictures, `DocumentPalette.CommentRange*`), `ReviewCommands`, tab `review`. Author: `SettingsService.AuthorName/AuthorInitials`
+  (`AppSettings.UserName/UserInitials`, default `UserIdentity.DisplayName`, pinned to "Anna Berger" in snapshots).
 
 ### Links, dialogs, format painter, symbols, ruler
 

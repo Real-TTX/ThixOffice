@@ -31,7 +31,9 @@ lange Fußnoten laufen auf der nächsten Seite weiter; **Endnoten** (Strg+Alt+D)
 Notiz schreiben Sie direkt an Ort und Stelle; ein Klick auf eine Fußnote öffnet sie, ein Doppelklick auf ihre Nummer im Text auch.
 Das **Inhaltsverzeichnis** entsteht aus den Überschriften (mit Punkten und Seitenzahlen, jeder Eintrag springt per Strg+Klick zur
 Überschrift), „Tabelle aktualisieren“ bringt es auf den neuesten Stand – in Word bleibt es ein echtes, aktualisierbares Verzeichnis.
-Ansicht › **Navigationsbereich** zeigt die Überschriften links.
+Ansicht › **Navigationsbereich** zeigt die Überschriften links. Die Karte **Überprüfen** bringt **Kommentare** (Strg+Alt+K): Karten
+rechts neben den Seiten, der kommentierte Text ist schattiert, Antworten aus Word erscheinen unter ihrem Kommentar; als Autor gilt der
+Benutzername aus Einstellungen › Allgemein (leer: Ihr Name aus dem System).
 
 Word-Dokumente (.docx) sind das Standardformat; .txt wird als reiner Text gelesen und geschrieben. Inhalte, die ThixWrite noch
 nicht anzeigt (Kommentare, verschachtelte Tabellen, Formeln …), bleiben beim Speichern erhalten – beim Öffnen sagt ein
@@ -44,8 +46,8 @@ Hinweis, welche es sind.
 | Tabelle (Kontext-Karte Layout) | Bild (Kontext-Karte Bildformat) |
 | --- | --- |
 | ![Tabelle](docs/images/thixwrite-main-table-light.png) | ![Bild](docs/images/thixwrite-main-picture-light.png) |
-| **Referenzen** (Fußnote am Seitenende) | |
-| ![Referenzen](docs/images/thixwrite-main-references-light.png) | |
+| **Referenzen** (Fußnote am Seitenende, Navigationsbereich) | **Überprüfen** (Kommentare) |
+| ![Referenzen](docs/images/thixwrite-main-references-light.png) | ![Kommentare](docs/images/thixwrite-main-comments-light.png) |
 | **Kopfzeile bearbeiten** (Doppelklick in den Rand) | **Datei › Drucken** (Strg+P) |
 | ![Kopfzeile](docs/images/thixwrite-main-header-light.png) | ![Drucken](docs/images/thixwrite-backstage-print-light.png) |
 | **Suchen und Ersetzen** (Strg+F, Strg+H) | **Layout und Formatierungszeichen** |

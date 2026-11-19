@@ -80,7 +80,7 @@ public class DocxFixtureTests
         Assert.False(notes.ContainsKey(PreservedKind.Drawing)); // an inline picture is a picture now
         Assert.False(notes.ContainsKey(PreservedKind.Footnote)); // a footnote is a footnote now
         Assert.Equal(" Die Fußnote.", document.Blocks.OfType<Paragraph>().SelectMany(paragraph => paragraph.Inlines).OfType<NoteInline>().Single().PlainText);
-        Assert.Equal(1, notes[PreservedKind.Comment]);
+        Assert.False(notes.ContainsKey(PreservedKind.Comment)); // a comment is a comment now
         Assert.Equal(2, notes[PreservedKind.TrackedChange]);
         Assert.False(notes.ContainsKey(PreservedKind.Field)); // PAGE and NUMPAGES are fields ThixWrite updates
         Assert.Equal(2, notes[PreservedKind.ContentControl]);

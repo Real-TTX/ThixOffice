@@ -333,6 +333,7 @@ public static class OfficeSnapshot
         TokenStore.UseMemoryForTests(true);
         var missing = Path.Combine(Documents, "Archiv", "Entwurf alt" + extension);
         FileSystemProbe.UseForSnapshots(path => path != missing, folder => folder.StartsWith(Documents, StringComparison.OrdinalIgnoreCase), Documents);
+            UserIdentity.UseForSnapshots("Anna Berger");
         var now = DateTimeOffset.Now;
         RecentDocuments.Add(missing, now.AddDays(-40));
         RecentDocuments.Add(Path.Combine(Documents, "Rechnungen", "Mahnung Kunde 0815" + extension), now.AddDays(-9));
@@ -350,6 +351,7 @@ public static class OfficeSnapshot
         {
             app.KeepsRunningWithoutWindows = false;
             FileSystemProbe.UseForSnapshots(null, null, null);
+            UserIdentity.UseForSnapshots(null);
             AccessPolicy.UsePolicyReaderForTests(null);
             PrintService.System = null!;
             TokenStore.UseMemoryForTests(false);

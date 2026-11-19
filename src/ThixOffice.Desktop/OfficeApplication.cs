@@ -105,6 +105,21 @@ public abstract class OfficeApplication : Application
     /// <summary>The file name (without extension) the sample document is shown under in the snapshots.</summary>
     public virtual string SampleDocumentName => "Projektbericht";
 
+    /// <summary>
+    /// After a snapshot scene changed the sample and took the change back: the document counts as saved again (the next pictures show
+    /// no unsaved dot).
+    /// </summary>
+    protected static void MarkSampleUnchanged(OfficeDocument document)
+    {
+        if (document.FilePath is { } path && document.FileType is { } type)
+        {
+            document.MarkSaved(path, type);
+        }
+    }
+
+    /// <summary>True for an app that checks spelling while the user types (Einstellungen › Allgemein shows the switch).</summary>
+    public virtual bool ChecksSpelling => false;
+
     /// <summary>Puts the app's sample content into a new document (snapshots, tests).</summary>
     protected virtual void FillSampleDocument(OfficeDocument document)
     {

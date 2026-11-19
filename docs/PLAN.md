@@ -207,6 +207,16 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   und aktualisiert, Words Textmarken werden wiederverwendet. Ansicht › Navigationsbereich: die Überschriften links, Klick springt.
   **Lücken:** Verzeichnis-Galerie (nur „Automatisches Verzeichnis“), Ebenen/Optionen-Dialog, Seitenzahlen als PAGEREF-Felder (ThixWrite
   schreibt die Zahl als Text), Abbildungs-/Tabellenverzeichnis, Ziehen im Navigationsbereich.
+- **Kommentare erledigt (1c):** Modell (Anfangsmarke + Kommentar an der Endmarke im Text: Löschen/Kopieren/Rückgängig nehmen den
+  Kommentar mit), Überprüfen › Neuer Kommentar (Strg+Alt+K; ohne Markierung zum Wort an der Einfügemarke), Löschen (einer / alle),
+  Vorheriger / Weiter, Kommentare anzeigen; Bereich rechts neben den Seiten mit Karten (Autor, Datum, Text direkt bearbeitbar,
+  Antworten darunter, Karte des Kommentars an der Einfügemarke hervorgehoben, Klick markiert den Text), der kommentierte Text
+  schattiert (Ebene über den Seiten, keine Seite wird neu gezeichnet); Autor aus Einstellungen › Allgemein (Benutzername, Initialen;
+  leer: der Name aus dem System – Windows GetUserNameEx, macOS NSFullUserName). docx: comments.xml (Autor, Initialen, Datum, Text);
+  unveränderte Kommentare werden wie gelesen geschrieben (Absatz-Ids → Words Threads bleiben), commentsExtended (Antworten, erledigt)
+  wird gelesen, Einträge gelöschter Kommentare werden aus commentsExtended / commentsIds / commentsExtensible entfernt.
+  **Lücken:** Antworten schreiben (Antworten werden angezeigt, nicht bearbeitet), Kommentare in Kopf-/Fußzeilen und Fußnoten (bleiben
+  erhalten), Sprechblasen am Seitenrand und Druck mit Markups, „Erledigt“ setzen in der Oberfläche, Erwähnungen (@).
 - Danach: Launcher-Eintrag (siehe 6).
 
 ### Phase 2 – Drive in ThixCloud

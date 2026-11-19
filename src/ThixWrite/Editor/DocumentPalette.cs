@@ -32,6 +32,14 @@ public static class DocumentPalette
     /// <summary>The formatting marks (¶, ·, →) – Word's muted blue-grey.</summary>
     public static readonly SKColor Marks = new(0x5B, 0x7A, 0xA6);
 
+    /// <summary>The text a comment is about (Word's light comment shading) and the one of the comment that is selected.</summary>
+    public static readonly Color CommentRange = Color.FromArgb(0x55, 0xF4, 0xC9, 0x6B);
+
+    public static readonly Color CommentRangeActive = Color.FromArgb(0x99, 0xF0, 0xB1, 0x2E);
+
+    /// <summary>The red wavy line under a word the spelling check does not know.</summary>
+    public static readonly Color Misspelled = Color.FromRgb(0xE8, 0x11, 0x23);
+
     /// <summary>The colour of new text in Schriftfarbe before anything else was chosen (Word: red).</summary>
     public const string DefaultFontColor = "#C00000";
 

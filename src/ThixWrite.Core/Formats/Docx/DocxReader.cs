@@ -100,7 +100,7 @@ public static class DocxReader
                 // Range markers between paragraphs move to the start of the next paragraph.
                 if (child is not W.ProofError)
                 {
-                    context.PendingMarkers.Add(Marker(child, KindOfMarker(child)));
+                    context.AddPendingMarker(child);
                 }
 
                 return;
@@ -159,7 +159,7 @@ public static class DocxReader
         {
             if (IsMarker(child))
             {
-                context.PendingMarkers.Add(Marker(child, KindOfMarker(child)));
+                context.AddPendingMarker(child);
                 continue;
             }
 
@@ -173,7 +173,7 @@ public static class DocxReader
             {
                 if (IsMarker(rowChild))
                 {
-                    context.PendingMarkers.Add(Marker(rowChild, KindOfMarker(rowChild)));
+                    context.AddPendingMarker(rowChild);
                     continue;
                 }
 
@@ -191,7 +191,7 @@ public static class DocxReader
                     }
                     else if (IsMarker(cellChild))
                     {
-                        context.PendingMarkers.Add(Marker(cellChild, KindOfMarker(cellChild)));
+                        context.AddPendingMarker(cellChild);
                     }
                 }
 
@@ -279,7 +279,11 @@ public static class DocxReader
                 return;
             case W.BookmarkStart or W.BookmarkEnd or W.CommentRangeStart or W.CommentRangeEnd or W.PermStart or W.PermEnd
                 or W.MoveFromRangeStart or W.MoveFromRangeEnd or W.MoveToRangeStart or W.MoveToRangeEnd:
-                inlines.Add(Marker(child, KindOfMarker(child)) with { Link = link });
+                if (context.MarkerFor(child) is { } marker)
+                {
+                    inlines.Add(marker with { Link = link });
+                }
+
                 return;
         }
 
@@ -406,6 +410,12 @@ public static class DocxReader
                     Flush();
                     inlines.Add(new NoteMarkInline(NoteKind.Endnote, properties, link));
                     break;
+                case W.CommentReference when context.CommentFor(child) is { } comment:
+                    Flush();
+                    inlines.Add(new CommentInline(comment, properties, link));
+                    break;
+                case W.AnnotationReferenceMark:
+                    break; // the mark at the start of a comment's text: written again with it
                 case W.CommentReference:
                     context.Count(PreservedKind.Comment);
                     AddOpaque(child, PreservedKind.Comment);
@@ -476,10 +486,10 @@ public static class DocxReader
         return (DocxValues.EmuToPoints(Math.Max(0, width)), DocxValues.EmuToPoints(Math.Max(0, height)));
     }
 
-    private static OpaqueInline Marker(OpenXmlElement element, PreservedKind kind) =>
+    internal static OpaqueInline Marker(OpenXmlElement element, PreservedKind kind) =>
         new(XmlFragments.Canonical(element), kind, false, CharacterProperties.Empty);
 
-    private static PreservedKind KindOfMarker(OpenXmlElement element) => element switch
+    internal static PreservedKind KindOfMarker(OpenXmlElement element) => element switch
     {
         W.BookmarkStart or W.BookmarkEnd => PreservedKind.Bookmark,
         W.CommentRangeStart or W.CommentRangeEnd => PreservedKind.Comment,
@@ -635,6 +645,62 @@ public static class DocxReader
         }
 
         public List<Inline> PendingMarkers { get; } = [];
+
+        private Dictionary<string, Comment>? _comments;
+
+        /// <summary>A range marker between paragraphs: kept for the next paragraph (a comment's end is dropped – its reference carries it).</summary>
+        public void AddPendingMarker(OpenXmlElement element)
+        {
+            if (MarkerFor(element) is { } marker)
+            {
+                PendingMarkers.Add(marker);
+            }
+        }
+
+        /// <summary>The inline of a range marker: a comment's start (in the body, for a comment ThixWrite reads), nothing for its end, else the preserved marker.</summary>
+        public Inline? MarkerFor(OpenXmlElement element)
+        {
+            if (element is W.CommentRangeStart or W.CommentRangeEnd && CommentFor(element) is { } comment)
+            {
+                return element is W.CommentRangeStart ? new CommentAnchorInline(comment.Id, CharacterProperties.Empty) : null;
+            }
+
+            return Marker(element, KindOfMarker(element));
+        }
+
+        /// <summary>The comment an element (range start / end / reference) of the body names, or null (unknown id, or not in the body).</summary>
+        public Comment? CommentFor(OpenXmlElement element)
+        {
+            if (!ReferenceEquals(Part, Main) || DocxValues.AttributeValue(element, "id") is not { } id)
+            {
+                return null;
+            }
+
+            _comments ??= DocxComments.Read(Main, (root, part) =>
+            {
+                var previous = Part;
+                var markers = TakeMarkers();
+                Part = part;
+                try
+                {
+                    var blocks = new List<Block>();
+                    SectionProperties? ignored = null;
+                    foreach (var child in root.ChildElements)
+                    {
+                        ReadBodyChild(child, blocks, this, ref ignored);
+                    }
+
+                    PendingMarkers.Clear();
+                    return new Story(blocks);
+                }
+                finally
+                {
+                    Part = previous;
+                    PendingMarkers.AddRange(markers);
+                }
+            });
+            return _comments.GetValueOrDefault(id);
+        }
 
         public void Count(PreservedKind kind)
         {

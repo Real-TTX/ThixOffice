@@ -141,6 +141,15 @@ public static class WriteCommandIds
     public const string InsertEndnote = "write.endnote";
     public const string NextFootnote = "write.nextNote"; // the menu's entries are write.nextNote.<footnote|endnote>.<next|previous>
 
+    // Überprüfen
+    public const string NewComment = "write.comment.new";
+    public const string DeleteComment = "write.comment.delete"; // the menu: write.comment.delete.one, write.comment.delete.all
+    public const string DeleteCommentOne = "write.comment.delete.one";
+    public const string DeleteAllComments = "write.comment.delete.all";
+    public const string PreviousComment = "write.comment.previous";
+    public const string NextComment = "write.comment.next";
+    public const string ShowComments = "write.comment.show";
+
     // Ansicht
     public const string NavigationPane = "write.navigationPane";
     public const string Ruler = "write.ruler";
@@ -189,7 +198,7 @@ public static class WriteRibbon
             }
         }
 
-        definition.Add(HomeTab(theme, Launch), InsertTab(), LayoutTab(), ReferencesTab(), ViewTab(),TableDesignTab(theme), TableLayoutTab(), PictureTab(), HeaderFooterTab());
+        definition.Add(HomeTab(theme, Launch), InsertTab(), LayoutTab(), ReferencesTab(), ReviewTab(), ViewTab(), TableDesignTab(theme), TableLayoutTab(), PictureTab(), HeaderFooterTab());
         return definition;
     }
 
@@ -403,6 +412,19 @@ public static class WriteRibbon
                     Button(WriteCommandIds.InsertEndnote),
                     new MatRibbonMenuButton(WriteCommandIds.NextFootnote, "", null,
                         [.. ReferenceCommands.NoteSteps.Select(step => Button($"{WriteCommandIds.NextFootnote}.{step.Id}"))]))));
+
+    /// <summary>Überprüfen, like Word's: Kommentare (Dokumentprüfung and Sprache join with the spelling check).</summary>
+    private static MatRibbonTab ReviewTab() =>
+        new MatRibbonTab("review", "Überprüfen").Add(
+            new MatRibbonGroup("comments", "Kommentare") { Icon = "comment" }.Add(
+                Button(WriteCommandIds.NewComment, MatRibbonSize.Large),
+                new MatRibbonMenuButton(WriteCommandIds.DeleteComment, "", null,
+                    Button(WriteCommandIds.DeleteCommentOne),
+                    Button(WriteCommandIds.DeleteAllComments)) { Size = MatRibbonSize.Large },
+                new MatRibbonStack("comment-steps",
+                    Button(WriteCommandIds.PreviousComment),
+                    Button(WriteCommandIds.NextComment)),
+                Toggle(WriteCommandIds.ShowComments, size: MatRibbonSize.Large)));
 
     private static MatRibbonTab ViewTab() =>
         new MatRibbonTab("view", "Ansicht").Add(

@@ -77,6 +77,14 @@ internal sealed class DocumentSurface : Control
             InvalidateVisual();
         };
         ActualThemeVariantChanged += (_, _) => InvalidateVisual();
+        SizeChanged += (_, e) =>
+        {
+            if (e.WidthChanged && Layout.PageCount > 0)
+            {
+                // The pages are centred: a new width (a pane opened beside them) moves them, the caret goes along.
+                _caretLayer.CaretRect = CaretRect();
+            }
+        };
         AddHandler(InputElement.TextInputMethodClientRequestedEvent, (_, e) => e.Client = InputClient);
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
@@ -305,6 +313,7 @@ internal sealed class DocumentSurface : Control
             DrawHeaderFooterAreas(context, drawn);
         }
 
+        DrawShading(context, visible);
         DrawSelection(context, visible);
     }
 
@@ -332,6 +341,32 @@ internal sealed class DocumentSurface : Control
     {
         var formatted = new FormattedText(text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typeface.Default, 11, brush);
         context.DrawText(formatted, at);
+    }
+
+    /// <summary>The text of comments to shade (the active one stronger); set by the editor, asked on every render.</summary>
+    public Func<IReadOnlyList<(DocumentRange Range, bool Active)>>? Shading { get; set; }
+
+    /// <summary>Over the page pictures (no page is drawn again): the text comments are about.</summary>
+    private void DrawShading(DrawingContext context, Rect visible)
+    {
+        if (Shading?.Invoke() is not { Count: > 0 } ranges)
+        {
+            return;
+        }
+
+        var normal = new SolidColorBrush(DocumentPalette.CommentRange);
+        var active = new SolidColorBrush(DocumentPalette.CommentRangeActive);
+        foreach (var (range, isActive) in ranges)
+        {
+            foreach (var rect in Layout.GetSelectionRects(range))
+            {
+                var surface = ToSurface(rect.Page, rect.X, rect.Y, rect.Width, rect.Height);
+                if (surface.Intersects(visible))
+                {
+                    context.FillRectangle(isActive ? active : normal, surface);
+                }
+            }
+        }
     }
 
     private void DrawSelection(DrawingContext context, Rect visible)

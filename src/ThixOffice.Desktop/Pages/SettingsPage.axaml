@@ -25,6 +25,15 @@
                 <ComboBoxItem Content="Dunkel" />
               </ComboBox>
             </mat:MatSettingRow>
+            <mat:MatSettingRow Title="Benutzername" Description="So erscheinen Sie als Autor von Kommentaren. Leer: Ihr Name aus dem System.">
+              <TextBox x:Name="UserNameBox" MinWidth="220" MaxLength="80" AutomationProperties.Name="Benutzername" />
+            </mat:MatSettingRow>
+            <mat:MatSettingRow Title="Initialen" Description="Kurz für Kommentare. Leer: aus dem Namen.">
+              <TextBox x:Name="UserInitialsBox" MinWidth="80" MaxLength="9" AutomationProperties.Name="Initialen" />
+            </mat:MatSettingRow>
+            <mat:MatSettingRow x:Name="SpellingRow" Title="Rechtschreibung während der Eingabe prüfen" Description="Unbekannte Wörter bekommen eine rote Wellenlinie. Mit der Rechtschreibprüfung des Systems; Texte verlassen den Computer nicht." IsVisible="False">
+              <ToggleSwitch x:Name="SpellingSwitch" OnContent="" OffContent="" AutomationProperties.Name="Rechtschreibung während der Eingabe prüfen" />
+            </mat:MatSettingRow>
             <mat:MatSettingRow Title="Menüband reduziert anzeigen" Description="Nur die Registerkarten; ein Klick auf eine Karte klappt sie auf (Strg+F1).">
               <ToggleSwitch x:Name="RibbonSwitch" OnContent="" OffContent="" AutomationProperties.Name="Menüband reduziert anzeigen" />
             </mat:MatSettingRow>

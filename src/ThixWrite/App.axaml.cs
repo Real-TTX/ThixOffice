@@ -31,10 +31,11 @@ public partial class App : OfficeApplication
     public const string LayoutScene = "main-layout";
     public const string ViewScene = "main-view";
     public const string ReferencesScene = "main-references";
+    public const string CommentsScene = "main-comments";
 
     public override OfficeAppDefinition Definition => ThixWriteApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, TableScene, PictureScene, HeaderScene, ReferencesScene, FindScene, PageSetupScene, PrintScene, ExportScene];
+    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, TableScene, PictureScene, HeaderScene, ReferencesScene, CommentsScene, FindScene, PageSetupScene, PrintScene, ExportScene];
 
     public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => WriteRibbon.Create(window);
 
@@ -64,6 +65,7 @@ public partial class App : OfficeApplication
         LinkCommands.Add(window);
         TextCommands.Add(window);
         ReferenceCommands.Add(window);
+        ReviewCommands.Add(window);
         window.Commands.Add(new ThixOffice.Core.Commands.OfficeCommand(WriteCommandIds.Print, "Drucken", () => window.ShowBackstage(PrintPage.PageId))
         {
             Icon = "print",
@@ -129,6 +131,17 @@ public partial class App : OfficeApplication
                 Avalonia.Threading.Dispatcher.UIThread.RunJobs();
                 editor.Scroller.Offset = new Avalonia.Vector(0, Math.Max(0, editor.Surface.ToSurface(0, 0, foot, 0, 0).Y - 360));
                 return window;
+            case CommentsScene:
+                // Überprüfen open, a comment on "4,8 %" with its card at the right.
+                window.Ribbon.SelectTab("review");
+                var paragraph = editor.Document.Content.ParagraphAt(SampleDocument.BodyParagraph)!;
+                var at = paragraph.Text.IndexOf("4,8 %", StringComparison.Ordinal);
+                editor.Session.Select(new ThixWrite.Core.Model.DocumentPosition(SampleDocument.BodyParagraph, at), new ThixWrite.Core.Model.DocumentPosition(SampleDocument.BodyParagraph, at + 5));
+                editor.Document.Session.AddComment(ThixOffice.Core.Business.SettingsService.AuthorName, ThixOffice.Core.Business.SettingsService.AuthorInitials,
+                    "Ist das schon der Wert nach Abzug der Umtauschfälle?", new DateTime(2026, 11, 18, 9, 41, 0));
+                editor.ShowComments = true;
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                return window;
             case HeaderScene:
                 // The header of the first page edited in place: the body dimmed, the tab Kopf- und Fußzeile.
                 editor.EditHeaderFooter(0, footer: false);
@@ -162,6 +175,14 @@ public partial class App : OfficeApplication
         {
             case LayoutScene:
                 editor.ShowMarks = false;
+                window.Ribbon.SelectTab("home");
+                break;
+            case CommentsScene:
+                editor.Session.Undo();
+                editor.Session.ClearHistory();
+                MarkSampleUnchanged(editor.Document);
+                editor.ShowComments = false;
+                editor.Session.SetCaret(new ThixWrite.Core.Model.DocumentPosition(SampleDocument.BodyParagraph, 0));
                 window.Ribbon.SelectTab("home");
                 break;
             case ReferencesScene:

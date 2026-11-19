@@ -49,6 +49,9 @@ public partial class SettingsPage : UserControl
         BackupSwitch.IsCheckedChanged += (_, _) => Change(settings => settings with { KeepBackupCopy = BackupSwitch.IsChecked == true });
         RecoverChoice.SelectionChanged += (_, _) => Change(settings => settings with { AutoRecoverMinutes = SettingsService.AutoRecoverChoices[Math.Max(0, RecoverChoice.SelectedIndex)] });
         RecentChoice.SelectionChanged += (_, _) => Change(settings => settings with { RecentListSize = SettingsService.RecentListSizeChoices[Math.Max(0, RecentChoice.SelectedIndex)] });
+        UserNameBox.LostFocus += (_, _) => ChangeText(UserNameBox, settings => settings.UserName, (settings, value) => settings with { UserName = value });
+        UserInitialsBox.LostFocus += (_, _) => ChangeText(UserInitialsBox, settings => settings.UserInitials, (settings, value) => settings with { UserInitials = value });
+        SpellingSwitch.IsCheckedChanged += (_, _) => Change(settings => settings with { CheckSpellingAsYouType = SpellingSwitch.IsChecked == true });
         CheckUpdatesSwitch.IsCheckedChanged += (_, _) => Change(settings => settings with { CheckForUpdates = CheckUpdatesSwitch.IsChecked == true });
         AutoInstallSwitch.IsCheckedChanged += (_, _) => Change(settings => settings with { InstallUpdatesAutomatically = AutoInstallSwitch.IsChecked == true });
 
@@ -88,6 +91,12 @@ public partial class SettingsPage : UserControl
         }
 
         ThemeChoice.SelectedIndex = (int)settings.Theme;
+        UserNameBox.Text = settings.UserName;
+        UserNameBox.Watermark = UserIdentity.DisplayName;
+        UserInitialsBox.Text = settings.UserInitials;
+        UserInitialsBox.Watermark = SettingsService.InitialsOf(settings.UserName is { Length: > 0 } name ? name : UserIdentity.DisplayName);
+        SpellingRow.IsVisible = OfficeApplication.Instance?.ChecksSpelling == true;
+        SpellingSwitch.IsChecked = settings.CheckSpellingAsYouType;
         RibbonSwitch.IsChecked = settings.IsRibbonCollapsed;
         AutostartRow.IsVisible = AutostartService.IsSupported;
         AutostartSwitch.IsChecked = AutostartService.IsSupported && AutostartService.IsEnabled();
@@ -105,7 +114,7 @@ public partial class SettingsPage : UserControl
             ? $"{definition.Name} steht unter „Öffnen mit“ für {types}. Welches Programm ein Typ standardmäßig öffnet, legen Sie in den Standard-Apps von Windows fest."
             : $"{definition.Name} ist für {types} noch nicht eingetragen (es wurde nicht installiert). „Erneut eintragen“ holt das nach.";
 
-        foreach (var control in new Control[] { ThemeChoice, AutostartSwitch, ChooseFolderButton, ResetFolderButton, BackupSwitch, RecoverChoice, RecentChoice, CheckUpdatesSwitch, AutoInstallSwitch })
+        foreach (var control in new Control[] { ThemeChoice, UserNameBox, UserInitialsBox, SpellingSwitch, AutostartSwitch, ChooseFolderButton, ResetFolderButton, BackupSwitch, RecoverChoice, RecentChoice, CheckUpdatesSwitch, AutoInstallSwitch })
         {
             control.IsEnabled = !locked;
         }
@@ -155,6 +164,19 @@ public partial class SettingsPage : UserControl
 
             Load();
         }
+    }
+
+    /// <summary>A text setting: saved when the field is left and its text differs.</summary>
+    private void ChangeText(TextBox box, Func<AppSettings, string> current, Func<AppSettings, string, AppSettings> change)
+    {
+        var value = box.Text?.Trim() ?? "";
+        if (_isLoading || value == current(SettingsService.Get()))
+        {
+            return;
+        }
+
+        Change(settings => change(settings, value));
+        UserInitialsBox.Watermark = SettingsService.InitialsOf(SettingsService.AuthorName);
     }
 
     private void OnRibbonChanged()

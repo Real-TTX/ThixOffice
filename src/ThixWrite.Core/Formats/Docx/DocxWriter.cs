@@ -51,10 +51,12 @@ public static class DocxWriter
         var root = main.Document;
         XmlFragments.DeclareBasicNamespaces(root);
         var context = new WriteContext(main, main, document);
+        context.Comments.Prepare(document);
         root.Body = WriteBody(document, context);
         XmlFragments.RemoveRedundantDeclarations(root);
         root.Save();
         DocxNotes.Write(document, main, context.Notes, (blocks, part) => WriteBlocks(document, blocks, new WriteContext(main, part, document)));
+        DocxComments.Write(main, context.Comments, (blocks, part) => WriteBlocks(document, blocks, new WriteContext(main, part, document)));
 
         var stylesPart = main.StyleDefinitionsPart;
         if (stylesPart is null)
@@ -227,6 +229,24 @@ public static class DocxWriter
                 var id = context.NoteId(note);
                 noteRun.AppendChild<OpenXmlElement>(note.Kind == NoteKind.Footnote ? new W.FootnoteReference { Id = id } : new W.EndnoteReference { Id = id });
                 yield return noteRun;
+                break;
+            case CommentAnchorInline:
+                if (context.Comments.NextAnchor() is { } anchorId)
+                {
+                    yield return new W.CommentRangeStart { Id = anchorId.ToString(System.Globalization.CultureInfo.InvariantCulture) };
+                }
+
+                break;
+            case CommentInline comment:
+                if (context.Comments.NextReference() is { } commentId)
+                {
+                    var text = commentId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    yield return new W.CommentRangeEnd { Id = text };
+                    var reference = NewRun(comment.Properties);
+                    reference.AppendChild(new W.CommentReference { Id = text });
+                    yield return reference;
+                }
+
                 break;
             case TocMarkInline { IsEnd: false } toc:
                 yield return FieldCharRun(toc.Properties, W.FieldCharValues.Begin);
@@ -404,6 +424,9 @@ public static class DocxWriter
         public DocxNotes.Allocation Notes { get; } = new(main, document);
 
         public long NoteId(NoteInline note) => Notes.Allocate(note);
+
+        /// <summary>The comments of the body (their ids paired before the body is written).</summary>
+        public DocxComments.Allocation Comments { get; } = new();
 
         /// <summary>The header and footer references of a section, their parts written (each story once, into the part it was read from).</summary>
         public IEnumerable<OpenXmlElement> ReferencesOf(SectionProperties section)
