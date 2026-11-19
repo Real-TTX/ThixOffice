@@ -8,6 +8,12 @@ public enum DocumentTypeSupport
 
     /// <summary>Declared for later (the format comes in a later phase): never registered, never offered in a file dialog.</summary>
     Planned = 1,
+
+    /// <summary>
+    /// Written only (PDF): "Speichern unter" offers it and writes a copy in it, the document itself stays in its own file and format
+    /// (like Word's "PDF (*.pdf)"). Never registered, never opened.
+    /// </summary>
+    Export = 2,
 }
 
 /// <summary>
@@ -28,6 +34,12 @@ public sealed record DocumentType(
     public string Name => Extension.TrimStart('.').ToLowerInvariant();
 
     public bool IsSupported => Support == DocumentTypeSupport.Supported;
+
+    /// <summary>True for a type that is only written as a copy (<see cref="DocumentTypeSupport.Export"/>).</summary>
+    public bool IsExport => Support == DocumentTypeSupport.Export;
+
+    /// <summary>PDF, the export type of every app: the pages exactly as laid out.</summary>
+    public static DocumentType Pdf { get; } = new(".pdf", "", "PDF", DocumentTypeSupport.Export, MimeType: "application/pdf", MacTypeIdentifier: "com.adobe.pdf");
 }
 
 /// <summary>
@@ -77,6 +89,12 @@ public sealed record OfficeAppDefinition
     public string Description { get; }
 
     public IReadOnlyList<DocumentType> DocumentTypes { get; }
+
+    /// <summary>
+    /// The types "Speichern unter" writes as a copy without the document changing its own file (<see cref="DocumentType.Pdf"/>); each
+    /// has <see cref="DocumentTypeSupport.Export"/>. Kept apart from <see cref="DocumentTypes"/>: they are never registered or opened.
+    /// </summary>
+    public IReadOnlyList<DocumentType> ExportTypes { get; init; } = [];
 
     /// <summary>The name of a new document before it is saved, numbered per process: "Dokument" → Dokument1, Dokument2 …</summary>
     public string UntitledBaseName { get; init; } = "Dokument";
@@ -134,6 +152,16 @@ public sealed record OfficeAppDefinition
 
     /// <summary>The type a new document is saved in: the default type when it is supported, otherwise the first supported one.</summary>
     public DocumentType SaveType => DefaultType.IsSupported ? DefaultType : SupportedTypes.FirstOrDefault() ?? DefaultType;
+
+    /// <summary>What "Speichern unter" offers: the supported types, then the export types.</summary>
+    public IReadOnlyList<DocumentType> SaveAsTypes => [.. SupportedTypes, .. ExportTypes];
+
+    /// <summary>The export type of a file name ("Bericht.pdf"), or null.</summary>
+    public DocumentType? ExportTypeOf(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return ExportTypes.FirstOrDefault(type => string.Equals(type.Extension, extension, StringComparison.OrdinalIgnoreCase));
+    }
 
     /// <summary>The supported type of a file name, or null.</summary>
     public DocumentType? SupportedTypeOf(string path)

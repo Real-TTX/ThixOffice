@@ -103,6 +103,12 @@ public static class DocumentService
         return target;
     }
 
+    /// <summary>
+    /// The export type (PDF) a "Speichern unter" to <paramref name="path"/> means, or null for the document's own types. Such a save
+    /// writes a copy through <see cref="Export"/>: the document keeps its file, its type and its unsaved changes (like Word).
+    /// </summary>
+    public static DocumentType? ExportTypeOf(string path) => string.IsNullOrWhiteSpace(path) ? null : AppInfo.Definition.ExportTypeOf(path.Trim());
+
     /// <summary>The full path a "Speichern unter" writes to: with the save type's extension when the name has none; checked.</summary>
     public static string TargetPath(string path)
     {
@@ -114,7 +120,7 @@ public static class DocumentService
 
         if (AppInfo.Definition.SupportedTypeOf(fullPath) is null)
         {
-            throw new BusinessException($"Als „{Path.GetExtension(fullPath)}“ kann {AppInfo.ProductName} (noch) nicht speichern. Möglich: {SupportedList()}.", "FileName");
+            throw new BusinessException($"Als „{Path.GetExtension(fullPath)}“ kann {AppInfo.ProductName} (noch) nicht speichern. Möglich: {SaveAsList()}.", "FileName");
         }
 
         return fullPath;
@@ -172,6 +178,9 @@ public static class DocumentService
 
     /// <summary>Tests start counting at Dokument1 again.</summary>
     internal static void ResetUntitledCountForTests() => _untitledCount = 0;
+
+    /// <summary>".docx, .odt, .txt, .pdf" – what "Speichern unter" can write.</summary>
+    internal static string SaveAsList() => string.Join(", ", AppInfo.Definition.SaveAsTypes.Select(type => type.Extension));
 
     private static string SupportedList() => string.Join(", ", AppInfo.Definition.SupportedTypes.Select(type => type.Extension));
 

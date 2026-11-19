@@ -24,6 +24,8 @@ public sealed class InfoBar : Border
     private readonly MatIcon _icon = new() { Size = 18, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 1, 10, 0) };
     private readonly SelectableTextBlock _text = new() { TextWrapping = TextWrapping.Wrap, FontSize = 13 };
     private readonly Button _close;
+    private readonly Button _action;
+    private Action? _onAction;
 
     public InfoBar()
     {
@@ -44,11 +46,21 @@ public sealed class InfoBar : Border
         AutomationProperties.SetName(_close, "Meldung schließen");
         ToolTip.SetTip(_close, "Schließen");
         _close.Click += (_, _) => Hide();
+        _action = new Button
+        {
+            Padding = new Thickness(10, 3),
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(12, -3, 0, 0),
+            IsVisible = false,
+        };
+        _action.Click += (_, _) => _onAction?.Invoke();
         var dock = new DockPanel();
         DockPanel.SetDock(_icon, Dock.Left);
         DockPanel.SetDock(_close, Dock.Right);
+        DockPanel.SetDock(_action, Dock.Right);
         dock.Children.Add(_icon);
         dock.Children.Add(_close);
+        dock.Children.Add(_action);
         dock.Children.Add(_text);
         Child = dock;
     }
@@ -59,7 +71,11 @@ public sealed class InfoBar : Border
     /// <summary>The "x" of a closable message (tests click it).</summary>
     public Button CloseButton => _close;
 
-    public void Show(string message, InfoSeverity severity, bool isClosable = false)
+    /// <summary>The button of a message with an action ("Öffnen"); hidden without one (tests click it).</summary>
+    public Button ActionButton => _action;
+
+    /// <summary>Shows <paramref name="message"/>; <paramref name="actionLabel"/> and <paramref name="action"/> add a button before the "x".</summary>
+    public void Show(string message, InfoSeverity severity, bool isClosable = false, string? actionLabel = null, Action? action = null)
     {
         var (background, foreground, icon) = severity switch
         {
@@ -75,6 +91,13 @@ public sealed class InfoBar : Border
         _icon.Icon = icon;
         _text.Text = message;
         _close.IsVisible = isClosable;
+        _onAction = action;
+        _action.Content = actionLabel;
+        _action.IsVisible = actionLabel is not null && action is not null;
+        if (actionLabel is not null)
+        {
+            AutomationProperties.SetName(_action, actionLabel);
+        }
         IsVisible = true;
     }
 

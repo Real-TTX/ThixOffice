@@ -40,6 +40,7 @@ public sealed class TestOfficeApp : OfficeApplication
         ])
     {
         UntitledBaseName = "Test",
+        ExportTypes = [DocumentType.Pdf],
         CloudAppId = MatCloud.Contract.CloudApps.Write,
     };
 
@@ -165,6 +166,11 @@ public sealed class TestEditor : OfficeEditor
     public override Control View => Box;
 
     public override void FocusDocument() => Box.Focus();
+
+    /// <summary>One A4 page with a bar per character (enough for a PDF to have content).</summary>
+    public override PdfSource Pdf => new(
+        () => [new ThixOffice.Text.Drawing.PageDisplayList(0, 595, 842, [new ThixOffice.Text.Drawing.RectangleItem(72, 72, 4 * _document.Text.Length, 12, ThixOffice.Text.Drawing.RgbColor.Black)])],
+        ThixOffice.Desktop.Rendering.OfficeFonts.Skia);
 
     public override void UpdateStatus(OfficeStatusBar statusBar) => statusBar.SetItem("chars", $"{_document.Text.Length} Zeichen");
 

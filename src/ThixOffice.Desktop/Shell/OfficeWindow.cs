@@ -264,6 +264,11 @@ public sealed class OfficeWindow : MatWindow
     /// </summary>
     public async Task<bool> SaveIntoDriveAsync(long? folderId, string fileName)
     {
+        if (DocumentService.ExportTypeOf(fileName) is not null)
+        {
+            return await ExportIntoDriveAsync(folderId, fileName);
+        }
+
         if (!await _editor.ConfirmSaveAsync(fileName))
         {
             return false;
@@ -457,9 +462,79 @@ public sealed class OfficeWindow : MatWindow
         return target is not null && await SaveToAsync(target);
     }
 
-    /// <summary>Saves the document as <paramref name="path"/> (the Speichern-unter page, tests). True when it is saved.</summary>
-    public async Task<bool> SaveToAsync(string path) =>
-        await _editor.ConfirmSaveAsync(path) && await GuardAsync("Speichern unter", () => DocumentService.SaveAs(Document, path));
+    /// <summary>
+    /// Saves the document as <paramref name="path"/> (the Speichern-unter page, tests). True when it is saved. A path of an export type
+    /// (PDF) writes a copy instead: the document keeps its file, type and unsaved state (<see cref="ExportToAsync"/>).
+    /// </summary>
+    public async Task<bool> SaveToAsync(string path)
+    {
+        if (DocumentService.ExportTypeOf(path) is not null)
+        {
+            return await ExportToAsync(path);
+        }
+
+        return await _editor.ConfirmSaveAsync(path) && await GuardAsync("Speichern unter", () => DocumentService.SaveAs(Document, path));
+    }
+
+    /// <summary>"Als PDF speichern": the system's dialog for a PDF, then the copy (the document stays as it is). True when written.</summary>
+    public async Task<bool> SaveAsPdfAsync()
+    {
+        var name = System.IO.Path.ChangeExtension(DocumentService.SuggestedFileName(Document), DocumentType.Pdf.Extension);
+        var target = await OfficeApplication.FileDialogs.PickExportTargetAsync(this, name, DocumentService.SuggestedFolder(Document), "PDF-Dokument", DocumentType.Pdf.Extension);
+        return target is not null && await ExportToAsync(target);
+    }
+
+    /// <summary>
+    /// Writes the document's pages as a PDF to <paramref name="path"/> (the extension is added when missing) and says so in the message bar
+    /// with "Öffnen". The document keeps its own file, type and unsaved state – like Word's "PDF (*.pdf)" in "Speichern unter".
+    /// </summary>
+    public async Task<bool> ExportToAsync(string path)
+    {
+        if (_editor.Pdf is not { } pdf)
+        {
+            await QuestionDialog.ShowMessageAsync(this, "Als PDF speichern", $"{AppInfo.ProductName} kann dieses Dokument nicht als PDF speichern.");
+            return false;
+        }
+
+        string? written = null;
+        if (!await GuardAsync("Als PDF speichern", () => written = DocumentService.Export(path, DocumentType.Pdf.Extension, stream => pdf.Write(stream, Document.Title))))
+        {
+            return false;
+        }
+
+        var file = written!;
+        ShowMessage($"Als PDF gespeichert: {file}", InfoSeverity.Success, isClosable: true, "Öffnen", () => Ui.OpenExternal(file));
+        return true;
+    }
+
+    /// <summary>"Speichern unter" › ThixDrive as PDF: a copy into a folder of the Drive (a taken name asks "Ersetzen?"); the document stays as it is.</summary>
+    private async Task<bool> ExportIntoDriveAsync(long? folderId, string fileName)
+    {
+        if (_editor.Pdf is not { } pdf)
+        {
+            throw new BusinessException($"{AppInfo.ProductName} kann dieses Dokument nicht als PDF speichern.");
+        }
+
+        void Write(Stream stream) => pdf.Write(stream, Document.Title);
+        var result = await DriveService.ExportAsync(folderId, fileName, Write);
+        if (result.Outcome == DriveSaveOutcome.NameTaken)
+        {
+            if (!await DriveDialogs.AskReplaceAsync(this, DriveService.TargetName(fileName)))
+            {
+                return false;
+            }
+
+            result = await DriveService.ExportAsync(folderId, fileName, Write, result.Current);
+        }
+
+        if (result.Outcome == DriveSaveOutcome.ChangedMeanwhile)
+        {
+            throw new BusinessException($"{result.Message} Bitte versuchen Sie es noch einmal.");
+        }
+
+        ShowMessage($"Als PDF gespeichert: {result.Message}", InfoSeverity.Success, isClosable: true);
+        return result.IsUploaded;
+    }
 
     /// <summary>"Öffnen" → "Durchsuchen": the system's dialog, then every chosen file (each in its window).</summary>
     public async Task OpenWithDialogAsync()
@@ -527,8 +602,8 @@ public sealed class OfficeWindow : MatWindow
         (Backstage.CurrentPage as SettingsPage)?.ShowTab(tab);
     }
 
-    /// <summary>Shows a message under the ribbon (null hides it).</summary>
-    public void ShowMessage(string? text, InfoSeverity severity = InfoSeverity.Info, bool isClosable = false)
+    /// <summary>Shows a message under the ribbon (null hides it); <paramref name="actionLabel"/> + <paramref name="action"/> add a button ("Öffnen").</summary>
+    public void ShowMessage(string? text, InfoSeverity severity = InfoSeverity.Info, bool isClosable = false, string? actionLabel = null, Action? action = null)
     {
         if (text is null)
         {
@@ -536,7 +611,7 @@ public sealed class OfficeWindow : MatWindow
             return;
         }
 
-        _messageBar.Show(text, severity, isClosable);
+        _messageBar.Show(text, severity, isClosable, actionLabel, action);
     }
 
     // ===== Building =====
@@ -594,6 +669,13 @@ public sealed class OfficeWindow : MatWindow
             MacShortcut = "Ctrl+Shift+S",
             Description = "Speichert das Dokument unter einem neuen Namen oder an einem anderen Ort.",
             Keywords = ["kopie", "umbenennen", "exportieren", "sichern"],
+        });
+        Commands.Add(new OfficeCommand(CommonCommandIds.SaveAsPdf, "Als PDF speichern", SaveAsPdfAsync)
+        {
+            Icon = "export",
+            Description = "Speichert eine Kopie als PDF – das Dokument selbst bleibt, wie es ist.",
+            Keywords = ["pdf", "exportieren", "kopie", "drucken", "versenden", "adobe"],
+            CanExecute = () => _editor.Pdf is not null && AppInfo.Definition.ExportTypes.Contains(DocumentType.Pdf),
         });
         Commands.Add(new OfficeCommand(CommonCommandIds.Close, "Schließen", CloseDocumentAsync)
         {

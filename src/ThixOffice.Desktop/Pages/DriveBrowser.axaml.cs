@@ -40,6 +40,7 @@ public partial class DriveBrowser : UserControl
     private readonly List<DriveItem> _loaded = [];
     private readonly DispatcherTimer _searchTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
     private readonly IReadOnlyList<DocumentType> _documentTypes = [];
+    private readonly IReadOnlyList<DocumentType> _saveTypes = [];
     private IReadOnlyList<DriveCrumb> _ancestors = [];
     private CancellationTokenSource? _loading;
     private string? _search;
@@ -59,6 +60,7 @@ public partial class DriveBrowser : UserControl
         Mode = mode;
         var definition = AppInfo.Definition;
         _documentTypes = definition.SupportedTypes;
+        _saveTypes = definition.SaveAsTypes; // PDF last: a copy, the document stays as it is
         var extensions = string.Join(", ", _documentTypes.Select(type => type.Extension));
         TypeChoice.ItemsSource = new[] { $"Dokumente ({extensions})", "Alle Dateien" };
         TypeChoice.SelectedIndex = 0;
@@ -69,10 +71,10 @@ public partial class DriveBrowser : UserControl
             SaveFields.IsVisible = true;
             PrimaryLabel.Icon = "save";
             PrimaryLabel.Text = "Speichern";
-            SaveTypeChoice.ItemsSource = _documentTypes.Select(type => $"{type.Description} ({type.Extension})").ToList();
+            SaveTypeChoice.ItemsSource = _saveTypes.Select(type => $"{type.Description} (*{type.Extension})").ToList();
             var document = window.Document;
             var type = document.FileType ?? definition.SaveType;
-            SaveTypeChoice.SelectedIndex = Math.Max(0, _documentTypes.ToList().IndexOf(type));
+            SaveTypeChoice.SelectedIndex = Math.Max(0, _saveTypes.ToList().IndexOf(type));
             FileNameBox.Text = Path.GetFileNameWithoutExtension(document.Drive?.Name ?? DocumentService.SuggestedFileName(document));
             FolderId = document.Drive?.ParentId;
             SaveTypeChoice.SelectionChanged += (_, _) => OnSaveTypeChanged();
@@ -128,6 +130,9 @@ public partial class DriveBrowser : UserControl
     public CloudSignInPanel SignInPanel => SignIn;
 
     public TextBox FileNameField => FileNameBox;
+
+    /// <summary>The type to save as (save mode; the document's types, then PDF).</summary>
+    public ComboBox SaveTypeField => SaveTypeChoice;
 
     public InfoBar MessageBar => Message;
 
@@ -433,10 +438,10 @@ public partial class DriveBrowser : UserControl
         if (Mode == DriveBrowserMode.Save && List.SelectedItem is DriveRow { IsFolder: false } row)
         {
             FileNameBox.Text = Path.GetFileNameWithoutExtension(row.Name);
-            var type = AppInfo.Definition.SupportedTypeOf(row.Name);
+            var type = AppInfo.Definition.SupportedTypeOf(row.Name) ?? AppInfo.Definition.ExportTypeOf(row.Name);
             if (type is not null)
             {
-                SaveTypeChoice.SelectedIndex = _documentTypes.ToList().IndexOf(type);
+                SaveTypeChoice.SelectedIndex = _saveTypes.ToList().IndexOf(type);
             }
         }
 
@@ -455,7 +460,7 @@ public partial class DriveBrowser : UserControl
 
     private void OnSaveTypeChanged()
     {
-        if (SaveTypeChoice.SelectedIndex >= 0 && SaveTypeChoice.SelectedIndex < _documentTypes.Count)
+        if (SaveTypeChoice.SelectedIndex >= 0 && SaveTypeChoice.SelectedIndex < _saveTypes.Count)
         {
             FileNameBox.Text = Path.GetFileNameWithoutExtension(FileNameBox.Text ?? "");
         }
@@ -465,12 +470,12 @@ public partial class DriveBrowser : UserControl
     private string NameWithType()
     {
         var name = (FileNameBox.Text ?? "").Trim();
-        if (name.Length == 0 || AppInfo.Definition.SupportedTypeOf(name) is not null)
+        if (name.Length == 0 || AppInfo.Definition.SupportedTypeOf(name) is not null || AppInfo.Definition.ExportTypeOf(name) is not null)
         {
             return name;
         }
 
-        var type = SaveTypeChoice.SelectedIndex >= 0 && SaveTypeChoice.SelectedIndex < _documentTypes.Count ? _documentTypes[SaveTypeChoice.SelectedIndex] : AppInfo.Definition.SaveType;
+        var type = SaveTypeChoice.SelectedIndex >= 0 && SaveTypeChoice.SelectedIndex < _saveTypes.Count ? _saveTypes[SaveTypeChoice.SelectedIndex] : AppInfo.Definition.SaveType;
         return name + type.Extension;
     }
 

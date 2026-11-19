@@ -242,6 +242,33 @@ public sealed class DriveUiTests
     }
 
     [AvaloniaFact]
+    public async Task Speichern_unter_into_ThixDrive_as_PDF_uploads_a_copy_and_the_document_stays_as_it_is()
+    {
+        using var data = new TestData();
+        var cloud = await SignedInAsync(new SampleCloud());
+        var folder = cloud.AddFolder(null, "Projekte");
+        var window = TestData.App.NewDocumentWindow();
+        ((TestEditor)window.Editor).Box.Text = "Plan A";
+        TestData.Settle();
+        var browser = await SaveAsBrowserAsync(window);
+        await browser.NavigateAsync(folder.Id);
+
+        var types = browser.SaveTypeField.Items.Cast<string>().ToList();
+        Assert.Equal("PDF (*.pdf)", types[^1]);
+        browser.SaveTypeField.SelectedIndex = types.Count - 1;
+        browser.FileNameField.Text = "Plan";
+        await browser.SaveAsync();
+
+        var item = cloud.FindByName(folder.Id, "Plan.pdf")!;
+        Assert.StartsWith("%PDF", Encoding.ASCII.GetString(cloud.ContentOf(item.Id), 0, 4));
+        Assert.Null(window.Document.Drive); // a copy: the document is still the unsaved one
+        Assert.True(window.Document.IsDirty);
+        Assert.Null(window.Document.FilePath);
+        Assert.Contains("Als PDF gespeichert", window.MessageBar.Text);
+        Assert.False(window.Backstage.IsOpen);
+    }
+
+    [AvaloniaFact]
     public async Task A_bad_name_is_shown_at_the_file_name()
     {
         using var data = new TestData();

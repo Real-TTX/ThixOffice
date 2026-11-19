@@ -51,6 +51,12 @@ public abstract class OfficeEditor
     /// </summary>
     public virtual string? OpeningWarning => null;
 
+    /// <summary>
+    /// The document's pages for a PDF ("Speichern unter" › PDF, "Als PDF speichern"), or null when the editor has none (then PDF is not
+    /// offered). Read when the PDF is written, so it holds the document as it is at that moment.
+    /// </summary>
+    public virtual PdfSource? Pdf => null;
+
     /// <summary>A click on the percentage of the status bar: the editor's zoom dialog (the default goes back to 100 %).</summary>
     public virtual void RequestZoomLevel() => Zoom = 100;
 

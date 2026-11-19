@@ -41,7 +41,7 @@ public sealed class SystemFileDialogs : IFileDialogs
             Title = "Öffnen",
             AllowMultiple = true,
             SuggestedStartLocation = await Folder(owner, startFolder),
-            FileTypeFilter = [.. Filters(), FilePickerFileTypes.All],
+            FileTypeFilter = [.. Filters(AppInfo.Definition.SupportedTypes), FilePickerFileTypes.All],
         });
         return files.Select(file => file.TryGetLocalPath()).OfType<string>().ToList();
     }
@@ -54,7 +54,7 @@ public sealed class SystemFileDialogs : IFileDialogs
             SuggestedFileName = suggestedFileName,
             SuggestedStartLocation = await Folder(owner, startFolder),
             DefaultExtension = AppInfo.Definition.SaveType.Name,
-            FileTypeChoices = Filters(),
+            FileTypeChoices = Filters(AppInfo.Definition.SaveAsTypes), // the document's types, then PDF (a copy)
             ShowOverwritePrompt = true,
         });
         return file?.TryGetLocalPath();
@@ -105,9 +105,9 @@ public sealed class SystemFileDialogs : IFileDialogs
         return folders.Count > 0 ? folders[0].TryGetLocalPath() : null;
     }
 
-    /// <summary>One filter per supported type ("Textdokument (*.txt)").</summary>
-    private static List<FilePickerFileType> Filters() =>
-        [.. AppInfo.Definition.SupportedTypes.Select(type => new FilePickerFileType(type.Description)
+    /// <summary>One filter per type ("Textdokument (*.txt)").</summary>
+    private static List<FilePickerFileType> Filters(IEnumerable<ThixOffice.Core.Models.DocumentType> types) =>
+        [.. types.Select(type => new FilePickerFileType(type.Description)
         {
             Patterns = [$"*{type.Extension}"],
             MimeTypes = type.MimeType is null ? null : [type.MimeType],

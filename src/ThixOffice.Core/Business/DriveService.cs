@@ -160,13 +160,53 @@ public static class DriveService
             name += AppInfo.Definition.SaveType.Extension;
         }
 
-        if (AppInfo.Definition.SupportedTypeOf(name) is null)
+        if (AppInfo.Definition.SupportedTypeOf(name) is null && AppInfo.Definition.ExportTypeOf(name) is null)
         {
-            var supported = string.Join(", ", AppInfo.Definition.SupportedTypes.Select(type => type.Extension));
-            throw new BusinessException($"Als „{Path.GetExtension(name)}“ kann {AppInfo.ProductName} (noch) nicht speichern. Möglich: {supported}.", "FileName");
+            throw new BusinessException($"Als „{Path.GetExtension(name)}“ kann {AppInfo.ProductName} (noch) nicht speichern. Möglich: {DocumentService.SaveAsList()}.", "FileName");
         }
 
         return name;
+    }
+
+    /// <summary>
+    /// "Speichern unter" › ThixDrive as PDF: <paramref name="write"/> fills a new file <paramref name="fileName"/> in a folder of the Drive
+    /// (null: the top) – a copy; the document keeps its own file, type and unsaved state. <paramref name="replacing"/>: the file of that name
+    /// the person chose to replace after <see cref="DriveSaveOutcome.NameTaken"/>.
+    /// </summary>
+    public static async Task<DriveSaveResult> ExportAsync(long? folderId, string fileName, Action<Stream> write, DriveItem? replacing = null,
+        CancellationToken cancellationToken = default)
+    {
+        var name = TargetName(fileName);
+        var type = AppInfo.Definition.ExportTypeOf(name) ?? throw new BusinessException($"„{name}“ ist kein Exportformat.", "FileName");
+        Directory.CreateDirectory(AppPaths.DriveDirectory);
+        var temporary = Path.Combine(AppPaths.DriveDirectory, $".export-{Guid.NewGuid():N}{type.Extension}");
+        try
+        {
+            DocumentFiles.SaveAtomic(temporary, write);
+            DriveItem item;
+            try
+            {
+                await using var stream = File.OpenRead(temporary);
+                item = replacing is not null
+                    ? await RunAsync(client => client.SaveDriveFileAsync(replacing.Id, stream, replacing.ETag ?? DriveContract.AnyVersion, cancellationToken), cancellationToken, passConflicts: true)
+                    : await RunAsync(client => client.UploadDriveFileAsync(folderId, name, stream, DriveNameConflict.Fail, cancellationToken), cancellationToken, passConflicts: true);
+            }
+            catch (DriveConflictException conflict) when (replacing is null && !conflict.IsChangedMeanwhile)
+            {
+                return new DriveSaveResult(DriveSaveOutcome.NameTaken, $"In diesem Ordner gibt es schon „{name}“.", conflict.Current);
+            }
+            catch (DriveConflictException conflict)
+            {
+                return new DriveSaveResult(DriveSaveOutcome.ChangedMeanwhile, $"„{name}“ wurde inzwischen geändert.", conflict.Current);
+            }
+
+            Log.Info($"Document exported into ThixDrive ({type.Name})");
+            return new DriveSaveResult(DriveSaveOutcome.Uploaded, $"„{item.Name}“ ist in ThixDrive gespeichert.");
+        }
+        finally
+        {
+            File.Delete(temporary);
+        }
     }
 
     // ===== Opening =====
@@ -322,7 +362,8 @@ public static class DriveService
         IProgress<long>? progress = null, CancellationToken cancellationToken = default)
     {
         var name = TargetName(fileName);
-        var type = AppInfo.Definition.SupportedTypeOf(name)!;
+        var type = AppInfo.Definition.SupportedTypeOf(name)
+                   ?? throw new BusinessException($"„{name}“ wird als Kopie gespeichert, nicht als das Dokument selbst.", "FileName");
         Directory.CreateDirectory(AppPaths.DriveDirectory);
         var temporary = Path.Combine(AppPaths.DriveDirectory, $".upload-{Guid.NewGuid():N}{type.Extension}");
         try
