@@ -260,8 +260,7 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   und -schattierung; Seitenfarbe; Initialen; Tabellen in Kopf- und Fußzeilen.
   **Noch falsch / Lücken:** Text umfließt nur rechteckig (keine Umbruchpolygone, keine „Durchgehend“-Form); Tabellen umfließen keine Objekte und stehen in Spalten über die
   ganze Breite;
-  WordArt-Verformungen (prstTxWarp), 3-D, Leuchten, weiche Kanten und Spiegelungen fehlen; Inhaltssteuerelemente in einer Zeile zeigen
-  ihren Text in einem Format; nachverfolgte Einfügungen zeigen die Formatierung ihres ersten Laufs; Spaltenumbruch und Spaltenausgleich gelten nicht in Tabellen.
+  WordArt-Verformungen (prstTxWarp), 3-D, Leuchten, weiche Kanten und Spiegelungen fehlen; Spaltenumbruch und Spaltenausgleich gelten nicht in Tabellen.
 - **1e – Darstellung und Alltagsfunktionen (2026-11-20, laufend):**
   **Behoben:** verschachtelte Tabellen werden als Tabellen gezeigt (die äußere Tabelle ist bearbeitbar, die innere fährt in einem
   Absatz ihrer Zelle mit, wird schreibgeschützt aus ihrer eigenen Story gezeichnet und als w:tbl an ihrer Stelle zurückgeschrieben);
@@ -284,6 +283,10 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   das Modell abweicht: Größe, wp:inline ⇄ wp:anchor, Position, Umbruch – Zuschnitt und Effekte bleiben); Bildformat › Textumbruch
   (Mit Text in Zeile, Quadrat, Oben und unten, Hinter den Text, Vor den Text; ein Bild, das frei wird, bleibt, wo es stand) und
   Verschieben eines frei positionierten Bilds per Ziehen (ein Schritt zum Rückgängigmachen).
+  Inhaltssteuerelemente in einer Zeile (Text, Datum, Auswahl, Kontrollkästchen) öffnen als ihr formatierter, bearbeitbarer Text zwischen
+  zwei Marken und werden als w:sdt zurückgeschrieben; nachverfolgte Änderungen (w:ins/w:del/w:moveTo/w:moveFrom) sind Text mit seiner
+  Änderung (Art, Autor, Datum) und seinen eigenen Formaten – gelöschter Text wird in der Endfassung nicht gezeigt, beim Schreiben
+  wieder w:ins/w:del mit w:delText; odt und Text speichern die Endfassung.
   **Noch falsch:** die innere Tabelle ist nicht bearbeitbar; Einfügemarke und Markierung in gedrehten Zellen stehen waagrecht;
   Spaltenoperationen (Spalte einfügen/löschen) an Tabellen mit Lückenzeilen rechnen die Lücke nicht mit; eine schwebende Tabelle
   wird nie geteilt und umfließt keine anderen Objekte; Formeln sind nicht bearbeitbar (kein Formel-Editor), m:jc/Ausrichtung an „&“

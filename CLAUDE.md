@@ -417,7 +417,14 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   and its top (`FlowState.Column/ColumnTop`), `NextColumn` before a new page, column breaks (`LineEnding.ColumnBreak` from the
   OpaqueInline ColumnBreak), `BalanceColumns` before a continuous section break, `PageLayout.ColumnLines` for w:sep.
 - **Content controls:** a w:sdt around paragraphs (and tables between them) opens as its paragraphs with `ContentControlMarkInline`
-  marks (start keeps w:sdtPr/w:sdtEndPr); `DocxWriter.ControlNesting` writes the w:sdt back. Inline content controls stay OpaqueInline.
+  marks (start keeps w:sdtPr/w:sdtEndPr); `DocxWriter.ControlNesting` writes the w:sdt back. Inline content controls (w:sdt in a
+  paragraph) open the same way with marks `IsInline = true`; `DocxWriter.WriteParagraph` opens a w:sdt at the start mark (containers:
+  paragraph / open control → link → tracked change).
+- **Tracked changes (model):** `Inline.Revision` (`Revision`: Kind Insertion/Deletion/MoveTo/MoveFrom, Author, Date, Id): w:ins/w:del/
+  w:moveTo/w:moveFrom content is ordinary inlines naming the change (`TextRun.CanJoin` compares it); deleted text is read from
+  w:delText and written back as w:delText inside w:del (`DocxRevisions`, ids kept where free). The layout shows them by
+  `LayoutContext.View` (`RevisionView`; `Hides`: removals hidden in the final views, insertions in Original). Format changes (rPrChange)
+  stay in `CharacterProperties.UnknownXml`. odt/txt write the final text.
 - **Formats shown from files:** table style conditions (`Style.Conditions`, `TableProperties.Look`, `StyleResolver.ConditionMask/
   ConditionsOf`), character caps/small caps/hidden/spacing/scale/position/shading, paragraph borders and shading, `Document.PageColor`,
   headers/footers with tables (`PlaceStoryWithTables`: the story as its own layout). Tracked changes show as the final text; the

@@ -74,7 +74,10 @@ public static class PlainTextFormat
             switch (block)
             {
                 case Paragraph paragraph:
-                    lines.Add(paragraph.Text
+                    var final = paragraph.Inlines.Any(inline => inline.Revision?.IsRemoval == true) // the final text of tracked changes
+                        ? paragraph.WithInlines(paragraph.Inlines.Where(inline => inline.Revision?.IsRemoval != true))
+                        : paragraph;
+                    lines.Add(final.Text
                         .Replace(SpecialCharacters.Object.ToString(), "", StringComparison.Ordinal)
                         .Replace(SpecialCharacters.LineBreak.ToString(), "\r\n", StringComparison.Ordinal)
                         .Replace(SpecialCharacters.SoftHyphen.ToString(), "", StringComparison.Ordinal));

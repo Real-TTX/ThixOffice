@@ -263,7 +263,8 @@ public sealed record ImageInline(
         && Link == other.Link
         && IsFloating == other.IsFloating
         && Anchor == other.Anchor
-        && Crop == other.Crop;
+        && Crop == other.Crop
+        && Revision == other.Revision;
 
     public override int GetHashCode() => HashCode.Combine(Image, Math.Round(Width), Math.Round(Height), Description, IsFloating);
 }

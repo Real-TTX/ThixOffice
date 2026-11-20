@@ -42,6 +42,25 @@ public abstract record Inline(CharacterProperties Properties, Hyperlink? Link)
 
     /// <summary>Invisible and without size (a bookmark, a field character, the start of a comment …): it sticks to the character after it.</summary>
     public virtual bool IsMarker => false;
+
+    /// <summary>A tracked change this content belongs to ("Änderungen nachverfolgen": inserted or deleted text, moves), or null.</summary>
+    public Revision? Revision { get; init; }
+}
+
+/// <summary>What a tracked change did (w:ins, w:del, w:moveTo, w:moveFrom).</summary>
+public enum RevisionKind
+{
+    Insertion,
+    Deletion,
+    MoveTo,
+    MoveFrom,
+}
+
+/// <summary>A tracked change: what, who (Word's author name), when, and the id it had in the file.</summary>
+public sealed record Revision(RevisionKind Kind, string? Author, DateTime? Date, string? Id = null)
+{
+    /// <summary>Text that is gone in the final document (a deletion or the old place of a move).</summary>
+    public bool IsRemoval => Kind is RevisionKind.Deletion or RevisionKind.MoveFrom;
 }
 
 /// <summary>Formatted text. May contain tabs and line / page breaks (<see cref="SpecialCharacters"/>).</summary>
@@ -51,8 +70,8 @@ public sealed record TextRun(string Text, CharacterProperties Properties, Hyperl
 
     public override int Length => Text.Length;
 
-    /// <summary>True when the two runs can be one (same formatting and link).</summary>
-    public bool CanJoin(TextRun other) => Properties == other.Properties && Link == other.Link;
+    /// <summary>True when the two runs can be one (same formatting, link and tracked change).</summary>
+    public bool CanJoin(TextRun other) => Properties == other.Properties && Link == other.Link && Revision == other.Revision;
 }
 
 /// <summary>What a preserved element is (for the display and the "unsupported content" notes).</summary>

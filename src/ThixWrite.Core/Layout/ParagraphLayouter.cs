@@ -41,6 +41,12 @@ internal sealed class LayoutContext(ITextMeasurer measurer, StyleResolver resolv
     /// <summary>The size of a nested table (<see cref="OpaqueInline.Nested"/>) laid out at a width; null leaves it a placeholder.</summary>
     public Func<Story, double, (double Width, double Height)>? MeasureNested { get; set; }
 
+    /// <summary>How tracked changes show ("Markup" views of Überprüfen › Nachverfolgung).</summary>
+    public RevisionView View { get; set; } = RevisionView.SimpleMarkup;
+
+    /// <summary>True when content of this tracked change is not shown in the current view (deleted text in the final views, inserted in the original).</summary>
+    public bool Hides(Revision? revision) => revision is not null && (revision.IsRemoval ? View is RevisionView.SimpleMarkup or RevisionView.NoMarkup : View == RevisionView.Original);
+
     /// <summary>The size of a formula (<see cref="OpaqueInline.Math"/>) at a font size: width, ascent, descent; null shows nothing.</summary>
     public Func<OpaqueInline, double, (double Width, double Ascent, double Descent)>? MeasureMath { get; set; }
 }
@@ -342,6 +348,15 @@ internal static class ParagraphLayouter
                 _ => 0,
             } - format.Position;
 
+            var revisionHidden = context.Hides(inline.Revision);
+            if (revisionHidden && inline is not TextRun)
+            {
+                // An object of a tracked change this view does not show: no width, no ink.
+                owner[start] = segments.Count;
+                segments.Add(new Segment { Start = start, End = start + 1, Kind = SegmentKind.Marker, Format = format, Font = font, Metrics = metrics, Object = inline });
+                continue;
+            }
+
             if (inline is ImageInline image)
             {
                 var picture = new Segment
@@ -452,7 +467,7 @@ internal static class ParagraphLayouter
 
                 if (position > pieceStart)
                 {
-                    if (format.Hidden)
+                    if (format.Hidden || revisionHidden)
                     {
                         // Hidden text ("Ausgeblendet"): no width, no ink – a marker per character keeps the caret positions.
                         for (var unit = pieceStart; unit < position; unit++)

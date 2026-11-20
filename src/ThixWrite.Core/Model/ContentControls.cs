@@ -9,6 +9,12 @@ namespace ThixWrite.Core.Model;
 /// </summary>
 public sealed record ContentControlMarkInline(bool IsEnd, string? PropertiesXml, CharacterProperties Properties) : Inline(Properties, null)
 {
+    /// <summary>
+    /// The mark of a content control INSIDE a paragraph (w:sdt around runs: text fields, dates, drop-downs, check boxes): its text between
+    /// the marks is ordinary, formatted, editable text; the writer puts it back into a w:sdt in the paragraph.
+    /// </summary>
+    public bool IsInline { get; init; }
+
     public override int Length => 1;
 
     public override string Characters => "￼";

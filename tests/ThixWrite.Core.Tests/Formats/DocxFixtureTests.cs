@@ -81,9 +81,9 @@ public class DocxFixtureTests
         Assert.False(notes.ContainsKey(PreservedKind.Footnote)); // a footnote is a footnote now
         Assert.Equal(" Die Fußnote.", document.Blocks.OfType<Paragraph>().SelectMany(paragraph => paragraph.Inlines).OfType<NoteInline>().Single().PlainText);
         Assert.False(notes.ContainsKey(PreservedKind.Comment)); // a comment is a comment now
-        Assert.Equal(2, notes[PreservedKind.TrackedChange]);
+        Assert.False(notes.ContainsKey(PreservedKind.TrackedChange)); // tracked changes are text with their change now
         Assert.False(notes.ContainsKey(PreservedKind.Field)); // PAGE and NUMPAGES are fields ThixWrite updates
-        Assert.Equal(1, notes[PreservedKind.ContentControl]); // the inline control; the block control opens as its paragraph
+        Assert.False(notes.ContainsKey(PreservedKind.ContentControl)); // inline and block controls open as their text
         Assert.False(notes.ContainsKey(PreservedKind.Bookmark));
         Assert.All(document.UnsupportedContent, note => Assert.False(string.IsNullOrWhiteSpace(note.Message)));
     }
@@ -98,10 +98,11 @@ public class DocxFixtureTests
         Assert.Contains(field.Inlines, inline => inline is FieldInline { Kind: FieldKind.NumPages, Result: "3" });
         Assert.Contains(field.Inlines, inline => inline is FieldInline { Kind: FieldKind.Page, Result: "1" });
 
-        var changes = paragraphs.Single(paragraph => paragraph.Inlines.Any(inline => inline is OpaqueInline { Kind: PreservedKind.TrackedChange }));
-        var tracked = changes.Inlines.OfType<OpaqueInline>().ToList();
-        Assert.Equal("eingefügt", tracked[0].DisplayText);
-        Assert.Equal("", tracked[1].DisplayText);
+        var changes = paragraphs.Single(paragraph => paragraph.Inlines.Any(inline => inline.Revision is not null));
+        var tracked = changes.Inlines.Where(inline => inline.Revision is not null).Cast<TextRun>().ToList();
+        Assert.Equal(("eingefügt", RevisionKind.Insertion), (tracked[0].Text, tracked[0].Revision!.Kind));
+        Assert.Equal(("gelöscht", RevisionKind.Deletion), (tracked[1].Text, tracked[1].Revision!.Kind));
+        Assert.Equal("Anna", tracked[0].Revision!.Author);
 
         var image = paragraphs.SelectMany(paragraph => paragraph.Inlines).OfType<ImageInline>().Single();
         Assert.Equal(ImageFormat.Png, image.Image.Format);

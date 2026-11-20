@@ -228,6 +228,18 @@ public sealed partial class EditingSession
                 var inlines = new List<Inline>();
                 foreach (var inline in paragraph.Inlines)
                 {
+                    if (inline.Revision is { } change)
+                    {
+                        // Accepting keeps insertions and drops deletions; rejecting the other way round.
+                        if (change.IsRemoval != accept)
+                        {
+                            var kept = inline with { Revision = null };
+                            inlines.Add(kept is TextRun keptRun ? keptRun with { Properties = WithoutFormatRevision(keptRun.Properties) } : kept);
+                        }
+
+                        continue;
+                    }
+
                     if (inline is not OpaqueInline { Kind: PreservedKind.TrackedChange } revision)
                     {
                         inlines.Add(inline is TextRun run ? run with { Properties = WithoutFormatRevision(run.Properties) } : inline);
@@ -254,7 +266,7 @@ public sealed partial class EditingSession
         });
     }
 
-    private static bool IsRevision(Inline inline) => inline is OpaqueInline { Kind: PreservedKind.TrackedChange };
+    private static bool IsRevision(Inline inline) => inline.Revision is not null || inline is OpaqueInline { Kind: PreservedKind.TrackedChange };
 
     private static bool HasFormatRevision(Paragraph paragraph) =>
         paragraph.Inlines.Any(inline => inline.Properties.UnknownXml?.Contains("rPrChange", StringComparison.Ordinal) == true)

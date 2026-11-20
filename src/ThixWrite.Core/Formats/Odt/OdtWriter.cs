@@ -150,7 +150,7 @@ public static partial class OdtWriter
 
             XElement container = element;
             Hyperlink? link = null;
-            foreach (var inline in paragraph.Inlines)
+            foreach (var inline in paragraph.Inlines.Where(inline => inline.Revision?.IsRemoval != true)) // the final text of tracked changes
             {
                 if (inline.Link != link)
                 {

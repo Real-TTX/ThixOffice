@@ -246,19 +246,54 @@ public static class DocxWriter
             element.AppendChild(properties);
         }
 
+        // Containers from the outside in: the paragraph or an open content control in the line, a link, a tracked change.
+        OpenXmlCompositeElement root = element;
+        var controls = new Stack<OpenXmlCompositeElement>();
+        OpenXmlCompositeElement? linkElement = null;
         OpenXmlCompositeElement container = element;
         Hyperlink? currentLink = null;
+        Revision? currentRevision = null;
         foreach (var inline in paragraph.Inlines)
         {
+            if (inline is ContentControlMarkInline { IsInline: true } mark)
+            {
+                (linkElement, currentLink, currentRevision) = (null, null, null);
+                if (!mark.IsEnd)
+                {
+                    var control = new W.SdtRun();
+                    foreach (var controlProperties in XmlFragments.Parse<W.SdtRun>(mark.PropertiesXml))
+                    {
+                        control.AppendChild(controlProperties);
+                    }
+
+                    var content = new W.SdtContentRun();
+                    control.AppendChild(content);
+                    root.AppendChild(control);
+                    controls.Push(root);
+                    root = content;
+                }
+                else if (controls.Count > 0)
+                {
+                    root = controls.Pop();
+                }
+
+                container = root;
+                continue;
+            }
+
             if (inline.Link != currentLink)
             {
-                container = element;
                 currentLink = inline.Link;
-                if (currentLink is not null && context.CreateHyperlink(currentLink) is { } hyperlink)
-                {
-                    element.AppendChild(hyperlink);
-                    container = hyperlink;
-                }
+                currentRevision = null;
+                linkElement = currentLink is not null && context.CreateHyperlink(currentLink) is { } hyperlink ? root.AppendChild(hyperlink) : null;
+                container = linkElement ?? root;
+            }
+
+            if (inline.Revision != currentRevision)
+            {
+                currentRevision = inline.Revision;
+                var parent = linkElement ?? root;
+                container = currentRevision is null ? parent : parent.AppendChild(DocxRevisions.Container(currentRevision, context.RevisionId(currentRevision)));
             }
 
             foreach (var child in WriteInline(inline, context))
@@ -353,6 +388,7 @@ public static class DocxWriter
 
     private static W.Run WriteRun(TextRun run)
     {
+        var deleted = run.Revision?.IsRemoval == true; // the text of a deletion is w:delText
         var element = NewRun(run.Properties);
         var text = new StringBuilder();
 
@@ -365,7 +401,8 @@ public static class DocxWriter
 
             var value = text.ToString();
             var needsPreserve = value[0] == ' ' || value[^1] == ' ' || value.Contains("  ", StringComparison.Ordinal);
-            element.AppendChild(new W.Text(value) { Space = needsPreserve ? SpaceProcessingModeValues.Preserve : null });
+            EnumValue<SpaceProcessingModeValues>? space = needsPreserve ? new EnumValue<SpaceProcessingModeValues>(SpaceProcessingModeValues.Preserve) : null;
+            element.AppendChild<OpenXmlElement>(deleted ? new W.DeletedText(value) { Space = space } : new W.Text(value) { Space = space });
             text.Clear();
         }
 
@@ -497,7 +534,7 @@ public static class DocxWriter
                 return;
             }
 
-            var marks = paragraph.Inlines.OfType<ContentControlMarkInline>().ToList();
+            var marks = paragraph.Inlines.OfType<ContentControlMarkInline>().Where(mark => !mark.IsInline).ToList();
             for (var index = 0; index < list.Count; index++)
             {
                 var carried = index == 0 ? marks.Where(mark => !mark.IsEnd) : index == list.Count - 1 ? marks.Where(mark => mark.IsEnd) : [];
@@ -507,7 +544,7 @@ public static class DocxWriter
 
         public void Add(OpenXmlElement element, Paragraph? paragraph)
         {
-            var marks = paragraph?.Inlines.OfType<ContentControlMarkInline>().ToList() ?? [];
+            var marks = paragraph?.Inlines.OfType<ContentControlMarkInline>().Where(mark => !mark.IsInline).ToList() ?? [];
             foreach (var start in marks.Where(mark => !mark.IsEnd))
             {
                 var control = new W.SdtBlock();
@@ -557,6 +594,25 @@ public static class DocxWriter
         public DocxNotes.Allocation Notes { get; } = new(main, document);
 
         public long NoteId(NoteInline note) => Notes.Allocate(note);
+
+        private readonly HashSet<int> _revisionIds = [];
+        private int _revisionId = 9000;
+
+        /// <summary>The id of a tracked change's element (w:ins / w:del): the one it was read with while no other element of this write has it.</summary>
+        public int RevisionId(Revision revision)
+        {
+            if (int.TryParse(revision.Id, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var id) && _revisionIds.Add(id))
+            {
+                return id;
+            }
+
+            while (!_revisionIds.Add(_revisionId))
+            {
+                _revisionId++;
+            }
+
+            return _revisionId;
+        }
 
         /// <summary>The comments of the body (their ids paired before the body is written).</summary>
         public DocxComments.Allocation Comments { get; } = new();

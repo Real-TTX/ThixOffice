@@ -258,6 +258,30 @@ public sealed class RealWorldTests
     }
 
     [Fact]
+    public void Content_controls_in_the_line_and_tracked_changes_are_text_with_their_own_formats()
+    {
+        var (document, layout) = Open("08-demo-review.docx");
+        Assert.DoesNotContain(document.UnsupportedContent, note => note.Kind is PreservedKind.ContentControl or PreservedKind.TrackedChange);
+        var paragraphs = document.Blocks.OfType<Paragraph>().ToList();
+
+        // "Name: [Anna Berger]" – the control's text is a bold run between two marks.
+        var name = paragraphs.Single(paragraph => paragraph.Text.Contains("Anna Berger", StringComparison.Ordinal) && paragraph.Text.StartsWith("Name", StringComparison.Ordinal));
+        var marks = name.Inlines.OfType<ContentControlMarkInline>().ToList();
+        Assert.Equal([false, true], marks.Select(mark => mark.IsEnd));
+        Assert.All(marks, mark => Assert.True(mark.IsInline));
+        Assert.True(name.Inlines.OfType<TextRun>().Single(run => run.Text == "Anna Berger").Properties.Bold);
+
+        // Tracked changes: the inserted text is a run naming its insertion; the deleted text is there, named, and not shown.
+        var changed = paragraphs.Single(paragraph => paragraph.Inlines.Any(inline => inline.Revision is { Kind: RevisionKind.Insertion }) && paragraph.Text.StartsWith("Ein Satz", StringComparison.Ordinal));
+        Assert.Equal("Anna Berger", changed.Inlines.First(inline => inline.Revision is not null).Revision!.Author);
+        var block = paragraphs.IndexOf(changed);
+        var shown = string.Concat(layout.GetDisplayList(0).Items.OfType<GlyphRunItem>().Select(run => run.Text));
+        Assert.Contains("eingefügtem", shown);
+        Assert.DoesNotContain("gelöschtem", shown);
+        Assert.True(block >= 0);
+    }
+
+    [Fact]
     public void A_footer_with_a_table_is_laid_out_as_a_table()
     {
         var (_, layout) = Open("09-letter-din5008.docx");

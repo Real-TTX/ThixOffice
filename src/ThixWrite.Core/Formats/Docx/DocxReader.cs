@@ -340,6 +340,36 @@ public static class DocxReader
                 return;
             case W.ProofError:
                 return;
+            case W.InsertedRun or W.DeletedRun or W.MoveToRun or W.MoveFromRun:
+                // A tracked change: its content is ordinary content (with its own formats) that names the change.
+                var revision = new Revision(
+                    child switch { W.InsertedRun => RevisionKind.Insertion, W.DeletedRun => RevisionKind.Deletion, W.MoveToRun => RevisionKind.MoveTo, _ => RevisionKind.MoveFrom },
+                    DocxValues.AttributeValue(child, "author"),
+                    DocxRevisions.ParseDate(DocxValues.AttributeValue(child, "date")),
+                    DocxValues.AttributeValue(child, "id"));
+                var first = inlines.Count;
+                foreach (var changed in child.ChildElements)
+                {
+                    ReadParagraphChild(changed, inlines, link, context);
+                }
+
+                for (var index = first; index < inlines.Count; index++)
+                {
+                    inlines[index] = inlines[index] with { Revision = revision };
+                }
+
+                return;
+            case W.SdtRun control when control.SdtContentRun is { } controlContent:
+                // A content control in the line: its runs are the paragraph's (formatted, editable) between two marks.
+                var controlProperties = XmlFragments.Join(control.ChildElements.Where(element => element is W.SdtProperties or W.SdtEndCharProperties));
+                inlines.Add(new ContentControlMarkInline(false, controlProperties, CharacterProperties.Empty) { IsInline = true });
+                foreach (var inner in controlContent.ChildElements)
+                {
+                    ReadParagraphChild(inner, inlines, link, context);
+                }
+
+                inlines.Add(new ContentControlMarkInline(true, null, CharacterProperties.Empty) { IsInline = true });
+                return;
             case W.BookmarkStart or W.BookmarkEnd or W.CommentRangeStart or W.CommentRangeEnd or W.PermStart or W.PermEnd
                 or W.MoveFromRangeStart or W.MoveFromRangeEnd or W.MoveToRangeStart or W.MoveToRangeEnd:
                 if (context.MarkerFor(child) is { } marker)
@@ -396,6 +426,9 @@ public static class DocxReader
                     break;
                 case W.Text value:
                     text.Append(Clean(value.Text));
+                    break;
+                case W.DeletedText deleted:
+                    text.Append(Clean(deleted.Text)); // text of a tracked deletion (the run names the deletion)
                     break;
                 case W.TabChar:
                     text.Append(SpecialCharacters.Tab);
