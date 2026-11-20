@@ -63,7 +63,24 @@ internal static class DocxPictures
         var properties2 = container.GetFirstChild<Dw.DocProperties>();
         var description = properties2?.Description?.Value;
         return new ImageInline(image, width, height, properties, string.IsNullOrEmpty(description) ? null : description, link,
-            XmlFragments.Canonical(drawing), id, IsFloating: inline is null);
+            XmlFragments.Canonical(drawing), id, IsFloating: inline is null)
+        {
+            Crop = ReadCrop(container.Descendants<A.SourceRectangle>().FirstOrDefault()),
+            Shadow = DocxDrawings.ReadShadow(container.Descendants<Pic.ShapeProperties>().FirstOrDefault()),
+        };
+    }
+
+    /// <summary>a:srcRect (thousandths of a percent) as fractions; null when nothing is cut.</summary>
+    private static ImageCrop? ReadCrop(A.SourceRectangle? rectangle)
+    {
+        if (rectangle is null)
+        {
+            return null;
+        }
+
+        static double Fraction(Int32Value? value) => (value?.Value ?? 0) / 100000.0;
+        var crop = new ImageCrop(Fraction(rectangle.Left), Fraction(rectangle.Top), Fraction(rectangle.Right), Fraction(rectangle.Bottom));
+        return crop == new ImageCrop(0, 0, 0, 0) ? null : crop;
     }
 
     /// <summary>The w:drawing of a picture (the one read, when it can stay; else a new wp:inline).</summary>
@@ -71,10 +88,22 @@ internal static class DocxPictures
     {
         if (image.SourceXml is { } xml && image.SourcePart is { } part && context.CanReuse(part, image.Image) && context.ClaimDocPr(xml))
         {
-            return XmlFragments.Parse<W.Run>(xml);
+            var elements = XmlFragments.Parse<W.Run>(xml).ToList();
+            if (elements is [W.Drawing drawing])
+            {
+                DocxAnchors.Patch(drawing, image); // the size, position and wrap of the model, everything else as read
+            }
+
+            return elements;
         }
 
-        return [Create(image, context.PartFor(image.Image), context.NextId())];
+        var created = Create(image, context.PartFor(image.Image), context.NextId());
+        if (image.Anchor is not null)
+        {
+            DocxAnchors.Patch(created, image); // a new floating picture: its wp:inline becomes a wp:anchor
+        }
+
+        return [created];
     }
 
     private static W.Drawing Create(ImageInline image, string relationshipId, uint id)

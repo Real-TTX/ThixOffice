@@ -240,8 +240,17 @@ public sealed record ImageInline(
     /// <summary>Where a floating picture (wp:anchor) sits and how text flows around it; null for a picture in the line.</summary>
     public DrawingAnchor? Anchor { get; init; }
 
-    /// <summary>The same picture at another size (no longer the drawing as read).</summary>
-    public ImageInline WithSize(double width, double height) => this with { Width = Math.Max(1, width), Height = Math.Max(1, height), SourceXml = null };
+    /// <summary>"Zuschneiden" (a:srcRect): what is cut off each side, as fractions of the picture; null shows all of it. Read for the display.</summary>
+    public ImageCrop? Crop { get; init; }
+
+    /// <summary>"Schatten" of the picture (a:outerShdw), read for the display.</summary>
+    public DrawingShadow? Shadow { get; init; }
+
+    /// <summary>
+    /// The same picture at another size. The drawing as read stays (<see cref="SourceXml"/>): the writer puts the new size, position and
+    /// wrap into it, so that cropping, effects and the position of a floating picture are kept.
+    /// </summary>
+    public ImageInline WithSize(double width, double height) => this with { Width = Math.Max(1, width), Height = Math.Max(1, height) };
 
     /// <summary>The same picture, size (to a hundredth of a point), formatting, text and link – where it came from does not count.</summary>
     public bool Equals(ImageInline? other) =>
@@ -253,7 +262,11 @@ public sealed record ImageInline(
         && Description == other.Description
         && Link == other.Link
         && IsFloating == other.IsFloating
-        && Anchor == other.Anchor;
+        && Anchor == other.Anchor
+        && Crop == other.Crop;
 
     public override int GetHashCode() => HashCode.Combine(Image, Math.Round(Width), Math.Round(Height), Description, IsFloating);
 }
+
+/// <summary>What is cut off a picture at each side, as fractions of its size (a:srcRect l/t/r/b; negative = room added).</summary>
+public sealed record ImageCrop(double Left, double Top, double Right, double Bottom);

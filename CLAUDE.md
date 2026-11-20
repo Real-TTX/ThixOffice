@@ -364,8 +364,13 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   width, then selected), `SelectedImage`, `SetImageSize`, `ResetImageSize`, `SetImageDescription`, `ReplaceImage`.
 - **Drawing:** the layout makes an `ObjectItem` as tall as the picture; the display list has an `ImageItem` (key + bytes);
   `SkiaPageRenderer` decodes each key once (screen, PDF, printing alike).
-- **docx:** `DocxPictures` (read pic:pic with one a:blip from its image part; write new pictures as wp:inline with one media part
-  per picture and unique wp:docPr ids).
+- **docx:** `DocxPictures` (read pic:pic with one a:blip from its image part, `Crop` from a:srcRect, `Shadow` from a:outerShdw; write
+  new pictures as wp:inline with one media part per picture and unique wp:docPr ids). A picture read from a file keeps its `SourceXml`
+  through size/position/wrap/alt-text changes: `DocxAnchors.Patch` puts only what differs into it (extent, wp:inline ⇄ wp:anchor,
+  positionH/V, wrap, behindDoc, distances) – unchanged pictures are written byte for byte as read.
+- **Floating pictures (UI):** `EditingSession.SetImageWrap(PictureWrap, at)` (Bildformat › Textumbruch, `write.picture.wrap.*`; `at` =
+  `DocumentLayout.InlineOffsetsOf`, so it stays where it was), `MoveImage(offsetX, offsetY)` (`DocumentSurface`: dragging a floating
+  picture, `MoveHandle`; `DocumentLayout.AnchorOffsetsFor` turns the page point into offsets from the anchor's frames).
 - **UI:** Einfügen › Bilder (`IFileDialogs.PickPictureAsync`, `ImageFiles.Read` in the business layer), paste of a bitmap, a
   picture file dropped on the page, a click selects a picture (frame + eight handles; corners keep the proportions, Umschalt frees
   them), contextual tab Bildformat (`PictureCommands`: Alternativtext, Bild ändern, Größe zurücksetzen, Anordnen, Höhe/Breite).

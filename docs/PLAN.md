@@ -260,7 +260,7 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   und -schattierung; Seitenfarbe; Initialen; Tabellen in Kopf- und Fußzeilen.
   **Noch falsch / Lücken:** Text umfließt nur rechteckig (keine Umbruchpolygone, keine „Durchgehend“-Form); Tabellen umfließen keine Objekte und stehen in Spalten über die
   ganze Breite;
-  WordArt-Verformungen (prstTxWarp), Schatten/3-D/Effekte und Bildzuschnitt fehlen; Inhaltssteuerelemente in einer Zeile zeigen
+  WordArt-Verformungen (prstTxWarp), 3-D, Leuchten, weiche Kanten und Spiegelungen fehlen; Inhaltssteuerelemente in einer Zeile zeigen
   ihren Text in einem Format; nachverfolgte Einfügungen zeigen die Formatierung ihres ersten Laufs; Spaltenumbruch und Spaltenausgleich gelten nicht in Tabellen.
 - **1e – Darstellung und Alltagsfunktionen (2026-11-20, laufend):**
   **Behoben:** verschachtelte Tabellen werden als Tabellen gezeigt (die äußere Tabelle ist bearbeitbar, die innere fährt in einem
@@ -279,6 +279,11 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   Mathematikachse, Hoch-/Tiefstellung, Wurzeln mit Grad, große Operatoren mit Grenzen darunter/darüber oder daneben, Klammern auf
   Inhaltshöhe gestreckt, Matrizen, Akzente, Balken, geschweifte Klammern, Funktionen, Grenzwerte, Rahmen, Gleichungsgruppen; Variablen
   kursiv aus den mathematischen Alphabeten (wie Word), Abstände um Operatoren; abgesetzte Formeln zentriert in eigener Zeile.
+  Bilder: Zuschnitt (a:srcRect) wird gezeigt, Schatten (a:outerShdw) unter Bildern und Formen; ein frei positioniertes Bild bleibt
+  beim Vergrößern, Verschieben und Ändern des Alternativtexts frei positioniert (die gelesene Zeichnung wird nur dort geändert, wo
+  das Modell abweicht: Größe, wp:inline ⇄ wp:anchor, Position, Umbruch – Zuschnitt und Effekte bleiben); Bildformat › Textumbruch
+  (Mit Text in Zeile, Quadrat, Oben und unten, Hinter den Text, Vor den Text; ein Bild, das frei wird, bleibt, wo es stand) und
+  Verschieben eines frei positionierten Bilds per Ziehen (ein Schritt zum Rückgängigmachen).
   **Noch falsch:** die innere Tabelle ist nicht bearbeitbar; Einfügemarke und Markierung in gedrehten Zellen stehen waagrecht;
   Spaltenoperationen (Spalte einfügen/löschen) an Tabellen mit Lückenzeilen rechnen die Lücke nicht mit; eine schwebende Tabelle
   wird nie geteilt und umfließt keine anderen Objekte; Formeln sind nicht bearbeitbar (kein Formel-Editor), m:jc/Ausrichtung an „&“
@@ -325,7 +330,7 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
 | Layout | Umbrüche: Seite, Spalte, Abschnitt (nächste Seite, fortlaufend, gerade, ungerade) | neu |
 | Layout | Zeilennummern, Silbentrennung | – |
 | Layout | Einzug links/rechts, Abstand vor/nach | vorhanden |
-| Layout | Anordnen (Position, Textumbruch, Ebenen, Ausrichten, Gruppieren, Drehen) | fehlt (nur Ausrichtung eines Bildes in der Zeile) |
+| Layout | Anordnen (Position, Textumbruch, Ebenen, Ausrichten, Gruppieren, Drehen) | Textumbruch von Bildern (Mit Text in Zeile, Quadrat, Oben und unten, Hinter/Vor den Text) und Verschieben per Ziehen neu (Bildformat); Ebenen, Ausrichten, Gruppieren, Drehen fehlen |
 | Referenzen | Inhaltsverzeichnis, Tabelle aktualisieren, Fußnote, Endnote, Nächste Fußnote | vorhanden |
 | Referenzen | Zitate, Literaturverzeichnis, Beschriftung, Abbildungsverzeichnis, Index | fehlt |
 | Sendungen | alle | – |
@@ -544,6 +549,7 @@ fehlen (Name → wo, Platzhalter heute):
 | `word-count` | ThixWrite: Überprüfen › Wörter zählen (`write.wordCount`) | `file-text` |
 | `next-footnote` | ThixWrite: Referenzen › Nächste Fußnote (`write.nextNote`) | `arrow-down` |
 | `navigation-pane` | ThixWrite: Ansicht › Navigationsbereich (`write.navigationPane`) | `sidebar` |
+| `wrap-inline`, `wrap-square`, `wrap-top-bottom`, `wrap-behind`, `wrap-front` | ThixWrite: Bildformat › Textumbruch (`write.picture.wrap.*`) | `type`, `wrap-text`, `row-insert`, `layers` |
 
 ### Phase 4 – ThixShow
 Folienmodell, Layouts/Designs, Formen/Text/Bilder/Tabellen, Folienübersicht, Übergänge/Animationen,

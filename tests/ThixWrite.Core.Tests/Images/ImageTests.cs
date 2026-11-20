@@ -171,6 +171,80 @@ public class ImageTests
         Assert.Contains("wp:anchor", DocxTestSupport.DocumentXml(written));
     }
 
+    private static Document CroppedFloating()
+    {
+        const string W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        var anchor = "<w:r><w:drawing><wp:anchor distT=\"0\" distB=\"0\" distL=\"114300\" distR=\"114300\" simplePos=\"0\" relativeHeight=\"1\" behindDoc=\"0\" locked=\"0\" layoutInCell=\"1\" allowOverlap=\"1\">"
+                     + "<wp:simplePos x=\"0\" y=\"0\"/><wp:positionH relativeFrom=\"margin\"><wp:align>right</wp:align></wp:positionH><wp:positionV relativeFrom=\"paragraph\"><wp:posOffset>12700</wp:posOffset></wp:positionV>"
+                     + "<wp:extent cx=\"952500\" cy=\"476250\"/><wp:effectExtent l=\"0\" t=\"0\" r=\"0\" b=\"0\"/><wp:wrapSquare wrapText=\"bothSides\"/><wp:docPr id=\"7\" name=\"Bild 7\"/>"
+                     + "<wp:cNvGraphicFramePr/><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/picture\"><pic:pic><pic:nvPicPr><pic:cNvPr id=\"0\" name=\"logo.png\"/><pic:cNvPicPr/></pic:nvPicPr>"
+                     + "<pic:blipFill><a:blip r:embed=\"rIdBild\"/><a:srcRect l=\"10000\" t=\"0\" r=\"25000\" b=\"0\"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"952500\" cy=\"476250\"/></a:xfrm>"
+                     + "<a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:effectLst><a:outerShdw blurRad=\"50800\" dist=\"38100\" dir=\"2700000\" algn=\"tl\" rotWithShape=\"0\"><a:prstClr val=\"black\"><a:alpha val=\"40000\"/></a:prstClr></a:outerShdw></a:effectLst></pic:spPr></pic:pic>"
+                     + "</a:graphicData></a:graphic></wp:anchor></w:drawing></w:r>";
+        var xml = $"<w:document xmlns:w=\"{W}\" xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" "
+                  + "xmlns:pic=\"http://schemas.openxmlformats.org/drawingml/2006/picture\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
+                  + $"<w:body><w:p>{anchor}<w:r><w:t>Text</w:t></w:r></w:p><w:p/></w:body></w:document>";
+        return DocxTestSupport.Read(WithImage(DocxFixtures.CreateRaw(xml), "rIdBild"));
+    }
+
+    [Fact]
+    public void A_cropped_picture_with_a_shadow_draws_the_shown_part_over_its_shadow()
+    {
+        var document = CroppedFloating();
+        var image = (ImageInline)document.ParagraphAt(0)!.Inlines[0];
+        Assert.Equal(new ImageCrop(0.1, 0, 0.25, 0), image.Crop);
+        Assert.NotNull(image.Shadow);
+        using var layout = TestDocuments.NewLayout(document);
+        var items = layout.GetDisplayList(0).Items;
+        var drawn = items.OfType<ImageItem>().Single();
+        Assert.Equal((0.1, 0.0, 0.25, 0.0), drawn.Crop);
+        var shadow = items.OfType<VectorPathItem>().Single(item => item.Shadow is not null);
+        Assert.True(items.ToList().IndexOf(shadow) < items.ToList().IndexOf(drawn)); // under the picture
+        Assert.Equal(new RgbColor(0, 0, 0, 102), shadow.Shadow!.Color);
+    }
+
+    [Fact]
+    public void A_floating_picture_resized_wrapped_and_moved_stays_floating_with_its_crop_and_is_written_as_wp_anchor()
+    {
+        var document = CroppedFloating();
+        var session = TestDocuments.Session(document);
+        session.Select(new DocumentPosition(0, 0), new DocumentPosition(0, 1));
+        session.SetImageSize(150, 75);
+        session.MoveImage(30, 40);
+        session.SetImageWrap(PictureWrap.TopAndBottom);
+
+        var written = DocxTestSupport.Write(session.Document);
+        DocxTestSupport.AssertValid(written);
+        var xml = DocxTestSupport.DocumentXml(written);
+        Assert.Contains("wp:anchor", xml);
+        Assert.Contains("<wp:wrapTopAndBottom", xml);
+        Assert.Contains("srcRect", xml); // the cropping stays
+        Assert.Contains("cx=\"1905000\"", xml); // 150 pt
+        Assert.Contains("<wp:posOffset>381000</wp:posOffset>", xml); // 30 pt from the margin (the alignment became an offset)
+
+        var reread = DocxTestSupport.Read(written);
+        var image = (ImageInline)reread.ParagraphAt(0)!.Inlines[0];
+        Assert.Equal(session.SelectedImage!.Value.Image.Anchor, image.Anchor);
+        Assert.Equal(150, image.Width, 2);
+        Assert.NotNull(image.Crop);
+
+        // In the line again: a wp:inline with the same graphic.
+        session.SetImageWrap(PictureWrap.InLine);
+        var inline = DocxTestSupport.DocumentXml(DocxTestSupport.Write(session.Document));
+        Assert.Contains("wp:inline", inline);
+        Assert.DoesNotContain("wp:anchor", inline);
+        Assert.Contains("srcRect", inline);
+    }
+
+    [Fact]
+    public void An_unchanged_floating_picture_is_written_exactly_as_it_was_read()
+    {
+        var document = CroppedFloating();
+        var before = ((ImageInline)document.ParagraphAt(0)!.Inlines[0]).SourceXml!;
+        var reread = DocxTestSupport.Read(DocxTestSupport.Write(document));
+        Assert.Equal(before, ((ImageInline)reread.ParagraphAt(0)!.Inlines[0]).SourceXml);
+    }
+
     private static byte[] WithImage(byte[] docx, string relationshipId)
     {
         using var stream = new MemoryStream();

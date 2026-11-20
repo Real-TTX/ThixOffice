@@ -41,6 +41,44 @@ public sealed partial class DocumentLayout
     }
 
     /// <summary>
+    /// The offsets from its frames that put the floating object anchored at <paramref name="position"/> with its top-left corner at
+    /// (<paramref name="x"/>, <paramref name="y"/>) of its page (moving it with the mouse); null when no such object is placed.
+    /// </summary>
+    public (double OffsetX, double OffsetY)? AnchorOffsetsFor(DocumentPosition position, double x, double y)
+    {
+        Update();
+        foreach (var page in _pages)
+        {
+            if (page.Floats.FirstOrDefault(placed => placed.Block == position.Block && placed.Offset == position.Offset) is not { } placed)
+            {
+                continue;
+            }
+
+            var origin = FloatPosition(placed.Anchor with { AlignX = null, OffsetX = 0, AlignY = null, OffsetY = 0 }, placed.Width, placed.Height,
+                page.Section.Properties, placed.ParagraphTop, placed.AreaLeft, placed.AreaRight - placed.AreaLeft);
+            return (x - origin.X, y - origin.Y);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Where an object in the line is, as offsets from the left of its text area and the top of its paragraph (the place it keeps when it
+    /// starts to float); null when it is not laid out.
+    /// </summary>
+    public (double X, double Y)? InlineOffsetsOf(DocumentPosition position)
+    {
+        if (GetObjectRect(position) is not { } rect || _placements[position.Block] is not { } placement)
+        {
+            return null;
+        }
+
+        var index = Array.FindIndex(placement.Pages, page => page == rect.Page);
+        var line = placement.Lines[Math.Max(0, index)];
+        return (rect.X - line.Left, rect.Y - line.Top);
+    }
+
+    /// <summary>
     /// The top-left corner of an anchored object of <paramref name="width"/> × <paramref name="height"/> on a page of
     /// <paramref name="setup"/>: <paramref name="paragraphTop"/> is the top of its paragraph (frames "paragraph" and "line"),
     /// <paramref name="areaLeft"/>/<paramref name="areaWidth"/> the text area it is in (frame "column").
@@ -117,7 +155,7 @@ public sealed partial class DocumentLayout
                 }
 
                 var (x, y) = FloatPosition(anchor, width, height, Setup, top, areaLeft, areaWidth);
-                Page.MutableFloats.Add(new PlacedFloat(block, offset, inline, anchor, x, y, width, height) { AreaLeft = areaLeft, AreaRight = areaLeft + areaWidth });
+                Page.MutableFloats.Add(new PlacedFloat(block, offset, inline, anchor, x, y, width, height) { AreaLeft = areaLeft, AreaRight = areaLeft + areaWidth, ParagraphTop = top });
             }
 
             if (ReachesBack(before, top))
@@ -269,7 +307,7 @@ public sealed partial class DocumentLayout
         switch (inline)
         {
             case ImageInline image:
-                return [new ImageItem(x, y, width, height, image.Image.Key, image.Image.Bytes)];
+                return DrawPicture(image, x, y, width, height);
             case OpaqueInline { Graphic: { } graphic }:
                 return DrawGraphic(graphic, x, y, width, height);
             case OpaqueInline { Nested: { } nested }:
@@ -279,6 +317,35 @@ public sealed partial class DocumentLayout
             default:
                 return [];
         }
+    }
+
+    /// <summary>A picture: its shadow under it, the shown part of it ("Zuschneiden").</summary>
+    private List<DisplayItem> DrawPicture(ImageInline image, double x, double y, double width, double height)
+    {
+        var items = new List<DisplayItem>();
+        if (image.Shadow is { } shadow && Shadow(shadow) is { } dropShadow)
+        {
+            var frame = new VectorPathBuilder().AddRectangle(x, y, width, height).Build();
+            items.Add(new VectorPathItem(frame, new SolidPaint(RgbColor.White), null, dropShadow));
+        }
+
+        items.Add(new ImageItem(x, y, width, height, image.Image.Key, image.Image.Bytes)
+        {
+            Crop = image.Crop is { } crop ? (crop.Left, crop.Top, crop.Right, crop.Bottom) : null,
+        });
+        return items;
+    }
+
+    /// <summary>A shadow of the model as the vector layer draws it (null when its colour names nothing known).</summary>
+    private DropShadow? Shadow(DrawingShadow shadow)
+    {
+        if (Color(shadow.Color) is not { } color)
+        {
+            return null;
+        }
+
+        var (dx, dy) = shadow.Offset;
+        return new DropShadow(dx, dy, shadow.Blur, color);
     }
 
     private readonly ConditionalWeakTable<MathNode, MathBox> _mathBoxes = new();
@@ -395,6 +462,7 @@ public sealed partial class DocumentLayout
             var stroke = shape.Line is { } line && Color(line.Color) is { } lineColor
                 ? new StrokeStyle(new SolidPaint(lineColor), Math.Max(0.25, line.Width), Dashes(line.Dash, line.Width))
                 : null;
+            var shadow = shape.Shadow is { } shapeShadow ? Shadow(shapeShadow) : null;
             foreach (var path in geometry.Paths)
             {
                 var placed = path.Path.Transform(Matrix2D.Translation(shape.X, shape.Y));
@@ -402,7 +470,8 @@ public sealed partial class DocumentLayout
                 var pathStroke = path.Stroke ? stroke : null;
                 if (pathFill is not null || pathStroke is not null)
                 {
-                    items.Add(new VectorPathItem(placed, pathFill, pathStroke));
+                    items.Add(new VectorPathItem(placed, pathFill, pathStroke, shadow));
+                    shadow = null; // one shadow, under the first path
                 }
             }
         }

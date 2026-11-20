@@ -123,6 +123,7 @@ public static class WriteCommandIds
     public const string PictureAlignRight = "write.picture.alignRight";
     public const string PictureHeight = "write.picture.height"; // value: cm, invariant
     public const string PictureWidth = "write.picture.width"; // value: cm, invariant
+    public const string PictureWrap = "write.picture.wrap"; // menu; entries write.picture.wrap.<inline|square|topBottom|behind|front>
 
     // Kopf- und Fußzeile (contextual, while one is edited)
     public const string HeaderFooterPage = "write.hf.page";
@@ -412,6 +413,8 @@ public static class WriteRibbon
                 Button(WriteCommandIds.PictureChange),
                 Button(WriteCommandIds.PictureResetSize)),
             new MatRibbonGroup("picture-arrange", "Anordnen") { Icon = "align-center" }.Add(
+                new MatRibbonMenuButton(WriteCommandIds.PictureWrap, "", null,
+                    [.. PictureCommands.WrapChoices.Select(choice => Toggle($"{WriteCommandIds.PictureWrap}.{choice.Id}", "pictureWrap"))]) { Size = MatRibbonSize.Large },
                 new MatRibbonRow("picture-align",
                     Toggle(WriteCommandIds.PictureAlignLeft, "pictureAlign", MatRibbonSize.Small),
                     Toggle(WriteCommandIds.PictureAlignCenter, "pictureAlign", MatRibbonSize.Small),

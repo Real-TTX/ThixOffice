@@ -154,6 +154,18 @@ public static partial class SkiaPageRenderer
         if (DecodeImage(item.Key, item.Data) is { } image)
         {
             using var paint = new SKPaint { FilterQuality = SKFilterQuality.High, IsAntialias = true };
+            if (item.Crop is { } crop)
+            {
+                // The shown part of the picture stretched over the rectangle (what lies outside the picture stays empty).
+                var source = SKRect.Create((float)(crop.Left * image.Width), (float)(crop.Top * image.Height),
+                    (float)(image.Width * Math.Max(0.001, 1 - crop.Left - crop.Right)), (float)(image.Height * Math.Max(0.001, 1 - crop.Top - crop.Bottom)));
+                canvas.Save();
+                canvas.ClipRect(rect);
+                canvas.DrawImage(image, source, rect, paint);
+                canvas.Restore();
+                return;
+            }
+
             canvas.DrawImage(image, rect, paint);
             return;
         }

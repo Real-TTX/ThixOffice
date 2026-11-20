@@ -256,7 +256,7 @@ internal static class DocxDrawings
                 result = result with { CustomGeometryXml = custom.OuterXml };
             }
 
-            result = result with { Fill = ReadFill(properties) ?? StyleColor(style, "fillRef", fill: true), Line = ReadLine(properties, style) };
+            result = result with { Fill = ReadFill(properties) ?? StyleColor(style, "fillRef", fill: true), Line = ReadLine(properties, style), Shadow = ReadShadow(properties) };
             if (properties.ChildElements.Any(child => child.LocalName == "noFill"))
             {
                 result = result with { Fill = null };
@@ -329,6 +329,18 @@ internal static class DocxDrawings
         }
 
         return null;
+    }
+
+    /// <summary>The outer shadow of a shape's or picture's properties (a:effectLst/a:outerShdw), or null.</summary>
+    public static DrawingShadow? ReadShadow(OpenXmlElement? properties)
+    {
+        if (Child(Child(properties, "effectLst"), "outerShdw") is not { } shadow || ReadColor(shadow) is not { } color)
+        {
+            return null;
+        }
+
+        double Emu(string name) => DocxValues.EmuToPoints(DocxValues.ParseInteger(DocxValues.AttributeValue(shadow, name)) ?? 0);
+        return new DrawingShadow(color, Emu("blurRad"), Emu("dist"), (DocxValues.ParseInteger(DocxValues.AttributeValue(shadow, "dir")) ?? 0) / 60000.0);
     }
 
     private static DrawingLine? ReadLine(OpenXmlElement properties, OpenXmlElement? style)

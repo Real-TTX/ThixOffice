@@ -39,6 +39,7 @@ internal sealed class DocumentSurface : Control
     private readonly CaretLayer _caretLayer = new();
     private readonly Cursor _ibeam = new(StandardCursorType.Ibeam);
     private readonly Cursor _columnCursor = new(StandardCursorType.SizeWestEast);
+    private readonly Cursor _moveCursor = new(StandardCursorType.SizeAll);
     private ColumnDrag? _columnDrag;
     private ImageDrag? _imageDrag;
     private bool _dimBody;
@@ -711,6 +712,13 @@ internal sealed class DocumentSurface : Control
         if (ImageUnder(point.Position) is { } picture && e.ClickCount == 1 && !e.KeyModifiers.HasFlag(KeyModifiers.Shift))
         {
             Session.Select(picture, picture with { Offset = picture.Offset + 1 });
+            if (Session.SelectedImage?.Image.Anchor is not null && SelectedImageRect() is { } floating)
+            {
+                // A floating picture: dragging it moves it (Word's four-way arrow).
+                _imageDrag = new ImageDrag(MoveHandle, point.Position, point.Position, floating);
+                e.Pointer.Capture(this);
+            }
+
             e.Handled = true;
             return;
         }
@@ -764,6 +772,11 @@ internal sealed class DocumentSurface : Control
         if (_imageDrag is { } drag)
         {
             _imageDrag = drag with { Current = position };
+            if (drag.Handle == MoveHandle && !ReferenceEquals(Cursor, _moveCursor))
+            {
+                Cursor = _moveCursor;
+            }
+
             InvalidateVisual();
             return;
         }
@@ -772,7 +785,8 @@ internal sealed class DocumentSurface : Control
         var handle = !_dragging && SelectedImageRect() is { } selected ? HandleAt(selected, position) : null;
         var cursor = handle is { } index ? HandleCursor(index)
             : _columnDrag is not null || (!_dragging && ColumnBorderAt(position) is not null) ? _columnCursor
-            : !_dragging && ImageUnder(position) is not null ? Cursor.Default
+            : _imageDrag is { Handle: MoveHandle } ? _moveCursor
+            : !_dragging && ImageUnder(position) is { } under ? Session.Document.ParagraphAt(under.Block)?.InlineAt(under.Offset) is ImageInline { Anchor: not null } ? _moveCursor : Cursor.Default
             : _dragging || PageUnder(position) >= 0 ? _ibeam : Cursor.Default;
         if (!ReferenceEquals(Cursor, cursor))
         {
@@ -806,7 +820,23 @@ internal sealed class DocumentSurface : Control
             ResizeColumn(drag, e.GetPosition(this));
         }
 
-        if (_imageDrag is { } sizing && SelectedImageRect() is { } before)
+        if (_imageDrag is { Handle: MoveHandle } moving && Session.SelectedImage is { } floating && SelectedImageRect() is { } from)
+        {
+            _imageDrag = null;
+            var to = Resized(moving with { Current = e.GetPosition(this) }, from);
+            var page = PageUnder(from.Center);
+            if ((Math.Abs(to.X - from.X) > 0.5 || Math.Abs(to.Y - from.Y) > 0.5) && page >= 0)
+            {
+                var pageRect = PageRect(page);
+                if (Layout.AnchorOffsetsFor(floating.Position, (to.X - pageRect.X) / _scale, (to.Y - pageRect.Y) / _scale) is { } offsets)
+                {
+                    Session.MoveImage(offsets.OffsetX, offsets.OffsetY);
+                }
+            }
+
+            InvalidateVisual();
+        }
+        else if (_imageDrag is { } sizing && SelectedImageRect() is { } before)
         {
             _imageDrag = null;
             var after = Resized(sizing with { Current = e.GetPosition(this), Free = e.KeyModifiers.HasFlag(KeyModifiers.Shift) }, before);
@@ -945,9 +975,17 @@ internal sealed class DocumentSurface : Control
 
     private static Cursor HandleCursor(int handle) => SelectionHandles.CursorOf(handle);
 
-    /// <summary>The frame a handle drag gives: corners scale both sides in proportion (Umschalt frees them), side handles one side.</summary>
+    /// <summary>The "handle" of moving a floating picture (the picture itself is dragged).</summary>
+    private const int MoveHandle = -1;
+
+    /// <summary>The frame a handle drag gives: corners scale both sides in proportion (Umschalt frees them), side handles one side; moving shifts it.</summary>
     private static Rect Resized(ImageDrag drag, Rect original)
     {
+        if (drag.Handle == MoveHandle)
+        {
+            return original.Translate(new Vector(drag.Current.X - drag.Start.X, drag.Current.Y - drag.Start.Y));
+        }
+
         var size = SelectionHandles.Resize(original, drag.Handle, drag.Current.X - drag.Start.X, drag.Current.Y - drag.Start.Y, proportional: !drag.Free);
         return new Rect(original.X, original.Bottom - size.Height, size.Width, size.Height);
     }

@@ -70,6 +70,13 @@ public sealed record DrawingFill(DrawingColor? Color, EquatableArray<(double Pos
 /// <summary>An outline: colour, width in points, dash (a:prstDash: "solid", "dash", "sysDot" …).</summary>
 public sealed record DrawingLine(DrawingColor Color, double Width, string Dash = "solid");
 
+/// <summary>A shadow outside a shape or picture (a:outerShdw): colour (with its alpha), blur and distance in points, direction in degrees (0 = right, 90 = down).</summary>
+public sealed record DrawingShadow(DrawingColor Color, double Blur, double Distance, double Direction)
+{
+    /// <summary>The offset of the shadow in points.</summary>
+    public (double X, double Y) Offset => (Distance * Math.Cos(Direction * Math.PI / 180), Distance * Math.Sin(Direction * Math.PI / 180));
+}
+
 /// <summary>Where the text of a shape starts vertically (wps:bodyPr anchor).</summary>
 public enum DrawingTextAnchor
 {
@@ -104,6 +111,9 @@ public sealed record DrawingShape(double X, double Y, double Width, double Heigh
     public DrawingFill? Fill { get; init; }
 
     public DrawingLine? Line { get; init; }
+
+    /// <summary>"Schatten" (a:effectLst/a:outerShdw), or null.</summary>
+    public DrawingShadow? Shadow { get; init; }
 
     public Story? Text { get; init; }
 

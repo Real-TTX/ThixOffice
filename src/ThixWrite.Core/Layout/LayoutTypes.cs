@@ -279,6 +279,9 @@ public sealed record PlacedFloat(int Block, int Offset, Inline Inline, DrawingAn
     public double AreaLeft { get; init; }
 
     public double AreaRight { get; init; } = double.MaxValue / 4;
+
+    /// <summary>The top of the anchor's paragraph on the page (the frames "paragraph" and "line" measure from it).</summary>
+    public double ParagraphTop { get; init; }
 }
 
 /// <summary>One page: size, margins (from its section), the lines on it in order, and the table cells on it.</summary>

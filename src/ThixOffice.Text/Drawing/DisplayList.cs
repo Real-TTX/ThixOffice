@@ -79,7 +79,14 @@ public sealed record LineItem(
 /// A picture: its encoded bytes (PNG, JPEG, GIF, BMP) drawn into the rectangle (points). <see cref="Key"/> names the bytes
 /// (a hash), so that a renderer decodes each picture once.
 /// </summary>
-public sealed record ImageItem(double X, double Y, double Width, double Height, string Key, byte[] Data) : DisplayItem;
+public sealed record ImageItem(double X, double Y, double Width, double Height, string Key, byte[] Data) : DisplayItem
+{
+    /// <summary>
+    /// The part of the picture that is shown ("Zuschneiden"): what is cut off at the left, top, right and bottom as fractions of its size
+    /// (negative = room added); null shows all of it.
+    /// </summary>
+    public (double Left, double Top, double Right, double Bottom)? Crop { get; init; }
+}
 
 /// <summary>Everything on one page, in drawing order; the size in points.</summary>
 public sealed record PageDisplayList(int PageIndex, double Width, double Height, IReadOnlyList<DisplayItem> Items);

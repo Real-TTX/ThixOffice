@@ -279,6 +279,9 @@ public static class DisplayListBuilder
                     items.Add(new LineItem(placed.Left + tab.X + 1, baseline, placed.Left + tab.X + tab.Width - 1, baseline, ColorOf(tab.Format),
                         tab.Leader == TabLeader.Heavy ? 1.2 : 0.6, style));
                     break;
+                case ObjectItem { Inline: ImageInline { Crop: not null } or ImageInline { Shadow: not null } } picture when drawObject is not null:
+                    items.AddRange(drawObject(picture.Inline, placed.Left + picture.X, baseline - picture.Height, picture.Width, picture.Height));
+                    break;
                 case ObjectItem { Inline: OpaqueInline drawn } drawing when drawObject is not null && (drawn.Graphic is not null || drawn.Nested is not null || drawn.Math is not null):
                     items.AddRange(drawObject(drawing.Inline, placed.Left + drawing.X, baseline - drawing.Height, drawing.Width, drawing.Height));
                     break;

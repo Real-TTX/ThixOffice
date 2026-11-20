@@ -65,6 +65,21 @@ public static class PictureCommands
             });
         }
 
+        commands.Add(new OfficeCommand(WriteCommandIds.PictureWrap, "Textumbruch", () => Task.CompletedTask)
+        {
+            Icon = "wrap-text", CanExecute = Selected,
+            Description = "Legt fest, wie der Text um das Bild fließt: in der Zeile, rundherum, darüber und darunter, dahinter oder davor.",
+            Keywords = ["umbruch", "layoutoptionen", "frei positionieren", "quadrat", "hinter den text", "vor den text"],
+        });
+        foreach (var (choiceId, label, icon, wrap) in WrapChoices)
+        {
+            commands.Add(new OfficeCommand($"{WriteCommandIds.PictureWrap}.{choiceId}", label, () => SetWrap(Editor(), wrap))
+            {
+                Icon = icon, CanExecute = Selected, IsSearchable = false,
+                IsChecked = () => Editor()?.Session.SelectedImageWrap == wrap,
+            });
+        }
+
         commands.Add(new OfficeValueCommand(WriteCommandIds.PictureHeight, "Höhe", OfficeValueKind.Number,
             () => Picture() is { } picture ? Centimetres(picture.Height) : null,
             value => Resize(Editor(), value, byWidth: false))
@@ -77,6 +92,28 @@ public static class PictureCommands
         {
             Icon = "", CanExecute = Selected, IsSearchable = false,
         });
+    }
+
+    /// <summary>Word's "Textumbruch" choices: id, label, icon, wrap.</summary>
+    public static readonly IReadOnlyList<(string Id, string Label, string Icon, PictureWrap Wrap)> WrapChoices =
+    [
+        ("inline", "Mit Text in Zeile", "type", PictureWrap.InLine),
+        ("square", "Quadrat", "wrap-text", PictureWrap.Square),
+        ("topBottom", "Oben und unten", "row-insert", PictureWrap.TopAndBottom),
+        ("behind", "Hinter den Text", "layers", PictureWrap.BehindText),
+        ("front", "Vor den Text", "layers", PictureWrap.InFrontOfText),
+    ];
+
+    /// <summary>A picture that starts to float stays where it was shown.</summary>
+    private static void SetWrap(WriteEditor? editor, PictureWrap wrap)
+    {
+        if (editor?.Session.SelectedImage is not { } selected)
+        {
+            return;
+        }
+
+        var at = selected.Image.Anchor is null ? editor.Layout.InlineOffsetsOf(selected.Position) : null;
+        editor.Session.SetImageWrap(wrap, at);
     }
 
     private static string Centimetres(double points) => Math.Round(points / PointsPerCm, 2).ToString(CultureInfo.InvariantCulture);
