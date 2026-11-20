@@ -141,7 +141,7 @@ public partial class App : OfficeApplication
             case ViewScene:
                 window.Ribbon.SelectTab("view");
                 editor.ShowRuler = true;
-                editor.ZoomToWholePage();
+                editor.ZoomToMultiplePages(); // Ansicht › Mehrere Seiten
                 return window;
             case FindScene:
                 editor.FindBar.Open(replace: true);

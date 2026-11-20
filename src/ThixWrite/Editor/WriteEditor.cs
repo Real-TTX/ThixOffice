@@ -868,23 +868,34 @@ public sealed class WriteEditor : OfficeEditor
     {
         var width = _scroller.Viewport.Width > 0 ? _scroller.Viewport.Width : _view.Bounds.Width;
         var page = Layout.Pages.Max(candidate => candidate.Width);
+        _surface.PagesAcross = 1;
         if (width > 0)
         {
             Zoom = Math.Floor((width - (2 * DocumentSurface.SideMargin)) / (page * DocumentSurface.PointsToDips) * 100);
         }
     }
 
-    /// <summary>"Ganze Seite": the page of the caret fits into the window.</summary>
-    public void ZoomToWholePage()
+    /// <summary>Pages side by side (Ansicht › Mehrere Seiten: 2; Eine Seite, Seitenbreite: 1).</summary>
+    public int PagesAcross => _surface.PagesAcross;
+
+    /// <summary>"Ganze Seite" / Ansicht › Eine Seite: the page of the caret fits into the window.</summary>
+    public void ZoomToWholePage() => ZoomToPages(1);
+
+    /// <summary>Ansicht › Mehrere Seiten: two pages side by side, both whole in the window (the caret's page and its neighbour).</summary>
+    public void ZoomToMultiplePages() => ZoomToPages(Math.Min(2, Math.Max(1, Layout.PageCount)));
+
+    private void ZoomToPages(int across)
     {
         var viewport = _scroller.Viewport.Width > 0 ? _scroller.Viewport : _view.Bounds.Size;
         var page = Layout.Pages[Math.Clamp(_surface.CaretPage, 0, Layout.PageCount - 1)];
+        _surface.PagesAcross = across;
         if (viewport.Width <= 0 || viewport.Height <= 0)
         {
             return;
         }
 
-        var byWidth = (viewport.Width - (2 * DocumentSurface.SideMargin)) / (page.Width * DocumentSurface.PointsToDips);
+        var rowWidth = (page.Width * across) + (Layout.Options.PageGap * (across - 1));
+        var byWidth = (viewport.Width - (2 * DocumentSurface.SideMargin)) / (rowWidth * DocumentSurface.PointsToDips);
         var byHeight = (viewport.Height - (2 * DocumentSurface.TopMargin)) / (page.Height * DocumentSurface.PointsToDips);
         Zoom = Math.Floor(Math.Min(byWidth, byHeight) * 100);
         Dispatcher.UIThread.Post(() =>

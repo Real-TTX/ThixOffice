@@ -320,6 +320,9 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   Kopfzeile (PowerPlusWaterMarkObject / WordPictureWatermark), gelesen und gezeichnet (gestreckter Text, gedreht, durchscheinend; Bild
   blass hinter dem Text). Lücken: Designs aus .thmx-Dateien, eigene Farb-/Schriftsätze, Effekte, Absatzabstand; ein Wasserzeichen in einer
   Kopfzeile mit Tabelle wird nicht gezeichnet (erhalten bleibt es).
+  **B6 Ansicht erledigt:** Zoom › Eine Seite, Mehrere Seiten (zwei ganze Seiten nebeneinander; Klicken, Markieren und Zeichnen gehen über
+  die Zeilen aus Seiten), Seitenbreite (wieder eine Seite unter der anderen). Lücke: Word legt bei kleinem Zoom von selbst so viele Seiten
+  nebeneinander, wie passen – ThixWrite nur über „Mehrere Seiten“.
   **Noch falsch:** die innere Tabelle ist nicht bearbeitbar; Einfügemarke und Markierung in gedrehten Zellen stehen waagrecht;
   Spaltenoperationen (Spalte einfügen/löschen) an Tabellen mit Lückenzeilen rechnen die Lücke nicht mit; eine schwebende Tabelle
   wird nie geteilt und umfließt keine anderen Objekte; Formeln sind nicht bearbeitbar (kein Formel-Editor), m:jc/Ausrichtung an „&“
@@ -379,7 +382,7 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
 | Überprüfen | Änderungen nachverfolgen (Strg+Umschalt+E: Einfügen/Löschen), einzeln annehmen/ablehnen, Vorherige/Nächste, Markup-Ansichten (Einfach, Alle, Keine, Original) | neu (Formatänderungen und Absatzmarken werden nicht aufgezeichnet) |
 | Überprüfen | Vergleichen, Schützen, Freihand | – |
 | Ansicht | Drucklayout, Lineal, Navigationsbereich, Zoom, 100 %, Eine Seite / Seitenbreite | vorhanden |
-| Ansicht | Mehrere Seiten | fehlt |
+| Ansicht | Mehrere Seiten (zwei Seiten nebeneinander) | neu |
 | Ansicht | Lesemodus, Weblayout, Gliederung, Entwurf, Fenster teilen, Makros | – |
 
 **Tastenkombinationen wie im deutschen Word (neu):** Strg+Umschalt+F/K/U fett/kursiv/unterstrichen (Strg+B ist jetzt Blocksatz wie in

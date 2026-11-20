@@ -193,6 +193,7 @@ public static class WriteCommandIds
     public const string ZoomDialog = "write.zoom";
     public const string ZoomPageWidth = "write.zoomPageWidth";
     public const string ZoomWholePage = "write.zoomWholePage";
+    public const string ZoomMultiplePages = "write.zoomMultiplePages";
 
     // Layout › Spalten, Umbrüche; Entwurf; Groß-/Kleinschreibung; Änderungen; the keys of German Word
     public const string Columns = "write.columns";
@@ -635,6 +636,7 @@ public static class WriteRibbon
                 Button(CommonCommandIds.Zoom100, MatRibbonSize.Large),
                 new MatRibbonStack("zoom-fit",
                     Button(WriteCommandIds.ZoomWholePage),
+                    Button(WriteCommandIds.ZoomMultiplePages),
                     Button(WriteCommandIds.ZoomPageWidth)),
                 new MatRibbonStack("zoom-steps",
                     Button(CommonCommandIds.ZoomIn),

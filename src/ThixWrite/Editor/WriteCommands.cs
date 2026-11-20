@@ -306,9 +306,13 @@ public static class WriteCommands
         {
             Icon = "columns", CanExecute = HasEditor, Description = "Zeigt die Seite so groß, dass sie die Fensterbreite füllt.", Keywords = ["zoom", "breite", "anpassen"],
         });
-        commands.Add(new OfficeCommand(WriteCommandIds.ZoomWholePage, "Ganze Seite", () => Editor()?.ZoomToWholePage())
+        commands.Add(new OfficeCommand(WriteCommandIds.ZoomWholePage, "Eine Seite", () => Editor()?.ZoomToWholePage())
         {
-            Icon = "file", CanExecute = HasEditor, Description = "Zeigt eine ganze Seite im Fenster.", Keywords = ["zoom", "seite", "anpassen"],
+            Icon = "file", CanExecute = HasEditor, Description = "Zeigt eine ganze Seite im Fenster.", Keywords = ["zoom", "seite", "ganze seite", "anpassen"],
+        });
+        commands.Add(new OfficeCommand(WriteCommandIds.ZoomMultiplePages, "Mehrere Seiten", () => Editor()?.ZoomToMultiplePages())
+        {
+            Icon = "copy", CanExecute = HasEditor, Description = "Zeigt zwei ganze Seiten nebeneinander im Fenster.", Keywords = ["zoom", "seiten", "nebeneinander", "zwei"],
         });
     }
 

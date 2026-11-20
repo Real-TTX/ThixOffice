@@ -560,6 +560,8 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   `DrawingWordArt`, drawn stretched/rotated/translucent by `DocumentLayout.DrawWordArt`); picture = VML `WordPictureWatermark` read into an
   `ImageInline { IsWatermark, Washout }` and written back as VML. UI: `DesignCommands` (Entwurf › Dokumentformatierung, Seitenhintergrund ›
   Wasserzeichen), `Dialogs/WatermarkDialog`; snapshot scene `-main-design`.
+- Ansicht › Mehrere Seiten: `DocumentSurface.PagesAcross` (rows of pages side by side; `PageRect`, `HitAt`, `PageUnder`, measure and
+  render go through the rows when > 1), `WriteEditor.ZoomToMultiplePages` / `ZoomToWholePage` (Eine Seite) / `ZoomToPageWidth` set it.
 
 ### Formatvorlagen
 

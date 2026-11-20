@@ -327,4 +327,33 @@ public sealed class EditorTests
         await SettleAsync();
         Assert.True(editor.Surface.PageRect(0).Height <= editor.Scroller.Viewport.Height);
     }
+
+    [AvaloniaFact]
+    public async Task Mehrere_Seiten_puts_two_pages_side_by_side_and_a_click_on_the_second_puts_the_caret_there()
+    {
+        using var data = new TestData();
+        var window = await NewWindowAsync();
+        var editor = EditorOf(window);
+        await TypeAsync(window, "Erste Seite");
+        await PressAsync(window, PhysicalKey.Enter, CommandKey); // Strg+Eingabe: page break
+        await TypeAsync(window, "Zweite Seite");
+        Assert.Equal(2, editor.Layout.PageCount);
+
+        await window.Commands[WriteCommandIds.ZoomMultiplePages].ExecuteAsync();
+        await SettleAsync();
+        Assert.Equal(2, editor.PagesAcross);
+        var first = editor.Surface.PageRect(0);
+        var second = editor.Surface.PageRect(1);
+        Assert.Equal(first.Top, second.Top, 1);
+        Assert.True(second.Left > first.Right);
+        Assert.True(second.Right <= editor.Scroller.Viewport.Width && first.Height <= editor.Scroller.Viewport.Height);
+
+        var hit = editor.Surface.HitAt(new Point(second.Left + (second.Width / 2), second.Top + (second.Height * 0.12)));
+        Assert.Equal(editor.Session.Document.BlockCount - 1, hit.Position.Block);
+
+        await window.Commands[WriteCommandIds.ZoomWholePage].ExecuteAsync();
+        await SettleAsync();
+        Assert.Equal(1, editor.PagesAcross);
+        Assert.True(editor.Surface.PageRect(1).Top > editor.Surface.PageRect(0).Bottom);
+    }
 }

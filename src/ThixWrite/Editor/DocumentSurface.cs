@@ -190,6 +190,76 @@ internal sealed class DocumentSurface : Control
 
     // ===== Geometry =====
 
+    /// <summary>
+    /// Ansicht › Mehrere Seiten: how many pages stand side by side in a row (1 = one below the other, Eine Seite / Seitenbreite).
+    /// </summary>
+    public int PagesAcross
+    {
+        get => _pagesAcross;
+        set
+        {
+            var across = Math.Clamp(value, 1, 6);
+            if (across == _pagesAcross)
+            {
+                return;
+            }
+
+            _pagesAcross = across;
+            InvalidateMeasure();
+            InvalidateVisual();
+            ScheduleRefresh();
+        }
+    }
+
+    private int _pagesAcross = 1;
+
+    private bool InRows => _pagesAcross > 1 && !IsStory;
+
+    /// <summary>The rows of pages side by side (points): first page, top, height, width – only when more than one page stands in a row.</summary>
+    private List<(int First, double Top, double Height, double Width)> Rows()
+    {
+        var rows = new List<(int, double, double, double)>();
+        var gap = Layout.Options.PageGap;
+        var top = 0.0;
+        for (var first = 0; first < Layout.PageCount; first += _pagesAcross)
+        {
+            var pages = Enumerable.Range(first, Math.Min(_pagesAcross, Layout.PageCount - first)).Select(index => Layout.Pages[index]).ToList();
+            var height = pages.Max(page => page.Height);
+            var width = pages.Sum(page => page.Width) + (gap * (pages.Count - 1));
+            rows.Add((first, top, height, width));
+            top += height + gap;
+        }
+
+        return rows;
+    }
+
+    /// <summary>The page at a point of this control and the y in it (points), for pages side by side; the nearest page of the row.</summary>
+    private (int Page, double Y) PageAt(Point point)
+    {
+        if (!InRows)
+        {
+            return Layout.PageAt((point.Y - Top) / _scale);
+        }
+
+        var rows = Rows();
+        var y = (point.Y - Top) / _scale;
+        var row = rows.FindLastIndex(candidate => candidate.Top <= y);
+        row = Math.Max(0, row);
+        var (first, rowTop, _, _) = rows[row];
+        var last = Math.Min(first + _pagesAcross, Layout.PageCount) - 1;
+        var page = last;
+        for (var index = first; index < last; index++)
+        {
+            if (point.X < PageRect(index).Right + (Layout.Options.PageGap * _scale / 2))
+            {
+                page = index;
+                break;
+            }
+        }
+
+        return (page, Math.Clamp(y - rowTop, 0, Layout.Pages[page].Height));
+    }
+
     /// <summary>The rectangle of page <paramref name="page"/> in this control (DIP).</summary>
     public Rect PageRect(int page)
     {
@@ -198,6 +268,18 @@ internal sealed class DocumentSurface : Control
         if (IsStory)
         {
             return new Rect(0, 0, width, StoryHeight * _scale);
+        }
+
+        if (InRows)
+        {
+            var row = Rows()[page / _pagesAcross];
+            var left = Math.Max(SideMargin, (Bounds.Width - (row.Width * _scale)) / 2);
+            for (var index = row.First; index < page; index++)
+            {
+                left += (Layout.Pages[index].Width + Layout.Options.PageGap) * _scale;
+            }
+
+            return new Rect(left, TopMargin + (row.Top * _scale), width, layout.Height * _scale);
         }
 
         var x = Math.Max(SideMargin, (Bounds.Width - width) / 2);
@@ -214,7 +296,7 @@ internal sealed class DocumentSurface : Control
     /// <summary>The caret place nearest to a point of this control.</summary>
     public HitResult HitAt(Point point)
     {
-        var (page, y) = Layout.PageAt((point.Y - Top) / _scale);
+        var (page, y) = PageAt(point);
         var rect = PageRect(page);
         return Layout.HitTest(page, (point.X - rect.X) / _scale, y);
     }
@@ -222,7 +304,7 @@ internal sealed class DocumentSurface : Control
     /// <summary>The page under a point, or -1 on the workspace.</summary>
     public int PageUnder(Point point)
     {
-        var (page, _) = Layout.PageAt((point.Y - Top) / _scale);
+        var (page, _) = PageAt(point);
         return PageRect(page).Contains(point) ? page : -1;
     }
 
@@ -250,6 +332,12 @@ internal sealed class DocumentSurface : Control
             return new Size(width, StoryHeight * _scale);
         }
 
+        if (InRows && pages.Count > 0)
+        {
+            var rows = Rows();
+            return new Size((rows.Max(row => row.Width) * _scale) + (2 * SideMargin), ((rows[^1].Top + rows[^1].Height) * _scale) + (2 * TopMargin));
+        }
+
         return new Size(width + (2 * SideMargin), (Layout.StackedHeight * _scale) + (2 * TopMargin));
     }
 
@@ -274,7 +362,7 @@ internal sealed class DocumentSurface : Control
         var drawn = new List<int>();
         if (Layout.PageCount > 0)
         {
-            var (first, _) = Layout.PageAt(Math.Max(0, (visible.Top - Top) / _scale));
+            var (first, _) = InRows ? PageAt(new Point(0, Math.Max(Top, visible.Top))) : Layout.PageAt(Math.Max(0, (visible.Top - Top) / _scale));
             for (var page = first; page < Layout.PageCount; page++)
             {
                 var rect = PageRect(page);
