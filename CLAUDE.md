@@ -128,7 +128,10 @@ src/ThixOffice.Text        (no UI, no native code) ITextMeasurer, FontSpec/FontM
                            Béziers, Matrix2D, paints – solid, linear/radial gradient, picture –, StrokeStyle with dashes/caps/joins,
                            DropShadow, VectorPathItem (+ Solid(…) for plain colours, Translated), TransformBegin(Matrix)/End (+ At(x, y,
                            rotation, scale)), ClipPathBegin, OpacityBegin/End); no second path or transform type, Unicode/ LineBreaker (UAX 14),
-                           TextBoundaries (graphemes, words)
+                           TextBoundaries (graphemes, words); Drawing/Geometry/ = THE preset geometry engine of every app (GeometryDefinition,
+                           PresetGeometries: 126 presets, GeometryEvaluator: guide formulas → paths, text rectangle, handles; ThixShow's
+                           GeometryEngine adapts its ShapeGeometry); Drawing/ColorTransforms (ColorValue: DrawingML colour transforms as Office
+                           computes them – lumMod/lumOff in HSL, tint/shade in linear RGB; ThixShow's ColorResolver delegates)
 src/ThixOffice.Charts      (no UI) charts for every app (section "Charts"): Model/ (Chart, ChartPlot, ChartSeries, ChartAxis, ChartLegend,
                            DataLabels, ChartColor + ChartColors (theme accents, colour sets), ChartTemplates (+ ChartFactory: Excel's
                            new charts), ChartEdits (pure element changes)), Data/ (IChartDataSource, IChartValueFormatter,
@@ -346,8 +349,8 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 
 - **Model:** `ImageData` (the bytes of a PNG/JPEG/GIF/BMP, format, pixel size and resolution read from the header – the core
   decodes nothing; equal by SHA-256 `Key`) inside an `ImageInline` (one object character, size in points, alternative text;
-  `SourceXml`/`SourcePart`: the w:drawing as read, written back unchanged while the picture is; `IsFloating`: a wp:anchor,
-  shown in the text flow, noted in `UnsupportedContent` as FloatingDrawing). Session: `InsertImage` (fitted to the text or cell
+  `SourceXml`/`SourcePart`: the w:drawing as read, written back unchanged while the picture is; `IsFloating` + `Anchor`
+  (`DrawingAnchor`): a wp:anchor, placed on the page – see "Floating objects"). Session: `InsertImage` (fitted to the text or cell
   width, then selected), `SelectedImage`, `SetImageSize`, `ResetImageSize`, `SetImageDescription`, `ReplaceImage`.
 - **Drawing:** the layout makes an `ObjectItem` as tall as the picture; the display list has an `ImageItem` (key + bytes);
   `SkiaPageRenderer` decodes each key once (screen, PDF, printing alike).
@@ -375,6 +378,32 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   page) and a `DocumentSurface { IsStory = true }` laid over the page in an overlay canvas; the body is dimmed (`DimBody`), the tab
   Kopf- und Fußzeile shows, `WriteEditor.Session` is the story's (the commands act there). Esc, a double click on the body or
   "Schließen" put the story into the document as ONE step (`SetHeaderFooter`); saving commits first (`WordDocument.Writing`).
+
+### Floating objects, drawings, text boxes, charts (display of what Word wrote)
+
+- **Model** (`Model/Drawings.cs`): `DrawingAnchor` (frames page/margin/column/paragraph/line/…, offset or alignment, `DrawingWrap`
+  Square/Tight/Through/TopAndBottom/None, behind the text, distances, z order); `DrawingGraphic` (size, anchor, elements:
+  `DrawingShape` – preset/custom geometry, adjust values, `DrawingFill`/`DrawingLine` with `DrawingColor` = sRGB or scheme + transforms,
+  text as a `Story`, insets, vertical anchor –, `DrawingPicture`, `DrawingChart` = the chart part's XML). It is DISPLAY data:
+  `OpaqueInline.Graphic` describes a w:drawing / mc:AlternateContent / w:pict the model keeps as XML (written back unchanged).
+- **docx:** `DocxDrawings` (wps shapes and text boxes – w:txbxContent read like the body through `ReadContext.ReadTextBox` –, wpg groups
+  flattened through their transforms, pictures in groups, c:chart parts, SmartArt through its dsp drawing part, VML fallbacks).
+- **Layout** (`DocumentLayout.Floats.cs`): `Flow.PlaceFloats` puts a paragraph's anchored objects on its page (`PlacedFloat`,
+  `PageLayout.Floats`; header/footer ones in `HeaderFooterFloats`), `Flow.Wrapped` lays the paragraph out again around the
+  exclusions of the page (`ParagraphLayouter.Layout(…, exclusions)`: each line in the wider gap, a line without room moves below;
+  such layouts are `IsWrapped` and never reused). Drawing: `DrawObject` (pictures, shapes through `GeometryEvaluator` + the vector
+  layer, text boxes as a cached `DocumentLayout` of their story inside a clip, charts through `ChartRenderer`), behind-text floats
+  first, in-front floats last (z order). Drop caps (`ParagraphProperties.DropCapLines` from w:framePr) are an exclusion the next
+  paragraph flows around.
+- **Columns:** `SectionProperties.ColumnCount/ColumnSpacing/ColumnSeparator/Columns` (+ `ColumnFrames()`); the flow keeps a column
+  and its top (`FlowState.Column/ColumnTop`), `NextColumn` before a new page, column breaks (`LineEnding.ColumnBreak` from the
+  OpaqueInline ColumnBreak), `BalanceColumns` before a continuous section break, `PageLayout.ColumnLines` for w:sep.
+- **Content controls:** a w:sdt around paragraphs (and tables between them) opens as its paragraphs with `ContentControlMarkInline`
+  marks (start keeps w:sdtPr/w:sdtEndPr); `DocxWriter.ControlNesting` writes the w:sdt back. Inline content controls stay OpaqueInline.
+- **Formats shown from files:** table style conditions (`Style.Conditions`, `TableProperties.Look`, `StyleResolver.ConditionMask/
+  ConditionsOf`), character caps/small caps/hidden/spacing/scale/position/shading, paragraph borders and shading, `Document.PageColor`,
+  headers/footers with tables (`PlaceStoryWithTables`: the story as its own layout). Tracked changes show as the final text; the
+  session's `AcceptAllRevisions`/`RejectAllRevisions` resolve them.
 
 ### Footnotes and endnotes
 
@@ -707,6 +736,12 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   ≈ 45 MB runs the self test in CI).
 - Run: `dotnet run --project src/ThixWrite`; with `THIXWRITE_DATA_DIR=<folder>` an instance of its own (settings, recent list,
   recovery in that folder) that never meets the installed one. A development build never runs the setup.
+- **Real-world corpus:** tests/ThixWrite.Core.Tests/Fixtures/RealWorld (generated by `RealWorld/CorpusDocuments` +
+  `WordPackage`/`WordStyles`/`OfficeTheme`/`Wml` the way German Word writes docx – `THIXWRITE_CORPUS_WRITE=1 dotnet test
+  tests/ThixWrite.Core.Tests --filter Regenerate` rewrites them – plus ApachePOI/ files Word wrote, Apache 2.0). `RealWorldTests`: every
+  file opens, lays out and round-trips without losing a part, plus facts per defect class. LOOK at them:
+  `THIXWRITE_RENDER=<folder> [THIXWRITE_RENDER_FILTER=<part of a name>] dotnet test tests/ThixWrite.Core.Tests --filter CorpusRendering`
+  draws every page as PNG.
 - **Snapshots:** `dotnet run --project src/ThixWrite -- --snapshot <folder>` draws every window headless in light and dark
   (`thixwrite-main`, `-main-ribbon-collapsed`, `-backstage-{new,open,saveas,settings,settings-save,settings-updates,about}`,
   `-dialog-save-changes`, `-setup-{welcome,options,update,uninstall}` on Windows, and the app's scenes

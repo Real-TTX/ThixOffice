@@ -244,6 +244,89 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   und Absatzrahmen, Formen und Textfelder, Verzeichnisse als Felder (sie werden zu Absätzen), verschachtelte Tabellen.
 - **Stand 1c (2026-11-19): erledigt** (Lücken siehe die Punkte oben).
 - Danach: Launcher-Eintrag (siehe 6).
+- **1d – Treue zu echten Word-Dokumenten (2026-11-20):** ein Korpus in tests/ThixWrite.Core.Tests/Fixtures/RealWorld – 14 erzeugte
+  Dokumente, so geschrieben, wie das deutsche Word sie schreibt (Theme 2007/2013/2023, styles.xml mit deutschen Ids wie „berschrift1“,
+  latente Formatvorlagen, Tabellenformatvorlagen mit bedingten Formaten, numbering.xml, Einstellungen; Deckblatt + Verzeichnis, Bilder
+  und Formen frei positioniert, Diagramm + SmartArt, Spalten und Abschnitte, Typografie, Listen, Tabellen, Überarbeitung, DIN-5008-Brief,
+  Rechnung, Lebenslauf, Querformat-Bericht, Word-2007-Dokument, Newsletter) und 12 Dateien aus Apache POIs Testdaten (Apache 2.0,
+  von Word geschrieben). Jede Datei: öffnen, umbrechen, docx-Rundreise ohne Verlust (alle Teile bleiben); Fakten je Defektklasse.
+  **Behoben:** bedingte Formate der Tabellenformatvorlagen (Überschrift, Bänder, erste Spalte, Ergebniszeile – w:tblLook);
+  frei positionierte Bilder, Formen (126 Voreinstellungen über die gemeinsame Geometrie), Textfelder (eigene Story, an der Box
+  abgeschnitten), Gruppen, Diagramme (ThixOffice.Charts aus den Cache-Werten) und SmartArt (sein Zeichnungsteil) an ihrem Anker
+  (Seite/Rand/Spalte/Absatz/Zeile, Versatz oder Ausrichtung) mit Textumbruch Quadrat/Passend/Oben und unten, hinter/vor dem Text,
+  auch in Kopf- und Fußzeilen; Inhaltssteuerelemente um Absätze (Deckblätter) werden zu bearbeitbaren Absätzen und als w:sdt
+  zurückgeschrieben; Spalten (gleich breit, eigene Breiten, Zwischenlinie, Spaltenumbruch, ausgeglichen vor fortlaufendem
+  Abschnittswechsel); Zeichen: Kapitälchen, Großbuchstaben, ausgeblendet, Abstand, Skalierung, Position, Schattierung; Absatzrahmen
+  und -schattierung; Seitenfarbe; Initialen; Tabellen in Kopf- und Fußzeilen.
+  **Noch falsch / Lücken:** Text umfließt nur rechteckig (keine Umbruchpolygone, keine „Durchgehend“-Form), Absätze, die über eine
+  Seite laufen, behalten den Umbruch um ein Objekt der ersten Seite; Tabellen umfließen keine Objekte und stehen in Spalten über die
+  ganze Breite; schwebende Tabellen (w:tblpPr) stehen im Textfluss; verschachtelte Tabellen und Zeilen mit w:gridBefore bleiben
+  graue Rahmen (erhalten, nicht gezeigt); Textrichtung in Zellen (btLr) wird nicht gedreht; Formeln (OMML) werden nicht gezeigt;
+  WordArt-Verformungen (prstTxWarp), Schatten/3-D/Effekte und Bildzuschnitt fehlen; Inhaltssteuerelemente in einer Zeile zeigen
+  ihren Text in einem Format; nachverfolgte Einfügungen zeigen die Formatierung ihres ersten Laufs; Absatzrahmen vergrößern den
+  Absatz nicht (der Rahmen kann in den Abstand ragen); fehlende Schriften (Aptos, Calibri auf dem Mac) fallen auf die Systemschrift
+  zurück, Zeilenumbrüche weichen daher leicht ab; Spaltenumbruch und Spaltenausgleich gelten nicht in Tabellen.
+
+#### Word-Vergleich (Stand 2026-11-20): deutsches Menüband Karte für Karte
+
+„vorhanden“ = gab es schon; „neu“ = mit 1d gebaut; „fehlt“ = noch nicht; „geplant“ = bewusst später; „–“ = nicht vorgesehen.
+
+| Karte | Word-Befehl | ThixWrite |
+| --- | --- | --- |
+| Datei | Neu, Öffnen, Speichern, Speichern unter (F12), Drucken, Exportieren, Schließen, Optionen | vorhanden |
+| Datei | Speichern unter › PDF (*.pdf), „Als PDF speichern“ | neu |
+| Start | Einfügen, Ausschneiden, Kopieren, Format übertragen, Nur Text einfügen | vorhanden |
+| Start | Inhalte einfügen (Dialog) | fehlt |
+| Start | Schriftart, Schriftgrad, vergrößern/verkleinern, Formatierung löschen, F/K/U, durchgestrichen, tief/hoch, Hervorhebung, Schriftfarbe | vorhanden |
+| Start | Groß-/Kleinschreibung (Menü, Umschalt+F3) | neu |
+| Start | Texteffekte und Typografie | fehlt |
+| Start | Aufzählung, Nummerierung, Einzug, Ausrichtung, Zeilenabstand, Formatierungszeichen | vorhanden |
+| Start | Mehrstufige Liste (Galerie), Listenebene ändern | fehlt (Ebene per Tab) |
+| Start | Sortieren | fehlt |
+| Start | Schattierung, Rahmen und Schattierung (Dialog) | fehlt (Absatzrahmen/-schattierung aus Dateien werden gezeigt) |
+| Start | Formatvorlagen-Galerie | vorhanden (feste Einträge) |
+| Start | Formatvorlage ändern / neu (Dialog) | fehlt |
+| Start | Suchen, Ersetzen, Markieren (Alles) | vorhanden |
+| Start | Suchen erweitert (Format, Platzhalter), Markieren › ähnliche Formatierung | fehlt / geplant |
+| Einfügen | Deckblatt, Leere Seite | fehlt |
+| Einfügen | Seitenumbruch | vorhanden |
+| Einfügen | Tabelle (Raster, Dialog) | vorhanden |
+| Einfügen | Bilder | vorhanden |
+| Einfügen | Formen, Textfeld, SmartArt, Diagramm, Piktogramme, 3D-Modelle | fehlt (aus Dateien werden sie gezeigt und erhalten) |
+| Einfügen | Link, Textmarke, Querverweis | Link vorhanden; Textmarke fehlt; Querverweis – |
+| Einfügen | Kommentar | vorhanden |
+| Einfügen | Kopfzeile, Fußzeile, Seitenzahl | vorhanden |
+| Einfügen | Schnellbausteine, WordArt, Initiale, Signaturzeile | fehlt (Initialen aus Dateien werden gezeigt) |
+| Einfügen | Datum und Uhrzeit, Symbol | vorhanden |
+| Einfügen | Formel | – (Formeln bleiben erhalten, werden nicht gezeigt) |
+| Zeichnen | alle | – |
+| Entwurf | Designs, Farben, Schriftarten, Dokumentformatierung | fehlt |
+| Entwurf | Seitenfarbe | neu |
+| Entwurf | Wasserzeichen, Seitenränder (Rahmen) | fehlt |
+| Layout | Seitenränder, Ausrichtung, Format, Seite einrichten (Dialog) | vorhanden |
+| Layout | Spalten (eins, zwei, drei, links, rechts) | neu |
+| Layout | Umbrüche: Seite, Spalte, Abschnitt (nächste Seite, fortlaufend, gerade, ungerade) | neu |
+| Layout | Zeilennummern, Silbentrennung | – |
+| Layout | Einzug links/rechts, Abstand vor/nach | vorhanden |
+| Layout | Anordnen (Position, Textumbruch, Ebenen, Ausrichten, Gruppieren, Drehen) | fehlt (nur Ausrichtung eines Bildes in der Zeile) |
+| Referenzen | Inhaltsverzeichnis, Tabelle aktualisieren, Fußnote, Endnote, Nächste Fußnote | vorhanden |
+| Referenzen | Zitate, Literaturverzeichnis, Beschriftung, Abbildungsverzeichnis, Index | fehlt |
+| Sendungen | alle | – |
+| Überprüfen | Rechtschreibung (F7), Wörter zählen, Sprache | vorhanden |
+| Überprüfen | Kommentare: neu, löschen, vorheriger/nächster, anzeigen | vorhanden |
+| Überprüfen | Alle Änderungen annehmen / ablehnen | neu |
+| Überprüfen | Änderungen nachverfolgen (aufzeichnen), einzeln annehmen/ablehnen, Markup-Ansichten | fehlt (Änderungen aus Word werden als Endfassung gezeigt) |
+| Überprüfen | Vergleichen, Schützen, Freihand | – |
+| Ansicht | Drucklayout, Lineal, Navigationsbereich, Zoom, 100 %, Eine Seite / Seitenbreite | vorhanden |
+| Ansicht | Mehrere Seiten | fehlt |
+| Ansicht | Lesemodus, Weblayout, Gliederung, Entwurf, Fenster teilen, Makros | – |
+
+**Tastenkombinationen wie im deutschen Word (neu):** Strg+Umschalt+F/K/U fett/kursiv/unterstrichen (Strg+B ist jetzt Blocksatz wie in
+Word; der Mac behält ⌘B/⌘I/⌘U und ⌘J für Blocksatz), Strg+E/L/R Ausrichtung, Strg+1/2/5 Zeilenabstand, Strg+Umschalt+N Standard,
+Alt+1/2/3 Überschrift 1–3 (Mac ⌘⌥1–3), Strg+M / Strg+Umschalt+M Einzug, Umschalt+F3 Groß-/Kleinschreibung, Strg+Eingabe Seitenumbruch,
+Strg+Umschalt+Eingabe Spaltenumbruch, Strg+Leertaste Formatierung löschen, F12 Speichern unter. **Fehlt noch:** Strg+Umschalt+Q
+Kapitälchen, Strg+Umschalt+D doppelt unterstrichen, Strg+# / Strg+Umschalt++ tief-/hochgestellt, Strg+0 Abstand vor, Strg+T hängender
+Einzug, Alt+Umschalt+T/P Uhrzeit/Seitenzahl.
 
 ### Phase 2 – Drive in ThixCloud
 - MatCloud: App-IDs `write`, `calc`, `show`, `drive`; Modul `MatCloud.Apps.Drive` (Dateibaum, Versionen,

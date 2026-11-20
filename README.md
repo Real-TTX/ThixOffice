@@ -48,6 +48,13 @@ Endnoten, Kommentare); .txt wird als reiner Text gelesen und geschrieben. Inhalt
 nicht anzeigt (Kommentare, verschachtelte Tabellen, Formeln …), bleiben beim Speichern erhalten – beim Öffnen sagt ein
 Hinweis, welche es sind.
 
+Dokumente aus Word sehen aus wie in Word: Deckblätter, frei positionierte Bilder, Formen, Textfelder und Gruppen stehen an ihrem
+Platz und der Text fließt um sie herum; Diagramme und SmartArt werden aus der Datei gezeichnet; Tabellenformatvorlagen zeigen ihre
+Überschriftszeile und Bänder; Spalten, Initialen, Seitenfarbe, Absatzrahmen, Kapitälchen und ausgeblendeter Text werden wie in Word
+dargestellt, nachverfolgte Änderungen als Endfassung (Überprüfen › Alle Änderungen annehmen/ablehnen). Neu im Menüband: Layout ›
+Spalten und Umbrüche, Entwurf › Seitenfarbe, Start › Groß-/Kleinschreibung (Umschalt+F3); die Tasten sind die des deutschen Word
+(Strg+Umschalt+F/K/U, Strg+B Blocksatz, Strg+1/2/5, Strg+Umschalt+N, Alt+1/2/3, Strg+M).
+
 ![ThixWrite hell](docs/images/thixwrite-main-light.png)
 
 ![ThixWrite dunkel](docs/images/thixwrite-main-dark.png)
