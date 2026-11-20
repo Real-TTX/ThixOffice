@@ -692,12 +692,27 @@ public abstract class OfficeApplication : Application
             .ToList();
 
     /// <summary>
+    /// The instance of an app: per user, and per <paramref name="scope"/> (the data folder of a development or test run).
+    /// A scoped name uses the capitals of the app ("TW"): on macOS the pipe is a socket in the temporary folder whose path
+    /// may have 103 characters – "ThixWrite" with a scope and a user name was one too many.
+    /// </summary>
+    internal static MatSingleInstance InstanceOf(OfficeAppDefinition definition, string? scope)
+    {
+        if (string.IsNullOrEmpty(scope))
+        {
+            return new MatSingleInstance(definition.Name);
+        }
+
+        return new MatSingleInstance(string.Concat(definition.Name.Where(char.IsUpper)), scope);
+    }
+
+    /// <summary>
     /// One instance per user and data folder (a named mutex and a pipe; on macOS a lock file and a socket): a second start
     /// hands its files to the first one and ends. On Windows the setup may also ask the running instance to end.
     /// </summary>
     private bool TakeSingleInstance(IReadOnlyList<string> files)
     {
-        _instance = new MatSingleInstance(Definition.Name, AppPaths.HasOverride ? AppPaths.DataDirectory : null);
+        _instance = InstanceOf(Definition, AppPaths.HasOverride ? AppPaths.DataDirectory : null);
         if (!ClaimInstance(_instance, files))
         {
             Log.Info($"{Definition.Name} runs already: the files were handed to it");

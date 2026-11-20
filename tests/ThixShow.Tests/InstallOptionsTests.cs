@@ -55,7 +55,7 @@ public sealed class InstallOptionsTests
 
         // The first start: "ThixShow.exe <file>" (Explorer's open command, Finder) – what OfficeApplication.Start opens.
         var scope = Path.Combine(data.Folder, "instance");
-        using var running = new MatSingleInstance("ThixShow", scope);
+        using var running = OfficeApplication.InstanceOf(TestData.App.Definition, scope);
         var files = OfficeApplication.DocumentFilesIn([first]);
         Assert.True(TestData.App.ClaimInstance(running, files));
         await TestData.App.OpenFilesAsync(files);
@@ -63,7 +63,7 @@ public sealed class InstallOptionsTests
         Assert.Equal(first, Assert.Single(TestData.App.DocumentWindows).Document.FilePath);
 
         // A second start with a document hands it over through the pipe and ends; the running one opens it.
-        using var secondStart = new MatSingleInstance("ThixShow", scope);
+        using var secondStart = OfficeApplication.InstanceOf(TestData.App.Definition, scope);
         Assert.False(TestData.App.ClaimInstance(secondStart, OfficeApplication.DocumentFilesIn([second, "--autostart"])));
         for (var wait = 0; wait < 100 && TestData.App.DocumentWindows.Count < 2; wait++)
         {
