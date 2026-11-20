@@ -257,7 +257,7 @@ public sealed class FlowTests
         await SettleAsync();
 
         Assert.Equal(["Start", "Einfügen", "Entwurf", "Layout", "Referenzen", "Überprüfen", "Ansicht"], window.RibbonDefinition.VisibleTabs.Select(tab => tab.Label));
-        Assert.Equal(["Tabellenentwurf", "Layout", "Bildformat", "Kopf- und Fußzeile"], window.RibbonDefinition.Tabs.Where(tab => tab.Context is not null).Select(tab => tab.Label));
+        Assert.Equal(["Tabellenentwurf", "Layout", "Bildformat", "Formformat", "Kopf- und Fußzeile"], window.RibbonDefinition.Tabs.Where(tab => tab.Context is not null).Select(tab => tab.Label));
         Assert.Equal(["Rückgängig", "Zwischenablage", "Schriftart", "Absatz", "Formatvorlagen", "Bearbeiten"], window.RibbonDefinition.Tabs[0].Groups.Select(group => group.Label));
         Assert.Equal(["Tabellen", "Illustrationen", "Seiten", "Kopf- und Fußzeile", "Links", "Text", "Symbole"], window.RibbonDefinition.Tabs[1].Groups.Select(group => group.Label));
         Assert.Equal(["Seitenhintergrund"], window.RibbonDefinition.Tabs[2].Groups.Select(group => group.Label));

@@ -128,6 +128,18 @@ public static class WriteCommandIds
     public const string StyleNew = "write.style.new";
     public const string StyleModify = "write.style.modify";
     public const string StylesPane = "write.stylesPane";
+    public const string CoverPage = "write.coverPage"; // menu; entries write.coverPage.<band|sidebar|frame>
+    public const string BlankPage = "write.blankPage";
+    public const string DropCap = "write.dropCap"; // menu; entries write.dropCap.<none|drop>
+    public const string Bookmark = "write.bookmark";
+    public const string InsertShape = "write.insertShape"; // value: a preset; entries write.insertShape.<preset>
+    public const string InsertTextBox = "write.insertTextBox";
+    public const string ShapeFill = "write.shape.fill"; // value: #rrggbb or empty
+    public const string ShapeLine = "write.shape.line"; // value: #rrggbb or empty
+    public const string ShapeEditText = "write.shape.editText";
+    public const string ShapeWrap = "write.shape.wrap"; // menu; entries write.shape.wrap.<choice>
+    public const string ShapeHeight = "write.shape.height"; // value: cm
+    public const string ShapeWidth = "write.shape.width"; // value: cm
     public const string PictureWrap = "write.picture.wrap"; // menu; entries write.picture.wrap.<inline|square|topBottom|behind|front>
 
     // Kopf- und Fußzeile (contextual, while one is edited)
@@ -265,7 +277,7 @@ public static class WriteRibbon
         }
 
         var styles = (window.Document as WordDocument)?.Session is { } session ? StyleEntriesOf(session) : StyleEntries;
-        definition.Add(HomeTab(theme, Launch, styles), InsertTab(), DesignTab(theme), LayoutTab(), ReferencesTab(), ReviewTab(), ViewTab(), TableDesignTab(theme), TableLayoutTab(), PictureTab(), HeaderFooterTab());
+        definition.Add(HomeTab(theme, Launch, styles), InsertTab(), DesignTab(theme), LayoutTab(), ReferencesTab(), ReviewTab(), ViewTab(), TableDesignTab(theme), TableLayoutTab(), PictureTab(), ShapeTab(theme), HeaderFooterTab());
         return definition;
     }
 
@@ -326,8 +338,13 @@ public static class WriteRibbon
             new MatRibbonGroup("tables", "Tabellen") { Icon = "table" }.Add(
                 new MatRibbonCustom(WriteCommandIds.TablePicker, "Tabelle") { IsTall = true }),
             new MatRibbonGroup("illustrations", "Illustrationen") { Icon = "image" }.Add(
-                Button(WriteCommandIds.InsertPicture, MatRibbonSize.Large)),
+                Button(WriteCommandIds.InsertPicture, MatRibbonSize.Large),
+                new MatRibbonMenuButton(WriteCommandIds.InsertShape, "", null,
+                    [.. ShapeCommands.Presets.Select(shape => Button($"{WriteCommandIds.InsertShape}.{shape.Preset}"))]) { Size = MatRibbonSize.Large }),
             new MatRibbonGroup("pages", "Seiten") { Icon = "page-break" }.Add(
+                new MatRibbonMenuButton(WriteCommandIds.CoverPage, "", null,
+                    [.. InsertCommands.CoverDesigns.Select(design => Button($"{WriteCommandIds.CoverPage}.{design.Id}"))]) { Size = MatRibbonSize.Large },
+                Button(WriteCommandIds.BlankPage, MatRibbonSize.Large),
                 Button(WriteCommandIds.PageBreak, MatRibbonSize.Large)),
             new MatRibbonGroup("header-footer", "Kopf- und Fußzeile") { Icon = "header" }.Add(
                 new MatRibbonMenuButton(WriteCommandIds.Header, "", null,
@@ -339,8 +356,12 @@ public static class WriteRibbon
                 new MatRibbonMenuButton(WriteCommandIds.PageNumber, "", null,
                     [.. HeaderFooterCommands.PageNumberPlaces.Select(place => Button($"{WriteCommandIds.PageNumber}.{place.Id}"))]) { Size = MatRibbonSize.Large }),
             new MatRibbonGroup("links", "Links") { Icon = "link" }.Add(
-                Button(WriteCommandIds.Hyperlink, MatRibbonSize.Large)),
+                Button(WriteCommandIds.Hyperlink, MatRibbonSize.Large),
+                Button(WriteCommandIds.Bookmark, MatRibbonSize.Large)),
             new MatRibbonGroup("text", "Text") { Icon = "clock" }.Add(
+                Button(WriteCommandIds.InsertTextBox, MatRibbonSize.Large),
+                new MatRibbonMenuButton(WriteCommandIds.DropCap, "", null,
+                    Toggle($"{WriteCommandIds.DropCap}.none", "dropCap"), Toggle($"{WriteCommandIds.DropCap}.drop", "dropCap")) { Size = MatRibbonSize.Large },
                 Button(WriteCommandIds.InsertDateTime, MatRibbonSize.Large)),
             new MatRibbonGroup("symbols", "Symbole") { Icon = "symbol" }.Add(
                 new MatRibbonMenuButton(WriteCommandIds.Symbol, "", null,
@@ -468,6 +489,22 @@ public static class WriteRibbon
                 new MatRibbonStack("picture-size-fields",
                     Labelled(Number(WriteCommandIds.PictureHeight, 0.1, 55.87, 0.1, "cm", 2), "Höhe"),
                     Labelled(Number(WriteCommandIds.PictureWidth, 0.1, 55.87, 0.1, "cm", 2), "Breite"))));
+
+    /// <summary>Formformat (contextual): fill, outline, text, wrap, size of the selected shape.</summary>
+    private static MatRibbonTab ShapeTab(Theme theme) =>
+        new MatRibbonTab("shapeFormat", "Formformat") { Context = ShapeCommands.Context }.Add(
+            new MatRibbonGroup("shape-styles", "Formenarten") { Icon = "fill" }.Add(
+                ColorPicker(WriteCommandIds.ShapeFill, DocumentPalette.FontColors(theme), "Keine Füllung"),
+                ColorPicker(WriteCommandIds.ShapeLine, DocumentPalette.FontColors(theme), "Keine Kontur")),
+            new MatRibbonGroup("shape-text", "Text") { Icon = "type" }.Add(
+                Button(WriteCommandIds.ShapeEditText, MatRibbonSize.Large)),
+            new MatRibbonGroup("shape-arrange", "Anordnen") { Icon = "wrap-text" }.Add(
+                new MatRibbonMenuButton(WriteCommandIds.ShapeWrap, "", null,
+                    [.. PictureCommands.WrapChoices.Select(choice => Toggle($"{WriteCommandIds.ShapeWrap}.{choice.Id}", "shapeWrap"))]) { Size = MatRibbonSize.Large }),
+            new MatRibbonGroup("shape-size", "Größe") { Icon = "crop" }.Add(
+                new MatRibbonStack("shape-size-fields",
+                    Labelled(Number(WriteCommandIds.ShapeHeight, 0.1, 55.87, 0.1, "cm", 2), "Höhe"),
+                    Labelled(Number(WriteCommandIds.ShapeWidth, 0.1, 55.87, 0.1, "cm", 2), "Breite"))));
 
     /// <summary>Kopf- und Fußzeile (contextual, while one is edited): fields, options, close.</summary>
     private static MatRibbonTab HeaderFooterTab() =>

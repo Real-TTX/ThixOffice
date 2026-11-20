@@ -377,6 +377,26 @@ internal static class ParagraphLayouter
                 continue;
             }
 
+            if (inline is ShapeInline shape)
+            {
+                var drawn = new Segment
+                {
+                    Start = start,
+                    End = start + 1,
+                    Kind = shape.Anchor is null ? SegmentKind.Object : SegmentKind.Marker, // a floating shape is placed by the page
+                    Format = format,
+                    Font = font,
+                    Metrics = metrics,
+                    Object = shape,
+                    ObjectWidth = shape.Anchor is null ? shape.Width : 0,
+                    ObjectHeight = shape.Anchor is null ? shape.Height : 0,
+                };
+                advances[start] = drawn.ObjectWidth;
+                owner[start] = segments.Count;
+                segments.Add(drawn);
+                continue;
+            }
+
             if (inline is FieldInline or NoteInline or NoteMarkInline)
             {
                 var shown = inline switch

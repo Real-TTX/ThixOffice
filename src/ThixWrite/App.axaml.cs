@@ -68,6 +68,8 @@ public partial class App : OfficeApplication
         WriteCommands.Add(window);
         TableCommands.Add(window);
         PictureCommands.Add(window);
+        ShapeCommands.Add(window);
+        InsertCommands.Add(window);
         HeaderFooterCommands.Add(window);
         LinkCommands.Add(window);
         TextCommands.Add(window);

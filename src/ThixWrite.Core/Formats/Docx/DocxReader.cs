@@ -472,6 +472,10 @@ public static class DocxReader
                     // A floating picture is placed on its page with the text flowing around it (DrawingAnchor).
                     inlines.Add(drawing.GetFirstChild<Wp.Anchor>() is { } pictureAnchor ? picture with { Anchor = DocxDrawings.ReadAnchor(pictureAnchor) } : picture);
                     break;
+                case W.Drawing shapeDrawing when DocxShapes.Read(shapeDrawing, context, properties, link) is { } shape:
+                    Flush();
+                    inlines.Add(shape);
+                    break;
                 case W.Drawing or W.Picture:
                 case AlternateContent when child.Descendants().Any(descendant => descendant is W.Drawing or W.Picture):
                     var graphic = DocxDrawings.Read(child, context);

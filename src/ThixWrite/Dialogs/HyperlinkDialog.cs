@@ -25,7 +25,14 @@ public sealed class HyperlinkDialog : WriteDialog
         AutomationProperties.SetName(Address, "Adresse");
         var address = Field("Adresse", Address);
         FormErrors.SetField(address, LinkService.AddressField);
-        SetBody(new StackPanel { Spacing = 12, Children = { Field("Anzuzeigender Text", DisplayText), address } });
+        Bookmarks = new ComboBox { ItemsSource = new[] { "(keine)" }.Concat(session.Bookmarks().Select(bookmark => bookmark.Name)).ToList(), SelectedIndex = 0, Width = 260 };
+        if (existing?.Anchor is { } anchor && Bookmarks.Items.Cast<string>().ToList().IndexOf(anchor) is > 0 and var index)
+        {
+            Bookmarks.SelectedIndex = index;
+        }
+
+        AutomationProperties.SetName(Bookmarks, "Textmarke in diesem Dokument");
+        SetBody(new StackPanel { Spacing = 12, Children = { Field("Anzuzeigender Text", DisplayText), address, Field("Oder: Textmarke in diesem Dokument", Bookmarks) } });
         Opened += (_, _) => Address.Focus();
 
         string Text(ThixWrite.Core.Model.DocumentRange range) =>
@@ -36,10 +43,19 @@ public sealed class HyperlinkDialog : WriteDialog
 
     public TextBox Address { get; }
 
+    /// <summary>A bookmark of this document as the target (Einfügen › Lesezeichen), instead of an address.</summary>
+    public ComboBox Bookmarks { get; }
+
     public static Task<bool> ShowAsync(Window owner, WriteEditor editor) => new HyperlinkDialog(editor).ShowAsync(owner);
 
     protected override bool Apply()
     {
+        if (Bookmarks.SelectedIndex > 0 && Bookmarks.SelectedItem is string bookmark)
+        {
+            _editor.Session.SetHyperlink("", string.IsNullOrWhiteSpace(DisplayText.Text) ? null : DisplayText.Text, anchor: bookmark);
+            return true;
+        }
+
         try
         {
             var address = LinkService.Normalize(Address.Text);

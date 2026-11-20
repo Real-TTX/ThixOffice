@@ -523,6 +523,19 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   forms, comments dropped; links only http/https/mailto; pictures only from data: URIs (nothing is fetched). Paste order in
   `WriteEditor.PasteAsync`: ThixWrite's fragment, HTML, text, a bitmap. RTF is not read (gap).
 
+### Shapes, text boxes, Einfügen
+
+- `ShapeInline` (`Model/Shapes.cs`: one `DrawingShape` + size + `Anchor`, `IsTextBox`, `SourceXml`/`ReadAs` = written as read while
+  `IsUnchanged`); `DocxShapes` reads a w:drawing with exactly one wps:wsp into it and writes the model (wps:wsp, txbxContent via
+  `WriteBlocks`, `DocxAnchors.Place` for inline/anchor). Layout treats it like a picture (`AnchoredIn`, `DrawObject` → `DrawGraphic`).
+- Session (`EditingSession.Shapes.cs`): `SelectedObject` (picture, shape, or a one-shape `OpaqueInline` – converted by `ToShape` on the
+  first change), `Frame`, `InsertShape`, `SetObjectSize`, `MoveObject`, `SetObjectWrap`, `SetShapeFill/Line/Text`, `DefaultShape/TextBox`.
+  `DocumentLayout.IsSelectable`, `ParagraphOrigin`. UI: `DocumentSurface.DrawRequest` (draw by drag), `ShapeTextRequested`
+  (double click) → `WriteEditor.EditShapeText` (story overlay like notes), `ShapeCommands` (Formen, Textfeld, tab Formformat).
+- `EditingSession.Insert.cs`: `InsertCoverPage(CoverDesign …)` (in a "Cover Pages" w:sdt), `InsertBlankPage`, `SetDropCap(lines)`
+  (w:framePr in UnknownXml), `Bookmarks/AddBookmark/DeleteBookmark/BookmarkNameProblem`; `SetHyperlink(…, anchor)`; UI `InsertCommands`,
+  `Dialogs/BookmarkDialog`.
+
 ### Formatvorlagen
 
 - Session (`EditingSession.Styles.cs`): `GalleryStyles` (`BuiltInStyles.GalleryOrder` + the document's quick styles), `PaneStyles`,

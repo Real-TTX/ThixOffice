@@ -91,9 +91,10 @@ public sealed class WriteEditor : OfficeEditor
         _surface.LinkClicked += (_, link) => _ = LinkCommands.Follow(_window, this, link);
         _surface.BodyRequested += (_, _) => CloseHeaderFooter();
         _surface.NoteRequested += OnNoteRequested;
+        _surface.ShapeTextRequested += (_, position) => EditShapeText(position);
         _surface.AddHandler(InputElement.PointerPressedEvent, (_, _) =>
         {
-            if (IsEditingNote)
+            if (IsEditingNote || IsEditingShapeText)
             {
                 CloseHeaderFooter(); // a click on the text leaves the note (the click itself goes on)
             }
@@ -587,6 +588,16 @@ public sealed class WriteEditor : OfficeEditor
 
         var edited = story.Original.WithBlocks(story.Document.Blocks);
         Document.Session.AdoptDefinitions(story.Document.Styles, story.Document.Numbering);
+        if (story.Shape is { } shape)
+        {
+            if (!edited.Equals(story.Original))
+            {
+                Document.Session.SetShapeText(shape, edited);
+            }
+
+            return;
+        }
+
         if (story.Note is { } reference)
         {
             Document.Session.SetNoteContent(reference, edited);
@@ -628,6 +639,13 @@ public sealed class WriteEditor : OfficeEditor
 
         var setup = Layout.Pages[story.Page].Section.Properties;
         var page = _surface.PageRect(story.Page);
+        if (story.Shape is not null)
+        {
+            Canvas.SetLeft(story.Surface, page.X + (story.ShapeOrigin.X * _surface.Scale));
+            Canvas.SetTop(story.Surface, page.Y + (story.ShapeOrigin.Y * _surface.Scale));
+            return;
+        }
+
         var top = story.Note is not null ? page.Y + (story.NoteTop * _surface.Scale)
             : story.Footer
             ? page.Y + ((setup.PageHeight - setup.FooterDistance - story.Surface.StoryHeight) * _surface.Scale)
@@ -652,7 +670,112 @@ public sealed class WriteEditor : OfficeEditor
 
         /// <summary>The top of the note's text on its page (points).</summary>
         public double NoteTop { get; init; }
+
+        /// <summary>The shape whose text is edited (null: a header, footer or note).</summary>
+        public DocumentPosition? Shape { get; init; }
+
+        /// <summary>The top left of the shape's text on its page (points).</summary>
+        public (double X, double Y) ShapeOrigin { get; init; }
     }
+
+    // ===== Shapes and text boxes =====
+
+    /// <summary>
+    /// Einfügen › Formen / Textfeld: the next drag on a page draws the shape (a click puts it there in Word's size); it floats in front of the
+    /// text, anchored to the paragraph there, and is selected. Esc cancels.
+    /// </summary>
+    public void BeginDrawShape(string preset, bool textBox)
+    {
+        CloseHeaderFooter();
+        _surface.DrawRequest = (page, rect) =>
+        {
+            InsertDrawnShape(page, rect, preset, textBox);
+            return Task.CompletedTask;
+        };
+        _surface.Focus();
+    }
+
+    /// <summary>True while the next drag draws a shape (tests).</summary>
+    internal bool IsDrawingShape => _surface.DrawRequest is not null;
+
+    private void InsertDrawnShape(int page, Rect rect, string preset, bool textBox)
+    {
+        var (width, height) = rect.Width < 4 || rect.Height < 4 ? (textBox ? 144.0 : 72.0, 72.0) : (rect.Width, rect.Height);
+        var hit = Layout.HitTest(page, rect.X, rect.Y);
+        var block = hit.Position.Block;
+        var (left, top) = Layout.ParagraphOrigin(block, page);
+        var anchor = new DrawingAnchor(DrawingFrame.Column, Math.Round(rect.X - left, 2), null, DrawingFrame.Paragraph, Math.Round(rect.Y - top, 2), null, DrawingWrap.None, false,
+            9, 0, 9, 0, 251659264 + Document.Content.Blocks.Count);
+        var shape = textBox ? EditingSession.DefaultTextBox() : EditingSession.DefaultShape(preset);
+        Document.Session.InsertShape(new ShapeInline(shape, width, height, CharacterProperties.Empty) { Anchor = anchor, IsTextBox = textBox }, new DocumentPosition(block, 0));
+        if (textBox)
+        {
+            EditShapeText(Document.Session.SelectedObject!.Value.Position);
+        }
+
+        ScheduleState();
+    }
+
+    /// <summary>The text of a shape opened in place (like a note): typing goes there; a click outside, Esc or saving puts it into the shape.</summary>
+    public void EditShapeText(DocumentPosition position)
+    {
+        CloseHeaderFooter();
+        Layout.Update();
+        var inline = Document.Content.ParagraphAt(position.Block)?.InlineAt(position.Offset);
+        var shape = inline switch
+        {
+            ShapeInline own => own,
+            OpaqueInline opaque => EditingSession.ToShape(opaque),
+            _ => null,
+        };
+        if (shape is null || Layout.GetObjectRect(position) is not { } rect)
+        {
+            return;
+        }
+
+        var (insetLeft, insetTop, insetRight, insetBottom) = shape.Shape.Insets;
+        var width = Math.Max(12, rect.Width - insetLeft - insetRight);
+        var original = shape.Shape.Text ?? new Story([Paragraph.Empty(new ParagraphProperties { Alignment = ParagraphAlignment.Center, SpacingAfter = 0 },
+            new CharacterProperties { Color = TextColor.FromHex("FFFFFF") })]);
+        var content = Document.Content;
+        var storySection = Layout.Pages[rect.Page].Section.Properties with
+        {
+            PageWidth = width,
+            PageHeight = 5000,
+            MarginLeft = 0,
+            MarginRight = 0,
+            MarginTop = 0,
+            MarginBottom = 0,
+            Gutter = 0,
+            ColumnCount = 1,
+            TitlePage = false,
+            Headers = HeaderFooterSet.Empty,
+            Footers = HeaderFooterSet.Empty,
+        };
+        var document = new Core.Model.Document(original.Blocks, content.Styles, content.Numbering, storySection, content.Theme, content.Settings);
+        var session = new EditingSession(document);
+        var layout = new DocumentLayout(document, WriteFonts.Measurer, LayoutOptions.Default, session.Resolver);
+        session.Navigator = layout;
+        var surface = new DocumentSurface(session, layout) { IsStory = true, MinimumHeight = Math.Max(12, rect.Height - insetTop - insetBottom), Scale = _surface.Scale };
+        Avalonia.Automation.AutomationProperties.SetName(surface, shape.IsTextBox ? "Textfeld" : "Text in der Form");
+        _story = new StoryEditing(document, session, layout, surface, -1, HeaderFooterKind.Default, false, rect.Page, original)
+        {
+            Shape = position,
+            ShapeOrigin = (rect.X + insetLeft, rect.Y + insetTop),
+        };
+        _overlay.Children.Add(surface);
+        session.StateChanged += OnStateChanged;
+        session.ContentChanged += OnStoryChanged;
+        surface.Refreshed += (_, _) => ScheduleState();
+        surface.KeyDown += OnStoryKey;
+        PositionStory();
+        session.SetCaret(document.End);
+        Dispatcher.UIThread.Post(() => surface.Focus(), DispatcherPriority.Input);
+        ScheduleState();
+    }
+
+    /// <summary>True while the text of a shape is edited.</summary>
+    public bool IsEditingShapeText => _story?.Shape is not null;
 
     // ===== Footnotes and endnotes =====
 
@@ -975,6 +1098,15 @@ public sealed class WriteEditor : OfficeEditor
         else
         {
             _window.RibbonDefinition.HideContext(PictureCommands.Context);
+        }
+
+        if (Session.SelectedShape is not null)
+        {
+            _window.RibbonDefinition.ShowContext(ShapeCommands.Context);
+        }
+        else
+        {
+            _window.RibbonDefinition.HideContext(ShapeCommands.Context);
         }
 
         if (Session.CurrentTable is not null)

@@ -293,6 +293,14 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   die Formatvorlage, alle Absätze folgen; ein Schritt); „Auswahl als neue Schnellformatvorlage …“; Bereich Formatvorlagen
   (Alt+Strg+Umschalt+S) mit Suche, Klick formatiert, Neu/Ändern. Lücken: Formatvorlage löschen/umbenennen eingebauter, „Automatisch
   aktualisieren“, Rahmen/Nummerierung/Tabstopps im Dialog.
+  **B2 Einfügen erledigt:** Formen (28 Voreinstellungen der gemeinsamen Geometrie) und Textfelder werden auf der Seite aufgezogen
+  (Klick = Words Standardgröße), schweben vor dem Text, sind auswählbar, verschiebbar, in der Größe änderbar; Doppelklick schreibt Text
+  hinein (an Ort und Stelle, ein Schritt); Kontext-Karte Formformat (Fülleffekt, Formkontur, Text bearbeiten, Textumbruch, Höhe/Breite);
+  docx als w:drawing mit wps:wsp (unverändert gelesene Formen werden wie gelesen geschrieben; Formen aus Word in mc:AlternateContent
+  werden beim ersten Ändern zu bearbeitbaren Formen). Deckblatt (Band, Seitenleiste, Rahmen; in einem „Cover Pages“-Steuerelement, ein
+  vorhandenes wird ersetzt), Leere Seite, Initiale (im Text; „Im Rand“ fehlt), Lesezeichen (Dialog: hinzufügen, gehe zu, löschen; der
+  Link-Dialog bietet die Textmarken als Ziel). Lücken: Linien/Verbinder, Formen drehen, Effekte im Formformat, Text in Formen aus
+  Dateien mit Bildern.
   **Noch falsch:** die innere Tabelle ist nicht bearbeitbar; Einfügemarke und Markierung in gedrehten Zellen stehen waagrecht;
   Spaltenoperationen (Spalte einfügen/löschen) an Tabellen mit Lückenzeilen rechnen die Lücke nicht mit; eine schwebende Tabelle
   wird nie geteilt und umfließt keine anderen Objekte; Formeln sind nicht bearbeitbar (kein Formel-Editor), m:jc/Ausrichtung an „&“
@@ -319,15 +327,17 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
 | Start | Formatvorlage ändern / neu (Dialog), Bereich Formatvorlagen (Alt+Strg+Umschalt+S) | neu |
 | Start | Suchen, Ersetzen, Markieren (Alles) | vorhanden |
 | Start | Suchen erweitert (Format, Platzhalter), Markieren › ähnliche Formatierung | fehlt / geplant |
-| Einfügen | Deckblatt, Leere Seite | fehlt |
+| Einfügen | Deckblatt (drei eigene Entwürfe), Leere Seite | neu |
 | Einfügen | Seitenumbruch | vorhanden |
 | Einfügen | Tabelle (Raster, Dialog) | vorhanden |
 | Einfügen | Bilder | vorhanden |
-| Einfügen | Formen, Textfeld, SmartArt, Diagramm, Piktogramme, 3D-Modelle | fehlt (aus Dateien werden sie gezeigt und erhalten) |
-| Einfügen | Link, Textmarke, Querverweis | Link vorhanden; Textmarke fehlt; Querverweis – |
+| Einfügen | Formen (28 Voreinstellungen, aufziehen), Textfeld; Formformat (Füllung, Kontur, Text, Textumbruch, Größe) | neu |
+| Einfügen | SmartArt, Diagramm, Piktogramme, 3D-Modelle | fehlt (aus Dateien werden sie gezeigt und erhalten) |
+| Einfügen | Link, Textmarke (Lesezeichen), Querverweis | Link vorhanden; Textmarke neu (Links können zu ihr springen); Querverweis – |
 | Einfügen | Kommentar | vorhanden |
 | Einfügen | Kopfzeile, Fußzeile, Seitenzahl | vorhanden |
-| Einfügen | Schnellbausteine, WordArt, Initiale, Signaturzeile | fehlt (Initialen aus Dateien werden gezeigt) |
+| Einfügen | Initiale (im Text) | neu |
+| Einfügen | Schnellbausteine, WordArt, Signaturzeile | fehlt |
 | Einfügen | Datum und Uhrzeit, Symbol | vorhanden |
 | Einfügen | Formel | – (Formeln aus Dateien werden gezeigt, schreibgeschützt, und unverändert erhalten) |
 | Zeichnen | alle | – |

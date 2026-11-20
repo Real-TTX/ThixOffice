@@ -324,7 +324,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
         }
 
         // Floating pictures first (in front of the text), the topmost of them.
-        if (_pages[page].Floats.Where(placed => placed.Inline is ImageInline && placed.Contains(x, y)).OrderByDescending(placed => placed.Anchor.ZOrder).FirstOrDefault() is { } floating)
+        if (_pages[page].Floats.Where(placed => IsSelectable(placed.Inline) && placed.Contains(x, y)).OrderByDescending(placed => placed.Anchor.ZOrder).FirstOrDefault() is { } floating)
         {
             return new DocumentPosition(floating.Block, floating.Offset);
         }
@@ -338,7 +338,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
 
             foreach (var item in placed.Line.Items)
             {
-                if (item is ObjectItem { Inline: ImageInline } box)
+                if (item is ObjectItem { Inline: ImageInline or ShapeInline } box)
                 {
                     var top = placed.Top + placed.Line.Baseline - box.Height;
                     if (x >= placed.Left + box.X && x <= placed.Left + box.X + box.Width && y >= top && y <= top + box.Height)
@@ -351,6 +351,10 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
 
         return null;
     }
+
+    /// <summary>A picture, a shape, or a shape Word wrote that ThixWrite can make editable (one shape, not a group, chart or SmartArt).</summary>
+    public static bool IsSelectable(Inline inline) =>
+        inline is ImageInline or ShapeInline || inline is OpaqueInline { Graphic.Elements: [DrawingShape] };
 
     /// <summary>The cell placed at a point of a page (not a repeated heading row), or null.</summary>
     public PlacedCell? CellAt(int page, double x, double y)

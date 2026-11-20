@@ -60,9 +60,11 @@ public sealed partial class EditingSession
     /// Makes the selection (or the link at the caret) a link to <paramref name="address"/>; with <paramref name="text"/> the text shown
     /// becomes that (a caret: the text is inserted). The text gets the character style "Link" (blue, underlined).
     /// </summary>
-    public void SetHyperlink(string address, string? text = null, string? tooltip = null)
+    public void SetHyperlink(string address, string? text = null, string? tooltip = null, string? anchor = null)
     {
-        var link = new Hyperlink(address, Tooltip: string.IsNullOrWhiteSpace(tooltip) ? null : tooltip);
+        var link = anchor is not null
+            ? new Hyperlink(null, anchor, string.IsNullOrWhiteSpace(tooltip) ? null : tooltip)
+            : new Hyperlink(address, Tooltip: string.IsNullOrWhiteSpace(tooltip) ? null : tooltip);
         var range = _selection.IsCollapsed && LinkRange(_selection.Start) is { } existing ? existing.Range : _selection.Range;
         var shown = string.IsNullOrEmpty(text) ? null : text;
         Run("Link", EditKind.Other, null, () =>
@@ -72,7 +74,7 @@ public sealed partial class EditingSession
             if (range.IsEmpty || (shown is not null && shown != currentText))
             {
                 var (properties, _) = TypingFormat();
-                var run = new TextRun(shown ?? address, properties with { StyleId = BuiltInStyles.HyperlinkStyle }, link);
+                var run = new TextRun(shown ?? anchor ?? address, properties with { StyleId = BuiltInStyles.HyperlinkStyle }, link);
                 var map = (ReplaceMap)Apply(ContentEdits.Replace(Document, range, [new Paragraph([run])]));
                 SetSelectionQuiet(Selection.Caret(map.EndOfInserted));
                 return;

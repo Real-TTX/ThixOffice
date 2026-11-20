@@ -36,6 +36,9 @@ public sealed partial class DocumentLayout
                 case OpaqueInline { Graphic: { Anchor: { } anchor } graphic } opaque:
                     yield return (paragraph.StartOf(index), opaque, anchor, graphic.Width, graphic.Height);
                     break;
+                case ShapeInline { Anchor: { } anchor } shape:
+                    yield return (paragraph.StartOf(index), shape, anchor, shape.Width, shape.Height);
+                    break;
             }
         }
     }
@@ -60,6 +63,20 @@ public sealed partial class DocumentLayout
         }
 
         return null;
+    }
+
+    /// <summary>The left of the text area and the top of block <paramref name="block"/> on page <paramref name="page"/> (its first line there).</summary>
+    public (double Left, double Top) ParagraphOrigin(int block, int page)
+    {
+        Update();
+        if (_placements[Math.Clamp(block, 0, _placements.Count - 1)] is not { } placement || placement.Lines.Length == 0)
+        {
+            var setup = _pages[Math.Clamp(page, 0, _pages.Count - 1)].Section.Properties;
+            return (setup.MarginLeft + setup.Gutter, setup.MarginTop);
+        }
+
+        var index = Math.Max(0, Array.IndexOf(placement.Pages, page));
+        return (placement.Lines[index].Left, placement.Lines[index].Top);
     }
 
     /// <summary>
@@ -310,6 +327,8 @@ public sealed partial class DocumentLayout
                 return DrawPicture(image, x, y, width, height);
             case OpaqueInline { Graphic: { } graphic }:
                 return DrawGraphic(graphic, x, y, width, height);
+            case ShapeInline shape:
+                return DrawGraphic(shape.Graphic, x, y, width, height);
             case OpaqueInline { Nested: { } nested }:
                 return [TransformBeginItem.At(x, y), .. StoryBox(nested, width).GetDisplayList(0).Items, TransformEndItem.Instance];
             case OpaqueInline { Math: { } math } formula:

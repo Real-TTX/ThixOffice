@@ -367,6 +367,11 @@ public static class DocxWriter
 
                 yield return pictureRun;
                 break;
+            case ShapeInline shape:
+                var shapeRun = NewRun(shape.Properties);
+                shapeRun.AppendChild(DocxShapes.Write(shape, blocks => WriteBlocks(context.Document ?? new Document([]), blocks, context), context.Pictures.NextId, context.Pictures.ClaimDocPr));
+                yield return shapeRun;
+                break;
             case OpaqueInline { IsRunContent: true } opaque:
                 var element = NewRun(opaque.Properties);
                 foreach (var child in XmlFragments.Parse<W.Run>(opaque.Xml))

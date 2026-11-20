@@ -22,12 +22,25 @@ internal static class DocxAnchors
     {
         OpenXmlCompositeElement? container = drawing.GetFirstChild<Dw.Inline>();
         container ??= drawing.GetFirstChild<Dw.Anchor>();
+        if (container?.GetFirstChild<Dw.DocProperties>() is { } properties && (properties.Description?.Value ?? "") != (image.Description ?? ""))
+        {
+            properties.Description = image.Description ?? "";
+        }
+
+        Place(drawing, image.Width, image.Height, image.Anchor);
+    }
+
+    /// <summary>The size and the place (in the line, or floating at <paramref name="anchor"/>) of any w:drawing.</summary>
+    public static void Place(W.Drawing drawing, double width, double height, DrawingAnchor? anchor)
+    {
+        OpenXmlCompositeElement? container = drawing.GetFirstChild<Dw.Inline>();
+        container ??= drawing.GetFirstChild<Dw.Anchor>();
         if (container is null)
         {
             return;
         }
 
-        var (cx, cy) = (Emu(image.Width), Emu(image.Height));
+        var (cx, cy) = (Emu(width), Emu(height));
         if (container.GetFirstChild<Dw.Extent>() is { } extent && (Math.Abs((extent.Cx?.Value ?? 0) - cx) > 1 || Math.Abs((extent.Cy?.Value ?? 0) - cy) > 1))
         {
             extent.Cx = cx;
@@ -39,21 +52,16 @@ internal static class DocxAnchors
             }
         }
 
-        if (container.GetFirstChild<Dw.DocProperties>() is { } properties && (properties.Description?.Value ?? "") != (image.Description ?? ""))
-        {
-            properties.Description = image.Description ?? "";
-        }
-
         switch (container)
         {
-            case Dw.Inline inline when image.Anchor is { } anchor:
-                drawing.ReplaceChild(BuildAnchor(anchor, inline), inline);
+            case Dw.Inline inline when anchor is { } floatingAnchor:
+                drawing.ReplaceChild(BuildAnchor(floatingAnchor, inline), inline);
                 break;
-            case Dw.Anchor floating when image.Anchor is null:
+            case Dw.Anchor floating when anchor is null:
                 drawing.ReplaceChild(BuildInline(floating), floating);
                 break;
-            case Dw.Anchor floating when image.Anchor is { } anchor && DocxDrawings.ReadAnchor(floating) != anchor:
-                Update(floating, anchor);
+            case Dw.Anchor floating when anchor is { } changed && DocxDrawings.ReadAnchor(floating) != changed:
+                Update(floating, changed);
                 break;
         }
     }

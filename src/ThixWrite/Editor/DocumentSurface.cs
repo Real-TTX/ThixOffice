@@ -321,7 +321,33 @@ internal sealed class DocumentSurface : Control
         }
 
         DrawSelection(context, visible);
+        if (_drawFrom is { } from && _drawTo is { } to)
+        {
+            context.DrawRectangle(null, new Pen(Ui.Brush("Mat.Accent"), 1), new Rect(from, to).Normalize());
+        }
     }
+
+    /// <summary>
+    /// "Formen" / "Textfeld": while set, the next drag (or click) on a page draws the object – the page and the rectangle in page points
+    /// go to the callback, then drawing ends.
+    /// </summary>
+    public Func<int, Rect, Task>? DrawRequest
+    {
+        get => _drawRequest;
+        set
+        {
+            _drawRequest = value;
+            Cursor = value is null ? _ibeam : _drawCursor;
+        }
+    }
+
+    private Func<int, Rect, Task>? _drawRequest;
+    private Point? _drawFrom;
+    private Point? _drawTo;
+    private readonly Cursor _drawCursor = new(StandardCursorType.Cross);
+
+    /// <summary>A double click on a shape: its text is to be edited (the shape's position).</summary>
+    public event EventHandler<DocumentPosition>? ShapeTextRequested;
 
     /// <summary>While a header or footer is edited: the bodies dimmed, the areas bounded by a dashed line with their names.</summary>
     private void DrawHeaderFooterAreas(DrawingContext context, IReadOnlyList<int> pages)
@@ -559,6 +585,12 @@ internal sealed class DocumentSurface : Control
     /// <summary>The keys of the document: caret movement (with Shift), deleting, Enter, Tab. Windows and macOS conventions.</summary>
     internal bool HandleKey(Key key, KeyModifiers modifiers)
     {
+        if (key == Key.Escape && _drawRequest is not null)
+        {
+            DrawRequest = null; // drawing a shape is cancelled
+            return true;
+        }
+
         var shift = modifiers.HasFlag(KeyModifiers.Shift);
         var isMac = OperatingSystem.IsMacOS();
         var word = isMac ? modifiers.HasFlag(KeyModifiers.Alt) : modifiers.HasFlag(KeyModifiers.Control);
@@ -637,6 +669,16 @@ internal sealed class DocumentSurface : Control
     {
         base.OnPointerPressed(e);
         var point = e.GetCurrentPoint(this);
+        if (_drawRequest is not null && point.Properties.IsLeftButtonPressed && PageUnder(point.Position) >= 0)
+        {
+            // Drawing a shape or text box: the drag spans its rectangle.
+            _drawFrom = point.Position;
+            _drawTo = point.Position;
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
         var hit = HitAt(point.Position);
         if (point.Properties.IsRightButtonPressed)
         {
@@ -709,10 +751,18 @@ internal sealed class DocumentSurface : Control
             return;
         }
 
+        if (ImageUnder(point.Position) is { } shapeText && e.ClickCount == 2
+            && Session.Document.ParagraphAt(shapeText.Block)?.InlineAt(shapeText.Offset) is ShapeInline or OpaqueInline { Graphic.Elements: [DrawingShape] })
+        {
+            ShapeTextRequested?.Invoke(this, shapeText);
+            e.Handled = true;
+            return;
+        }
+
         if (ImageUnder(point.Position) is { } picture && e.ClickCount == 1 && !e.KeyModifiers.HasFlag(KeyModifiers.Shift))
         {
             Session.Select(picture, picture with { Offset = picture.Offset + 1 });
-            if (Session.SelectedImage?.Image.Anchor is not null && SelectedImageRect() is { } floating)
+            if (Session.SelectedObject is { } selectedObject && EditingSession.Frame(selectedObject.Object).Anchor is not null && SelectedImageRect() is { } floating)
             {
                 // A floating picture: dragging it moves it (Word's four-way arrow).
                 _imageDrag = new ImageDrag(MoveHandle, point.Position, point.Position, floating);
@@ -769,6 +819,13 @@ internal sealed class DocumentSurface : Control
     {
         base.OnPointerMoved(e);
         var position = e.GetPosition(this);
+        if (_drawFrom is not null)
+        {
+            _drawTo = position;
+            InvalidateVisual();
+            return;
+        }
+
         if (_imageDrag is { } drag)
         {
             _imageDrag = drag with { Current = position };
@@ -786,7 +843,8 @@ internal sealed class DocumentSurface : Control
         var cursor = handle is { } index ? HandleCursor(index)
             : _columnDrag is not null || (!_dragging && ColumnBorderAt(position) is not null) ? _columnCursor
             : _imageDrag is { Handle: MoveHandle } ? _moveCursor
-            : !_dragging && ImageUnder(position) is { } under ? Session.Document.ParagraphAt(under.Block)?.InlineAt(under.Offset) is ImageInline { Anchor: not null } ? _moveCursor : Cursor.Default
+            : _drawRequest is not null ? _drawCursor
+            : !_dragging && ImageUnder(position) is { } under ? Session.Document.ParagraphAt(under.Block)?.InlineAt(under.Offset) is { } underObject && EditingSession.Frame(underObject).Anchor is not null ? _moveCursor : Cursor.Default
             : _dragging || PageUnder(position) >= 0 ? _ibeam : Cursor.Default;
         if (!ReferenceEquals(Cursor, cursor))
         {
@@ -820,7 +878,26 @@ internal sealed class DocumentSurface : Control
             ResizeColumn(drag, e.GetPosition(this));
         }
 
-        if (_imageDrag is { Handle: MoveHandle } moving && Session.SelectedImage is { } floating && SelectedImageRect() is { } from)
+        if (_drawFrom is { } drawStart && _drawRequest is { } draw)
+        {
+            var end = e.GetPosition(this);
+            _drawFrom = null;
+            _drawTo = null;
+            DrawRequest = null;
+            e.Pointer.Capture(null);
+            var page = PageUnder(drawStart);
+            if (page >= 0)
+            {
+                var pageRect = PageRect(page);
+                var rect = new Rect(drawStart, end).Normalize();
+                _ = draw(page, new Rect((rect.X - pageRect.X) / _scale, (rect.Y - pageRect.Y) / _scale, rect.Width / _scale, rect.Height / _scale));
+            }
+
+            InvalidateVisual();
+            return;
+        }
+
+        if (_imageDrag is { Handle: MoveHandle } moving && Session.SelectedObject is { } floating && SelectedImageRect() is { } from)
         {
             _imageDrag = null;
             var to = Resized(moving with { Current = e.GetPosition(this) }, from);
@@ -830,7 +907,7 @@ internal sealed class DocumentSurface : Control
                 var pageRect = PageRect(page);
                 if (Layout.AnchorOffsetsFor(floating.Position, (to.X - pageRect.X) / _scale, (to.Y - pageRect.Y) / _scale) is { } offsets)
                 {
-                    Session.MoveImage(offsets.OffsetX, offsets.OffsetY);
+                    Session.MoveObject(offsets.OffsetX, offsets.OffsetY);
                 }
             }
 
@@ -842,7 +919,7 @@ internal sealed class DocumentSurface : Control
             var after = Resized(sizing with { Current = e.GetPosition(this), Free = e.KeyModifiers.HasFlag(KeyModifiers.Shift) }, before);
             if (Math.Abs(after.Width - before.Width) > 0.5 || Math.Abs(after.Height - before.Height) > 0.5)
             {
-                Session.SetImageSize(after.Width / _scale, after.Height / _scale);
+                Session.SetObjectSize(after.Width / _scale, after.Height / _scale);
             }
 
             InvalidateVisual();
@@ -963,7 +1040,7 @@ internal sealed class DocumentSurface : Control
     /// <summary>The rectangle (DIP) of the selected picture, or null.</summary>
     private Rect? SelectedImageRect()
     {
-        if (Session.SelectedImage is not { } selected || Layout.GetObjectRect(selected.Position) is not { } rect)
+        if (Session.SelectedObject is not { } selected || Layout.GetObjectRect(selected.Position) is not { } rect)
         {
             return null;
         }
