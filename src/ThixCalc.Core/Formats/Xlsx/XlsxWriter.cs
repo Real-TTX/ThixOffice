@@ -155,6 +155,9 @@ public static class XlsxWriter
 
         root.DefinedNames = names.HasChildren ? names : null;
 
+        root.WorkbookProtection = workbook.ProtectionXml is { } protection
+            ? (X.WorkbookProtection)new X.Workbook($"<workbook xmlns=\"{XlsxNamespaces.Main}\">{protection}</workbook>").WorkbookProtection!.CloneNode(true)
+            : null;
         root.WorkbookProperties ??= new X.WorkbookProperties();
         root.WorkbookProperties.Date1904 = workbook.Date1904 ? true : null;
         var settings = workbook.CalculationSettings;

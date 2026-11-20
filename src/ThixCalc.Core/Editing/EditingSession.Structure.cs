@@ -61,6 +61,7 @@ public sealed partial class EditingSession
     /// </summary>
     private void Shift(string label, Worksheet sheet, bool rows, int at, int count, (int First, int Last)? band)
     {
+        GuardAxes(sheet, rows, structural: true, deleting: count < 0);
         var limit = rows ? SheetLimits.MaxRows : SheetLimits.MaxColumns;
         var bandRange = band is { } b
             ? (rows ? new CellRange(at, b.First, SheetLimits.LastRow, b.Last) : new CellRange(b.First, at, b.Last, SheetLimits.LastColumn))
@@ -212,6 +213,7 @@ public sealed partial class EditingSession
 
     private void ChangeAxis(string label, AxisCollection axis, int first, int last, Func<AxisInfo, AxisInfo> change)
     {
+        GuardAxes(ActiveSheet, ReferenceEquals(axis, ActiveSheet.Rows), structural: false);
         if (last - first > 100_000)
         {
             throw new BusinessException("Die Auswahl ist für diesen Befehl zu groß.");
@@ -272,6 +274,7 @@ public sealed partial class EditingSession
 
     public Worksheet AddSheet(string? name = null, int? index = null)
     {
+        GuardStructure();
         Worksheet? added = null;
         var position = index ?? Workbook.ActiveSheetIndex + 1;
         Execute("Blatt einfügen", () =>
@@ -286,6 +289,7 @@ public sealed partial class EditingSession
 
     public void DeleteSheet(int index)
     {
+        GuardStructure();
         if (Workbook.Sheets.Count(sheet => sheet.Visibility == SheetVisibility.Visible) <= 1 && Workbook.Sheets[index].Visibility == SheetVisibility.Visible)
         {
             throw new BusinessException("Eine Arbeitsmappe muss mindestens ein sichtbares Blatt enthalten.");
@@ -311,6 +315,7 @@ public sealed partial class EditingSession
 
     public void RenameSheet(int index, string name)
     {
+        GuardStructure();
         var sheet = Workbook.Sheets[index];
         var old = sheet.Name;
         if (old == name)
@@ -327,6 +332,7 @@ public sealed partial class EditingSession
 
     public void MoveSheet(int from, int to)
     {
+        GuardStructure();
         var sheet = Workbook.Sheets[from];
         Execute("Blatt verschieben", () =>
         {
@@ -339,6 +345,7 @@ public sealed partial class EditingSession
 
     public void SetSheetVisibility(int index, SheetVisibility visibility)
     {
+        GuardStructure();
         var sheet = Workbook.Sheets[index];
         var old = sheet.Visibility;
         if (visibility != SheetVisibility.Visible && Workbook.Sheets.Count(other => other.Visibility == SheetVisibility.Visible && other != sheet) == 0)
@@ -369,6 +376,7 @@ public sealed partial class EditingSession
     /// <summary>Blatt kopieren: a copy with cells, formats, sizes and the sheet's features, named "Name (2)".</summary>
     public Worksheet CopySheet(int index, int? target = null)
     {
+        GuardStructure();
         var source = Workbook.Sheets[index];
         var name = source.Name;
         for (var number = 2; ; number++)

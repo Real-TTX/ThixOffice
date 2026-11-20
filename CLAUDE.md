@@ -585,6 +585,19 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   Wertfeldeinstellungen, Feldeinstellungen, Gruppierung, Datenquelle ändern/Verschieben), `CalcContextMenus.ForPivot`, double click on a
   value = Details anzeigen. Snapshot scenes `-main-pivot`, `-main-pivot-design` (`SampleWorkbook.AddPivot`).
 
+### Analysis, auditing, protection (ThixCalc)
+
+- `EditingSession.Analysis`: `AddSubtotals`/`RemoveSubtotals` (Teilergebnis: rows with TEILERGEBNIS, "… Ergebnis", Gesamtergebnis,
+  outline levels 2/1), `ShowDetail`, `ShowOutlineLevel`, `GoalSeek` (secant steps, Excel's 100 iterations/0,001, one undo step),
+  `TracePrecedents`/`TraceDependents`/`RemoveArrows` (`TraceArrows`, a view state the grid draws; names are followed),
+  `NextError` + `ExplainError` (Fehlerüberprüfung), `EvaluateFormulaSteps` (Formel auswerten), `CreateNamesFromSelection`,
+  `SelectSpecial` (Leerzellen, Konstanten, Formeln, Fehler, Notizen, aktueller Bereich, letzte Zelle, sichtbare Zellen).
+- Protection (`Model/SheetProtection`, `EditingSession.Protection`): `Worksheet.ProtectionXml` parses into `Worksheet.Protection`
+  (allowed actions); passwords as Excel's SHA-512 with salt and 100 000 spins (legacy 16-bit hash verified); the session refuses
+  value changes of locked cells and unallowed format/row/column changes (`SetCell`, `Shift`, `ChangeAxis`), and sheet structure
+  changes while `Workbook.ProtectionXml` locks the structure. UI: `CalcAnalysisCommands`, `Dialogs/AnalysisDialogs`.
+- Typing: Eingabe after a run of Tab returns below the cell where the run started (`EditingSession._tabStartColumn`), as Excel.
+
 ### OpenDocument Spreadsheet (ods)
 
 - `Formats/Ods` (BCL only, on `ThixOffice.Core/Formats/Odf`): `OdsWriter.Write` (content.xml: sheets with `table:table-column`s, rows and

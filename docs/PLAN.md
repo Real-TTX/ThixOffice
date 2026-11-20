@@ -340,6 +340,53 @@ Formate, Sortieren/Filtern, Fixieren, bedingte Formatierung, Diagramme, xlsx/csv
   geschrieben (x14), PivotTable-Formatvorlagen werden angenähert (Hell/Mittel in den Akzentfarben), Werte anzeigen als % des
   übergeordneten Ergebnisses, Rang und Index fehlen, Ein-/Ausblenden einzelner Gruppen (+/−) fehlt, Excel-Kompatibilität der
   geschriebenen Dateien ist mit dem Open-XML-Validator und einer Fixture in Excels Form geprüft, nicht mit Excel selbst.
+- **Excel-Menüband im Vergleich (Stand 2026-11-20)** – deutsches Excel (Microsoft 365), Befehl für Befehl:
+
+  | Karte | Excel-Befehl | ThixCalc |
+  |---|---|---|
+  | Start | Zwischenablage (Einfügen-Optionen, Inhalte einfügen, Format übertragen) | vorhanden |
+  | Start | Schriftart, Ausrichtung, Zahl (inkl. Dialog Zellen formatieren) | vorhanden |
+  | Start | Bedingte Formatierung (Regeln, Datenbalken, Farbskalen, Regeln verwalten) | vorhanden; Symbolsätze: fehlt |
+  | Start | Als Tabelle formatieren, Zellenformatvorlagen | vorhanden (Galerien gekürzt) |
+  | Start | Zellen einfügen/löschen/Format | vorhanden |
+  | Start | AutoSumme, Ausfüllen (inkl. Reihe), Löschen, Sortieren und Filtern | vorhanden |
+  | Start | Suchen und Auswählen: Suchen, Ersetzen, Gehe zu (Strg+G/F5) | vorhanden |
+  | Start | Suchen und Auswählen: Inhalte auswählen, Nur sichtbare Zellen (Alt+;) | vorhanden (siehe unten) |
+  | Start | Blitzvorschau (Strg+E) | fehlt (übersprungen) |
+  | Einfügen | PivotTable | vorhanden; Empfohlene PivotTables: fehlt |
+  | Einfügen | Tabelle | vorhanden |
+  | Einfügen | Bilder, Formen, Symbole, SmartArt, Screenshot | Bilder/Formen: werden angezeigt nur über den Erhalt in der Datei, Einfügen fehlt |
+  | Einfügen | Diagramme (Säule, Balken, Linie, Kreis, Fläche, Punkt, Verbund) | vorhanden; Empfohlene Diagramme, Karten, Trichter … fehlen |
+  | Einfügen | Sparklines (Linie, Säule, Gewinn/Verlust) | fehlt (werden in der Datei erhalten) |
+  | Einfügen | Datenschnitt, Zeitachse | fehlt (werden erhalten) |
+  | Einfügen | Link, Kommentar/Notiz, Textfeld, Kopf- und Fußzeile, Symbol | Link, Notiz, Kopf/Fuß (Seite einrichten): vorhanden; Textfeld, Symbol: fehlt |
+  | Seitenlayout | Designs | fehlt (Theme wird gelesen und erhalten) |
+  | Seitenlayout | Seite einrichten (Ränder, Ausrichtung, Größe, Druckbereich, Umbrüche, Drucktitel) | vorhanden; manuelle Seitenumbrüche: fehlt |
+  | Seitenlayout | An Format anpassen, Blattoptionen | vorhanden |
+  | Formeln | Funktion einfügen, Funktionsbibliothek (alle Kategorien), AutoSumme | vorhanden |
+  | Formeln | Namens-Manager, Namen definieren | vorhanden |
+  | Formeln | In Formel verwenden, Aus Auswahl erstellen | vorhanden |
+  | Formeln | Spur zum Vorgänger/Nachfolger, Pfeile entfernen | vorhanden |
+  | Formeln | Formeln anzeigen, Fehlerüberprüfung, Formelauswertung | vorhanden (Formelauswertung als Schrittliste) |
+  | Formeln | Überwachungsfenster | fehlt (übersprungen) |
+  | Formeln | Berechnungsoptionen, Neu berechnen, Blatt berechnen | vorhanden |
+  | Daten | Daten abrufen (Power Query), Verbindungen, Aktien/Geografie | fehlt (Verbindungen werden erhalten) |
+  | Daten | Sortieren, Filtern, Erweitert | vorhanden; Spezialfilter: fehlt |
+  | Daten | Text in Spalten, Duplikate entfernen, Datenüberprüfung | vorhanden |
+  | Daten | Blitzvorschau, Konsolidieren, Beziehungen | fehlt (übersprungen) |
+  | Daten | Was-wäre-wenn-Analyse: Zielwertsuche | vorhanden |
+  | Daten | Szenario-Manager, Datentabelle, Prognoseblatt | fehlt (übersprungen) |
+  | Daten | Gliederung: Gruppieren, Gruppierung aufheben, Detail ein-/ausblenden, Teilergebnis | vorhanden |
+  | Überprüfen | Rechtschreibung, Thesaurus, Barrierefreiheit, Übersetzen | fehlt |
+  | Überprüfen | Notizen (neu, löschen) | vorhanden; Kommentare mit Unterhaltungen: werden als Notizen gezeigt und erhalten |
+  | Überprüfen | Blatt schützen, Arbeitsmappe schützen (mit Kennwort) | vorhanden |
+  | Überprüfen | Bearbeiten von Bereichen zulassen, Freigeben | fehlt |
+  | Ansicht | Normal, Seitenumbruchvorschau, Seitenlayout | Normal: vorhanden; Seitenumbruchvorschau/Seitenlayout: fehlt |
+  | Ansicht | Gitternetzlinien, Überschriften, Bearbeitungsleiste | vorhanden |
+  | Ansicht | Zoom, 100 %, Zoom auf Auswahl | vorhanden |
+  | Ansicht | Fenster fixieren (Bereich, oberste Zeile, erste Spalte) | vorhanden |
+  | Ansicht | Neues Fenster, Alle anordnen, Teilen, Ausblenden | fehlt (übersprungen) |
+  | Ansicht | Makros | fehlt (Makros bleiben erhalten, laufen nie) |
 - **Lücken (wichtig für Excel-Umsteiger zuerst):** Blitzvorschau, Fenster teilen, Seitenumbruchvorschau.
 - **ods erledigt (2026-11-19):** OpenDocument-Tabelle lesen und schreiben ohne neue Abhängigkeit, auf den gemeinsamen ODF-Bausteinen
   in ThixOffice.Core/Formats/Odf (auch odt nutzt sie): Blätter (Reihenfolge, ausgeblendet, Registerfarbe, Schutz ohne Kennwort), Werte

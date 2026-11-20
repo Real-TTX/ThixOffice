@@ -182,6 +182,25 @@ public static class CalcCommandIds
 
     // PivotTable (Einfügen, contextual tabs PivotTable-Analyse and Entwurf)
     public const string InsertPivot = "calc.pivot.insert";
+
+    // Block D: outline, what-if, auditing, names, select special, protection
+    public const string Subtotals = "calc.data.subtotals";
+    public const string ShowDetail = "calc.data.showDetail";
+    public const string HideDetail = "calc.data.hideDetail";
+    public const string WhatIf = "calc.data.whatIf";
+    public const string GoalSeek = "calc.data.goalSeek";
+    public const string TracePrecedents = "calc.audit.precedents";
+    public const string TraceDependents = "calc.audit.dependents";
+    public const string RemoveArrows = "calc.audit.removeArrows";
+    public const string ErrorChecking = "calc.audit.errorChecking";
+    public const string EvaluateFormula = "calc.audit.evaluate";
+    public const string UseInFormula = "calc.names.useInFormula";
+    public const string CreateNames = "calc.names.createFromSelection";
+    public const string SelectSpecial = "calc.selectSpecial";
+    public const string SelectVisible = "calc.selectVisible";
+    public const string ProtectSheet = "calc.review.protectSheet";
+    public const string ProtectWorkbook = "calc.review.protectWorkbook";
+    public const string LockCell = "calc.format.lockCell";
     public const string PivotName = "calc.pivot.name"; // value: the name
     public const string PivotRefresh = "calc.pivot.refresh";
     public const string PivotRefreshAll = "calc.pivot.refreshAll";

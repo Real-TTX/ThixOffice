@@ -298,10 +298,12 @@ internal sealed partial class GridSurface : Control, ITextField
         var chartFrame = _chartDrag is null ? SelectedChartRect(viewport) : null;
         var chartOutline = _chartDrag?.Current;
         var scaling = RenderScaling;
+        var arrows = Session.TraceArrows.Select(arrow => (From: viewport.RangeRect(arrow.From), To: viewport.RangeRect(CellRange.Cell(arrow.To)), arrow.OtherSheet, Range: !arrow.From.IsSingleCell)).ToList();
         context.Custom(new SkiaDrawOperation(new Rect(Bounds.Size), canvas =>
         {
             canvas.DrawPicture(picture);
             SkiaPageRenderer.Draw(canvas, selection, measurer);
+            DrawArrows(canvas, arrows, antsColor, scaling);
             DrawChartSelection(canvas, viewport, chartFrame, chartOutline, scaling);
             if (marquee is { } rect)
             {
@@ -314,6 +316,43 @@ internal sealed partial class GridSurface : Control, ITextField
                 canvas.DrawLine((float)line.X1, (float)line.Y1, (float)line.X2, (float)line.Y2, paint);
             }
         }, devicePixels: true));
+    }
+
+    /// <summary>
+    /// Spur zum Vorgänger/Nachfolger: a line with a dot at the source and an arrowhead at the formula; a source range gets a frame
+    /// (another sheet: a dashed line).
+    /// </summary>
+    private static void DrawArrows(SKCanvas canvas, List<(PixelRect From, PixelRect To, bool OtherSheet, bool Range)> arrows, RgbColor color, double scaling)
+    {
+        if (arrows.Count == 0)
+        {
+            return;
+        }
+
+        using var paint = new SKPaint { Color = new SKColor(color.R, color.G, color.B), StrokeWidth = (float)Math.Max(1, scaling * 1.5), IsAntialias = true, Style = SKPaintStyle.Stroke };
+        using var fill = new SKPaint { Color = paint.Color, IsAntialias = true, Style = SKPaintStyle.Fill };
+        foreach (var (from, to, otherSheet, range) in arrows)
+        {
+            var start = new SKPoint((float)(from.X + Math.Min(from.Width, 40 * scaling) / 2), (float)(from.Y + Math.Min(from.Height, 20 * scaling) / 2));
+            var end = new SKPoint((float)(to.X + to.Width / 2), (float)(to.Y + to.Height / 2));
+            if (range)
+            {
+                canvas.DrawRect((float)from.X + 1, (float)from.Y + 1, (float)from.Width - 2, (float)from.Height - 2, paint);
+            }
+
+            paint.PathEffect = otherSheet ? SKPathEffect.CreateDash([6, 4], 0) : null;
+            canvas.DrawLine(start, end, paint);
+            paint.PathEffect = null;
+            canvas.DrawCircle(start, (float)(3 * scaling), fill);
+            var angle = Math.Atan2(end.Y - start.Y, end.X - start.X);
+            var size = 9 * scaling;
+            using var head = new SKPath();
+            head.MoveTo(end);
+            head.LineTo((float)(end.X - size * Math.Cos(angle - 0.4)), (float)(end.Y - size * Math.Sin(angle - 0.4)));
+            head.LineTo((float)(end.X - size * Math.Cos(angle + 0.4)), (float)(end.Y - size * Math.Sin(angle + 0.4)));
+            head.Close();
+            canvas.DrawPath(head, fill);
+        }
     }
 
     /// <summary>The grid's display list of the viewport, recorded once (vector, replayed on every frame until something changes).</summary>

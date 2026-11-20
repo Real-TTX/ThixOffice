@@ -60,6 +60,12 @@ public sealed class Workbook
 
     public Pivot.PivotCache? FindPivotCache(int id) => PivotCaches.FirstOrDefault(cache => cache.Id == id);
 
+    /// <summary>Arbeitsmappe schützen (&lt;workbookProtection&gt; as XML), or null.</summary>
+    public string? ProtectionXml { get; set; }
+
+    /// <summary>Whether the structure is locked (no sheets added, deleted, renamed, moved, hidden).</summary>
+    public bool IsStructureProtected => Protection.LocksStructure(ProtectionXml);
+
     /// <summary>The 1904 date system (serial 0 = 1904-01-01) instead of 1900.</summary>
     public bool Date1904 { get; set; }
 

@@ -64,6 +64,7 @@ public partial class App : OfficeApplication
         CalcChartCommands.Add(window);
         CalcTableCommands.Add(window);
         CalcPivotCommands.Add(window);
+        CalcAnalysisCommands.Add(window);
         CalcEditCommands.Add(window);
     }
 

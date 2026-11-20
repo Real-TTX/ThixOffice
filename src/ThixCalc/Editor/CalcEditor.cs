@@ -576,6 +576,24 @@ public sealed class CalcEditor : OfficeEditor
         }
     }
 
+    /// <summary>Puts text at the caret of the formula being typed (a new one starts with "="): Namen einfügen, In Formel verwenden.</summary>
+    public void InsertIntoFormula(string text)
+    {
+        if (!Editing.IsEditing)
+        {
+            Editing.Begin(EditStart.Typing);
+        }
+
+        var box = Editing.IsInFormulaBar ? Editing.BarBox : Editing.CellBox;
+        if (!box.Text.StartsWith('='))
+        {
+            box.SetText("=", 1);
+        }
+
+        box.InsertText(text);
+        FocusDocument();
+    }
+
     /// <summary>A function of the library menus or the search: Funktionsargumente for it.</summary>
     public Task InsertFunctionByNameAsync(string name) =>
         FunctionHelp.Find(name, Session.Locale) is { } function ? EditFunctionAsync(function, []) : Task.CompletedTask;

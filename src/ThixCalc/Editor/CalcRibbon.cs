@@ -121,7 +121,7 @@ public static class CalcRibbon
                     new MatRibbonSeparator("format-separator-1"),
                     Button(CalcCommandIds.HideRows), Button(CalcCommandIds.HideColumns), Button(CalcCommandIds.UnhideRows), Button(CalcCommandIds.UnhideColumns),
                     new MatRibbonSeparator("format-separator-2"),
-                    Button(CalcCommandIds.RenameSheet),
+                    Button(CalcCommandIds.RenameSheet), Toggle(CalcCommandIds.LockCell),
                     new MatRibbonSeparator("format-separator-3"),
                     Button(CalcCommandIds.FormatCells),
                 ]) { Size = MatRibbonSize.Large }),
@@ -137,7 +137,7 @@ public static class CalcRibbon
                     new MatRibbonSeparator("sort-separator"),
                     Toggle(CalcCommandIds.Filter), Button(CalcCommandIds.FilterClear)) { Size = MatRibbonSize.Large },
                 new MatRibbonMenuButton(CalcCommandIds.FindSelect, "", null,
-                    Button(CalcCommandIds.Find), Button(CalcCommandIds.Replace), Button(CalcCommandIds.GoTo), Button(CalcCommandIds.SelectAll)) { Size = MatRibbonSize.Large }));
+                    Button(CalcCommandIds.Find), Button(CalcCommandIds.Replace), Button(CalcCommandIds.GoTo), Button(CalcCommandIds.SelectSpecial), Button(CalcCommandIds.SelectVisible), Button(CalcCommandIds.SelectAll)) { Size = MatRibbonSize.Large }));
 
     /// <summary>Zellenformatvorlagen: the styles with a sample of their look, a few in the ribbon, all in its menu.</summary>
     private static MatRibbonGallery CellStylesGallery()
@@ -329,9 +329,10 @@ public static class CalcRibbon
             library,
             new MatRibbonGroup("names", "Definierte Namen") { Icon = "tag" }.Add(
                 Button(CalcCommandIds.NameManager, MatRibbonSize.Large),
-                Button(CalcCommandIds.DefineName)),
+                new MatRibbonStack("names-rows", Button(CalcCommandIds.DefineName), Button(CalcCommandIds.UseInFormula), Button(CalcCommandIds.CreateNames))),
             new MatRibbonGroup("auditing", "Formelüberwachung") { Icon = "code" }.Add(
-                Toggle(CalcCommandIds.ShowFormulas, size: MatRibbonSize.Large)),
+                new MatRibbonStack("auditing-trace", Button(CalcCommandIds.TracePrecedents), Button(CalcCommandIds.TraceDependents), Button(CalcCommandIds.RemoveArrows)),
+                new MatRibbonStack("auditing-check", Toggle(CalcCommandIds.ShowFormulas), Button(CalcCommandIds.ErrorChecking), Button(CalcCommandIds.EvaluateFormula))),
             new MatRibbonGroup("calculation", "Berechnung") { Icon = "refresh" }.Add(
                 new MatRibbonMenuButton(CalcCommandIds.CalculationOptions, "", null,
                     Toggle(CalcCommandIds.CalculationAutomatic, "calculation"),
@@ -353,15 +354,20 @@ public static class CalcRibbon
                 Button(CalcCommandIds.TextToColumns, MatRibbonSize.Large),
                 Button(CalcCommandIds.RemoveDuplicates),
                 Button(CalcCommandIds.Validation)),
+            new MatRibbonGroup("forecast", "Prognose") { Icon = "help-circle" }.Add(
+                new MatRibbonMenuButton(CalcCommandIds.WhatIf, "", null, Button(CalcCommandIds.GoalSeek)) { Size = MatRibbonSize.Large }),
             new MatRibbonGroup("outline", "Gliederung") { Icon = "layers" }.Add(
-                Button(CalcCommandIds.Group),
-                Button(CalcCommandIds.Ungroup)));
+                new MatRibbonStack("outline-group", Button(CalcCommandIds.Group), Button(CalcCommandIds.Ungroup), Button(CalcCommandIds.Subtotals)),
+                new MatRibbonStack("outline-detail", Button(CalcCommandIds.ShowDetail, MatRibbonSize.Small), Button(CalcCommandIds.HideDetail, MatRibbonSize.Small))));
 
     private static MatRibbonTab ReviewTab() =>
         new MatRibbonTab("review", "Überprüfen").Add(
             new MatRibbonGroup("notes", "Notizen") { Icon = "comment" }.Add(
                 Button(CalcCommandIds.NewComment, MatRibbonSize.Large),
-                Button(CalcCommandIds.DeleteCommentReview)));
+                Button(CalcCommandIds.DeleteCommentReview)),
+            new MatRibbonGroup("protect", "Schützen") { Icon = "lock" }.Add(
+                Toggle(CalcCommandIds.ProtectSheet, size: MatRibbonSize.Large),
+                Toggle(CalcCommandIds.ProtectWorkbook, size: MatRibbonSize.Large)));
 
     private static MatRibbonTab ViewTab() =>
         new MatRibbonTab("view", "Ansicht").Add(

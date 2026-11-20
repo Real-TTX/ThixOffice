@@ -75,6 +75,11 @@ public sealed partial class EditingSession
     public PivotTable CreatePivotTable(string source, PivotDestination destination)
     {
         var (sourceSheet, range, table) = ParsePivotSource(source);
+        if (destination.NewSheet)
+        {
+            GuardStructure();
+        }
+
         var cache = PivotCache.Build(Workbook, NextPivotCacheId(), sourceSheet, range, table);
         PivotTable? created = null;
         Execute("PivotTable einfügen", () =>
@@ -268,6 +273,7 @@ public sealed partial class EditingSession
         var pivot = sheet.PivotAt(cell.Row, cell.Column) ?? throw new BusinessException("Die Zelle gehört zu keiner PivotTable.");
         var output = sheet.OutputOf(pivot) ?? throw new BusinessException("Aktualisieren Sie die PivotTable zuerst (ihre Daten sind nicht gespeichert).");
         var entry = output.EntryAt(cell) ?? throw new BusinessException("Details gibt es nur zu den Werten einer PivotTable.");
+        GuardStructure();
         var cache = CacheOf(pivot);
         var records = PivotEngine.RecordsOf(pivot, cache, entry);
         Worksheet? created = null;

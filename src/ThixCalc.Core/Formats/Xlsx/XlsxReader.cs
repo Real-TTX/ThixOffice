@@ -30,6 +30,7 @@ public static class XlsxReader
 
         var root = workbookPart.Workbook ?? throw new InvalidDataException("Die Datei enthält keine Arbeitsmappe.");
         workbook.Date1904 = root.WorkbookProperties?.Date1904?.Value ?? false;
+        workbook.ProtectionXml = root.WorkbookProtection?.OuterXml;
         if (root.CalculationProperties is { } calc)
         {
             workbook.CalculationSettings = new CalculationSettings

@@ -194,8 +194,21 @@ public sealed class Worksheet
     /// <summary>Rows hidden unless they have data (sheetFormatPr zeroHeight).</summary>
     public bool ZeroHeightRows { get; set; }
 
+    private string? _protectionXml;
+
     /// <summary>The sheet's protection (&lt;sheetProtection&gt; as XML), or null when the sheet is not protected.</summary>
-    public string? ProtectionXml { get; set; }
+    public string? ProtectionXml
+    {
+        get => _protectionXml;
+        set
+        {
+            _protectionXml = value;
+            Protection = Model.Protection.Parse(value);
+        }
+    }
+
+    /// <summary>What may still be done while the sheet is protected, or null when it is not protected.</summary>
+    public SheetProtection? Protection { get; private set; }
 
     /// <summary>Seitenlayout: paper, orientation, margins, scaling, grid lines/headings on paper, header and footer.</summary>
     public PageSetup PageSetup { get; set; } = PageSetup.Default;
