@@ -93,5 +93,20 @@ public sealed class AnalysisUiTests
         await PressAsync(window, PhysicalKey.Escape);
         editor.Session.UnprotectSheet(null);
         Assert.False(editor.Session.IsSheetProtected);
+
+        // A link to a cell of this sheet and to a name.
+        editor.Session.Select(new CellAddress(5, 0));
+        var link = HyperlinkDialog.Create(editor);
+        link.Address.Text = "B2";
+        link.Display.Text = "Zur Menge";
+        link.Confirm();
+        await SettleAsync();
+        Assert.Equal("Tabelle1!B2", editor.Session.ActiveSheet.Hyperlinks.Single().Location);
+        editor.Session.Select(new CellAddress(6, 0));
+        var named = HyperlinkDialog.Create(editor);
+        named.Address.Text = "Preis";
+        named.Confirm();
+        await SettleAsync();
+        Assert.Contains(editor.Session.ActiveSheet.Hyperlinks, entry => entry.Location == "Preis");
     }
 }

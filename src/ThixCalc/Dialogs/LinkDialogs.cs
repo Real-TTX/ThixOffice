@@ -13,7 +13,7 @@ namespace ThixCalc.Dialogs;
 
 /// <summary>
 /// Einfügen › Link (Strg+K): an address (http, https, mailto – checked by the business layer's LinkService) or a place in
-/// this workbook ("Tabelle2!A1"), the text to show; Link entfernen for an existing one (set apart).
+/// this workbook ("Tabelle2!A1", "B5" on this sheet, a defined name), the text to show; Link entfernen for an existing one (set apart).
 /// </summary>
 public sealed class HyperlinkDialog : CalcDialog
 {
@@ -55,11 +55,21 @@ public sealed class HyperlinkDialog : CalcDialog
 
     public static Task<bool> ShowAsync(Window owner, CalcEditor editor) => new HyperlinkDialog(editor).ShowAsync(owner);
 
+    /// <summary>The dialog for tests (not shown).</summary>
+    internal static HyperlinkDialog Create(CalcEditor editor) => new(editor);
+
     protected override bool Apply()
     {
         var address = _address.Text?.Trim() ?? string.Empty;
         var session = _editor.Session;
-        var isPlace = address.Contains('!') && !address.Contains("://", StringComparison.Ordinal);
+        // A place in this workbook: "Tabelle2!A1", a cell of this sheet ("B5") or a defined name.
+        var isPlace = !address.Contains("://", StringComparison.Ordinal)
+            && (address.Contains('!') || CellRange.TryParse(address.Replace("$", string.Empty, StringComparison.Ordinal)) is not null || session.Workbook.FindName(address, session.ActiveSheet) is not null);
+        if (isPlace && !address.Contains('!') && CellRange.TryParse(address.Replace("$", string.Empty, StringComparison.Ordinal)) is not null)
+        {
+            address = $"{session.ActiveSheet.Name}!{address}";
+        }
+
         if (!isPlace)
         {
             try
