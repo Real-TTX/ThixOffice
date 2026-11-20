@@ -425,6 +425,10 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   w:delText and written back as w:delText inside w:del (`DocxRevisions`, ids kept where free). The layout shows them by
   `LayoutContext.View` (`RevisionView`; `Hides`: removals hidden in the final views, insertions in Original). Format changes (rPrChange)
   stay in `CharacterProperties.UnknownXml`. odt/txt write the final text.
+- **Recording (`EditingSession.Revisions.cs`):** `TrackChanges` (= `DocumentSettings.TrackRevisions`, `SetTrackChanges`), `RevisionAuthor`
+  (the editor sets it from `SettingsService.AuthorName`); `InsertText`, `DeleteRange`, `Paste`, `PasteText` go through `TrackDelete` /
+  `MarkInserted` / `ReplaceTracked` while it is on; `RevisionAt`, `NextRevision`, `ResolveRevision(accept)`. Display: `DocumentLayout.RevisionView`
+  (AllMarkup colours via `ParagraphLayouter.RevisionColor`, `LineLayout.ChangeBar` drawn left of the margin). UI in `ReviewCommands`.
 - **Formats shown from files:** table style conditions (`Style.Conditions`, `TableProperties.Look`, `StyleResolver.ConditionMask/
   ConditionsOf`), character caps/small caps/hidden/spacing/scale/position/shading, paragraph borders and shading, `Document.PageColor`,
   headers/footers with tables (`PlaceStoryWithTables`: the story as its own layout). Tracked changes show as the final text; the

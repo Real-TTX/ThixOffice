@@ -64,6 +64,14 @@ public static class DisplayListBuilder
 
         AddCellBorders(page, items);
         AddParagraphFrames(page.Lines, items, shading: false);
+        var barX = page.Section.Properties.MarginLeft + page.Section.Properties.Gutter - 14;
+        foreach (var placed in page.Lines)
+        {
+            if (placed.Line.ChangeBar is { } bar)
+            {
+                items.Add(new LineItem(barX, placed.Top, barX, placed.Top + placed.Line.Height, bar, 0.75)); // a tracked change on this line
+            }
+        }
         foreach (var (x, top, bottom) in page.ColumnLines)
         {
             items.Add(new LineItem(x, top, x, bottom, RgbColor.Black, 0.5));

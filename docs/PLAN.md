@@ -301,6 +301,11 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   vorhandenes wird ersetzt), Leere Seite, Initiale (im Text; „Im Rand“ fehlt), Lesezeichen (Dialog: hinzufügen, gehe zu, löschen; der
   Link-Dialog bietet die Textmarken als Ziel). Lücken: Linien/Verbinder, Formen drehen, Effekte im Formformat, Text in Formen aus
   Dateien mit Bildern.
+  **B3 Änderungen nachverfolgen erledigt:** Aufzeichnen (Strg+Umschalt+E, in der Datei als w:trackRevisions): Getipptes und Eingefügtes
+  wird Einfügung, Gelöschtes bleibt als Löschung (eigene Einfügungen verschwinden ganz), mit Autor (Einstellungen) und Zeit; Anzeige
+  Einfaches Markup (Endfassung, roter Änderungsstrich), Alle Markups (Einfügungen unterstrichen, Löschungen durchgestrichen in der Farbe
+  des Autors, grauer Strich), Markup: keine, Original; Annehmen/Ablehnen (und weiter, Alle annehmen/ablehnen), Vorherige/Nächste; docx
+  w:ins/w:del. Lücken: Formatänderungen (w:rPrChange werden nur erhalten), eingefügte/gelöschte Absatzmarken, Sprechblasen am Rand.
   **Noch falsch:** die innere Tabelle ist nicht bearbeitbar; Einfügemarke und Markierung in gedrehten Zellen stehen waagrecht;
   Spaltenoperationen (Spalte einfügen/löschen) an Tabellen mit Lückenzeilen rechnen die Lücke nicht mit; eine schwebende Tabelle
   wird nie geteilt und umfließt keine anderen Objekte; Formeln sind nicht bearbeitbar (kein Formel-Editor), m:jc/Ausrichtung an „&“
@@ -356,7 +361,7 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
 | Überprüfen | Rechtschreibung (F7), Wörter zählen, Sprache | vorhanden |
 | Überprüfen | Kommentare: neu, löschen, vorheriger/nächster, anzeigen | vorhanden |
 | Überprüfen | Alle Änderungen annehmen / ablehnen | neu |
-| Überprüfen | Änderungen nachverfolgen (aufzeichnen), einzeln annehmen/ablehnen, Markup-Ansichten | fehlt (Änderungen aus Word werden als Endfassung gezeigt) |
+| Überprüfen | Änderungen nachverfolgen (Strg+Umschalt+E: Einfügen/Löschen), einzeln annehmen/ablehnen, Vorherige/Nächste, Markup-Ansichten (Einfach, Alle, Keine, Original) | neu (Formatänderungen und Absatzmarken werden nicht aufgezeichnet) |
 | Überprüfen | Vergleichen, Schützen, Freihand | – |
 | Ansicht | Drucklayout, Lineal, Navigationsbereich, Zoom, 100 %, Eine Seite / Seitenbreite | vorhanden |
 | Ansicht | Mehrere Seiten | fehlt |

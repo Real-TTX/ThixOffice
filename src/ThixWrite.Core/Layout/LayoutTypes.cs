@@ -127,6 +127,9 @@ public sealed class LineLayout
 
     public bool IsLast { get; }
 
+    /// <summary>The colour of the change bar in the margin beside a line with a tracked change, or null.</summary>
+    public ThixOffice.Text.Drawing.RgbColor? ChangeBar { get; init; }
+
     /// <summary>The width a selection shows for the paragraph mark / break at the end of the line.</summary>
     public double MarkWidth { get; }
 

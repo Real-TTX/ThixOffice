@@ -152,7 +152,7 @@ internal static class ParagraphLayouter
             {
                 (end, ending) = FillLine(text, lineStart, startX, lineRight, advances, breaks, graphemeStarts, tabWidths, format, context, columnBreaks);
                 line = BuildLine(paragraph, lineStart, end, ending, startX, lineRight, isFirst, format, segments, owner, advances, tabWidths,
-                    graphemeStarts, isFirst ? labelItem : null, markMetrics, markWidth);
+                    graphemeStarts, isFirst ? labelItem : null, markMetrics, markWidth, context.View);
                 if (exclusions is not { Count: > 0 } || attempt >= 12)
                 {
                     break;
@@ -177,7 +177,7 @@ internal static class ParagraphLayouter
             if (skip > 0)
             {
                 line = new LineLayout(line.Start, line.End, line.Height + skip, line.Baseline + skip, line.Ascent, line.Descent, line.Items, line.Stops,
-                    line.StopX, line.Ending, line.IsFirst, line.IsLast, line.MarkWidth);
+                    line.StopX, line.Ending, line.IsFirst, line.IsLast, line.MarkWidth) { ChangeBar = line.ChangeBar };
             }
 
             lines.Add(line);
@@ -196,7 +196,7 @@ internal static class ParagraphLayouter
         {
             var last = lines[^1];
             lines[^1] = new LineLayout(last.Start, last.End, last.Height, last.Baseline, last.Ascent, last.Descent, last.Items, last.Stops,
-                last.StopX, last.Ending, last.IsFirst, true, last.MarkWidth);
+                last.StopX, last.Ending, last.IsFirst, true, last.MarkWidth) { ChangeBar = last.ChangeBar };
         }
 
         return new ParagraphLayout(paragraph, width, label?.Text, format, lines) { IsWrapped = exclusions is { Count: > 0 }, Exclusions = exclusions is { Count: > 0 } ? exclusions : null };
@@ -349,6 +349,13 @@ internal static class ParagraphLayouter
             } - format.Position;
 
             var revisionHidden = context.Hides(inline.Revision);
+            if (inline.Revision is { } revision && context.View == RevisionView.AllMarkup)
+            {
+                // "Alle Markups": insertions underlined, deletions struck through, in the author's colour.
+                var color = RevisionColor(revision.Author);
+                format = revision.IsRemoval ? format with { Strikethrough = true, Color = color } : format with { Underline = UnderlineStyle.Single, Color = color };
+            }
+
             if (revisionHidden && inline is not TextRun)
             {
                 // An object of a tracked change this view does not show: no width, no ink.
@@ -770,7 +777,8 @@ internal static class ParagraphLayouter
         bool[] graphemeStarts,
         LabelItem? label,
         FontMetrics markMetrics,
-        double markWidth)
+        double markWidth,
+        RevisionView view)
     {
         var text = paragraph.Text;
 
@@ -914,6 +922,20 @@ internal static class ParagraphLayouter
         };
         var baseline = height - descent - gap;
 
+        // A change bar beside a line with a tracked change (the markup views that show them).
+        ThixOffice.Text.Drawing.RgbColor? changeBar = null;
+        if (view is RevisionView.AllMarkup or RevisionView.SimpleMarkup)
+        {
+            for (var index = 0; index < paragraph.Inlines.Length && changeBar is null; index++)
+            {
+                var inlineStart = paragraph.StartOf(index);
+                if (paragraph.Inlines[index].Revision is not null && inlineStart < Math.Max(end, start + 1) && inlineStart + paragraph.Inlines[index].Length > start)
+                {
+                    changeBar = view == RevisionView.SimpleMarkup ? new ThixOffice.Text.Drawing.RgbColor(0xC0, 0x00, 0x00) : new ThixOffice.Text.Drawing.RgbColor(0x59, 0x59, 0x59);
+                }
+            }
+        }
+
         // Caret stops: grapheme starts, not right after an invisible marker; the break character itself is no stop.
         var lastStop = ending is LineEnding.LineBreak or LineEnding.PageBreak or LineEnding.ColumnBreak ? end - 1 : end;
         var stops = new List<int>();
@@ -938,7 +960,20 @@ internal static class ParagraphLayouter
         }
 
         return new LineLayout(start, end, height, baseline, ascent, descent, items, [.. stops], [.. stopX], ending, isFirst,
-            ending == LineEnding.Paragraph, markWidth);
+            ending == LineEnding.Paragraph, markWidth) { ChangeBar = changeBar };
+    }
+
+    /// <summary>The colour of an author's tracked changes in "Alle Markups" (Word gives every author one of its colours).</summary>
+    public static string RevisionColor(string? author)
+    {
+        string[] colors = ["B5082E", "2E74B5", "538135", "7030A0", "C55A11", "008080"];
+        var hash = 0;
+        foreach (var character in author ?? "")
+        {
+            hash = (hash * 31) + character;
+        }
+
+        return colors[(hash & 0x7FFFFFFF) % colors.Length];
     }
 
     private static TabLeader LeaderAt(EffectiveParagraphFormat format, double stopX)

@@ -72,11 +72,95 @@ public static class ReviewCommands
         {
             Icon = "chevron-right", CanExecute = HasComments, Description = "Springt zum nächsten Kommentar.", Keywords = ["nächster kommentar"],
         });
+        bool HasRevisions() => Editor()?.Document.Session.HasRevisions == true;
+        commands.Add(new OfficeCommand(WriteCommandIds.TrackChanges, "Änderungen nachverfolgen", () =>
+        {
+            if (Editor() is { } editor)
+            {
+                editor.Document.Session.RevisionAuthor = ThixOffice.Core.Business.SettingsService.AuthorName;
+                editor.Document.Session.SetTrackChanges(!editor.Document.Session.TrackChanges);
+            }
+        })
+        {
+            Icon = "edit", Shortcut = "Ctrl+Shift+E", CanExecute = () => Editor() is not null, IsChecked = () => Editor()?.Document.Session.TrackChanges == true,
+            Description = "Zeichnet jede Änderung mit Autor und Zeit auf, damit sie angenommen oder abgelehnt werden kann.",
+            Keywords = ["änderungen nachverfolgen", "überarbeiten", "track changes", "markup"],
+        });
+        commands.Add(new OfficeCommand(WriteCommandIds.Markup, "Markup", () => { })
+        {
+            Icon = "eye", CanExecute = () => Editor() is not null,
+            Description = "Wie Änderungen gezeigt werden: alle Markups, einfaches Markup, keines oder das Original.", Keywords = ["markup", "anzeige für überarbeitungen", "original"],
+        });
+        foreach (var (id, label, view) in MarkupViews)
+        {
+            commands.Add(new OfficeCommand($"{WriteCommandIds.Markup}.{id}", label, () => SetView(Editor(), view))
+            {
+                Icon = "eye", CanExecute = () => Editor() is not null, IsSearchable = false, IsChecked = () => Editor()?.Layout.RevisionView == view,
+            });
+        }
+
+        commands.Add(new OfficeCommand(WriteCommandIds.AcceptRevision, "Annehmen", () => Resolve(Editor(), accept: true))
+        {
+            Icon = "check", CanExecute = HasRevisions,
+            Description = "Nimmt die Änderung an der Einfügemarke (oder in der Markierung) an und geht zur nächsten.", Keywords = ["annehmen", "änderung annehmen"],
+        });
+        commands.Add(new OfficeCommand(WriteCommandIds.RejectRevision, "Ablehnen", () => Resolve(Editor(), accept: false))
+        {
+            Icon = "x", CanExecute = HasRevisions,
+            Description = "Lehnt die Änderung an der Einfügemarke (oder in der Markierung) ab und geht zur nächsten.", Keywords = ["ablehnen", "änderung ablehnen"],
+        });
+        commands.Add(new OfficeCommand(WriteCommandIds.PreviousRevision, "Vorherige", () => Editor()?.Document.Session.NextRevision(forward: false))
+        {
+            Icon = "chevron-left", CanExecute = HasRevisions, Description = "Springt zur vorherigen Änderung.", Keywords = ["vorherige änderung"],
+        });
+        commands.Add(new OfficeCommand(WriteCommandIds.NextRevision, "Nächste", () => Editor()?.Document.Session.NextRevision(forward: true))
+        {
+            Icon = "chevron-right", CanExecute = HasRevisions, Description = "Springt zur nächsten Änderung.", Keywords = ["nächste änderung"],
+        });
+
         commands.Add(new OfficeCommand(WriteCommandIds.ShowComments, "Kommentare anzeigen", () => Toggle(Editor()))
         {
             Icon = "message-square", CanExecute = () => Editor() is not null, IsChecked = () => Editor()?.ShowComments == true,
             Description = "Zeigt die Kommentare rechts neben den Seiten.", Keywords = ["kommentare anzeigen", "kommentarbereich"],
         });
+    }
+
+    /// <summary>The "Markup" views: id, label, view.</summary>
+    public static readonly IReadOnlyList<(string Id, string Label, Core.Layout.RevisionView View)> MarkupViews =
+    [
+        ("simple", "Einfaches Markup", Core.Layout.RevisionView.SimpleMarkup),
+        ("all", "Alle Markups", Core.Layout.RevisionView.AllMarkup),
+        ("none", "Markup: keine", Core.Layout.RevisionView.NoMarkup),
+        ("original", "Original", Core.Layout.RevisionView.Original),
+    ];
+
+    private static void SetView(WriteEditor? editor, Core.Layout.RevisionView view)
+    {
+        if (editor is null)
+        {
+            return;
+        }
+
+        editor.Layout.RevisionView = view;
+        editor.Layout.Update();
+        editor.Surface.InvalidateMeasure();
+        editor.Surface.InvalidateVisual();
+        editor.ScheduleState();
+    }
+
+    /// <summary>Annehmen / Ablehnen, then on to the next change (Word's "… und weiter").</summary>
+    private static void Resolve(WriteEditor? editor, bool accept)
+    {
+        if (editor is null)
+        {
+            return;
+        }
+
+        editor.CloseHeaderFooter();
+        var session = editor.Document.Session;
+        session.ResolveRevision(accept);
+        session.NextRevision(forward: true);
+        editor.FocusDocument();
     }
 
     /// <summary>The languages the Sprache menu offers: those the system can check (at most twelve, German and English first).</summary>

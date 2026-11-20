@@ -51,6 +51,9 @@ public sealed record DocumentSettings
 
     /// <summary>"Gerade & ungerade Seiten unterschiedlich" (w:evenAndOddHeaders): even pages show the Even headers and footers.</summary>
     public bool EvenAndOddHeaders { get; init; }
+
+    /// <summary>"Änderungen nachverfolgen" (w:trackRevisions): edits are recorded as tracked changes.</summary>
+    public bool TrackRevisions { get; init; }
 }
 
 /// <summary>

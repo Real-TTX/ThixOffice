@@ -189,6 +189,16 @@ public sealed partial class EditingSession
         {
             ClearWholeCells();
             var (properties, link) = TypingFormat();
+            if (TrackChanges)
+            {
+                // Tracked: the selection stays as deleted text, the typing goes in after it as an insertion.
+                var (_, at) = TrackDelete(_selection.Range);
+                var tracked = (ReplaceMap)Apply(ContentEdits.InsertText(Document, DocumentRange.At(at), text, properties, link));
+                MarkInserted(at, tracked.EndOfInserted);
+                SetSelectionQuiet(Selection.Caret(tracked.EndOfInserted));
+                return;
+            }
+
             var map = Apply(ContentEdits.InsertText(Document, _selection.Range, text, properties, link));
             SetSelectionQuiet(Selection.Caret(((ReplaceMap)map).EndOfInserted));
         });
@@ -699,8 +709,7 @@ public sealed partial class EditingSession
         {
             ClearWholeCells();
             var blocks = WrapTables(fragment.SourceDocumentId == Document.Id ? fragment.Blocks : Adopt(fragment));
-            var map = (ReplaceMap)Apply(ContentEdits.Replace(Document, _selection.Range, blocks));
-            SetSelectionQuiet(Selection.Caret(map.EndOfInserted));
+            SetSelectionQuiet(Selection.Caret(ReplaceTracked(_selection.Range, blocks)));
         });
     }
 
@@ -715,9 +724,22 @@ public sealed partial class EditingSession
             var targetBlock = ContentEdits.NextParagraph(Document, ContentEdits.Normalize(Document, _selection.Range).From.Block);
             var target = (Paragraph)Document.Blocks[targetBlock];
             var blocks = lines.Select(line => (Block)new Paragraph(line.Text.Length == 0 ? [] : [new TextRun(line.Text, properties)], target.Properties, target.MarkProperties)).ToList();
-            var map = (ReplaceMap)Apply(ContentEdits.Replace(Document, _selection.Range, blocks));
-            SetSelectionQuiet(Selection.Caret(map.EndOfInserted));
+            SetSelectionQuiet(Selection.Caret(ReplaceTracked(_selection.Range, blocks)));
         });
+    }
+
+    /// <summary>Puts <paramref name="blocks"/> in place of <paramref name="range"/> – tracked: after the range marked deleted, as an insertion. Returns the end.</summary>
+    private DocumentPosition ReplaceTracked(DocumentRange range, IReadOnlyList<Block> blocks)
+    {
+        if (!TrackChanges)
+        {
+            return ((ReplaceMap)Apply(ContentEdits.Replace(Document, range, blocks))).EndOfInserted;
+        }
+
+        var (_, at) = TrackDelete(range);
+        var map = (ReplaceMap)Apply(ContentEdits.Replace(Document, DocumentRange.At(at), blocks));
+        MarkInserted(at, map.EndOfInserted);
+        return map.EndOfInserted;
     }
 
     // ---------------------------------------------------------------- find / replace
@@ -911,6 +933,14 @@ public sealed partial class EditingSession
         var continues = kind is EditKind.DeleteBackward or EditKind.DeleteForward ? ContinuesTyping(kind) : null;
         Run(label, kind, continues, () =>
         {
+            if (TrackChanges)
+            {
+                // Tracked: the text stays, marked deleted; Entf moves past it, Rücktaste before it.
+                var (start, end) = TrackDelete(range);
+                SetSelectionQuiet(Selection.Caret(CaretStops.Snap(Document, kind == EditKind.DeleteForward ? end : start)));
+                return;
+            }
+
             var map = (ReplaceMap)Apply(ContentEdits.Delete(Document, range));
             SetSelectionQuiet(Selection.Caret(CaretStops.Snap(Document, map.From)));
         });

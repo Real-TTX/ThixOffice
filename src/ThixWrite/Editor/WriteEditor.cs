@@ -104,6 +104,7 @@ public sealed class WriteEditor : OfficeEditor
         _surface.DropPicture = (path, position) => OfficeWindow.RunAsync(_window, "Bild einfügen", () => Task.FromResult(InsertPictureFile(path, position)));
 
         document.Session.StateChanged += OnStateChanged;
+        document.Session.RevisionAuthor = ThixOffice.Core.Business.SettingsService.AuthorName;
         _surface.Refreshed += (_, _) => ScheduleState();
         Document.ContentReplaced += OnContentReplaced;
         _surface.Scale = Zoom / 100 * DocumentSurface.PointsToDips;
@@ -1058,7 +1059,7 @@ public sealed class WriteEditor : OfficeEditor
     private void OnStateChanged(object? sender, EventArgs e) => ScheduleState();
 
     /// <summary>The ribbon and the status bar follow the session, once per dispatcher round however many changes came.</summary>
-    private void ScheduleState()
+    internal void ScheduleState()
     {
         if (_statePending)
         {

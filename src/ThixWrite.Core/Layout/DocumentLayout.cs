@@ -54,6 +54,20 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
 
     public LayoutOptions Options { get; }
 
+    /// <summary>How tracked changes show ("Markup" views); changing it lays everything out again.</summary>
+    public RevisionView RevisionView
+    {
+        get => _context.View;
+        set
+        {
+            if (_context.View != value)
+            {
+                _context.View = value;
+                _clearAll = true;
+            }
+        }
+    }
+
     /// <summary>The height a Page Up / Page Down moves (the editor sets its viewport height; default: one page).</summary>
     public double? ViewportHeight { get; set; }
 

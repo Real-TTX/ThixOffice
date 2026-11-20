@@ -130,7 +130,8 @@ internal static class DocxStyles
         var tab = settings?.GetFirstChild<W.DefaultTabStop>();
         var value = tab is null ? null : DocxValues.ParseTwips(DocxValues.AttributeValue(tab, "val"));
         var evenAndOdd = settings?.GetFirstChild<W.EvenAndOddHeaders>() is { } flag && DocxValues.ParseOnOff(flag);
-        return new DocumentSettings { DefaultTabStop = value is > 0 ? value.Value : DocumentSettings.Default.DefaultTabStop, EvenAndOddHeaders = evenAndOdd };
+        var track = settings?.GetFirstChild<W.TrackRevisions>() is { } tracking && DocxValues.ParseOnOff(tracking);
+        return new DocumentSettings { DefaultTabStop = value is > 0 ? value.Value : DocumentSettings.Default.DefaultTabStop, EvenAndOddHeaders = evenAndOdd, TrackRevisions = track };
     }
 
     /// <summary>Sets the default tab stop and "Gerade & ungerade Seiten unterschiedlich" in <paramref name="settings"/>, keeping everything else.</summary>
@@ -142,6 +143,12 @@ internal static class DocxStyles
         if (model.EvenAndOddHeaders)
         {
             XmlFragments.Add(settings, new W.EvenAndOddHeaders());
+        }
+
+        settings.RemoveAllChildren<W.TrackRevisions>();
+        if (model.TrackRevisions)
+        {
+            XmlFragments.Add(settings, new W.TrackRevisions());
         }
     }
 

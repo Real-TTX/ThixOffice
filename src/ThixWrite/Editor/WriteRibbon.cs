@@ -187,6 +187,12 @@ public static class WriteCommandIds
     public const string PageColor = "write.pageColor";
     public const string ChangeCase = "write.changeCase";
     public const string AcceptAllRevisions = "write.acceptAllRevisions";
+    public const string TrackChanges = "write.trackChanges";
+    public const string Markup = "write.markup"; // menu; entries write.markup.<simple|all|none|original>
+    public const string AcceptRevision = "write.revision.accept";
+    public const string RejectRevision = "write.revision.reject";
+    public const string PreviousRevision = "write.revision.previous";
+    public const string NextRevision = "write.revision.next";
     public const string RejectAllRevisions = "write.rejectAllRevisions";
     public const string KeyLineSpacing1 = "write.key.lineSpacing1";
     public const string KeyLineSpacing2 = "write.key.lineSpacing2";
@@ -555,9 +561,16 @@ public static class WriteRibbon
                     Button(WriteCommandIds.PreviousComment),
                     Button(WriteCommandIds.NextComment)),
                 Toggle(WriteCommandIds.ShowComments, size: MatRibbonSize.Large)),
+            new MatRibbonGroup("tracking", "Nachverfolgung") { Icon = "edit" }.Add(
+                Toggle(WriteCommandIds.TrackChanges, size: MatRibbonSize.Large),
+                new MatRibbonMenuButton(WriteCommandIds.Markup, "", null,
+                    [.. ReviewCommands.MarkupViews.Select(view => Toggle($"{WriteCommandIds.Markup}.{view.Id}", "markup"))]) { Size = MatRibbonSize.Large }),
             new MatRibbonGroup("changes", "Änderungen") { Icon = "check-circle" }.Add(
-                Button(WriteCommandIds.AcceptAllRevisions, MatRibbonSize.Large),
-                Button(WriteCommandIds.RejectAllRevisions, MatRibbonSize.Large)));
+                new MatRibbonSplitButton(WriteCommandIds.AcceptRevision, "", menu: [Button(WriteCommandIds.AcceptAllRevisions)]) { Size = MatRibbonSize.Large },
+                new MatRibbonSplitButton(WriteCommandIds.RejectRevision, "", menu: [Button(WriteCommandIds.RejectAllRevisions)]) { Size = MatRibbonSize.Large },
+                new MatRibbonStack("revision-steps",
+                    Button(WriteCommandIds.PreviousRevision),
+                    Button(WriteCommandIds.NextRevision))));
 
     private static MatRibbonTab ViewTab() =>
         new MatRibbonTab("view", "Ansicht").Add(
