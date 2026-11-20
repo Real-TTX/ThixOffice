@@ -287,6 +287,12 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   zwei Marken und werden als w:sdt zurückgeschrieben; nachverfolgte Änderungen (w:ins/w:del/w:moveTo/w:moveFrom) sind Text mit seiner
   Änderung (Art, Autor, Datum) und seinen eigenen Formaten – gelöschter Text wird in der Endfassung nicht gezeigt, beim Schreiben
   wieder w:ins/w:del mit w:delText; odt und Text speichern die Endfassung.
+  **B1 Formatvorlagen erledigt:** Katalog mit Words Schnellformatvorlagen in Words Reihenfolge (auch Schwache/Intensive Hervorhebung,
+  Verweise, Buchtitel) und den eigenen des Dokuments; „Formatvorlage ändern …“ / „Neue Formatvorlage …“ (Name, Typ, basiert auf,
+  Folgeabsatz, Schrift, Grad, Fett/Kursiv/Unterstrichen, Farbe, Ausrichtung, Zeilenabstand, Abstände, Einzug; nur Geändertes kommt in
+  die Formatvorlage, alle Absätze folgen; ein Schritt); „Auswahl als neue Schnellformatvorlage …“; Bereich Formatvorlagen
+  (Alt+Strg+Umschalt+S) mit Suche, Klick formatiert, Neu/Ändern. Lücken: Formatvorlage löschen/umbenennen eingebauter, „Automatisch
+  aktualisieren“, Rahmen/Nummerierung/Tabstopps im Dialog.
   **Noch falsch:** die innere Tabelle ist nicht bearbeitbar; Einfügemarke und Markierung in gedrehten Zellen stehen waagrecht;
   Spaltenoperationen (Spalte einfügen/löschen) an Tabellen mit Lückenzeilen rechnen die Lücke nicht mit; eine schwebende Tabelle
   wird nie geteilt und umfließt keine anderen Objekte; Formeln sind nicht bearbeitbar (kein Formel-Editor), m:jc/Ausrichtung an „&“
@@ -309,8 +315,8 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
 | Start | Mehrstufige Liste (Galerie), Listenebene ändern | fehlt (Ebene per Tab) |
 | Start | Sortieren | fehlt |
 | Start | Schattierung, Rahmen und Schattierung (Dialog) | fehlt (Absatzrahmen/-schattierung aus Dateien werden gezeigt) |
-| Start | Formatvorlagen-Galerie | vorhanden (feste Einträge) |
-| Start | Formatvorlage ändern / neu (Dialog) | fehlt |
+| Start | Formatvorlagen-Galerie | neu: Words Schnellformatvorlagen in Words Reihenfolge und die eigenen des Dokuments; Menü mit „Auswahl als neue Schnellformatvorlage“ |
+| Start | Formatvorlage ändern / neu (Dialog), Bereich Formatvorlagen (Alt+Strg+Umschalt+S) | neu |
 | Start | Suchen, Ersetzen, Markieren (Alles) | vorhanden |
 | Start | Suchen erweitert (Format, Platzhalter), Markieren › ähnliche Formatierung | fehlt / geplant |
 | Einfügen | Deckblatt, Leere Seite | fehlt |

@@ -21,6 +21,11 @@ public static class BuiltInStyles
     public const string DefaultParagraphFont = "DefaultParagraphFont";
     public const string Strong = "Strong";
     public const string Emphasis = "Emphasis";
+    public const string SubtleEmphasis = "SubtleEmphasis";
+    public const string IntenseEmphasis = "IntenseEmphasis";
+    public const string SubtleReference = "SubtleReference";
+    public const string IntenseReference = "IntenseReference";
+    public const string BookTitle = "BookTitle";
     public const string HyperlinkStyle = "Hyperlink";
     public const string Header = "Header";
     public const string Footer = "Footer";
@@ -91,6 +96,10 @@ public static class BuiltInStyles
 
     /// <summary>The name the UI shows: the German name of a built-in style, else the name in the file.</summary>
     public static string DisplayName(Style style) => GermanNames.TryGetValue(style.Name, out var german) ? german : style.Name;
+
+    /// <summary>True when <paramref name="name"/> is the name (in the file or in German) of one of Word's built-in styles.</summary>
+    public static bool IsBuiltInName(string name) =>
+        GermanNames.ContainsKey(name) || GermanNames.Values.Contains(name, StringComparer.CurrentCultureIgnoreCase);
 
     /// <summary>The styles of a new document, with Word's document defaults (Calibri 11, 8 pt after, 1.08 lines, German).</summary>
     public static StyleSheet CreateDefault()
@@ -258,6 +267,30 @@ public static class BuiltInStyles
                 UiPriority = 20,
                 Character = new CharacterProperties { Italic = true },
             },
+            SubtleEmphasis or IntenseEmphasis or SubtleReference or IntenseReference or BookTitle => new Style
+            {
+                Id = id,
+                Name = id switch
+                {
+                    SubtleEmphasis => "Subtle Emphasis",
+                    IntenseEmphasis => "Intense Emphasis",
+                    SubtleReference => "Subtle Reference",
+                    IntenseReference => "Intense Reference",
+                    _ => "Book Title",
+                },
+                Type = StyleType.Character,
+                BasedOn = DefaultParagraphFont,
+                QuickFormat = true,
+                UiPriority = id switch { SubtleEmphasis => 19, IntenseEmphasis => 21, SubtleReference => 31, IntenseReference => 32, _ => 33 },
+                Character = id switch
+                {
+                    SubtleEmphasis => new CharacterProperties { Italic = true, Color = TextColor.FromHex("404040") },
+                    IntenseEmphasis => new CharacterProperties { Italic = true, Color = TextColor.FromHex("4472C4") },
+                    SubtleReference => new CharacterProperties { SmallCaps = true, Color = TextColor.FromHex("5A5A5A") },
+                    IntenseReference => new CharacterProperties { Bold = true, SmallCaps = true, Color = TextColor.FromHex("4472C4"), Spacing = 0.25 },
+                    _ => new CharacterProperties { Bold = true, Italic = true, Spacing = 0.25 },
+                },
+            },
             Header or Footer => new Style
             {
                 Id = id,
@@ -363,7 +396,10 @@ public static class BuiltInStyles
 
     /// <summary>The paragraph styles the ribbon's gallery shows, in Word's order.</summary>
     public static IReadOnlyList<string> GalleryOrder { get; } =
-        [Normal, NoSpacing, Heading1, Heading2, Heading3, Title, Subtitle, Quote, IntenseQuote, ListParagraph];
+    [
+        Normal, NoSpacing, Heading1, Heading2, Heading3, Title, Subtitle, SubtleEmphasis, Emphasis, IntenseEmphasis, Strong, Quote, IntenseQuote,
+        SubtleReference, IntenseReference, BookTitle, ListParagraph,
+    ];
 
     private static Style HeadingStyle(int level)
     {

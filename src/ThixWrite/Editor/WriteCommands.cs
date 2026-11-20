@@ -226,8 +226,34 @@ public static class WriteCommands
                 }
             })
         {
-            Icon = "template", CanExecute = HasEditor, Options = [.. WriteRibbon.StyleEntries.Select(entry => entry.Id)],
+            Icon = "template", CanExecute = HasEditor, Options = [.. BuiltInStyles.GalleryOrder],
             Description = "Formatiert die Absätze mit einer Formatvorlage (Überschrift 1, Titel, Zitat …).", Keywords = ["überschrift", "titel", "vorlage", "stil"],
+        });
+        commands.Add(new OfficeCommand(WriteCommandIds.StyleFromSelection, "Auswahl als neue Schnellformatvorlage …", () => Editor()?.StyleFromSelectionAsync() ?? Task.CompletedTask)
+        {
+            Icon = "plus", CanExecute = HasEditor,
+            Description = "Macht aus der Formatierung der Auswahl eine Formatvorlage im Katalog.", Keywords = ["formatvorlage erstellen", "schnellformatvorlage", "stil"],
+        });
+        commands.Add(new OfficeCommand(WriteCommandIds.StyleNew, "Neue Formatvorlage …", () => Editor()?.NewStyleAsync() ?? Task.CompletedTask)
+        {
+            Icon = "template", CanExecute = HasEditor,
+            Description = "Legt eine neue Formatvorlage an: Name, Basis, Folgeabsatz, Schrift und Absatz.", Keywords = ["formatvorlage", "erstellen", "stil"],
+        });
+        commands.Add(new OfficeCommand(WriteCommandIds.StyleModify, "Formatvorlage ändern …", () => Editor()?.ModifyStyleAsync() ?? Task.CompletedTask)
+        {
+            Icon = "edit", CanExecute = HasEditor,
+            Description = "Ändert die Formatvorlage des Absatzes; alle Absätze mit ihr ändern sich mit.", Keywords = ["formatvorlage", "ändern", "anpassen", "stil"],
+        });
+        commands.Add(new OfficeCommand(WriteCommandIds.StylesPane, "Formatvorlagen anzeigen", () =>
+        {
+            if (Editor() is { } editor)
+            {
+                editor.ShowStyles = !editor.ShowStyles;
+            }
+        })
+        {
+            Icon = "sidebar", Shortcut = "Ctrl+Alt+Shift+S", CanExecute = HasEditor, IsChecked = () => Editor()?.ShowStyles == true,
+            Description = "Zeigt alle Formatvorlagen in einem Bereich rechts neben dem Text.", Keywords = ["formatvorlagenbereich", "stile", "liste"],
         });
 
         // Bearbeiten

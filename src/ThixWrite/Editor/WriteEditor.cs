@@ -66,6 +66,9 @@ public sealed class WriteEditor : OfficeEditor
         _scroller.ScrollChanged += (_, _) => RulerView.InvalidateVisual();
         Navigation = new NavigationPane(this) { IsVisible = false };
         CommentsView = new CommentsPane(this) { IsVisible = Core.Model.Comments.All(document.Content).Count > 0 };
+        StylesView = new StylesPane(this, NewStyleAsync, ModifyStyleAsync) { IsVisible = false };
+        Grid.SetRowSpan(StylesView, 2);
+        Grid.SetColumn(StylesView, 3);
         Grid.SetRow(_scroller, 1);
         Grid.SetRow(FindBar, 1);
         Grid.SetColumn(RulerView, 1);
@@ -77,8 +80,8 @@ public sealed class WriteEditor : OfficeEditor
         _view = new Grid
         {
             RowDefinitions = new RowDefinitions("Auto,*"),
-            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
-            Children = { Navigation, RulerView, _scroller, FindBar, CommentsView },
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto"),
+            Children = { Navigation, RulerView, _scroller, FindBar, CommentsView, StylesView },
         };
         _surface.Shading = CommentShading;
         Spelling = new SpellingSupport(this, _surface.InvalidateVisual);
@@ -269,6 +272,85 @@ public sealed class WriteEditor : OfficeEditor
             .Select(placed => (placed.Range, active is not null && placed.Reference == active.Reference)).ToList();
         _shading = (Document.Content.Version, session.Selection, ranges);
         return ranges;
+    }
+
+    /// <summary>The "Formatvorlagen" pane at the right (Alt+Strg+Umschalt+S; hidden at first).</summary>
+    internal StylesPane StylesView { get; }
+
+    public bool ShowStyles
+    {
+        get => StylesView.IsVisible;
+        set
+        {
+            StylesView.IsVisible = value;
+            StylesView.Refresh();
+            ScheduleState();
+        }
+    }
+
+    /// <summary>"Neue Formatvorlage …" (based on the style of the caret's paragraph).</summary>
+    public async Task NewStyleAsync()
+    {
+        await Dialogs.StyleDialog.CreateAsync(_window, this);
+        RefreshStyleGallery();
+    }
+
+    /// <summary>"Formatvorlage ändern …" for the style of the caret's paragraph.</summary>
+    public async Task ModifyStyleAsync()
+    {
+        var style = Session.CurrentParagraphStyle ?? BuiltInStyles.Definition(BuiltInStyles.Normal)!;
+        await Dialogs.StyleDialog.ModifyAsync(_window, this, style);
+        RefreshStyleGallery();
+    }
+
+    /// <summary>"Auswahl als neue Schnellformatvorlage …": asks for the name, makes the style from the selection's format.</summary>
+    public async Task StyleFromSelectionAsync()
+    {
+        var name = NextStyleName();
+        string? problem = null;
+        while (true)
+        {
+            var answer = await ThixOffice.Desktop.Dialogs.TextInputDialog.AskAsync(_window, "Neue Formatvorlage aus Formatierung erstellen", "Name", name, "OK", problem);
+            if (answer is null)
+            {
+                return;
+            }
+
+            name = answer.Trim();
+            problem = Session.StyleNameProblem(name);
+            if (problem is null)
+            {
+                break;
+            }
+        }
+
+        Session.StyleFromSelection(name);
+        RefreshStyleGallery();
+    }
+
+    private string NextStyleName()
+    {
+        for (var number = 1; ; number++)
+        {
+            var name = $"Formatvorlage{number}";
+            if (Session.StyleNameProblem(name) is null)
+            {
+                return name;
+            }
+        }
+    }
+
+    /// <summary>The gallery of the ribbon shows the document's quick styles as they are now.</summary>
+    internal void RefreshStyleGallery()
+    {
+        if (_window.RibbonDefinition.Find(WriteCommandIds.Styles) is MatDesktop.MatRibbonGallery gallery)
+        {
+            var entries = WriteRibbon.StyleEntriesOf(Session);
+            gallery.Entries.Clear();
+            gallery.Entries.AddRange(entries);
+        }
+
+        ScheduleState();
     }
 
     /// <summary>Ansicht › Navigationsbereich: the headings at the left (hidden at first).</summary>
@@ -868,6 +950,7 @@ public sealed class WriteEditor : OfficeEditor
             RulerView.InvalidateVisual();
             Navigation.Refresh();
             CommentsView.Refresh();
+            StylesView.Refresh();
             _window.Commands.Invalidate();
             UpdateStatus(_window.StatusBar);
         }, DispatcherPriority.Background);

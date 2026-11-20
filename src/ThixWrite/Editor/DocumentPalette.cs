@@ -87,6 +87,9 @@ public static class DocumentPalette
     public static HighlightColor HighlightOf(string? hex) =>
         HighlightOrder.FirstOrDefault(highlight => string.Equals(HexOf(highlight), hex, StringComparison.OrdinalIgnoreCase), HighlightColor.None);
 
+    /// <summary>A swatch of a document colour <c>#rrggbb</c> (the colour lists of dialogs).</summary>
+    public static IBrush Swatch(string hex) => new SolidColorBrush(Color.Parse(hex));
+
     /// <summary>Mixes a colour toward white (positive <paramref name="amount"/>) or black (negative).</summary>
     private static string Mix(string hex, double amount)
     {

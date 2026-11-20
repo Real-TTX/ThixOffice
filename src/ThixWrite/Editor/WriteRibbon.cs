@@ -2,6 +2,7 @@ using MatDesktop;
 using ThixOffice.Core.Commands;
 using ThixOffice.Desktop.Shell;
 using ThixWrite.Core.Documents;
+using ThixWrite.Core.Editing;
 using ThixWrite.Core.Model;
 using static ThixOffice.Desktop.Shell.OfficeRibbonItems;
 
@@ -123,6 +124,10 @@ public static class WriteCommandIds
     public const string PictureAlignRight = "write.picture.alignRight";
     public const string PictureHeight = "write.picture.height"; // value: cm, invariant
     public const string PictureWidth = "write.picture.width"; // value: cm, invariant
+    public const string StyleFromSelection = "write.style.fromSelection";
+    public const string StyleNew = "write.style.new";
+    public const string StyleModify = "write.style.modify";
+    public const string StylesPane = "write.stylesPane";
     public const string PictureWrap = "write.picture.wrap"; // menu; entries write.picture.wrap.<inline|square|topBottom|behind|front>
 
     // Kopf- und Fußzeile (contextual, while one is edited)
@@ -208,6 +213,44 @@ public static class WriteRibbon
         new(BuiltInStyles.ListParagraph, "Listenabsatz") { Sample = "AaBbCcDd", SampleSize = 12 },
     ];
 
+    /// <summary>
+    /// The gallery of a document: Word's quick styles in Word's order and the document's own, each with a sample in its look (size,
+    /// bold, italic, a coloured style in the accent).
+    /// </summary>
+    public static IReadOnlyList<MatRibbonGalleryEntry> StyleEntriesOf(EditingSession session)
+    {
+        var entries = new List<MatRibbonGalleryEntry>();
+        var normal = session.Document.Styles.DefaultParagraphStyle?.Id ?? BuiltInStyles.Normal;
+        foreach (var style in session.GalleryStyles())
+        {
+            var format = style.Type == StyleType.Character
+                ? session.Resolver.ResolveCharacter(normal, new CharacterProperties { StyleId = style.Id })
+                : session.Resolver.ResolveCharacter(session.Document.Styles.Find(style.Id) is null ? normal : style.Id, CharacterProperties.Empty);
+            var size = style.Id switch
+            {
+                BuiltInStyles.Title => 20,
+                _ => Math.Clamp(format.FontSize * 1.05, 11, 16),
+            };
+            if (session.Document.Styles.Find(style.Id) is null && BuiltInStyles.Definition(style.Id)?.Character.FontSize is { } builtInSize)
+            {
+                size = Math.Clamp(builtInSize * 1.05, 11, 20);
+            }
+
+            var colored = style.Character.Color is { IsAuto: false } color && color.Value is not ("000000" or "404040" or "595959" or "5A5A5A")
+                          || style.Id.StartsWith("Heading", StringComparison.Ordinal);
+            entries.Add(new MatRibbonGalleryEntry(style.Id, BuiltInStyles.DisplayName(style))
+            {
+                Sample = style.Id == BuiltInStyles.Title ? "AaBb" : style.Id.StartsWith("Heading", StringComparison.Ordinal) ? "AaBbCc" : "AaBbCcDd",
+                SampleSize = size,
+                SampleIsBold = format.Bold || style.Character.Bold == true,
+                SampleIsItalic = format.Italic || style.Character.Italic == true,
+                SampleIsAccent = colored,
+            });
+        }
+
+        return entries;
+    }
+
     /// <summary>The definition of one window (the colour palettes are those of its document's theme).</summary>
     public static MatRibbonDefinition Create(OfficeWindow window)
     {
@@ -221,11 +264,12 @@ public static class WriteRibbon
             }
         }
 
-        definition.Add(HomeTab(theme, Launch), InsertTab(), DesignTab(theme), LayoutTab(), ReferencesTab(), ReviewTab(), ViewTab(), TableDesignTab(theme), TableLayoutTab(), PictureTab(), HeaderFooterTab());
+        var styles = (window.Document as WordDocument)?.Session is { } session ? StyleEntriesOf(session) : StyleEntries;
+        definition.Add(HomeTab(theme, Launch, styles), InsertTab(), DesignTab(theme), LayoutTab(), ReferencesTab(), ReviewTab(), ViewTab(), TableDesignTab(theme), TableLayoutTab(), PictureTab(), HeaderFooterTab());
         return definition;
     }
 
-    private static MatRibbonTab HomeTab(Theme theme, Action<string> launch) =>
+    private static MatRibbonTab HomeTab(Theme theme, Action<string> launch, IReadOnlyList<MatRibbonGalleryEntry> styles) =>
         new MatRibbonTab("home", "Start").Add(
             new MatRibbonGroup("undo", "Rückgängig") { Icon = "undo" }.Add(
                 Button(CommonCommandIds.Undo, MatRibbonSize.Small),
@@ -271,7 +315,7 @@ public static class WriteRibbon
                         new MatRibbonMenuButton(WriteCommandIds.LineSpacing, "", null,
                             [.. WriteCommands.LineSpacings.Select(spacing => Toggle(WriteCommands.LineSpacingId(spacing), "lineSpacing"))]) { Size = MatRibbonSize.Small }))),
             new MatRibbonGroup("styles", "Formatvorlagen") { Icon = "template", ShrinkOrder = 5 }.Add(
-                StylesGallery()),
+                StylesGallery(styles)),
             new MatRibbonGroup("editing", "Bearbeiten") { Icon = "search", ShrinkOrder = 2 }.Add(
                 Button(WriteCommandIds.Find),
                 Button(WriteCommandIds.Replace),
@@ -345,9 +389,10 @@ public static class WriteRibbon
                     Labelled(Number(WriteCommandIds.SpacingAfter, 0, 1584, 6, "Pt."), "Abstand nach"))));
 
     /// <summary>The Formatvorlagen gallery: three styles in the ribbon (Word's width at a normal window), all in its menu.</summary>
-    private static MatRibbonGallery StylesGallery()
+    private static MatRibbonGallery StylesGallery(IReadOnlyList<MatRibbonGalleryEntry> styles)
     {
-        var gallery = Gallery(WriteCommandIds.Styles, StyleEntries);
+        var gallery = Gallery(WriteCommandIds.Styles, styles);
+        gallery.Menu.AddRange([Button(WriteCommandIds.StyleFromSelection), Button(WriteCommandIds.StyleNew), Button(WriteCommandIds.StyleModify), Button(WriteCommandIds.StylesPane)]);
         gallery.InlineCount = 3;
         gallery.EntryWidth = 74;
         return gallery;

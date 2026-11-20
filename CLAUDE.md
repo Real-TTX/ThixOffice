@@ -523,6 +523,15 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   forms, comments dropped; links only http/https/mailto; pictures only from data: URIs (nothing is fetched). Paste order in
   `WriteEditor.PasteAsync`: ThixWrite's fragment, HTML, text, a bitmap. RTF is not read (gap).
 
+### Formatvorlagen
+
+- Session (`EditingSession.Styles.cs`): `GalleryStyles` (`BuiltInStyles.GalleryOrder` + the document's quick styles), `PaneStyles`,
+  `CurrentParagraphStyle`, `StyleNameProblem`, `ModifyStyle(style)`, `CreateStyle(...)` (applies it), `StyleFromSelection(name)` – each one
+  step (the sheet is swapped; the resolver drops its caches, the layout re-lays everything).
+- UI: `WriteRibbon.StyleEntriesOf(session)` (gallery per window; `WriteEditor.RefreshStyleGallery` after a new style), gallery menu
+  (`write.style.fromSelection/new/modify`, `write.stylesPane`), `Dialogs/StyleDialog` (fields show the resolved style, only changes are
+  written into it), `Editor/StylesPane` (grid column 3).
+
 ### Adding a command to ThixWrite
 
 1. An id in `WriteCommandIds` (`write.<name>`; value commands note their value format).
