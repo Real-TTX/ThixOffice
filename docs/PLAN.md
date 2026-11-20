@@ -259,7 +259,7 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   Abschnittswechsel); Zeichen: Kapitälchen, Großbuchstaben, ausgeblendet, Abstand, Skalierung, Position, Schattierung; Absatzrahmen
   und -schattierung; Seitenfarbe; Initialen; Tabellen in Kopf- und Fußzeilen.
   **Noch falsch / Lücken:** Text umfließt nur rechteckig (keine Umbruchpolygone, keine „Durchgehend“-Form); Tabellen umfließen keine Objekte und stehen in Spalten über die
-  ganze Breite; Formeln (OMML) werden nicht gezeigt;
+  ganze Breite;
   WordArt-Verformungen (prstTxWarp), Schatten/3-D/Effekte und Bildzuschnitt fehlen; Inhaltssteuerelemente in einer Zeile zeigen
   ihren Text in einem Format; nachverfolgte Einfügungen zeigen die Formatierung ihres ersten Laufs; Spaltenumbruch und Spaltenausgleich gelten nicht in Tabellen.
 - **1e – Darstellung und Alltagsfunktionen (2026-11-20, laufend):**
@@ -275,9 +275,14 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   Fehlende Schriften werden durch die erste installierte Ersatzschrift gemessen und gezeichnet (`FontSubstitutes` in ThixOffice.Text:
   zuerst metrisch gleiche – Carlito für Calibri, Caladea für Cambria, Liberation Sans/Serif/Mono für Arial/Times New Roman/Courier
   New –, dann ähnliche: Aptos → Calibri → … → Helvetica Neue/Arial, Segoe UI → Helvetica Neue …); das Dokument behält seine Schriftnamen.
+  Formeln (m:oMath / m:oMathPara) werden gesetzt und gezeigt (schreibgeschützt, das XML bleibt unverändert): Brüche auf der
+  Mathematikachse, Hoch-/Tiefstellung, Wurzeln mit Grad, große Operatoren mit Grenzen darunter/darüber oder daneben, Klammern auf
+  Inhaltshöhe gestreckt, Matrizen, Akzente, Balken, geschweifte Klammern, Funktionen, Grenzwerte, Rahmen, Gleichungsgruppen; Variablen
+  kursiv aus den mathematischen Alphabeten (wie Word), Abstände um Operatoren; abgesetzte Formeln zentriert in eigener Zeile.
   **Noch falsch:** die innere Tabelle ist nicht bearbeitbar; Einfügemarke und Markierung in gedrehten Zellen stehen waagrecht;
   Spaltenoperationen (Spalte einfügen/löschen) an Tabellen mit Lückenzeilen rechnen die Lücke nicht mit; eine schwebende Tabelle
-  wird nie geteilt und umfließt keine anderen Objekte.
+  wird nie geteilt und umfließt keine anderen Objekte; Formeln sind nicht bearbeitbar (kein Formel-Editor), m:jc/Ausrichtung an „&“
+  in Gleichungsgruppen und Zeilenumbruch langer Formeln fehlen, die Formel nimmt die Farbe des Texts nicht an.
 
 #### Word-Vergleich (Stand 2026-11-20): deutsches Menüband Karte für Karte
 
@@ -310,7 +315,7 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
 | Einfügen | Kopfzeile, Fußzeile, Seitenzahl | vorhanden |
 | Einfügen | Schnellbausteine, WordArt, Initiale, Signaturzeile | fehlt (Initialen aus Dateien werden gezeigt) |
 | Einfügen | Datum und Uhrzeit, Symbol | vorhanden |
-| Einfügen | Formel | – (Formeln bleiben erhalten, werden nicht gezeigt) |
+| Einfügen | Formel | – (Formeln aus Dateien werden gezeigt, schreibgeschützt, und unverändert erhalten) |
 | Zeichnen | alle | – |
 | Entwurf | Designs, Farben, Schriftarten, Dokumentformatierung | fehlt |
 | Entwurf | Seitenfarbe | neu |

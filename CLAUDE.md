@@ -418,6 +418,15 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   headers/footers with tables (`PlaceStoryWithTables`: the story as its own layout). Tracked changes show as the final text; the
   session's `AcceptAllRevisions`/`RejectAllRevisions` resolve them.
 
+### Formulas (OMML, display only)
+
+- `DocxMath.Read` turns m:oMathPara / m:oMath into a `MathNode` tree (`Model/Math.cs`: MathText, MathRow, MathFraction, MathScripts,
+  MathRadical, MathNary, MathDelimiter, MathMatrix, MathAccent, MathBar, MathGroupChar, MathFunction, MathLimit, MathBorderBox,
+  MathEquationArray) on the `OpaqueInline` (`Math`, `IsDisplayMath` for m:oMathPara); the XML stays and is written back unchanged.
+- `Layout/MathLayouter` sets it into a `MathBox` (pieces: `MathGlyphs`, `MathRule`, `MathStroke`; x from the left, y from the baseline) in
+  "Cambria Math" (`FontSubstitutes`), letters through the math alphabets; `LayoutContext.MeasureMath` sizes the object (ascent +
+  `Segment.ObjectDescent`; a display formula takes the line's width and is centred), `DocumentLayout.DrawMath` draws it.
+
 ### Footnotes and endnotes
 
 - **Model:** `NoteInline(Kind, Content: Story, …, SourceId)` = the reference (one object character) WITH its text; `NoteMarkInline` = the

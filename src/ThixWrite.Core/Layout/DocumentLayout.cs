@@ -40,7 +40,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
         Document = document;
         Measurer = measurer;
         Options = options ?? LayoutOptions.Default;
-        _context = new LayoutContext(measurer, resolver ?? new StyleResolver(document)) { MeasureNested = MeasureNested };
+        _context = new LayoutContext(measurer, resolver ?? new StyleResolver(document)) { MeasureNested = MeasureNested, MeasureMath = MeasureMath };
         Document.Changed += OnDocumentChanged;
         _dirtyFrom = 0;
     }

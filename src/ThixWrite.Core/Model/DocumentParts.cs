@@ -83,7 +83,7 @@ public sealed record UnsupportedContent(PreservedKind Kind, int Count)
         PreservedKind.Comment => "Kommentar (wird erhalten, nicht angezeigt)",
         PreservedKind.Footnote => "Fußnote (wird erhalten, nicht angezeigt)",
         PreservedKind.Endnote => "Endnote (wird erhalten, nicht angezeigt)",
-        PreservedKind.Math => "Formel (wird erhalten, nicht angezeigt)",
+        PreservedKind.Math => "Formel (angezeigt, nicht bearbeitbar)",
         PreservedKind.ContentControl => "Inhaltssteuerelement (angezeigt, nicht bearbeitbar)",
         PreservedKind.Table => "Verschachtelte Tabelle (angezeigt, noch nicht bearbeitbar)",
         PreservedKind.EmbeddedObject => "Eingebettetes Objekt (wird erhalten, nicht angezeigt)",

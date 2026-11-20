@@ -32,7 +32,48 @@ internal static class CorpusDocuments
         ("12-report-landscape.docx", LandscapeReport),
         ("13-office2007-theme.docx", Office2007),
         ("14-newsletter.docx", Newsletter),
+        ("15-formulas.docx", Formulas),
     ];
+
+    private const string MathControl = "<m:ctrlPr><w:rPr><w:rFonts w:ascii=\"Cambria Math\" w:hAnsi=\"Cambria Math\"/><w:i/></w:rPr></m:ctrlPr>";
+
+    /// <summary>A math run as Word writes it (Cambria Math in the run properties, m:sty for upright text).</summary>
+    private static string Mr(string text, string? style = null) =>
+        "<m:r>" + (style is null ? "" : $"<m:rPr><m:sty m:val=\"{style}\"/></m:rPr>") + "<w:rPr><w:rFonts w:ascii=\"Cambria Math\" w:hAnsi=\"Cambria Math\"/></w:rPr><m:t>" + text + "</m:t></m:r>";
+
+    private static string MSup(string body, string sup) => $"<m:sSup><m:sSupPr>{MathControl}</m:sSupPr><m:e>{body}</m:e><m:sup>{sup}</m:sup></m:sSup>";
+
+    private static string MFrac(string numerator, string denominator) => $"<m:f><m:fPr>{MathControl}</m:fPr><m:num>{numerator}</m:num><m:den>{denominator}</m:den></m:f>";
+
+    /// <summary>Formulas as Word's equation editor writes them: display formulas (m:oMathPara) and formulas in the text (m:oMath).</summary>
+    private static byte[] Formulas()
+    {
+        Reset();
+        var package = new WordPackage(OfficeTheme.Office2013) { Title = "Formeln" };
+        var quadratic = Mr("x=") + MFrac(Mr("−b±") + $"<m:rad><m:radPr><m:degHide m:val=\"1\"/>{MathControl}</m:radPr><m:deg/><m:e>" + MSup(Mr("b"), Mr("2")) + Mr("−4ac") + "</m:e></m:rad>", Mr("2a"));
+        var sum = $"<m:nary><m:naryPr><m:chr m:val=\"∑\"/><m:limLoc m:val=\"undOvr\"/>{MathControl}</m:naryPr><m:sub>" + Mr("k=1") + "</m:sub><m:sup>" + Mr("n") + "</m:sup><m:e>" + Mr("k") +
+                  "</m:e></m:nary>" + Mr("=") + MFrac(Mr("n") + $"<m:d><m:dPr>{MathControl}</m:dPr><m:e>" + Mr("n+1") + "</m:e></m:d>", Mr("2"));
+        var integral = $"<m:nary><m:naryPr><m:limLoc m:val=\"subSup\"/>{MathControl}</m:naryPr><m:sub>" + Mr("0") + "</m:sub><m:sup>" + Mr("∞") + "</m:sup><m:e>" +
+                       MSup(Mr("e"), Mr("−") + MSup(Mr("x"), Mr("2"))) + Mr("dx") + "</m:e></m:nary>" + Mr("=") +
+                       MFrac($"<m:rad><m:radPr><m:degHide m:val=\"1\"/>{MathControl}</m:radPr><m:deg/><m:e>" + Mr("π") + "</m:e></m:rad>", Mr("2"));
+        var matrix = Mr("A=") + $"<m:d><m:dPr>{MathControl}</m:dPr><m:e><m:m><m:mPr><m:mcs><m:mc><m:mcPr><m:count m:val=\"2\"/><m:mcJc m:val=\"center\"/></m:mcPr></m:mc></m:mcs>{MathControl}</m:mPr>" +
+                     "<m:mr><m:e>" + Mr("a") + "</m:e><m:e>" + Mr("b") + "</m:e></m:mr><m:mr><m:e>" + Mr("c") + "</m:e><m:e>" + Mr("d") + "</m:e></m:mr></m:m></m:e></m:d>";
+        var limit = $"<m:func><m:funcPr>{MathControl}</m:funcPr><m:fName><m:limLow><m:limLowPr>{MathControl}</m:limLowPr><m:e>" + Mr("lim", "p") + "</m:e><m:lim>" + Mr("x→0") + "</m:lim></m:limLow></m:fName><m:e>" +
+                    MFrac($"<m:func><m:funcPr>{MathControl}</m:funcPr><m:fName>" + Mr("sin", "p") + "</m:fName><m:e>" + Mr("x") + "</m:e></m:func>", Mr("x")) + "</m:e></m:func>" + Mr("=1");
+        var vector = $"<m:acc><m:accPr><m:chr m:val=\"⃗\"/>{MathControl}</m:accPr><m:e>" + Mr("v") + "</m:e></m:acc>";
+        string Display(string formula) => P(null, $"<m:oMathPara><m:oMath>{formula}</m:oMath></m:oMathPara>");
+        var body =
+            P("Titel", R("Formeln")) +
+            P(null, R("Die Lösungen einer quadratischen Gleichung:")) + Display(quadratic) +
+            P(null, R("Die Summe der ersten n Zahlen:")) + Display(sum) +
+            P(null, R("Das Gaußsche Integral:")) + Display(integral) +
+            P(null, R("Eine Matrix:")) + Display(matrix) +
+            P(null, R("Ein Grenzwert:")) + Display(limit) +
+            P(null, R("Im Text: die Fläche ist ") + "<m:oMath>" + Mr("A=π") + MSup(Mr("r"), Mr("2")) + "</m:oMath>" + R(", der Vektor ") + "<m:oMath>" + vector + "</m:oMath>" +
+                    R(" und der Bruch ") + "<m:oMath>" + MFrac(Mr("1"), Mr("2")) + "</m:oMath>" + R(" stehen in der Zeile.")) +
+            Section();
+        return package.Build(body, WordStyles.Xml(WordVersion.Word2013));
+    }
 
     private static readonly SKColor Blue = new(0x44, 0x72, 0xC4);
     private static readonly SKColor Teal = new(0x1F, 0x9E, 0x99);

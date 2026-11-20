@@ -40,6 +40,9 @@ internal sealed class LayoutContext(ITextMeasurer measurer, StyleResolver resolv
 
     /// <summary>The size of a nested table (<see cref="OpaqueInline.Nested"/>) laid out at a width; null leaves it a placeholder.</summary>
     public Func<Story, double, (double Width, double Height)>? MeasureNested { get; set; }
+
+    /// <summary>The size of a formula (<see cref="OpaqueInline.Math"/>) at a font size: width, ascent, descent; null shows nothing.</summary>
+    public Func<OpaqueInline, double, (double Width, double Ascent, double Descent)>? MeasureMath { get; set; }
 }
 
 /// <summary>
@@ -77,6 +80,9 @@ internal static class ParagraphLayouter
         public Inline? Object;
         public double ObjectWidth;
         public double ObjectHeight;
+
+        /// <summary>How far an object reaches below the baseline (a formula's denominators and subscripts).</summary>
+        public double ObjectDescent;
         public double LetterSpacing;
         public double Scale = 1;
 
@@ -408,6 +414,13 @@ internal static class ParagraphLayouter
                 {
                     (segment.ObjectWidth, segment.ObjectHeight) = measure(nested, textWidth);
                     segment.IsBlock = true;
+                }
+                else if (opaque.Math is not null && context.MeasureMath is { } measureMath)
+                {
+                    var (mathWidth, mathAscent, mathDescent) = measureMath(opaque, format.FontSize);
+                    segment.ObjectWidth = opaque.IsDisplayMath ? Math.Max(mathWidth, textWidth) : mathWidth; // a display formula is centred in the line
+                    segment.ObjectHeight = Math.Max(0.1, mathAscent);
+                    segment.ObjectDescent = mathDescent;
                 }
                 else if (opaque.Width > 0)
                 {
@@ -834,7 +847,7 @@ internal static class ParagraphLayouter
                 case SegmentKind.Object:
                     items.Add(new ObjectItem(from, itemX, itemWidth, segment.ObjectHeight, segment.Object!, segment.Shaped, segment.Format, segment.Font, segment.Metrics, segment.BaselineShift));
                     ascent = Math.Max(ascent, segment.ObjectHeight > 0 ? segment.ObjectHeight : segment.Metrics.Ascent - segment.BaselineShift);
-                    descent = Math.Max(descent, segment.Metrics.Descent);
+                    descent = Math.Max(descent, Math.Max(segment.Metrics.Descent, segment.ObjectDescent));
                     if (segment.IsBlock)
                     {
                         blockHeight = Math.Max(blockHeight, segment.ObjectHeight);

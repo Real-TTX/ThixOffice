@@ -279,7 +279,7 @@ public static class DisplayListBuilder
                     items.Add(new LineItem(placed.Left + tab.X + 1, baseline, placed.Left + tab.X + tab.Width - 1, baseline, ColorOf(tab.Format),
                         tab.Leader == TabLeader.Heavy ? 1.2 : 0.6, style));
                     break;
-                case ObjectItem { Inline: OpaqueInline drawn } drawing when drawObject is not null && (drawn.Graphic is not null || drawn.Nested is not null):
+                case ObjectItem { Inline: OpaqueInline drawn } drawing when drawObject is not null && (drawn.Graphic is not null || drawn.Nested is not null || drawn.Math is not null):
                     items.AddRange(drawObject(drawing.Inline, placed.Left + drawing.X, baseline - drawing.Height, drawing.Width, drawing.Height));
                     break;
                 case ObjectItem box:
@@ -357,7 +357,7 @@ public static class DisplayListBuilder
     }
 
     /// <summary>Adds the glyph runs of characters [start, start + length) of <paramref name="shaped"/> at x (its first character).</summary>
-    private static void AddText(List<DisplayItem> items, double x, double y, ShapedText shaped, int start, int length, FontSpec font, RgbColor color, double spaceExtra,
+    internal static void AddText(List<DisplayItem> items, double x, double y, ShapedText shaped, int start, int length, FontSpec font, RgbColor color, double spaceExtra,
         double letterSpacing = 0)
     {
         if (length <= 0)

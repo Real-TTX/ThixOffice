@@ -110,6 +110,12 @@ public sealed record OpaqueInline(
     /// </summary>
     public Story? Nested { get; init; }
 
+    /// <summary>A formula (m:oMath, m:oMathPara) as it shows – read-only; null for anything else.</summary>
+    public MathNode? Math { get; init; }
+
+    /// <summary>A display formula (m:oMathPara): set on a line of its own, centred.</summary>
+    public bool IsDisplayMath { get; init; }
+
     /// <summary>A block-level element carried by a paragraph (a nested table): the writer puts the XML between paragraphs, not into one.</summary>
     public bool IsBlockContent => Kind == PreservedKind.Table;
 
@@ -118,5 +124,5 @@ public sealed record OpaqueInline(
     private const string ObjectText = "\uFFFC";
 
     /// <summary>Invisible and without size: a marker such as a bookmark or a field character.</summary>
-    public override bool IsMarker => Nested is null && DisplayText.Length == 0 && Width <= 0;
+    public override bool IsMarker => Nested is null && Math is null && DisplayText.Length == 0 && Width <= 0;
 }

@@ -364,7 +364,8 @@ public static class DocxReader
         context.Count(kind);
         var properties = DocxPropertyReader.ReadCharacter(child.Descendants<W.RunProperties>().FirstOrDefault());
         var text = visible ? XmlFragments.VisibleText(child) : "";
-        inlines.Add(new OpaqueInline(XmlFragments.Canonical(child), kind, false, properties, text, Link: link));
+        var math = kind == PreservedKind.Math ? DocxMath.Read(child) : null;
+        inlines.Add(new OpaqueInline(XmlFragments.Canonical(child), kind, false, properties, text, Link: link) { Math = math, IsDisplayMath = math is not null && child is M.Paragraph });
     }
 
     private static void ReadRun(W.Run run, List<Inline> inlines, Hyperlink? link, ReadContext context)

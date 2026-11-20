@@ -226,6 +226,38 @@ public sealed class RealWorldTests
     }
 
     [Fact]
+    public void Formulas_are_set_as_formulas_display_ones_centred_and_kept_as_they_were()
+    {
+        var (document, layout) = Open("15-formulas.docx");
+        var formulas = document.Blocks.OfType<Paragraph>().SelectMany(paragraph => paragraph.Inlines).OfType<OpaqueInline>().Where(inline => inline.Math is not null).ToList();
+        Assert.Equal(8, formulas.Count);
+        Assert.Equal(5, formulas.Count(formula => formula.IsDisplayMath));
+
+        // The trees: the quadratic formula is x = a fraction with a radical; the sum has its limits under and over it.
+        var quadratic = Assert.IsType<MathRow>(formulas[0].Math);
+        var fraction = Assert.IsType<MathFraction>(quadratic.Items[^1]);
+        Assert.Contains(((MathRow)fraction.Numerator).Items, item => item is MathRadical { Degree: null });
+        var sum = Assert.IsType<MathNary>(((MathRow)formulas[1].Math!).Items[0]);
+        Assert.True(sum.Limits);
+        Assert.Equal("∑", sum.Operator);
+        Assert.IsType<MathMatrix>(((MathDelimiter)((MathRow)formulas[3].Math!).Items[^1]).Items[0] is MathRow { Items: [var matrix] } ? matrix : null);
+
+        // Laid out: a display formula is a line of its own, taller than text, its box the width of the line (it is centred in it).
+        var page = layout.Pages[0];
+        var body = page.Lines[1].Line.Height;
+        var display = page.Lines.Single(line => line.Line.Items.Any(item => item is ObjectItem { Inline: var inline } && ReferenceEquals(inline, formulas[0])));
+        Assert.True(display.Line.Height > body * 1.8, $"{display.Line.Height} vs {body}");
+        var item = display.Line.Items.OfType<ObjectItem>().Single();
+        Assert.Equal(document.FinalSection.ContentWidth, item.Width, 1);
+
+        // Drawn: the operators and the fraction bar.
+        var list = layout.GetDisplayList(0);
+        Assert.Contains(list.Items, drawn => drawn is GlyphRunItem { Text: "∑" });
+        Assert.Contains(list.Items, drawn => drawn is LineItem { Y1: var y1, Y2: var y2 } && Math.Abs(y1 - y2) < 0.01 && y1 > display.Top && y1 < display.Top + display.Line.Height);
+        Assert.Contains(document.UnsupportedContent, note => note.Kind == PreservedKind.Math); // read-only: the opening note says so
+    }
+
+    [Fact]
     public void A_footer_with_a_table_is_laid_out_as_a_table()
     {
         var (_, layout) = Open("09-letter-din5008.docx");

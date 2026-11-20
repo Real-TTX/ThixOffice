@@ -274,9 +274,63 @@ public sealed partial class DocumentLayout
                 return DrawGraphic(graphic, x, y, width, height);
             case OpaqueInline { Nested: { } nested }:
                 return [TransformBeginItem.At(x, y), .. StoryBox(nested, width).GetDisplayList(0).Items, TransformEndItem.Instance];
+            case OpaqueInline { Math: { } math } formula:
+                return DrawMath(formula, math, x, y, width, height);
             default:
                 return [];
         }
+    }
+
+    private readonly ConditionalWeakTable<MathNode, MathBox> _mathBoxes = new();
+
+    /// <summary>The size of a formula set at <paramref name="size"/> points (kept for drawing it).</summary>
+    private (double Width, double Ascent, double Descent) MeasureMath(OpaqueInline formula, double size)
+    {
+        var box = MathLayouter.Layout(formula.Math!, size, formula.IsDisplayMath, Measurer);
+        _mathBoxes.AddOrUpdate(formula.Math!, box);
+        return (box.Width, box.Ascent, box.Descent);
+    }
+
+    /// <summary>A formula in its box (top left <paramref name="x"/>, <paramref name="y"/>; the baseline <paramref name="height"/> below it), centred when it is a display formula.</summary>
+    private List<DisplayItem> DrawMath(OpaqueInline formula, MathNode math, double x, double y, double width, double height)
+    {
+        if (!_mathBoxes.TryGetValue(math, out var box))
+        {
+            box = MathLayouter.Layout(math, 11, formula.IsDisplayMath, Measurer);
+        }
+
+        var left = x + (formula.IsDisplayMath ? Math.Max(0, (width - box.Width) / 2) : 0);
+        var baseline = y + height;
+        var items = new List<DisplayItem>();
+        foreach (var piece in box.Pieces)
+        {
+            switch (piece)
+            {
+                case MathGlyphs glyphs:
+                    var (gx, gy) = (left + glyphs.X, baseline + glyphs.Y);
+                    var stretched = Math.Abs(glyphs.ScaleY - 1) > 0.001;
+                    if (stretched)
+                    {
+                        items.Add(new TransformBeginItem(Matrix2D.Scaling(1, glyphs.ScaleY, gx, gy)));
+                    }
+
+                    DisplayListBuilder.AddText(items, gx, gy, glyphs.Shaped, 0, glyphs.Shaped.Text.Length, glyphs.Font, RgbColor.Black, 0);
+                    if (stretched)
+                    {
+                        items.Add(TransformEndItem.Instance);
+                    }
+
+                    break;
+                case MathRule rule:
+                    items.Add(new LineItem(left + rule.X1, baseline + rule.Y1, left + rule.X2, baseline + rule.Y2, RgbColor.Black, rule.Thickness));
+                    break;
+                case MathStroke stroke:
+                    items.Add(VectorPathItem.Solid(stroke.Path.Transform(Matrix2D.Translation(left, baseline)), null, RgbColor.Black, stroke.Thickness));
+                    break;
+            }
+        }
+
+        return items;
     }
 
     /// <summary>The size of a nested table laid out at <paramref name="width"/>: the width, and the height down to its last row.</summary>
