@@ -297,6 +297,11 @@ public static class GridRenderer
                 var inset = 2 * viewport.Zoom;
                 items.Add(new RectangleItem(rect.X + inset, rect.Y + inset, Math.Max(0, (rect.Width - 2 * inset) * bar.Fraction), rect.Height - 2 * inset, bar.Color with { A = 200 }));
             }
+
+            if (display.Conditional?.Icon is { } icon)
+            {
+                DrawIcon(items, viewport.CellRect(display.Cell), viewport.Zoom, icon.Set, icon.Index);
+            }
         }
 
         // Texts (overflowing texts from cells left/right of the pane included).
@@ -390,6 +395,43 @@ public static class GridRenderer
                 DrawFilterButton(items, options, button, active);
             }
         }
+    }
+
+    /// <summary>A Symbolsatz icon at the left of the cell: traffic lights and signs as coloured dots, arrows as arrows, the rest as dots from red to green.</summary>
+    private static void DrawIcon(List<DisplayItem> items, PixelRect cell, double zoom, string set, int index)
+    {
+        var count = int.TryParse(set[..1], System.Globalization.CultureInfo.InvariantCulture, out var number) ? number : 3;
+        var size = Math.Max(6, Math.Min(cell.Height - 4, 12 * zoom));
+        var x = cell.X + 2 * zoom;
+        var y = cell.Y + (cell.Height - size) / 2;
+        RgbColor[] scale = count switch
+        {
+            4 => [RgbColor.FromHex("404040"), RgbColor.FromHex("E04040"), RgbColor.FromHex("F2C200"), RgbColor.FromHex("3CA34A")],
+            5 => [RgbColor.FromHex("E04040"), RgbColor.FromHex("F08C30"), RgbColor.FromHex("F2C200"), RgbColor.FromHex("8CBF3F"), RgbColor.FromHex("3CA34A")],
+            _ => [RgbColor.FromHex("E04040"), RgbColor.FromHex("F2C200"), RgbColor.FromHex("3CA34A")],
+        };
+        var color = set.Contains("Gray", StringComparison.OrdinalIgnoreCase) ? RgbColor.FromHex("808080") : scale[Math.Clamp(index, 0, scale.Length - 1)];
+        if (set.Contains("Arrows", StringComparison.OrdinalIgnoreCase))
+        {
+            // Up for the highest, down for the lowest, sideways between.
+            var direction = count == 1 ? 0.0 : 1 - 2.0 * index / (count - 1); // 1 = down … -1 = up
+            var angle = direction * Math.PI / 2;
+            var centerX = x + size / 2;
+            var centerY = y + size / 2;
+            var half = size / 2;
+            var (dx, dy) = (Math.Cos(angle) * half, Math.Sin(angle) * half);
+            var path = new VectorPathBuilder()
+                .MoveTo(centerX + dx, centerY + dy)
+                .LineTo(centerX - dy * 0.9 - dx * 0.1, centerY + dx * 0.9 - dy * 0.1)
+                .LineTo(centerX + dy * 0.9 - dx * 0.1, centerY - dx * 0.9 - dy * 0.1)
+                .Close()
+                .Build();
+            items.Add(new LineItem(centerX - dx, centerY - dy, centerX, centerY, color, Math.Max(1.5, size / 5)));
+            items.Add(VectorPathItem.Solid(path, color));
+            return;
+        }
+
+        items.Add(VectorPathItem.Solid(VectorPath.Ellipse(x, y, size, size), color));
     }
 
     private static void DrawFilterButton(List<DisplayItem> items, GridRenderOptions options, PixelRect button, bool active)

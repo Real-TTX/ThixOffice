@@ -99,6 +99,8 @@ public static class CalcRibbon
                     .. GridPalette.DataBars.Select(bar => Button(CalcStyleCommands.RuleId("databar." + bar.Id))),
                     new MatRibbonSeparator("cf-separator-3"),
                     .. GridPalette.ColorScales.Select(scale => Button(CalcStyleCommands.RuleId("scale." + scale.Id))),
+                    new MatRibbonSeparator("cf-separator-icons"),
+                    .. Core.Editing.EditingSession.IconSets.Select(icons => Button(CalcStyleCommands.RuleId("icons." + icons.Set))),
                     new MatRibbonSeparator("cf-separator-4"),
                     Button(CalcStyleCommands.RuleId("clearSelection")),
                     Button(CalcStyleCommands.RuleId("clearSheet")),

@@ -180,6 +180,21 @@ public class AnalysisTests
     }
 
     [Fact]
+    public void Icon_sets_are_evaluated_and_survive_xlsx()
+    {
+        var session = Session(("A1", 1), ("A2", 5), ("A3", 10));
+        session.Select(CellRange.Parse("A1:A3"));
+        session.AddIconSet("3Arrows");
+        var rule = session.ActiveSheet.ConditionalFormats.Single().Rules.Single();
+        Assert.Equal(ConditionalFormatType.IconSet, rule.Type);
+        var evaluator = new Core.Layout.ConditionalFormatEvaluator(session.ActiveSheet);
+        Assert.Equal(("3Arrows", 0), evaluator.Evaluate(0, 0)!.Icon);
+        Assert.Equal(("3Arrows", 2), evaluator.Evaluate(2, 0)!.Icon);
+        var read = XlsxTests.RoundTrip(session.Workbook);
+        Assert.Equal("3Arrows", read.Sheets[0].ConditionalFormats.Single().Rules.Single().IconSet);
+    }
+
+    [Fact]
     public void A_protected_workbook_keeps_its_sheets()
     {
         var session = Session(("A1", 1));

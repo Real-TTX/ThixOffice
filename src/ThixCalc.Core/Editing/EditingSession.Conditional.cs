@@ -83,6 +83,25 @@ public sealed partial class EditingSession
         Colors = middle is { } center ? [low, center, high] : [low, high],
     }, null, "Farbskala");
 
+    /// <summary>The Symbolsätze of the menu (Excel's names: 3Arrows, 3TrafficLights1, 4Arrows, 5Arrows, 3Symbols …) with German labels.</summary>
+    public static IReadOnlyList<(string Set, string Label)> IconSets { get; } =
+    [
+        ("3Arrows", "3 Pfeile (farbig)"), ("3ArrowsGray", "3 Pfeile (grau)"), ("4Arrows", "4 Pfeile (farbig)"), ("5Arrows", "5 Pfeile (farbig)"),
+        ("3TrafficLights1", "3 Ampeln"), ("4TrafficLights", "4 Ampeln"), ("3Symbols", "3 Symbole"), ("5Quarters", "5 Viertel"),
+    ];
+
+    /// <summary>Symbolsatz over the selection (thresholds at equal percent steps, as Excel's presets).</summary>
+    public void AddIconSet(string set)
+    {
+        var count = int.TryParse(set[..1], out var number) ? number : 3;
+        AddRule(new ConditionalFormatRule
+        {
+            Type = ConditionalFormatType.IconSet,
+            IconSet = set,
+            Thresholds = [.. Enumerable.Range(0, count).Select(index => new ConditionalValue(ConditionalValueType.Percent, (index * 100 / count).ToString(System.Globalization.CultureInfo.InvariantCulture)))],
+        }, null, "Symbolsatz");
+    }
+
     private void AddRule(ConditionalFormatRule rule, DifferentialFormat? format, string label)
     {
         var sheet = ActiveSheet;

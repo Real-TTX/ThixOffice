@@ -346,7 +346,7 @@ Formate, Sortieren/Filtern, Fixieren, bedingte Formatierung, Diagramme, xlsx/csv
   |---|---|---|
   | Start | Zwischenablage (Einfügen-Optionen, Inhalte einfügen, Format übertragen) | vorhanden |
   | Start | Schriftart, Ausrichtung, Zahl (inkl. Dialog Zellen formatieren) | vorhanden |
-  | Start | Bedingte Formatierung (Regeln, Datenbalken, Farbskalen, Regeln verwalten) | vorhanden; Symbolsätze: fehlt |
+  | Start | Bedingte Formatierung (Regeln, Datenbalken, Farbskalen, Symbolsätze, Regeln verwalten) | vorhanden (Symbole als farbige Punkte/Pfeile gezeichnet) |
   | Start | Als Tabelle formatieren, Zellenformatvorlagen | vorhanden (Galerien gekürzt) |
   | Start | Zellen einfügen/löschen/Format | vorhanden |
   | Start | AutoSumme, Ausfüllen (inkl. Reihe), Löschen, Sortieren und Filtern | vorhanden |

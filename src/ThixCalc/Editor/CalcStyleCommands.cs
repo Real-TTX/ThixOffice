@@ -77,6 +77,15 @@ public static class CalcStyleCommands
             });
         }
 
+        foreach (var (set, label) in Core.Editing.EditingSession.IconSets)
+        {
+            var name = set;
+            commands.Add(new OfficeCommand(RuleId("icons." + set), $"Symbolsatz {label}", () => With(session => session.AddIconSet(name)))
+            {
+                Icon = "star", CanExecute = Ready, Keywords = ["symbolsätze", "ampel", "pfeile", "bedingte formatierung"],
+            });
+        }
+
         commands.Add(new OfficeCommand(RuleId("clearSelection"), "Regeln in ausgewählten Zellen löschen", () => With(session => session.ClearConditionalFormats(wholeSheet: false)))
         {
             Icon = "x", CanExecute = () => Ready() && Editor()!.Session.ActiveSheet.ConditionalFormats.Count > 0,
