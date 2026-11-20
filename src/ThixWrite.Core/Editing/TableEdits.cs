@@ -122,7 +122,7 @@ internal static class TableEdits
         /// <summary>The cell of <paramref name="row"/> covering grid column <paramref name="column"/> (index), or -1.</summary>
         public int CellAt(int row, int column)
         {
-            var start = 0;
+            var start = Rows[row].Properties.GridBefore;
             var cells = Rows[row].Cells;
             for (var index = 0; index < cells.Count; index++)
             {
@@ -137,7 +137,7 @@ internal static class TableEdits
             return -1;
         }
 
-        public int ColumnOf(int row, int cell) => Rows[row].Cells.Take(cell).Sum(item => item.Span);
+        public int ColumnOf(int row, int cell) => Rows[row].Properties.GridBefore + Rows[row].Cells.Take(cell).Sum(item => item.Span);
 
         /// <summary>The paragraphs with their cells (a new <see cref="Table"/>), after making widths and the grid consistent.</summary>
         public IReadOnlyList<Block> Emit()
@@ -147,7 +147,7 @@ internal static class TableEdits
             foreach (var row in Rows)
             {
                 var cells = new List<TableCellProperties>();
-                var column = 0;
+                var column = row.Properties.GridBefore;
                 foreach (var cell in row.Cells)
                 {
                     var width = Grid.Skip(column).Take(cell.Span).Sum();
@@ -185,7 +185,7 @@ internal static class TableEdits
         /// <summary>A grid that every row spans: missing columns get the average width, rows short of it get an empty cell.</summary>
         private void EnsureGrid()
         {
-            var widest = Rows.Select(row => row.Cells.Sum(cell => cell.Span)).DefaultIfEmpty(1).Max();
+            var widest = Rows.Select(row => row.Properties.GridBefore + row.Cells.Sum(cell => cell.Span) + row.Properties.GridAfter).DefaultIfEmpty(1).Max();
             if (Grid.Count == 0)
             {
                 Grid = [.. Enumerable.Repeat(72.0, widest)];
@@ -198,7 +198,7 @@ internal static class TableEdits
 
             foreach (var row in Rows)
             {
-                var span = row.Cells.Sum(cell => cell.Span);
+                var span = row.Properties.GridBefore + row.Cells.Sum(cell => cell.Span) + row.Properties.GridAfter;
                 if (span < Grid.Count)
                 {
                     var template = row.Cells.Count > 0 ? row.Cells[^1].Paragraphs[0] : Paragraph.Empty();

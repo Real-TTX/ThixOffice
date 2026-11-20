@@ -314,7 +314,7 @@ public class TableTests
     }
 
     [Fact]
-    public void Word_tables_open_as_tables_with_markers_moved_into_the_text_and_nested_tables_kept_whole()
+    public void Word_tables_open_as_tables_with_markers_moved_into_the_text_and_nested_tables_carried_by_a_paragraph()
     {
         const string W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
         var cell = "<w:tc><w:tcPr><w:tcW w:w=\"2000\" w:type=\"dxa\"/><w:noWrap/></w:tcPr><w:p><w:r><w:t>{0}</w:t></w:r></w:p></w:tc>";
@@ -335,10 +335,41 @@ public class TableTests
         Assert.NotNull(span.Table.Properties.Look); // w:tblLook is read into the model
         Assert.Contains("noWrap", span.Table.CellAt(0, 0).UnknownXml);
         Assert.Contains(document.ParagraphAt(0)!.Inlines, inline => inline is OpaqueInline { Kind: PreservedKind.Bookmark });
-        Assert.Contains(document.Blocks, block => block is OpaqueBlock { Kind: PreservedKind.Table });
+        // The outer table is a table; the inner one rides in a paragraph of its cell, shown through its own story.
+        var carrier = document.Blocks.OfType<Paragraph>().Single(paragraph => paragraph.Inlines is [OpaqueInline { Kind: PreservedKind.Table }]);
+        Assert.NotNull(carrier.Cell);
+        var inner = (OpaqueInline)carrier.Inlines[0];
+        Assert.Contains(inner.Nested!.Blocks, block => block is Paragraph { Cell: not null });
+        Assert.Contains(document.UnsupportedContent, note => note.Kind == PreservedKind.Table);
 
         var again = DocxTestSupport.RoundTrip(document);
         DocxTestSupport.AssertSameContent(document, again);
+        using var written = new MemoryStream(DocxTestSupport.Write(document));
+        using var zip = new System.IO.Compression.ZipArchive(written);
+        using var reader = new StreamReader(zip.GetEntry("word/document.xml")!.Open());
+        var xml = reader.ReadToEnd();
+        Assert.Contains("<w:tc><w:tbl>", xml.Replace("\r", "").Replace("\n", "")); // the nested table is a block of the cell again, not inside a w:p
+    }
+
+    [Fact]
+    public void A_nested_table_is_laid_out_as_a_table_inside_its_cell()
+    {
+        const string W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+        var nested = "<w:tbl><w:tblPr><w:tblBorders><w:top w:val=\"single\" w:sz=\"4\"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w=\"6000\"/></w:tblGrid><w:tr><w:tc><w:p><w:r><w:t>außen</w:t></w:r></w:p>"
+                     + "<w:tbl><w:tblPr/><w:tblGrid><w:gridCol w:w=\"2000\"/><w:gridCol w:w=\"2000\"/></w:tblGrid><w:tr><w:tc><w:p><w:r><w:t>innen 1</w:t></w:r></w:p></w:tc>"
+                     + "<w:tc><w:p><w:r><w:t>innen 2</w:t></w:r></w:p></w:tc></w:tr><w:tr><w:tc><w:p/></w:tc><w:tc><w:p/></w:tc></w:tr></w:tbl><w:p/></w:tc></w:tr></w:tbl>";
+        var document = DocxTestSupport.Read(DocxFixtures.CreateRaw($"<w:document xmlns:w=\"{W}\"><w:body>{nested}<w:p/></w:body></w:document>"));
+        using var layout = new DocumentLayout(document, new FixedWidthTextMeasurer());
+        var page = layout.Pages[0];
+        var carrierBlock = document.Blocks.ToList().FindIndex(block => block is Paragraph { Inlines: [OpaqueInline { Nested: not null }] });
+        var line = page.Lines.Single(placed => placed.Block == carrierBlock);
+        var item = Assert.IsType<ObjectItem>(line.Line.Items.Single());
+        Assert.True(item.Height >= 19.9, $"two rows tall: {item.Height}"); // two rows of the inner table (fixed-width lines are 10 pt)
+        Assert.Equal(item.Height, line.Line.Height, 3); // the line is the table
+        var texts = layout.GetDisplayList(0).Items.OfType<GlyphRunItem>().Select(run => run.Text).ToList();
+        Assert.Contains("innen 2", texts);
+        var outerCell = page.Cells.Single();
+        Assert.True(outerCell.Height >= line.Line.Height + item.Height - 1);
     }
 
     [Fact]

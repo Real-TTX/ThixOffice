@@ -223,7 +223,14 @@ public sealed class ParagraphLayout
 }
 
 /// <summary>A line placed on a page: its block, its index in the block's layout, the top (page y) and the left of the text area (page x).</summary>
-public sealed record PlacedLine(int Block, int LineIndex, double Top, double Left, LineLayout Line, ParagraphLayout Paragraph);
+public sealed record PlacedLine(int Block, int LineIndex, double Top, double Left, LineLayout Line, ParagraphLayout Paragraph)
+{
+    /// <summary>
+    /// Turned text (a cell's "Textrichtung"): the transform that draws the line from where it is placed (Top/Left, used for hit testing)
+    /// to where it shows; null for ordinary lines.
+    /// </summary>
+    public ThixOffice.Text.Drawing.Matrix2D? Transform { get; init; }
+}
 
 /// <summary>
 /// A cell (or the part of a cell) placed on a page: its table (first block), row and cell, the rectangle (page points) and what

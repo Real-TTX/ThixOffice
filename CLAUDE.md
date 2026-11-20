@@ -341,6 +341,14 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   boundaries across pages unless cantSplit / merged; heading rows repeat (`PageLayout.RepeatedLines`, `PlacedCell.IsRepeat`).
   `PageLayout.Cells` carry rectangles, borders and fills for drawing and hit testing. Paragraphs in cells get the table style's
   paragraph/character properties between the defaults and their own style (`EffectiveParagraphFormat.StyleKey`).
+- **Nested tables, gaps, turned text, floating tables:** a w:tbl inside a cell becomes a paragraph (`DocxReader.NestedCarrierProperties`)
+  with ONE `OpaqueInline` (Kind Table, `IsBlockContent`, `Nested` = a read-only story read through `ReadContext.ReadDisplayOnly` – nothing
+  counted, comments/notes stay XML); `LayoutContext.MeasureNested` sizes it (a `StoryBox`, the line is exactly the table), `DrawObject`
+  draws it; `DocxWriter.WriteParagraphElements` writes the w:tbl between the cell's paragraphs again. `TableRowProperties.GridBefore/
+  GridAfter` shift `GridColumnOf`/`CellAtColumn` (and `TableEdits.TableModel`). `TableCellProperties.TextDirection`/`Rotation`: the
+  cell's lines are laid out as long as the row (`CellBox.Rotation`, `PlaceTurnedCell`) and drawn through `PlacedLine.Transform`.
+  `TableProperties.Position` (`TablePosition`, read from w:tblpPr, which stays in UnknownXml): `FloatingTableLeft`, `Flow.TryPlaceFloating`
+  places the rows in one piece and adds a square-wrap `PlacedFloat` (Inline = an empty TextRun, Offset -1) the text flows around.
 - **UI:** Einfügen › Tabelle (`TablePicker`, a `MatRibbonCustom` through `OfficeApplication.CreateRibbonContent`; "Tabelle
   einfügen …"), contextual tabs Tabellenentwurf / Layout (`TableCommands`, context `table`, shown by `WriteEditor` while the caret is
   in a table), dialogs InsertTable / SplitCells / DeleteCells, column borders dragged in `DocumentSurface`.

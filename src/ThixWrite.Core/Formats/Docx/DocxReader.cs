@@ -154,9 +154,9 @@ public static class DocxReader
     }
 
     /// <summary>
-    /// True for a table the model represents: table, rows and cells with their properties, paragraphs in the cells, range markers
-    /// (bookmarks …) anywhere between them; rows without w:gridBefore / w:gridAfter. Nested tables, content controls or custom XML
-    /// around rows or cells keep the whole table preserved (an <see cref="OpaqueBlock"/>).
+    /// True for a table the model represents: table, rows and cells with their properties, paragraphs and nested tables in the cells,
+    /// range markers (bookmarks …) anywhere between them. Content controls or custom XML around rows or cells keep the whole table
+    /// preserved (an <see cref="OpaqueBlock"/>).
     /// </summary>
     private static bool IsSupportedTable(W.Table table)
     {
@@ -169,13 +169,12 @@ public static class DocxReader
         foreach (var row in rows)
         {
             if (!row.Elements<W.TableCell>().Any()
-                || row.ChildElements.Any(child => child is not (W.TablePropertyExceptions or W.TableRowProperties or W.TableCell) && !IsMarker(child))
-                || row.TableRowProperties?.ChildElements.Any(child => child is W.GridBefore or W.GridAfter or W.WidthBeforeTableRow or W.WidthAfterTableRow) == true)
+                || row.ChildElements.Any(child => child is not (W.TablePropertyExceptions or W.TableRowProperties or W.TableCell) && !IsMarker(child)))
             {
                 return false;
             }
 
-            if (row.Elements<W.TableCell>().Any(cell => cell.ChildElements.Any(child => child is not (W.TableCellProperties or W.Paragraph) && !IsMarker(child))))
+            if (row.Elements<W.TableCell>().Any(cell => cell.ChildElements.Any(child => child is not (W.TableCellProperties or W.Paragraph or W.Table) && !IsMarker(child))))
             {
                 return false;
             }
@@ -183,6 +182,32 @@ public static class DocxReader
 
         return true;
     }
+
+    /// <summary>
+    /// A table inside a table cell: a paragraph carrying it as an <see cref="OpaqueInline"/> (its XML written back between the cell's
+    /// paragraphs) that shows it read-only through <see cref="OpaqueInline.Nested"/>. The markers before it stay for the paragraph after it.
+    /// </summary>
+    private static Paragraph ReadNestedTable(W.Table table, ReadContext context)
+    {
+        context.Count(PreservedKind.Table);
+        var story = context.ReadDisplayOnly(table);
+        var width = table.GetFirstChild<W.TableGrid>()?.Elements<W.GridColumn>().Sum(column => DocxValues.ParseTwips(DocxValues.AttributeValue(column, "w")) ?? 0) ?? 0;
+        var carrier = new OpaqueInline(XmlFragments.Canonical(table), PreservedKind.Table, false, CharacterProperties.Empty, "", Math.Max(1, width)) { Nested = story };
+        return new Paragraph([carrier], NestedCarrierProperties);
+    }
+
+    /// <summary>The properties of a paragraph that carries a nested table: no spacing, indent or list, single lines (the table decides its height).</summary>
+    internal static readonly ParagraphProperties NestedCarrierProperties = new()
+    {
+        SpacingBefore = 0,
+        SpacingAfter = 0,
+        LineSpacing = LineSpacing.Single,
+        IndentLeft = 0,
+        IndentRight = 0,
+        FirstLineIndent = 0,
+        Alignment = ParagraphAlignment.Left,
+        Numbering = NumberingReference.None,
+    };
 
     /// <summary>Reads a table: its structure into a <see cref="Table"/>, its cells' paragraphs into the blocks, each naming its cell.</summary>
     private static void ReadTable(W.Table element, List<Block> blocks, ReadContext context)
@@ -222,6 +247,10 @@ public static class DocxReader
                     if (cellChild is W.Paragraph paragraph)
                     {
                         paragraphs.Add(ReadParagraph(paragraph, context));
+                    }
+                    else if (cellChild is W.Table nested)
+                    {
+                        paragraphs.Add(ReadNestedTable(nested, context));
                     }
                     else if (IsMarker(cellChild))
                     {
@@ -604,6 +633,30 @@ public static class DocxReader
         }
 
         private readonly Dictionary<PreservedKind, int> _counts = [];
+        private int _displayOnly;
+
+        /// <summary>
+        /// A body element read only to be SHOWN (a nested table: its XML is kept as it is): its blocks as a story; nothing is counted as
+        /// unsupported, comments and notes in it stay XML, the markers around it stay where they were.
+        /// </summary>
+        public Story ReadDisplayOnly(OpenXmlElement element)
+        {
+            var markers = TakeMarkers();
+            _displayOnly++;
+            try
+            {
+                var blocks = new List<Block>();
+                SectionProperties? ignored = null;
+                ReadBodyChild(element, blocks, this, ref ignored);
+                PendingMarkers.Clear();
+                return new Story(blocks);
+            }
+            finally
+            {
+                _displayOnly--;
+                PendingMarkers.AddRange(markers);
+            }
+        }
 
         public MainDocumentPart Main { get; } = main;
 
@@ -669,6 +722,11 @@ public static class DocxReader
         /// <summary>The text of footnote / endnote <paramref name="id"/> from its part (null when there is no such note or it is a separator).</summary>
         public Story? ReadNote(string id, NoteKind kind)
         {
+            if (_displayOnly > 0)
+            {
+                return null;
+            }
+
             OpenXmlPart? part = kind == NoteKind.Footnote ? Main.FootnotesPart : Main.EndnotesPart;
             OpenXmlCompositeElement? root = part switch
             {
@@ -735,7 +793,7 @@ public static class DocxReader
         /// <summary>The comment an element (range start / end / reference) of the body names, or null (unknown id, or not in the body).</summary>
         public Comment? CommentFor(OpenXmlElement element)
         {
-            if (!ReferenceEquals(Part, Main) || DocxValues.AttributeValue(element, "id") is not { } id)
+            if (_displayOnly > 0 || !ReferenceEquals(Part, Main) || DocxValues.AttributeValue(element, "id") is not { } id)
             {
                 return null;
             }
@@ -768,7 +826,7 @@ public static class DocxReader
 
         public void Count(PreservedKind kind)
         {
-            if (kind == PreservedKind.Bookmark)
+            if (kind == PreservedKind.Bookmark || _displayOnly > 0)
             {
                 return;
             }

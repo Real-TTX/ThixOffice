@@ -134,9 +134,25 @@ public sealed partial class DocumentLayout
                 return [new ImageItem(x, y, width, height, image.Image.Key, image.Image.Bytes)];
             case OpaqueInline { Graphic: { } graphic }:
                 return DrawGraphic(graphic, x, y, width, height);
+            case OpaqueInline { Nested: { } nested }:
+                return [TransformBeginItem.At(x, y), .. StoryBox(nested, width).GetDisplayList(0).Items, TransformEndItem.Instance];
             default:
                 return [];
         }
+    }
+
+    /// <summary>The size of a nested table laid out at <paramref name="width"/>: the width, and the height down to its last row.</summary>
+    private (double Width, double Height) MeasureNested(Story story, double width)
+    {
+        var page = StoryBox(story, width).Pages[0];
+        var height = page.Cells.Select(cell => cell.Y + cell.Height).DefaultIfEmpty(0).Max();
+        var lastBlock = story.Blocks.Count - 1; // the empty paragraph a story ends with is not part of the table
+        foreach (var line in page.Lines.Where(line => line.Block < lastBlock || page.Cells.Count == 0))
+        {
+            height = Math.Max(height, line.Top + line.Line.Height);
+        }
+
+        return (width, Math.Max(1, height));
     }
 
     private List<DisplayItem> DrawGraphic(DrawingGraphic graphic, double x, double y, double width, double height)

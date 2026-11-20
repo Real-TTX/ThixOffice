@@ -155,6 +155,12 @@ public sealed record TableProperties
 
     public string? UnknownXml { get; init; }
 
+    /// <summary>
+    /// Where a floating table sits ("Umgebender Text", w:tblpPr). Read for the display only: the element itself stays in
+    /// <see cref="UnknownXml"/> and is written back from there.
+    /// </summary>
+    public TablePosition? Position { get; init; }
+
     /// <summary>These properties with the ones set in <paramref name="other"/> taken from it (style chain, direct formatting).</summary>
     public TableProperties Merge(TableProperties? other) => other is null ? this : new TableProperties
     {
@@ -170,8 +176,25 @@ public sealed record TableProperties
         RowBandSize = other.RowBandSize ?? RowBandSize,
         ColumnBandSize = other.ColumnBandSize ?? ColumnBandSize,
         UnknownXml = other.UnknownXml ?? UnknownXml,
+        Position = other.Position ?? Position,
     };
 }
+
+/// <summary>
+/// The position of a floating table (w:tblpPr): horizontal and vertical frame ("text", "margin", "page"), an offset in points or an
+/// alignment ("left", "center", "right", "inside", "outside"; "top", "center", "bottom"), and the distances the text keeps.
+/// </summary>
+public sealed record TablePosition(
+    string HorizontalFrame,
+    double X,
+    string? AlignX,
+    string VerticalFrame,
+    double Y,
+    string? AlignY,
+    double DistanceLeft,
+    double DistanceTop,
+    double DistanceRight,
+    double DistanceBottom);
 
 /// <summary>
 /// The properties of a row (w:trPr): height (at least or exact), "Überschrift wiederholen" (w:tblHeader), "Zeilenwechsel auf
@@ -189,6 +212,12 @@ public sealed record TableRowProperties
     public bool IsHeader { get; init; }
 
     public bool CantSplit { get; init; }
+
+    /// <summary>Grid columns left empty before the row's first cell (w:gridBefore): the row starts with a gap.</summary>
+    public int GridBefore { get; init; }
+
+    /// <summary>Grid columns left empty after the row's last cell (w:gridAfter).</summary>
+    public int GridAfter { get; init; }
 
     public string? UnknownXml { get; init; }
 
@@ -218,6 +247,17 @@ public sealed record TableCellProperties
 
     public CellVerticalAlignment? VerticalAlignment { get; init; }
 
+    /// <summary>"Textrichtung" (w:textDirection) as Word writes it: <c>btLr</c> (bottom to top), <c>tbRl</c> (top to bottom), null = across.</summary>
+    public string? TextDirection { get; init; }
+
+    /// <summary>How far the text of the cell is turned: 90 (top to bottom), 270 (bottom to top) or 0.</summary>
+    public int Rotation => TextDirection switch
+    {
+        "tbRl" or "tbRlV" or "rl" or "tbLrV" => 90,
+        "btLr" or "lr" => 270,
+        _ => 0,
+    };
+
     public string? UnknownXml { get; init; }
 }
 
@@ -239,14 +279,16 @@ public sealed record Table(TableProperties Properties, EquatableArray<double> Gr
     public int RowCount => Rows.Count;
 
     /// <summary>The number of grid columns (the widest row's span when the grid is missing).</summary>
-    public int ColumnCount => Grid.Count > 0 ? Grid.Count : Rows.Select(row => row.Cells.Sum(cell => Math.Max(1, cell.GridSpan))).DefaultIfEmpty(0).Max();
+    public int ColumnCount => Grid.Count > 0
+        ? Grid.Count
+        : Rows.Select(row => row.Properties.GridBefore + row.Cells.Sum(cell => Math.Max(1, cell.GridSpan)) + row.Properties.GridAfter).DefaultIfEmpty(0).Max();
 
     public TableCellProperties CellAt(int row, int cell) => Rows[row].Cells[cell];
 
-    /// <summary>The first grid column of cell <paramref name="cell"/> of row <paramref name="row"/>.</summary>
+    /// <summary>The first grid column of cell <paramref name="cell"/> of row <paramref name="row"/> (after the row's w:gridBefore gap).</summary>
     public int GridColumnOf(int row, int cell)
     {
-        var column = 0;
+        var column = Rows[row].Properties.GridBefore;
         var cells = Rows[row].Cells;
         for (var index = 0; index < cell && index < cells.Count; index++)
         {
@@ -259,7 +301,7 @@ public sealed record Table(TableProperties Properties, EquatableArray<double> Gr
     /// <summary>The cell of row <paramref name="row"/> that covers grid column <paramref name="column"/>, or -1.</summary>
     public int CellAtColumn(int row, int column)
     {
-        var start = 0;
+        var start = Rows[row].Properties.GridBefore;
         var cells = Rows[row].Cells;
         for (var index = 0; index < cells.Count; index++)
         {

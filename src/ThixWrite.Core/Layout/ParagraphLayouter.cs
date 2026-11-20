@@ -37,6 +37,9 @@ internal sealed class LayoutContext(ITextMeasurer measurer, StyleResolver resolv
 
     /// <summary>What a note's own mark shows in the note being laid out ("3"); null shows nothing.</summary>
     public string? NoteMarkText { get; set; }
+
+    /// <summary>The size of a nested table (<see cref="OpaqueInline.Nested"/>) laid out at a width; null leaves it a placeholder.</summary>
+    public Func<Story, double, (double Width, double Height)>? MeasureNested { get; set; }
 }
 
 /// <summary>
@@ -76,6 +79,9 @@ internal static class ParagraphLayouter
         public double ObjectHeight;
         public double LetterSpacing;
         public double Scale = 1;
+
+        /// <summary>A block laid out on a line of its own (a nested table): the line is exactly as tall as it.</summary>
+        public bool IsBlock;
     }
 
     /// <summary>The narrowest line text is set in beside a floating object; a narrower gap is skipped (the line moves below the object).</summary>
@@ -92,7 +98,7 @@ internal static class ParagraphLayouter
         var text = paragraph.Text;
         var styleId = format.StyleKey;
         var markFormat = context.Resolver.ResolveCharacter(styleId, paragraph.MarkProperties);
-        var segments = BuildSegments(paragraph, styleId, context, out var advances, out var owner);
+        var segments = BuildSegments(paragraph, styleId, context, Math.Max(1, width - format.IndentLeft - format.IndentRight), out var advances, out var owner);
         var breaks = BreakOpportunities(paragraph);
         var graphemeStarts = TextBoundaries.GraphemeStarts(text);
 
@@ -309,7 +315,7 @@ internal static class ParagraphLayouter
         return (mapped, format with { FontFamily = BuiltInStyles.BodyFont });
     }
 
-    private static List<Segment> BuildSegments(Paragraph paragraph, string styleId, LayoutContext context, out double[] advances, out int[] owner)
+    private static List<Segment> BuildSegments(Paragraph paragraph, string styleId, LayoutContext context, double textWidth, out double[] advances, out int[] owner)
     {
         var text = paragraph.Text;
         advances = new double[text.Length];
@@ -398,7 +404,12 @@ internal static class ParagraphLayouter
                     Metrics = metrics,
                     Object = opaque,
                 };
-                if (opaque.Width > 0)
+                if (opaque.Nested is { } nested && context.MeasureNested is { } measure)
+                {
+                    (segment.ObjectWidth, segment.ObjectHeight) = measure(nested, textWidth);
+                    segment.IsBlock = true;
+                }
+                else if (opaque.Width > 0)
                 {
                     segment.ObjectWidth = opaque.Width;
                     segment.ObjectHeight = opaque.Height;
@@ -784,6 +795,7 @@ internal static class ParagraphLayouter
         var ascent = 0.0;
         var descent = 0.0;
         var gap = 0.0;
+        var blockHeight = 0.0;
         if (label is not null)
         {
             items.Add(label);
@@ -823,6 +835,11 @@ internal static class ParagraphLayouter
                     items.Add(new ObjectItem(from, itemX, itemWidth, segment.ObjectHeight, segment.Object!, segment.Shaped, segment.Format, segment.Font, segment.Metrics, segment.BaselineShift));
                     ascent = Math.Max(ascent, segment.ObjectHeight > 0 ? segment.ObjectHeight : segment.Metrics.Ascent - segment.BaselineShift);
                     descent = Math.Max(descent, segment.Metrics.Descent);
+                    if (segment.IsBlock)
+                    {
+                        blockHeight = Math.Max(blockHeight, segment.ObjectHeight);
+                    }
+
                     break;
             }
         }
@@ -834,8 +851,14 @@ internal static class ParagraphLayouter
             gap = markMetrics.LineGap;
         }
 
+        if (blockHeight > 0 && blockHeight >= ascent)
+        {
+            // A nested table: the line is the table, no line spacing, no descent below it.
+            (ascent, descent, gap) = (blockHeight, 0, 0);
+        }
+
         var natural = ascent + descent + gap;
-        var height = format.LineSpacing.Rule switch
+        var height = blockHeight > 0 && blockHeight >= ascent ? natural : format.LineSpacing.Rule switch
         {
             LineSpacingRule.Exact => format.LineSpacing.Value,
             LineSpacingRule.AtLeast => Math.Max(natural, format.LineSpacing.Value),

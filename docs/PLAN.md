@@ -260,12 +260,21 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   und -schattierung; Seitenfarbe; Initialen; Tabellen in Kopf- und Fußzeilen.
   **Noch falsch / Lücken:** Text umfließt nur rechteckig (keine Umbruchpolygone, keine „Durchgehend“-Form), Absätze, die über eine
   Seite laufen, behalten den Umbruch um ein Objekt der ersten Seite; Tabellen umfließen keine Objekte und stehen in Spalten über die
-  ganze Breite; schwebende Tabellen (w:tblpPr) stehen im Textfluss; verschachtelte Tabellen und Zeilen mit w:gridBefore bleiben
-  graue Rahmen (erhalten, nicht gezeigt); Textrichtung in Zellen (btLr) wird nicht gedreht; Formeln (OMML) werden nicht gezeigt;
+  ganze Breite; Formeln (OMML) werden nicht gezeigt;
   WordArt-Verformungen (prstTxWarp), Schatten/3-D/Effekte und Bildzuschnitt fehlen; Inhaltssteuerelemente in einer Zeile zeigen
   ihren Text in einem Format; nachverfolgte Einfügungen zeigen die Formatierung ihres ersten Laufs; Absatzrahmen vergrößern den
   Absatz nicht (der Rahmen kann in den Abstand ragen); fehlende Schriften (Aptos, Calibri auf dem Mac) fallen auf die Systemschrift
   zurück, Zeilenumbrüche weichen daher leicht ab; Spaltenumbruch und Spaltenausgleich gelten nicht in Tabellen.
+- **1e – Darstellung und Alltagsfunktionen (2026-11-20, laufend):**
+  **Behoben:** verschachtelte Tabellen werden als Tabellen gezeigt (die äußere Tabelle ist bearbeitbar, die innere fährt in einem
+  Absatz ihrer Zelle mit, wird schreibgeschützt aus ihrer eigenen Story gezeichnet und als w:tbl an ihrer Stelle zurückgeschrieben);
+  Zeilen mit Lücke (w:gridBefore / w:gridAfter) beginnen in ihrer Rasterspalte und haben eigene Außenkanten; gedrehter Text in Zellen
+  (btLr / tbRl) wird gedreht gezeichnet (Zeilen so lang wie eine feste Zeilenhöhe, sonst wie der längste Text); schwebende Tabellen
+  (w:tblpPr) stehen an ihrer Position (Rand/Seite/Text, links/zentriert/rechts oder Versatz), der Text danach umfließt sie, passen sie
+  nicht mehr auf die Seite, gehen sie auf die nächste.
+  **Noch falsch:** die innere Tabelle ist nicht bearbeitbar; Einfügemarke und Markierung in gedrehten Zellen stehen waagrecht;
+  Spaltenoperationen (Spalte einfügen/löschen) an Tabellen mit Lückenzeilen rechnen die Lücke nicht mit; eine schwebende Tabelle
+  wird nie geteilt und umfließt keine anderen Objekte.
 
 #### Word-Vergleich (Stand 2026-11-20): deutsches Menüband Karte für Karte
 

@@ -125,7 +125,7 @@ public static class DocxWriter
                     index = span.End;
                     break;
                 case Paragraph paragraph:
-                    nesting.Add(WriteParagraph(paragraph, context), paragraph);
+                    nesting.AddAll(WriteParagraphElements(paragraph, context), paragraph);
                     break;
                 case OpaqueBlock opaque:
                     foreach (var element in XmlFragments.Parse<W.Body>(opaque.Xml))
@@ -179,12 +179,15 @@ public static class DocxWriter
                 var (first, last) = span.BlocksOf(row, cell);
                 for (var block = first; first >= 0 && block <= last; block++)
                 {
-                    cellElement.AppendChild(WriteParagraph((Paragraph)document.Blocks[block], context));
+                    foreach (var written in WriteParagraphElements((Paragraph)document.Blocks[block], context))
+                    {
+                        cellElement.AppendChild(written);
+                    }
                 }
 
-                if (first < 0)
+                if (first < 0 || cellElement.LastChild is W.Table)
                 {
-                    cellElement.AppendChild(new W.Paragraph());
+                    cellElement.AppendChild(new W.Paragraph()); // a cell ends with a paragraph
                 }
 
                 rowElement.AppendChild(cellElement);
@@ -194,6 +197,45 @@ public static class DocxWriter
         }
 
         return element;
+    }
+
+    /// <summary>
+    /// A paragraph as its elements: the w:p, or – when it carries nested tables (<see cref="OpaqueInline.IsBlockContent"/>) – those tables
+    /// as they were read with what else it holds in paragraphs around them.
+    /// </summary>
+    private static IEnumerable<OpenXmlElement> WriteParagraphElements(Paragraph paragraph, WriteContext context)
+    {
+        if (!paragraph.Inlines.Any(inline => inline is OpaqueInline { IsBlockContent: true }))
+        {
+            yield return WriteParagraph(paragraph, context);
+            yield break;
+        }
+
+        var rest = new List<Inline>();
+        foreach (var inline in paragraph.Inlines)
+        {
+            if (inline is not OpaqueInline { IsBlockContent: true } block)
+            {
+                rest.Add(inline);
+                continue;
+            }
+
+            if (rest.Count > 0)
+            {
+                yield return WriteParagraph(paragraph.WithInlines(rest).WithSectionBreak(null), context);
+                rest.Clear();
+            }
+
+            foreach (var element in XmlFragments.Parse<W.Body>(block.Xml))
+            {
+                yield return element;
+            }
+        }
+
+        if (rest.Count > 0 || paragraph.SectionBreak is not null)
+        {
+            yield return WriteParagraph(paragraph.WithInlines(rest), context);
+        }
     }
 
     private static W.Paragraph WriteParagraph(Paragraph paragraph, WriteContext context)
@@ -418,7 +460,7 @@ public static class DocxWriter
                     index = span.End;
                     break;
                 case Paragraph paragraph:
-                    nesting.Add(WriteParagraph(paragraph.WithSectionBreak(null), context), paragraph);
+                    nesting.AddAll(WriteParagraphElements(paragraph.WithSectionBreak(null), context), paragraph);
                     break;
                 case OpaqueBlock opaque:
                     foreach (var element in XmlFragments.Parse<W.Body>(opaque.Xml))
@@ -444,6 +486,24 @@ public static class DocxWriter
         private readonly Stack<W.SdtContentBlock> _open = new();
 
         public IReadOnlyList<OpenXmlElement> Elements => _top;
+
+        /// <summary>The elements of one paragraph (several when it carries nested tables: its control marks open before the first, close after the last).</summary>
+        public void AddAll(IEnumerable<OpenXmlElement> elements, Paragraph paragraph)
+        {
+            var list = elements.ToList();
+            if (list.Count == 1)
+            {
+                Add(list[0], paragraph);
+                return;
+            }
+
+            var marks = paragraph.Inlines.OfType<ContentControlMarkInline>().ToList();
+            for (var index = 0; index < list.Count; index++)
+            {
+                var carried = index == 0 ? marks.Where(mark => !mark.IsEnd) : index == list.Count - 1 ? marks.Where(mark => mark.IsEnd) : [];
+                Add(list[index], Paragraph.Empty().WithInlines(carried));
+            }
+        }
 
         public void Add(OpenXmlElement element, Paragraph? paragraph)
         {

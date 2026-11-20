@@ -60,6 +60,10 @@ internal static class DocxTables
                 case "tblStyleColBandSize" when child.NamespaceUri == DocxValues.WordNamespace:
                     result = result with { ColumnBandSize = (int?)DocxValues.ParseInteger(value) is > 0 and var columns ? columns : null };
                     break;
+                case "tblpPr" when child.NamespaceUri == DocxValues.WordNamespace:
+                    result = result with { Position = ReadPosition(child) };
+                    unknown.Add(child); // written back as read
+                    break;
                 default:
                     unknown.Add(child);
                     break;
@@ -67,6 +71,23 @@ internal static class DocxTables
         }
 
         return result with { UnknownXml = XmlFragments.Join(unknown) };
+    }
+
+    /// <summary>w:tblpPr: frames (Word's defaults: horizontally the column = "text", vertically the margin), offsets or alignments, distances.</summary>
+    private static TablePosition ReadPosition(OpenXmlElement element)
+    {
+        double Twips(string name) => DocxValues.ParseTwips(DocxValues.AttributeValue(element, name)) ?? 0;
+        return new TablePosition(
+            DocxValues.AttributeValue(element, "horzAnchor") ?? "text",
+            Twips("tblpX"),
+            DocxValues.AttributeValue(element, "tblpXSpec"),
+            DocxValues.AttributeValue(element, "vertAnchor") ?? "margin",
+            Twips("tblpY"),
+            DocxValues.AttributeValue(element, "tblpYSpec"),
+            Twips("leftFromText"),
+            Twips("topFromText"),
+            Twips("rightFromText"),
+            Twips("bottomFromText"));
     }
 
     /// <summary>w:tblLook: the attributes Word 2010+ writes, else the bit mask of w:val (0020 first row … 0400 no vertical bands).</summary>
@@ -170,6 +191,12 @@ internal static class DocxTables
                 case W.CantSplit:
                     result = result with { CantSplit = DocxValues.ParseOnOff(child) };
                     break;
+                case W.GridBefore when DocxValues.ParseInteger(DocxValues.AttributeValue(child, "val")) is { } before:
+                    result = result with { GridBefore = (int)Math.Clamp(before, 0, 63) };
+                    break;
+                case W.GridAfter when DocxValues.ParseInteger(DocxValues.AttributeValue(child, "val")) is { } after:
+                    result = result with { GridAfter = (int)Math.Clamp(after, 0, 63) };
+                    break;
                 default:
                     unknown.Add(child);
                     break;
@@ -213,6 +240,9 @@ internal static class DocxTables
                     break;
                 case W.TableCellVerticalAlignment:
                     result = result with { VerticalAlignment = value switch { "center" => CellVerticalAlignment.Center, "bottom" => CellVerticalAlignment.Bottom, _ => CellVerticalAlignment.Top } };
+                    break;
+                case W.TextDirection when value is not null:
+                    result = result with { TextDirection = value };
                     break;
                 default:
                     unknown.Add(child);
@@ -430,6 +460,16 @@ internal static class DocxTables
         var exceptions = XmlFragments.Parse<W.TableRow>(properties.ExceptionsXml).FirstOrDefault();
         var target = new W.TableRowProperties();
         XmlFragments.AddTo(target, properties.UnknownXml);
+        if (properties.GridBefore > 0)
+        {
+            XmlFragments.Add(target, DocxPropertyWriter.Element<W.GridBefore>(("val", DocxPropertyWriter.Integer(properties.GridBefore))));
+        }
+
+        if (properties.GridAfter > 0)
+        {
+            XmlFragments.Add(target, DocxPropertyWriter.Element<W.GridAfter>(("val", DocxPropertyWriter.Integer(properties.GridAfter))));
+        }
+
         if (properties.CantSplit)
         {
             XmlFragments.Add(target, new W.CantSplit());
@@ -480,6 +520,11 @@ internal static class DocxTables
         if (properties.Margins is { } margins && WriteCellMargins(margins) is { } cellMargins)
         {
             XmlFragments.Add(target, cellMargins);
+        }
+
+        if (properties.TextDirection is { } direction)
+        {
+            XmlFragments.Add(target, DocxPropertyWriter.Element<W.TextDirection>(("val", direction)));
         }
 
         if (properties.VerticalAlignment is { } alignment)

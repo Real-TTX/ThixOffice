@@ -237,6 +237,14 @@ public static class DisplayListBuilder
 
     private static void AddLine(PlacedLine placed, List<DisplayItem> items, Func<Inline, double, double, double, double, IEnumerable<DisplayItem>>? drawObject = null)
     {
+        if (placed.Transform is { } transform)
+        {
+            items.Add(new TransformBeginItem(transform));
+            AddLine(placed with { Transform = null }, items, drawObject);
+            items.Add(TransformEndItem.Instance);
+            return;
+        }
+
         var line = placed.Line;
         var baseline = placed.Top + line.Baseline;
 
@@ -271,7 +279,7 @@ public static class DisplayListBuilder
                     items.Add(new LineItem(placed.Left + tab.X + 1, baseline, placed.Left + tab.X + tab.Width - 1, baseline, ColorOf(tab.Format),
                         tab.Leader == TabLeader.Heavy ? 1.2 : 0.6, style));
                     break;
-                case ObjectItem { Inline: OpaqueInline { Graphic: not null } } drawing when drawObject is not null:
+                case ObjectItem { Inline: OpaqueInline drawn } drawing when drawObject is not null && (drawn.Graphic is not null || drawn.Nested is not null):
                     items.AddRange(drawObject(drawing.Inline, placed.Left + drawing.X, baseline - drawing.Height, drawing.Width, drawing.Height));
                     break;
                 case ObjectItem box:

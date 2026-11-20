@@ -180,6 +180,47 @@ public sealed class RealWorldTests
     }
 
     [Fact]
+    public void Nested_tables_rows_after_a_gap_turned_text_and_floating_tables_are_laid_out_like_Word()
+    {
+        var (document, layout) = Open("07-demo-tables.docx");
+        Assert.DoesNotContain(document.Blocks, block => block is OpaqueBlock); // no grey frames left
+        var blocks = document.Blocks.ToList();
+        int BlockOf(string text) => blocks.FindIndex(block => block is Paragraph paragraph && paragraph.Text == text);
+        IEnumerable<(PageLayout Page, PlacedLine Line)> LinesOf(int block) => layout.Pages.SelectMany(page => page.Lines.Where(line => line.Block == block).Select(line => (page, line)));
+
+        // Nested: the inner table rides in a paragraph of the outer cell and draws its cells.
+        var carrier = blocks.FindIndex(block => block is Paragraph { Inlines: [OpaqueInline { Nested: not null }] });
+        Assert.True(carrier > 0);
+        Assert.True(LinesOf(carrier).Single().Line.Line.Height > 10);
+
+        // w:gridBefore: the row's cell starts one grid column (2000 twips = 100 pt) to the right of the first row's.
+        var gap = BlockOf("nach Lücke");
+        var gapPage = LinesOf(gap).First().Page;
+        var gapCell = ((Paragraph)blocks[gap]).Cell!.Value;
+        var tableStart = TableSpan.At(document, gap)!.Start;
+        var firstCell = gapPage.Cells.First(cell => cell.TableStart == tableStart && cell.Row == 0 && cell.Cell == 0);
+        var shifted = gapPage.Cells.First(cell => cell.TableStart == tableStart && cell.Row == gapCell.Row);
+        Assert.Equal(firstCell.X + 100, shifted.X, 1);
+        Assert.True(shifted.Left?.IsVisible); // its own outer edge
+
+        // Turned text ("btLr"): drawn through a transform inside its cell.
+        var turned = LinesOf(BlockOf("gedreht")).Select(item => item.Line).ToList();
+        Assert.NotEmpty(turned);
+        Assert.All(turned, line => Assert.NotNull(line.Transform));
+
+        // The floating table sits at the right margin and the paragraph after it flows beside it.
+        var floating = BlockOf("Schwebende Tabelle rechts");
+        var (floatPage, floatLine) = LinesOf(floating).Single();
+        var section = document.FinalSection;
+        var floatCell = floatPage.Cells.Single(cell => cell.TableStart == floating && cell.Row == 0);
+        Assert.Equal(section.MarginLeft + section.ContentWidth, floatCell.X + floatCell.Width, 1);
+        var beside = floatPage.Lines.Where(line => line.Block == floating + 2 && line.Top < floatCell.Y + floatCell.Height).ToList();
+        Assert.NotEmpty(beside);
+        Assert.All(beside, line => Assert.True(line.Left + line.Line.Items.Max(item => item.X + item.Width) <= floatCell.X + 3));
+        _ = floatLine;
+    }
+
+    [Fact]
     public void A_footer_with_a_table_is_laid_out_as_a_table()
     {
         var (_, layout) = Open("09-letter-din5008.docx");

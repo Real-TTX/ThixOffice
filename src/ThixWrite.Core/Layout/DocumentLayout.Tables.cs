@@ -55,7 +55,17 @@ public sealed partial class DocumentLayout
 
         public List<CellLine> Lines { get; } = [];
 
+        /// <summary>The height the content needs down the row (for turned text: the length of its lines).</summary>
         public double ContentHeight { get; set; }
+
+        /// <summary>"Textrichtung": 90 (top to bottom), 270 (bottom to top) or 0.</summary>
+        public int Rotation { get; init; }
+
+        /// <summary>Turned text: the explicit row height its lines are as long as (null: as long as the longest line needs).</summary>
+        public double? RowHeight { get; init; }
+
+        /// <summary>Turned text: how much room the lines take across the cell (their heights).</summary>
+        public double Thickness { get; set; }
 
         public double Top => Margins.Top ?? 0;
 
@@ -81,6 +91,10 @@ public sealed partial class DocumentLayout
             TableAlignment.Right => section.ContentWidth - tableWidth,
             _ => (properties.Indent ?? 0) - firstMargin, // the text of the first column lines up with the margin, as in Word
         });
+        if (properties.Position is { } position)
+        {
+            left = FloatingTableLeft(position, tableWidth, section);
+        }
         var columnX = new double[widths.Length + 1];
         columnX[0] = left;
         for (var index = 0; index < widths.Length; index++)
@@ -120,12 +134,14 @@ public sealed partial class DocumentLayout
                     Borders =
                     [
                         own.Top ?? conditional.Borders[0] ?? (row == 0 ? borders.Top : borders.InsideHorizontal),
-                        own.Left ?? conditional.Borders[1] ?? (column == 0 ? borders.Left : borders.InsideVertical),
+                        own.Left ?? conditional.Borders[1] ?? (column == 0 || cell == 0 ? borders.Left : borders.InsideVertical), // a row after a gap has its own outer edge
                         own.Bottom ?? conditional.Borders[2] ?? (lastRow ? borders.Bottom : borders.InsideHorizontal),
-                        own.Right ?? conditional.Borders[3] ?? (end >= widths.Length ? borders.Right : borders.InsideVertical),
+                        own.Right ?? conditional.Borders[3] ?? (end >= widths.Length || cell == rowCells.Count - 1 ? borders.Right : borders.InsideVertical),
                     ],
                     Fill = (cellProperties.Shading ?? conditional.Shading ?? properties.Shading)?.VisibleFill,
                     Alignment = cellProperties.VerticalAlignment ?? conditional.Alignment ?? CellVerticalAlignment.Top,
+                    Rotation = cellProperties.Rotation,
+                    RowHeight = rowSpan == 1 ? table.Rows[row].Properties.Height : null,
                 };
                 LayoutCell(cells[row][cell]);
             }
@@ -138,6 +154,21 @@ public sealed partial class DocumentLayout
             Cells = cells,
             RowHeights = RowHeights(table, cells),
             HeaderRows = table.HeaderRowCount < table.RowCount ? table.HeaderRowCount : 0,
+        };
+    }
+
+    /// <summary>The left edge of a floating table (w:tblpPr): its frame (page, margin, or the text = the margin), aligned or at its offset.</summary>
+    private static double FloatingTableLeft(TablePosition position, double width, SectionProperties section)
+    {
+        var (frameX, frameWidth) = position.HorizontalFrame == "page"
+            ? (0.0, section.PageWidth)
+            : (section.MarginLeft + section.Gutter, section.ContentWidth);
+        return position.AlignX switch
+        {
+            "center" => frameX + (frameWidth - width) / 2,
+            "right" or "outside" => frameX + frameWidth - width,
+            "left" or "inside" => frameX,
+            _ => frameX + position.X,
         };
     }
 
@@ -221,6 +252,12 @@ public sealed partial class DocumentLayout
         }
 
         var width = Math.Max(1, box.Width - (box.Margins.Left ?? 0) - (box.Margins.Right ?? 0));
+        if (box.Rotation != 0)
+        {
+            // Turned text: the lines run down the row – as long as an explicit row height allows, else as the longest line needs.
+            width = box.RowHeight is { } height ? Math.Max(1, height - box.Top - box.Bottom) : Math.Max(1, NaturalLength(box));
+        }
+
         var y = 0.0;
         var previousAfter = 0.0;
         string? previousStyle = null;
@@ -254,6 +291,32 @@ public sealed partial class DocumentLayout
         }
 
         box.ContentHeight = y + previousAfter;
+        if (box.Rotation != 0)
+        {
+            box.Thickness = box.ContentHeight;
+            box.ContentHeight = width;
+        }
+    }
+
+    /// <summary>The length of the longest line of a cell's paragraphs when nothing wraps them (turned text in a row of automatic height).</summary>
+    private double NaturalLength(CellBox box)
+    {
+        var length = 0.0;
+        for (var block = box.FirstBlock; block <= box.LastBlock; block++)
+        {
+            if (Document.Blocks[block] is not Paragraph paragraph)
+            {
+                continue;
+            }
+
+            var layout = ParagraphLayouter.Layout(paragraph, _context.Resolver.ResolveParagraph(paragraph), null, 2000, _context);
+            foreach (var line in layout.Lines)
+            {
+                length = Math.Max(length, line.Items.Where(item => item is TextItem or ObjectItem).Select(item => item.X + item.Width).DefaultIfEmpty(0).Max());
+            }
+        }
+
+        return Math.Ceiling(length + 1);
     }
 
     /// <summary>The height of every row: the tallest cell (text + margins), at least / exactly the row's height; vertically merged cells stretch their last row.</summary>
@@ -302,19 +365,35 @@ public sealed partial class DocumentLayout
         {
             var geometry = owner.BuildTable(start, section.Properties);
             var table = geometry.Table;
+            _tablePlacements.Clear();
+            if (table.Properties.Position is { } position)
+            {
+                if (!TryPlaceFloating(geometry, position) && Page.Lines.Count > 0 && geometry.RowHeights.Sum() <= Bottom - Setup.MarginTop)
+                {
+                    NextColumn(); // like an object anchored at the foot of a page: it goes on to the next one
+                    TryPlaceFloating(geometry, position);
+                }
+
+                if (_tablePlacements.Count > 0)
+                {
+                    Commit(geometry);
+                    return;
+                }
+            }
+
             if (Page.Lines.Count > 0)
             {
                 _y += _pendingAfter;
             }
 
             _pendingAfter = 0;
-            _tablePlacements.Clear();
             var row = 0;
             while (row < table.RowCount)
             {
                 var groupEnd = GroupEnd(geometry, row);
                 var height = Enumerable.Range(row, groupEnd - row + 1).Sum(index => geometry.RowHeights[index]);
-                var keepTogether = groupEnd > row || table.Rows[row].Properties.CantSplit || table.Rows[row].Properties.ExactHeight;
+                var keepTogether = groupEnd > row || table.Rows[row].Properties.CantSplit || table.Rows[row].Properties.ExactHeight
+                                   || geometry.Cells[row].Any(box => box.Rotation != 0);
                 var fullPage = Bottom - Setup.MarginTop;
                 if (_y + height > Bottom + Epsilon && Page.Lines.Count > 0 && (keepTogether || !CanStartRowHere(geometry, row)) && height <= fullPage + Epsilon)
                 {
@@ -342,6 +421,52 @@ public sealed partial class DocumentLayout
             _previousStyle = null;
             _previousContextual = false;
             _afterHardBreak = false;
+        }
+
+        /// <summary>
+        /// A floating table (w:tblpPr) that fits on the page where its frame puts it: its rows are placed there in one piece, the text
+        /// after it goes on where it was and flows around it (the table's area with its distances, like a square-wrapped object).
+        /// False when it does not fit: then it is placed in the flow.
+        /// </summary>
+        private bool TryPlaceFloating(TableGeometry geometry, TablePosition position)
+        {
+            var height = geometry.RowHeights.Sum();
+            var anchorTop = _y + (Page.Lines.Count > 0 ? _pendingAfter : 0);
+            var (frameY, frameHeight) = position.VerticalFrame switch
+            {
+                "page" => (0.0, Setup.PageHeight),
+                "margin" => (Setup.MarginTop, Setup.PageHeight - Setup.MarginTop - Setup.MarginBottom),
+                _ => (anchorTop, 0.0),
+            };
+            var top = position.AlignY switch
+            {
+                "center" => frameY + (frameHeight - height) / 2,
+                "bottom" or "outside" => frameY + frameHeight - height,
+                "top" or "inside" => frameY,
+                _ => frameY + position.Y,
+            };
+            if (top < 0 || top + height > Bottom + Epsilon)
+            {
+                return false;
+            }
+
+            var y = top;
+            for (var row = 0; row < geometry.Table.RowCount; row++)
+            {
+                PlaceRow(geometry, row, y, repeat: false);
+                y += geometry.RowHeights[row];
+            }
+
+            var (left, right) = (geometry.ColumnX[0], geometry.ColumnX[^1]);
+            var (areaLeft, areaWidth) = ColumnArea;
+            var anchor = new DrawingAnchor(DrawingFrame.Column, 0, null, DrawingFrame.Paragraph, 0, null, DrawingWrap.Square, false,
+                position.DistanceLeft, position.DistanceTop, position.DistanceRight, position.DistanceBottom);
+            Page.MutableFloats.Add(new PlacedFloat(geometry.Span.Start, -1, new TextRun("", CharacterProperties.Empty), anchor, left, top, right - left, height)
+            {
+                AreaLeft = areaLeft,
+                AreaRight = areaLeft + areaWidth,
+            });
+            return true;
         }
 
         /// <summary>The last row tied to <paramref name="row"/> by vertically merged cells (they go to a page together).</summary>
@@ -378,6 +503,13 @@ public sealed partial class DocumentLayout
                 }
 
                 var height = Enumerable.Range(row, box.RowSpan).Sum(index => geometry.RowHeights[index]);
+                if (box.Rotation != 0)
+                {
+                    PlaceTurnedCell(box, top, height, repeat);
+                    AddCell(geometry, box, top, height, repeat);
+                    continue;
+                }
+
                 var free = height - box.Top - box.ContentHeight - box.Bottom;
                 var shift = free <= 0 ? 0 : box.Alignment switch
                 {
@@ -392,6 +524,33 @@ public sealed partial class DocumentLayout
                 }
 
                 AddCell(geometry, box, top, height, repeat);
+            }
+        }
+
+        /// <summary>
+        /// The lines of a cell with turned text: placed as if across at the cell's top left (where hit testing finds them), drawn through a
+        /// transform – top to bottom with the first line at the right (90°), bottom to top with the first line at the left (270°); the
+        /// vertical alignment of the cell moves them across it.
+        /// </summary>
+        private void PlaceTurnedCell(CellBox box, double top, double height, bool repeat)
+        {
+            var left = box.ContentLeft;
+            var right = box.Left + box.Width - (box.Margins.Right ?? 0);
+            var free = Math.Max(0, right - left - box.Thickness);
+            var shift = box.Alignment switch
+            {
+                CellVerticalAlignment.Center => free / 2,
+                CellVerticalAlignment.Bottom => free,
+                _ => 0,
+            };
+            var contentTop = top + box.Top;
+            var contentBottom = top + height - box.Bottom;
+            var transform = box.Rotation == 90
+                ? new ThixOffice.Text.Drawing.Matrix2D(0, 1, -1, 0, right - shift + contentTop, contentTop - left)
+                : new ThixOffice.Text.Drawing.Matrix2D(0, -1, 1, 0, left + shift - contentTop, contentBottom + left);
+            foreach (var line in box.Lines)
+            {
+                Add(new PlacedLine(line.Block, line.LineIndex, contentTop + line.Offset, left, line.Line, line.Paragraph) { Transform = transform }, repeat);
             }
         }
 

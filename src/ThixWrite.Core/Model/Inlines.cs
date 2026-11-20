@@ -104,10 +104,19 @@ public sealed record OpaqueInline(
     /// <summary>What the drawing shows (shapes, text boxes, groups, charts, SmartArt) when this is a w:drawing ThixWrite can draw; null otherwise.</summary>
     public DrawingGraphic? Graphic { get; init; }
 
+    /// <summary>
+    /// A table nested in a table cell (<see cref="Kind"/> = <see cref="PreservedKind.Table"/>, <see cref="Xml"/> = its w:tbl, written back at
+    /// block level where it was): what it shows, read-only \u2013 a story of its own laid out at the width of the line it is on.
+    /// </summary>
+    public Story? Nested { get; init; }
+
+    /// <summary>A block-level element carried by a paragraph (a nested table): the writer puts the XML between paragraphs, not into one.</summary>
+    public bool IsBlockContent => Kind == PreservedKind.Table;
+
     public override string Characters => ObjectText;
 
     private const string ObjectText = "\uFFFC";
 
     /// <summary>Invisible and without size: a marker such as a bookmark or a field character.</summary>
-    public override bool IsMarker => DisplayText.Length == 0 && Width <= 0;
+    public override bool IsMarker => Nested is null && DisplayText.Length == 0 && Width <= 0;
 }
