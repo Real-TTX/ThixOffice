@@ -84,20 +84,32 @@ public sealed class EditorTests
         await PressAsync(window, PhysicalKey.Home);
         Assert.False(bold.IsChecked);
 
-        // Strg+B is the alias of fett; Strg+E centres; the align toggles are one choice.
+        // German Word: Strg+Umschalt+F fett (the Mac: ⌘B); Strg+E centres; the align toggles are one choice.
         await PressAsync(window, PhysicalKey.A, CommandKey);
-        await PressAsync(window, PhysicalKey.B, CommandKey);
+        await PressBoldAsync(window);
         Assert.True(EditorOf(window).Session.GetFormatting().Bold.Is(true));
         Assert.True(bold.IsChecked);
         await PressAsync(window, PhysicalKey.E, CommandKey);
         Assert.True(window.RibbonDefinition.Get<MatRibbonToggle>(WriteCommandIds.AlignCenter).IsChecked);
         Assert.False(window.RibbonDefinition.Get<MatRibbonToggle>(WriteCommandIds.AlignLeft).IsChecked);
-        await PressAsync(window, PhysicalKey.I, CommandKey);
-        await PressAsync(window, PhysicalKey.U, CommandKey | RawInputModifiers.Shift);
+        await PressAsync(window, OperatingSystem.IsMacOS() ? PhysicalKey.I : PhysicalKey.K, OperatingSystem.IsMacOS() ? CommandKey : CommandKey | RawInputModifiers.Shift);
+        await PressAsync(window, PhysicalKey.U, OperatingSystem.IsMacOS() ? CommandKey : CommandKey | RawInputModifiers.Shift);
         var format = EditorOf(window).Session.GetFormatting();
         Assert.True(format.Italic.Is(true));
         Assert.True(format.Underline.Is(UnderlineStyle.Single));
+
+        // Strg+B is Blocksatz in German Word (⌘J on the Mac), Strg+2 doubles the line spacing, Alt+1 makes a heading.
+        await PressAsync(window, OperatingSystem.IsMacOS() ? PhysicalKey.J : PhysicalKey.B, CommandKey);
+        Assert.True(window.RibbonDefinition.Get<MatRibbonToggle>(WriteCommandIds.Justify).IsChecked);
+        await PressAsync(window, PhysicalKey.Digit2, CommandKey);
+        Assert.True(EditorOf(window).Session.GetFormatting().LineSpacing.Is(new LineSpacing(LineSpacingRule.Multiple, 2)));
+        await PressAsync(window, PhysicalKey.Digit1, OperatingSystem.IsMacOS() ? CommandKey | RawInputModifiers.Alt : RawInputModifiers.Alt);
+        Assert.True(EditorOf(window).Session.GetFormatting().ParagraphStyleId.Is(BuiltInStyles.Heading1));
     }
+
+    /// <summary>Fett: Strg+Umschalt+F (German Word), ⌘B on the Mac.</summary>
+    private static Task PressBoldAsync(ThixOffice.Desktop.Shell.OfficeWindow window) =>
+        OperatingSystem.IsMacOS() ? PressAsync(window, PhysicalKey.B, CommandKey) : PressAsync(window, PhysicalKey.F, CommandKey | RawInputModifiers.Shift);
 
     [AvaloniaFact]
     public async Task The_value_items_of_the_ribbon_show_and_set_font_size_font_style_and_colour()
@@ -213,9 +225,9 @@ public sealed class EditorTests
     {
         using var data = new TestData();
         var window = await NewWindowAsync();
-        await PressAsync(window, PhysicalKey.B, CommandKey);
+        await PressBoldAsync(window);
         await TypeAsync(window, "Fett");
-        await PressAsync(window, PhysicalKey.B, CommandKey);
+        await PressBoldAsync(window);
         await PressAsync(window, PhysicalKey.A, CommandKey);
         await PressAsync(window, PhysicalKey.C, CommandKey);
         await PressAsync(window, PhysicalKey.End, CommandKey);
@@ -228,7 +240,7 @@ public sealed class EditorTests
 
         // Nur Text: the text takes the formatting of the place it goes to (here: not bold).
         await TypeAsync(window, "\n");
-        await PressAsync(window, PhysicalKey.B, CommandKey);
+        await PressBoldAsync(window);
         await PressAsync(window, PhysicalKey.V, CommandKey | RawInputModifiers.Shift);
         Assert.Equal("Fett\nFett\nFett", TextOf(window));
         Assert.DoesNotContain(((Paragraph)editor.Document.Content.Blocks[2]).Inlines.OfType<TextRun>(), run => run.Properties.Bold == true);

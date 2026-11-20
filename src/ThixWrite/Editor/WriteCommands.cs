@@ -121,10 +121,10 @@ public static class WriteCommands
             Icon = "clear-format", Shortcut = "Ctrl+Space", MacShortcut = "Ctrl+Shift+Space", CanExecute = HasEditor,
             Description = "Entfernt die Formatierung der Auswahl: Standardtext ohne Zeichenformat.", Keywords = ["zurücksetzen", "standard", "entfernen"],
         });
-        AddToggle(commands, WriteCommandIds.Bold, "Fett", "bold", "Ctrl+Shift+F", "Ctrl+B", () => With(session => session.ToggleBold()), () => Format()?.Bold.Is(true) == true, HasEditor, "Formatiert die Auswahl fett.");
-        AddToggle(commands, WriteCommandIds.Italic, "Kursiv", "italic", "Ctrl+Shift+K", "Ctrl+I", () => With(session => session.ToggleItalic()), () => Format()?.Italic.Is(true) == true, HasEditor, "Formatiert die Auswahl kursiv.");
+        AddToggle(commands, WriteCommandIds.Bold, "Fett", "bold", "Ctrl+Shift+F", "Ctrl+B", () => With(session => session.ToggleBold()), () => Format()?.Bold.Is(true) == true, HasEditor, "Formatiert die Auswahl fett.", crossAlias: false);
+        AddToggle(commands, WriteCommandIds.Italic, "Kursiv", "italic", "Ctrl+Shift+K", "Ctrl+I", () => With(session => session.ToggleItalic()), () => Format()?.Italic.Is(true) == true, HasEditor, "Formatiert die Auswahl kursiv.", crossAlias: false);
         AddToggle(commands, WriteCommandIds.Underline, "Unterstrichen", "underline", "Ctrl+Shift+U", "Ctrl+U", () => With(session => session.ToggleUnderline()),
-            () => Format()?.Underline is { IsMixed: false } underline && underline.Value != UnderlineStyle.None, HasEditor, "Unterstreicht die Auswahl.");
+            () => Format()?.Underline is { IsMixed: false } underline && underline.Value != UnderlineStyle.None, HasEditor, "Unterstreicht die Auswahl.", crossAlias: false);
         AddToggle(commands, WriteCommandIds.Strikethrough, "Durchgestrichen", "strikethrough", null, null, () => With(session => session.ToggleStrikethrough()), () => Format()?.Strikethrough.Is(true) == true, HasEditor, "Streicht die Auswahl durch.");
         AddToggle(commands, WriteCommandIds.Subscript, "Tiefgestellt", "subscript", null, null, () => With(session => session.ToggleSubscript()), () => Format()?.Subscript.Is(true) == true, HasEditor, "Setzt die Auswahl klein unter die Grundlinie.");
         AddToggle(commands, WriteCommandIds.Superscript, "Hochgestellt", "superscript", null, null, () => With(session => session.ToggleSuperscript()), () => Format()?.Superscript.Is(true) == true, HasEditor, "Setzt die Auswahl klein über die Grundlinie.");
@@ -180,8 +180,8 @@ public static class WriteCommands
             () => Format()?.Alignment.Is(ParagraphAlignment.Center) == true, HasEditor, "Zentriert die Absätze.", ["ausrichtung", "mitte"]);
         AddToggle(commands, WriteCommandIds.AlignRight, "Rechtsbündig", "align-right", "Ctrl+R", null, () => With(session => session.SetAlignment(ParagraphAlignment.Right)),
             () => Format()?.Alignment.Is(ParagraphAlignment.Right) == true, HasEditor, "Richtet die Absätze am rechten Rand aus.", ["ausrichtung", "rechts"]);
-        AddToggle(commands, WriteCommandIds.Justify, "Blocksatz", "align-justify", "Ctrl+J", null, () => With(session => session.SetAlignment(ParagraphAlignment.Justify)),
-            () => Format()?.Alignment.Is(ParagraphAlignment.Justify) == true, HasEditor, "Verteilt den Text gleichmäßig zwischen den Rändern.", ["ausrichtung", "block"]);
+        AddToggle(commands, WriteCommandIds.Justify, "Blocksatz", "align-justify", "Ctrl+B", "Ctrl+J", () => With(session => session.SetAlignment(ParagraphAlignment.Justify)),
+            () => Format()?.Alignment.Is(ParagraphAlignment.Justify) == true, HasEditor, "Verteilt den Text gleichmäßig zwischen den Rändern.", ["ausrichtung", "block"], crossAlias: false);
         commands.Add(new OfficeValueCommand(WriteCommandIds.LineSpacing, "Zeilenabstand", OfficeValueKind.Choice,
             () => Format()?.LineSpacing is { IsMixed: false, Value: { Rule: LineSpacingRule.Multiple } spacing } ? spacing.Value.ToString(CultureInfo.InvariantCulture) : null,
             value =>
@@ -390,7 +390,7 @@ public static class WriteCommands
     private static string Cm(double centimetres) => $"{centimetres.ToString("0.##", German)} cm";
 
     private static void AddToggle(OfficeCommandRegistry commands, string id, string label, string icon, string? shortcut, string? alias,
-        Action run, Func<bool> isChecked, Func<bool> canExecute, string description, IReadOnlyList<string>? keywords = null)
+        Action run, Func<bool> isChecked, Func<bool> canExecute, string description, IReadOnlyList<string>? keywords = null, bool crossAlias = true)
     {
         commands.Add(new OfficeCommand(id, label, run)
         {
@@ -402,7 +402,7 @@ public static class WriteCommands
             Description = description,
             Keywords = keywords ?? [],
         });
-        if (alias is not null)
+        if (alias is not null && crossAlias)
         {
             // The other key of the same command (Strg+B beside Strg+Umschalt+F; ⇧⌘F beside ⌘B on the Mac): not offered by the search.
             commands.Add(new OfficeCommand(id + ".alias", label, run) { Shortcut = alias, MacShortcut = shortcut, CanExecute = canExecute, IsSearchable = false });

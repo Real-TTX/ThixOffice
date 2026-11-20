@@ -62,7 +62,7 @@ public sealed class Document
     }
 
     /// <summary>"Seitenfarbe" (w:background w:color) as "RRGGBB", or null for white paper. Kept in the package's document element.</summary>
-    public string? PageColor { get; init; }
+    public string? PageColor { get; internal set; }
 
     /// <summary>Raised after every change (the editing engine's steps, undo and redo).</summary>
     public event EventHandler<DocumentChange>? Changed;
@@ -208,6 +208,12 @@ public sealed class Document
     {
         FinalSection = section;
         _sections = null;
+        Raise(new DocumentChange(DocumentChangeKind.Layout));
+    }
+
+    internal void SetPageColor(string? color)
+    {
+        PageColor = color;
         Raise(new DocumentChange(DocumentChangeKind.Layout));
     }
 

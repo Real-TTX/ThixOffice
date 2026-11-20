@@ -52,6 +52,16 @@ public static class DocxWriter
         XmlFragments.DeclareBasicNamespaces(root);
         var context = new WriteContext(main, main, document);
         context.Comments.Prepare(document);
+        if (root.DocumentBackground?.Color?.Value is var color && !string.Equals(color ?? "FFFFFF", document.PageColor ?? "FFFFFF", StringComparison.OrdinalIgnoreCase))
+        {
+            // "Seitenfarbe" changed in ThixWrite (else the w:background stays as read, theme colours and all).
+            root.DocumentBackground = document.PageColor is { } pageColor ? new W.DocumentBackground { Color = pageColor } : null;
+            if (document.PageColor is not null && main.DocumentSettingsPart?.Settings is { } settingsElement && settingsElement.GetFirstChild<W.DisplayBackgroundShape>() is null)
+            {
+                XmlFragments.Add(settingsElement, new W.DisplayBackgroundShape());
+            }
+        }
+
         root.Body = WriteBody(document, context);
         XmlFragments.RemoveRedundantDeclarations(root);
         root.Save();

@@ -71,6 +71,12 @@ public partial class App : OfficeApplication
         TextCommands.Add(window);
         ReferenceCommands.Add(window);
         ReviewCommands.Add(window);
+        LayoutCommands.Add(window);
+        // Layout › Umbrüche › Seite: the Seitenumbruch of Einfügen in a second place.
+        window.Commands.Add(new ThixOffice.Core.Commands.OfficeCommand($"{WriteCommandIds.PageBreak}.layout", "Seitenumbruch", () => window.Commands.ExecuteAsync(WriteCommandIds.PageBreak))
+        {
+            Icon = "page-break", IsSearchable = false, CanExecute = () => window.Commands.Find(WriteCommandIds.PageBreak)?.IsEnabled == true,
+        });
         window.Commands.Add(new ThixOffice.Core.Commands.OfficeCommand(WriteCommandIds.Print, "Drucken", () => window.ShowBackstage(PrintPage.PageId))
         {
             Icon = "print",

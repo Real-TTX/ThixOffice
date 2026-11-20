@@ -161,6 +161,25 @@ public static class WriteCommandIds
     public const string ZoomPageWidth = "write.zoomPageWidth";
     public const string ZoomWholePage = "write.zoomWholePage";
 
+    // Layout › Spalten, Umbrüche; Entwurf; Groß-/Kleinschreibung; Änderungen; the keys of German Word
+    public const string Columns = "write.columns";
+    public const string Breaks = "write.breaks";
+    public const string ColumnBreak = "write.columnBreak";
+    public const string SectionBreak = "write.sectionBreak";
+    public const string PageColor = "write.pageColor";
+    public const string ChangeCase = "write.changeCase";
+    public const string AcceptAllRevisions = "write.acceptAllRevisions";
+    public const string RejectAllRevisions = "write.rejectAllRevisions";
+    public const string KeyLineSpacing1 = "write.key.lineSpacing1";
+    public const string KeyLineSpacing2 = "write.key.lineSpacing2";
+    public const string KeyLineSpacing15 = "write.key.lineSpacing15";
+    public const string KeyNormal = "write.key.normal";
+    public const string KeyHeading1 = "write.key.heading1";
+    public const string KeyHeading2 = "write.key.heading2";
+    public const string KeyHeading3 = "write.key.heading3";
+    public const string KeyIndent = "write.key.indent";
+    public const string KeyOutdent = "write.key.outdent";
+
     // Datei
     public const string ExportPdf = "file.exportPdf";
     public const string Print = "file.print";
@@ -201,7 +220,7 @@ public static class WriteRibbon
             }
         }
 
-        definition.Add(HomeTab(theme, Launch), InsertTab(), LayoutTab(), ReferencesTab(), ReviewTab(), ViewTab(), TableDesignTab(theme), TableLayoutTab(), PictureTab(), HeaderFooterTab());
+        definition.Add(HomeTab(theme, Launch), InsertTab(), DesignTab(theme), LayoutTab(), ReferencesTab(), ReviewTab(), ViewTab(), TableDesignTab(theme), TableLayoutTab(), PictureTab(), HeaderFooterTab());
         return definition;
     }
 
@@ -222,6 +241,8 @@ public static class WriteRibbon
                         ComboBox(WriteCommandIds.FontSize, width: 64, isEditable: true),
                         Button(WriteCommandIds.GrowFont, MatRibbonSize.Small),
                         Button(WriteCommandIds.ShrinkFont, MatRibbonSize.Small),
+                        new MatRibbonMenuButton(WriteCommandIds.ChangeCase, "", null,
+                            [.. LayoutCommands.CaseChoices.Select(choice => Button($"{WriteCommandIds.ChangeCase}.{choice.Id}"))]) { Size = MatRibbonSize.Small },
                         Button(WriteCommandIds.ClearFormatting, MatRibbonSize.Small)),
                     new MatRibbonRow("font-row-2",
                         Toggle(WriteCommandIds.Bold, size: MatRibbonSize.Small),
@@ -284,6 +305,12 @@ public static class WriteRibbon
                     Button(WriteCommandIds.SymbolMore),
                 ]) { Size = MatRibbonSize.Large }));
 
+    /// <summary>Entwurf: Seitenhintergrund (Seitenfarbe).</summary>
+    private static MatRibbonTab DesignTab(Theme theme) =>
+        new MatRibbonTab("design", "Entwurf").Add(
+            new MatRibbonGroup("page-background", "Seitenhintergrund") { Icon = "palette" }.Add(
+                ColorPicker(WriteCommandIds.PageColor, DocumentPalette.FontColors(theme), "Keine Farbe")));
+
     private static MatRibbonTab LayoutTab() =>
         new MatRibbonTab("layout", "Layout").Add(
             new MatRibbonGroup("page-setup", "Seite einrichten") { Icon = "margins" }.Add(
@@ -298,6 +325,15 @@ public static class WriteRibbon
                     Toggle(WriteCommandIds.Landscape, "orientation")) { Size = MatRibbonSize.Large },
                 new MatRibbonMenuButton(WriteCommandIds.PageSize, "", null,
                     [.. WriteCommands.PaperSizes.Select(size => Toggle($"{WriteCommandIds.PageSize}.{size.Id}", "paper"))]) { Size = MatRibbonSize.Large },
+                new MatRibbonMenuButton(WriteCommandIds.Columns, "", null,
+                    [.. LayoutCommands.ColumnChoices.Select(choice => Toggle($"{WriteCommandIds.Columns}.{choice.Id}", "columns"))]) { Size = MatRibbonSize.Large },
+                new MatRibbonMenuButton(WriteCommandIds.Breaks, "", null,
+                [
+                    Button($"{WriteCommandIds.PageBreak}.layout"),
+                    Button(WriteCommandIds.ColumnBreak),
+                    new MatRibbonSeparator("breaks-separator"),
+                    .. LayoutCommands.SectionBreaks.Select(entry => Button($"{WriteCommandIds.SectionBreak}.{entry.Id}")),
+                ]) { Size = MatRibbonSize.Large },
                 Button(WriteCommandIds.PageSetup)),
             new MatRibbonGroup("layout-paragraph", "Absatz") { Icon = "indent" }.Add(
                 new MatRibbonStack("indents",
@@ -433,7 +469,10 @@ public static class WriteRibbon
                 new MatRibbonStack("comment-steps",
                     Button(WriteCommandIds.PreviousComment),
                     Button(WriteCommandIds.NextComment)),
-                Toggle(WriteCommandIds.ShowComments, size: MatRibbonSize.Large)));
+                Toggle(WriteCommandIds.ShowComments, size: MatRibbonSize.Large)),
+            new MatRibbonGroup("changes", "Änderungen") { Icon = "check-circle" }.Add(
+                Button(WriteCommandIds.AcceptAllRevisions, MatRibbonSize.Large),
+                Button(WriteCommandIds.RejectAllRevisions, MatRibbonSize.Large)));
 
     private static MatRibbonTab ViewTab() =>
         new MatRibbonTab("view", "Ansicht").Add(
