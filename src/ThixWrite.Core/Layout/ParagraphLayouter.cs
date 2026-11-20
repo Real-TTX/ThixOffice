@@ -187,7 +187,7 @@ internal static class ParagraphLayouter
                 last.StopX, last.Ending, last.IsFirst, true, last.MarkWidth);
         }
 
-        return new ParagraphLayout(paragraph, width, label?.Text, format, lines) { IsWrapped = exclusions is { Count: > 0 } };
+        return new ParagraphLayout(paragraph, width, label?.Text, format, lines) { IsWrapped = exclusions is { Count: > 0 }, Exclusions = exclusions is { Count: > 0 } ? exclusions : null };
     }
 
     /// <summary>

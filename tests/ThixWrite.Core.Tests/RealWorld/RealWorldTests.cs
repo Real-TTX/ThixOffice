@@ -88,6 +88,11 @@ public sealed class RealWorldTests
         Assert.Equal(19 * PointsPerCentimetre, sidebar.Y, 1);
         Assert.Equal(5.5 * PointsPerCentimetre, sidebar.Width, 1);
 
+        // The sidebar is placed on the page: the text before its anchor paragraph flows around it too.
+        var besideSidebar = layout.Pages[0].Lines.Where(line => line.Top + line.Line.Height > sidebar.Y + 1 && line.Top < sidebar.Y + sidebar.Height).ToList();
+        Assert.Contains(besideSidebar, line => line.Block < sidebar.Block);
+        Assert.All(besideSidebar, line => Assert.True(line.Left + line.Line.Items.Select(item => item.X + item.Width).DefaultIfEmpty(0).Max() <= sidebar.X - sidebar.Anchor.DistanceLeft + 3));
+
         // The square-wrapped photo on the right: the first paragraph's lines end before it.
         var photo = floats.First(placed => placed.Inline is ImageInline);
         Assert.Equal(DrawingWrap.Square, photo.Anchor.Wrap);

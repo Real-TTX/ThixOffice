@@ -218,6 +218,9 @@ public sealed class ParagraphLayout
     /// <summary>True when the lines keep clear of floating objects on the page (laid out for that place, not reused elsewhere).</summary>
     internal bool IsWrapped { get; init; }
 
+    /// <summary>The areas the lines keep clear of (paragraph coordinates), when <see cref="IsWrapped"/>.</summary>
+    internal IReadOnlyList<(double Left, double Top, double Right, double Bottom)>? Exclusions { get; init; }
+
     /// <summary>The numbers of the paragraph's first footnote and endnote it was laid out with ((0, 0) without notes).</summary>
     internal (int Footnote, int Endnote) NoteStart { get; set; }
 }

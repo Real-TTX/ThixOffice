@@ -399,7 +399,10 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - **Layout** (`DocumentLayout.Floats.cs`): `Flow.PlaceFloats` puts a paragraph's anchored objects on its page (`PlacedFloat`,
   `PageLayout.Floats`; header/footer ones in `HeaderFooterFloats`), `Flow.Wrapped` lays the paragraph out again around the
   exclusions of the page (`ParagraphLayouter.Layout(…, exclusions)`: each line in the wider gap, a line without room moves below;
-  such layouts are `IsWrapped` and never reused). Drawing: `DrawObject` (pictures, shapes through `GeometryEvaluator` + the vector
+  such layouts are `IsWrapped`, keep their `Exclusions` and are never reused; `Flow.Rewrapped` breaks the rest of a paragraph again for
+  the room of the next page/column). An object on the page/margin that reaches up beside text placed before its anchor becomes an
+  "early float" of that page (`_earlyFloats`, `Flow.ReachesBack` → `RestartFrom`: `Paginate` lays the page out again from its first
+  block with `SeedFloats`; at most 20 restarts per pagination). Paragraph borders take room (`DocumentLayout.BorderSpace`). Drawing: `DrawObject` (pictures, shapes through `GeometryEvaluator` + the vector
   layer, text boxes as a cached `DocumentLayout` of their story inside a clip, charts through `ChartRenderer`), behind-text floats
   first, in-front floats last (z order). Drop caps (`ParagraphProperties.DropCapLines` from w:framePr) are an exclusion the next
   paragraph flows around.

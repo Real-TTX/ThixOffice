@@ -82,15 +82,114 @@ public sealed partial class DocumentLayout
         return (x, y);
     }
 
+    /// <summary>
+    /// Objects positioned on the page (or the margin) that reach up beside text placed before their anchor: known per page, they are on
+    /// the page from its start the next time it is laid out, so that the text above the anchor flows around them too (as in Word).
+    /// </summary>
+    private readonly Dictionary<int, List<PlacedFloat>> _earlyFloats = [];
+
+    /// <summary>How often the current pagination started a page again for such an object (bounded).</summary>
+    private int _restarts;
+
+    /// <summary>Forgets the early objects of blocks from <paramref name="block"/> on (they are found again when their anchors are placed).</summary>
+    private void ForgetEarlyFloats(int block)
+    {
+        foreach (var list in _earlyFloats.Values)
+        {
+            list.RemoveAll(placed => placed.Block >= block);
+        }
+    }
+
     private sealed partial class Flow
     {
+        /// <summary>The block pagination has to go back to (the first of a page whose early objects changed), or null.</summary>
+        public int? RestartFrom { get; private set; }
+
         /// <summary>Puts the anchored objects of a paragraph that starts at <paramref name="top"/> onto the current page.</summary>
         private void PlaceFloats(int block, Paragraph paragraph, double top, double areaLeft, double areaWidth)
         {
+            var before = Page.Floats.Count;
             foreach (var (offset, inline, anchor, width, height) in AnchoredIn(paragraph))
             {
+                if (Page.Floats.Any(placed => placed.Block == block && placed.Offset == offset))
+                {
+                    continue; // already on the page from its start (an early object)
+                }
+
                 var (x, y) = FloatPosition(anchor, width, height, Setup, top, areaLeft, areaWidth);
                 Page.MutableFloats.Add(new PlacedFloat(block, offset, inline, anchor, x, y, width, height) { AreaLeft = areaLeft, AreaRight = areaLeft + areaWidth });
+            }
+
+            if (ReachesBack(before, top))
+            {
+                RestartFrom = PageStartBlock();
+            }
+        }
+
+        /// <summary>
+        /// True when an object just placed sits on the page or margin above <paramref name="top"/> beside lines placed already: it becomes an
+        /// early object of the page (once, and only a bounded number of times per pagination).
+        /// </summary>
+        private bool ReachesBack(int firstNew, double top)
+        {
+            var found = false;
+            for (var index = firstNew; index < Page.Floats.Count; index++)
+            {
+                var placed = Page.Floats[index];
+                if (placed.Exclusion is not { } area || area.Top >= top - Epsilon || placed.Anchor.VerticalFrame is DrawingFrame.Paragraph or DrawingFrame.Line)
+                {
+                    continue;
+                }
+
+                var beside = Page.Lines.Any(line => line.Top + line.Line.Height > area.Top && line.Top < area.Bottom
+                                                     && line.Left < area.Right && line.Left + line.Paragraph.Width > area.Left);
+                if (!beside || owner._restarts >= 20)
+                {
+                    continue;
+                }
+
+                if (!owner._earlyFloats.TryGetValue(_page, out var list))
+                {
+                    list = [];
+                    owner._earlyFloats[_page] = list;
+                }
+
+                if (list.Any(early => early.Block == placed.Block && early.Offset == placed.Offset))
+                {
+                    continue;
+                }
+
+                list.Add(placed);
+                owner._restarts++;
+                found = true;
+            }
+
+            return found;
+        }
+
+        /// <summary>The first block placed on the current page (a table counts from its first block).</summary>
+        private int PageStartBlock()
+        {
+            var first = Page.Lines.Select(line => line.Block).Concat(Page.Cells.Select(cell => cell.TableStart)).DefaultIfEmpty(0).Min();
+            while (first > 0 && owner.IsInsideTable(first))
+            {
+                first--;
+            }
+
+            return first;
+        }
+
+        /// <summary>Puts the early objects of the current page onto it (a page that is laid out again, or new).</summary>
+        public void SeedFloats()
+        {
+            if (!owner._earlyFloats.TryGetValue(_page, out var list))
+            {
+                return;
+            }
+
+            foreach (var placed in list.Where(early => !Page.Floats.Any(existing => existing.Block == early.Block && existing.Offset == early.Offset)))
+            {
+                Page.MutableFloats.Add(placed);
             }
         }
 
@@ -100,26 +199,65 @@ public sealed partial class DocumentLayout
         /// </summary>
         private ParagraphLayout Wrapped(int block, Paragraph paragraph, ParagraphLayout layout, double areaLeft, double width)
         {
+            var exclusions = ExclusionsHere(areaLeft, 0, layout.Height + 200);
+            return exclusions.Count == 0 ? layout : LayoutAround(block, paragraph, layout, width, exclusions);
+        }
+
+        /// <summary>
+        /// The floating objects' areas of this page from <see cref="_y"/> down to <paramref name="reach"/> below it, in the coordinates of a
+        /// paragraph whose text area starts at <paramref name="areaLeft"/> and that is <paramref name="consumed"/> points into its lines here.
+        /// </summary>
+        private List<(double Left, double Top, double Right, double Bottom)> ExclusionsHere(double areaLeft, double consumed, double reach)
+        {
             var exclusions = new List<(double Left, double Top, double Right, double Bottom)>();
             foreach (var placed in Page.Floats)
             {
-                if (placed.Exclusion is { } area && area.Bottom > _y && area.Top < _y + layout.Height + 200)
+                if (placed.Exclusion is { } area && area.Bottom > _y && area.Top < _y + reach)
                 {
-                    exclusions.Add((area.Left - areaLeft, area.Top - _y, area.Right - areaLeft, area.Bottom - _y));
+                    exclusions.Add((area.Left - areaLeft, area.Top - _y + consumed, area.Right - areaLeft, area.Bottom - _y + consumed));
                 }
             }
 
-            if (exclusions.Count == 0)
-            {
-                return layout;
-            }
+            return exclusions;
+        }
 
+        private ParagraphLayout LayoutAround(int block, Paragraph paragraph, ParagraphLayout layout, double width, List<(double Left, double Top, double Right, double Bottom)> exclusions)
+        {
             var label = block < owner._labels.Length ? owner._labels[block] : null;
             owner._context.NoteStart = layout.NoteStart;
             var wrapped = ParagraphLayouter.Layout(paragraph, owner._context.Resolver.ResolveParagraph(paragraph), label, width, owner._context, exclusions);
             wrapped.NoteStart = layout.NoteStart;
             owner._layouts[block] = wrapped;
             return wrapped;
+        }
+
+        /// <summary>
+        /// A paragraph that goes on in the next column or on the next page from line <paramref name="index"/>: the rest is broken again for
+        /// the room THERE (the objects of the place it came from no longer narrow it, the ones of the new place do). The lines already
+        /// placed stay as they are; when they would come out differently, the layout as it was is kept.
+        /// </summary>
+        private ParagraphLayout Rewrapped(int block, Paragraph paragraph, ParagraphLayout layout, int index, double areaLeft)
+        {
+            var consumed = layout.Lines.Take(index).Sum(line => line.Height);
+            var kept = (layout.Exclusions ?? []).Where(area => area.Top < consumed).Select(area => (area.Left, area.Top, area.Right, Math.Min(area.Bottom, consumed))).ToList();
+            var here = ExclusionsHere(areaLeft, consumed, layout.Height - consumed + 200);
+            if (here.Count == 0 && !layout.IsWrapped)
+            {
+                return layout;
+            }
+
+            var exclusions = kept.Concat(here).ToList();
+            var label = block < owner._labels.Length ? owner._labels[block] : null;
+            owner._context.NoteStart = layout.NoteStart;
+            var again = ParagraphLayouter.Layout(paragraph, owner._context.Resolver.ResolveParagraph(paragraph), label, layout.Width, owner._context, exclusions.Count > 0 ? exclusions : null);
+            again.NoteStart = layout.NoteStart;
+            if (again.Lines.Count <= index || again.Lines[index - 1].End != layout.Lines[index - 1].End)
+            {
+                return layout;
+            }
+
+            owner._layouts[block] = again;
+            return again;
         }
     }
 

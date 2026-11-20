@@ -278,12 +278,15 @@ public sealed partial class DocumentLayout
                 after = 0;
             }
 
-            y += before + after;
+            var (borderTop, borderBottom) = BorderSpace(block, format);
+            y += before + after + borderTop;
             for (var index = 0; index < layout.Lines.Count; index++)
             {
                 box.Lines.Add(new CellLine(block, index, y, layout.Lines[index], layout));
                 y += layout.Lines[index].Height;
             }
+
+            y += borderBottom;
 
             previousAfter = format.SpacingAfter;
             previousStyle = format.StyleId;

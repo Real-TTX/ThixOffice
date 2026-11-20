@@ -258,12 +258,10 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   zurückgeschrieben; Spalten (gleich breit, eigene Breiten, Zwischenlinie, Spaltenumbruch, ausgeglichen vor fortlaufendem
   Abschnittswechsel); Zeichen: Kapitälchen, Großbuchstaben, ausgeblendet, Abstand, Skalierung, Position, Schattierung; Absatzrahmen
   und -schattierung; Seitenfarbe; Initialen; Tabellen in Kopf- und Fußzeilen.
-  **Noch falsch / Lücken:** Text umfließt nur rechteckig (keine Umbruchpolygone, keine „Durchgehend“-Form), Absätze, die über eine
-  Seite laufen, behalten den Umbruch um ein Objekt der ersten Seite; Tabellen umfließen keine Objekte und stehen in Spalten über die
+  **Noch falsch / Lücken:** Text umfließt nur rechteckig (keine Umbruchpolygone, keine „Durchgehend“-Form); Tabellen umfließen keine Objekte und stehen in Spalten über die
   ganze Breite; Formeln (OMML) werden nicht gezeigt;
   WordArt-Verformungen (prstTxWarp), Schatten/3-D/Effekte und Bildzuschnitt fehlen; Inhaltssteuerelemente in einer Zeile zeigen
-  ihren Text in einem Format; nachverfolgte Einfügungen zeigen die Formatierung ihres ersten Laufs; Absatzrahmen vergrößern den
-  Absatz nicht (der Rahmen kann in den Abstand ragen); fehlende Schriften (Aptos, Calibri auf dem Mac) fallen auf die Systemschrift
+  ihren Text in einem Format; nachverfolgte Einfügungen zeigen die Formatierung ihres ersten Laufs; fehlende Schriften (Aptos, Calibri auf dem Mac) fallen auf die Systemschrift
   zurück, Zeilenumbrüche weichen daher leicht ab; Spaltenumbruch und Spaltenausgleich gelten nicht in Tabellen.
 - **1e – Darstellung und Alltagsfunktionen (2026-11-20, laufend):**
   **Behoben:** verschachtelte Tabellen werden als Tabellen gezeigt (die äußere Tabelle ist bearbeitbar, die innere fährt in einem
@@ -271,7 +269,10 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   Zeilen mit Lücke (w:gridBefore / w:gridAfter) beginnen in ihrer Rasterspalte und haben eigene Außenkanten; gedrehter Text in Zellen
   (btLr / tbRl) wird gedreht gezeichnet (Zeilen so lang wie eine feste Zeilenhöhe, sonst wie der längste Text); schwebende Tabellen
   (w:tblpPr) stehen an ihrer Position (Rand/Seite/Text, links/zentriert/rechts oder Versatz), der Text danach umfließt sie, passen sie
-  nicht mehr auf die Seite, gehen sie auf die nächste.
+  nicht mehr auf die Seite, gehen sie auf die nächste. Absatzrahmen nehmen ihren Platz ein (Linienbreite + Abstand oben und unten;
+  gleich gerahmte Absätze bilden einen Kasten, dazwischen die Linie „zwischen“); ein Absatz, der um ein Objekt läuft und auf der
+  nächsten Seite/Spalte weitergeht, wird dort für die Breite DORT neu umbrochen; ein auf Seite oder Rand positioniertes Objekt, das
+  neben schon gesetzten Text reicht, steht beim zweiten Durchgang der Seite von Anfang an darauf (der Text vor seinem Anker umfließt es).
   **Noch falsch:** die innere Tabelle ist nicht bearbeitbar; Einfügemarke und Markierung in gedrehten Zellen stehen waagrecht;
   Spaltenoperationen (Spalte einfügen/löschen) an Tabellen mit Lückenzeilen rechnen die Lücke nicht mit; eine schwebende Tabelle
   wird nie geteilt und umfließt keine anderen Objekte.

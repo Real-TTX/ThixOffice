@@ -650,11 +650,23 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
             _pages[state.Page].RemoveFrom(startBlock);
         }
 
+        _restarts = 0;
+        ForgetEarlyFloats(startBlock);
         var flow = new Flow(this, state);
+        flow.SeedFloats();
         for (var block = startBlock; block < Document.Blocks.Count; block++)
         {
             _states[block] = flow.State;
             flow.Place(block);
+            if (flow.RestartFrom is { } restart && _states[restart] is { } again)
+            {
+                // An object on the page reaches up beside text placed before its anchor: the page again, with the object on it.
+                _pages.RemoveRange(again.Page + 1, _pages.Count - again.Page - 1);
+                _pages[again.Page].RemoveFrom(restart);
+                flow = new Flow(this, again);
+                flow.SeedFloats();
+                block = restart - 1;
+            }
         }
 
         flow.Finish();
@@ -757,6 +769,8 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
             }
 
             _y += spacing;
+            var (borderTop, borderBottom) = owner.BorderSpace(block, format);
+            _y += borderTop;
             if (owner.Document.Blocks[block] is Paragraph paragraph)
             {
                 (areaLeft, areaWidth) = ColumnArea;
@@ -766,6 +780,11 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
                 }
 
                 PlaceFloats(block, paragraph, _y, areaLeft, areaWidth);
+                if (RestartFrom is not null)
+                {
+                    return; // the page is laid out again with the object on it from the start
+                }
+
                 if (format.DropCapLines > 0 && block + 1 < owner.Document.Blocks.Count && owner.Document.Blocks[block + 1] is Paragraph { Cell: null })
                 {
                     PlaceDropCap(block, layout, areaLeft, areaWidth);
@@ -779,6 +798,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
             }
 
             PlaceLines(block, layout);
+            _y += borderBottom;
 
             _pendingAfter = format.SpacingAfter;
             _previousStyle = style;
@@ -808,8 +828,8 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
         private void PlaceLines(int block, ParagraphLayout layout)
         {
             var lines = layout.Lines;
-            var placed = new PlacedLine[lines.Count];
-            var pages = new int[lines.Count];
+            var placed = new List<PlacedLine>(lines.Count);
+            var pages = new List<int>(lines.Count);
             var left = ColumnArea.Left;
             var firstOnPage = 0;
             var pageHadContent = Page.Lines.Count > 0;
@@ -842,12 +862,20 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
                     if (split < index)
                     {
                         Page.MutableLines.RemoveRange(Page.Lines.Count - (index - split), index - split);
+                        placed.RemoveRange(split, index - split);
+                        pages.RemoveRange(split, index - split);
                         RemoveFootnotesFrom(block, split);
                         index = split;
                     }
 
                     NextColumn();
                     left = ColumnArea.Left;
+                    if (index > 0 && owner.Document.Blocks[block] is Paragraph paragraph && !layout.IsPreserved)
+                    {
+                        layout = Rewrapped(block, paragraph, layout, index, left);
+                        lines = layout.Lines;
+                    }
+
                     firstOnPage = index;
                     pageHadContent = Page.Lines.Count > 0;
                     line = lines[index];
@@ -856,8 +884,8 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
 
                 var placedLine = new PlacedLine(block, index, _y, left, line, layout);
                 Page.MutableLines.Add(placedLine);
-                placed[index] = placedLine;
-                pages[index] = _page;
+                placed.Add(placedLine);
+                pages.Add(_page);
                 _y += line.Height;
                 if (notes.Count > 0)
                 {
@@ -883,7 +911,7 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
                 }
             }
 
-            owner._placements[block] = new BlockPlacement(placed, pages);
+            owner._placements[block] = new BlockPlacement([.. placed], [.. pages]);
         }
 
         private double SpacingAt(double before, double after)
@@ -1090,11 +1118,40 @@ public sealed partial class DocumentLayout : ICaretNavigator, IDisposable
             _columnTop = _y;
             _afterHardBreak = hard;
             _pendingAfter = 0;
+            SeedFloats();
             PlaceCarry();
         }
     }
 
     private bool PreviousKeepsWithThisLaidOut(int block) => block > 0 && _layouts[block - 1] is { Format.KeepWithNext: true };
+
+    /// <summary>
+    /// The room a paragraph's borders take ("Rahmen": line width + its distance to the text), above and below. Paragraphs with the same
+    /// borders and indents form one box (as Word draws them): the first gets the top line, the last the bottom one, the ones between
+    /// the "between" line above them.
+    /// </summary>
+    private (double Top, double Bottom) BorderSpace(int block, EffectiveParagraphFormat format)
+    {
+        if (format.Borders is not { } borders || Document.Blocks[block] is not Paragraph paragraph)
+        {
+            return (0, 0);
+        }
+
+        bool SharesBox(int other)
+        {
+            if (other < 0 || other >= Document.Blocks.Count || Document.Blocks[other] is not Paragraph neighbour
+                || !ReferenceEquals(neighbour.Cell?.Table, paragraph.Cell?.Table) || neighbour.Cell?.Row != paragraph.Cell?.Row || neighbour.Cell?.Cell != paragraph.Cell?.Cell)
+            {
+                return false;
+            }
+
+            var resolved = _context.Resolver.ResolveParagraph(neighbour);
+            return resolved.Borders == borders && Math.Abs(resolved.IndentLeft - format.IndentLeft) < Epsilon && Math.Abs(resolved.IndentRight - format.IndentRight) < Epsilon;
+        }
+
+        static double Room(BorderLine? line) => line is { IsVisible: true } ? line.Space + line.Width : 0;
+        return (SharesBox(block - 1) ? Room(borders.InsideHorizontal) : Room(borders.Top), SharesBox(block + 1) ? 0 : Room(borders.Bottom));
+    }
 
     // ---------------------------------------------------------------- lookups
 
