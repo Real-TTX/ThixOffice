@@ -33,6 +33,8 @@ public partial class App : OfficeApplication
     public const string ReferencesScene = "main-references";
     public const string CommentsScene = "main-comments";
     public const string SpellingScene = "main-spelling";
+    public const string WordFloatingScene = "main-word-floating";
+    public const string WordLetterScene = "main-word-letter";
     public const string SpellingDialogScene = "dialog-spelling";
 
     public override OfficeAppDefinition Definition => ThixWriteApp.Definition;
@@ -40,7 +42,7 @@ public partial class App : OfficeApplication
     /// <summary>ThixWrite underlines unknown words while the user types (Einstellungen › Allgemein can turn it off).</summary>
     public override bool ChecksSpelling => true;
 
-    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, TableScene, PictureScene, HeaderScene, ReferencesScene, CommentsScene, SpellingScene, SpellingDialogScene, FindScene, PageSetupScene, PrintScene, ExportScene];
+    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, TableScene, PictureScene, HeaderScene, ReferencesScene, CommentsScene, SpellingScene, SpellingDialogScene, FindScene, PageSetupScene, PrintScene, ExportScene, WordFloatingScene, WordLetterScene];
 
     public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => WriteRibbon.Create(window);
 
@@ -109,6 +111,17 @@ public partial class App : OfficeApplication
         var editor = (WriteEditor)window.Editor;
         switch (name)
         {
+            case WordFloatingScene or WordLetterScene:
+                // Documents as Word writes them (from the real-world corpus): floating pictures, shapes, text boxes; a DIN 5008 letter.
+                var resource = name == WordFloatingScene ? "corpus-floating.docx" : "corpus-letter.docx";
+                using (var stream = typeof(App).Assembly.GetManifestResourceStream(resource)!)
+                {
+                    var word = new WordDocument(name == WordFloatingScene ? "Bilder und Formen" : "Brief", ThixWrite.Core.Formats.Docx.DocxReader.Read(stream));
+                    window.ReplaceDocument(word);
+                }
+
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                return window;
             case LayoutScene:
                 window.Ribbon.SelectTab("layout");
                 editor.ShowMarks = true;

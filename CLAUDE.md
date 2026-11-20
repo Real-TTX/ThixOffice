@@ -748,7 +748,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   (`backstage-open-signin`, `-backstage-open-drive`, `-backstage-saveas-drive`, `-backstage-settings-cloud`, `-main-drive-pending`,
   `-dialog-drive-conflict` for an app with a cloud id, against SampleCloud) and the app's scenes
   (`OfficeApplication.SnapshotScenes`; ThixWrite: `-main-layout`, `-main-view`, `-main-find`, `-dialog-page-setup`,
-  `-main-table`, `-main-picture`, `-main-header`, `-backstage-print`, `-backstage-export`)): the sample report (`SampleDocument`), version 0.1.0, ANNA-PC, C:\Users\Anna\Dokumente, a sample recent
+  `-main-table`, `-main-picture`, `-main-header`, `-backstage-print`, `-backstage-export`, `-main-word-floating` and `-main-word-letter` = two corpus documents embedded in the app)): the sample report (`SampleDocument`), version 0.1.0, ANNA-PC, C:\Users\Anna\Dokumente, a sample recent
   list – no real path shows. `THIXWRITE_SCREENSHOTS=<folder> dotnet test tests/ThixWrite.Tests` does the same from the tests.
   LOOK at the pictures after a change of the UI; `docs/images` has the ones of the README.
 - The Windows publish (win-x64) is a **trimmed** single file (`TrimMode=partial`, own assemblies + ThixOffice.Text(.Skia) rooted,

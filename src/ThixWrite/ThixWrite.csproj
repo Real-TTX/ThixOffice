@@ -82,6 +82,9 @@
     <EmbeddedResource Include="Assets\thixwrite-document.ico" LogicalName="thixwrite-document.ico" />
     <!-- What the setup offers (SETUP-08): read by InstallerOptions, published in the update manifest as "installer" by CI. -->
     <EmbeddedResource Include="installer.json" LogicalName="installer.json" />
+    <!-- Two documents of the real-world corpus for the snapshot scenes main-word-floating and main-word-letter. -->
+    <EmbeddedResource Include="..\..\tests\ThixWrite.Core.Tests\Fixtures\RealWorld\02-demo-floating.docx" LogicalName="corpus-floating.docx" />
+    <EmbeddedResource Include="..\..\tests\ThixWrite.Core.Tests\Fixtures\RealWorld\09-letter-din5008.docx" LogicalName="corpus-letter.docx" />
   </ItemGroup>
 
 </Project>
