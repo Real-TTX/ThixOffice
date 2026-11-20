@@ -160,9 +160,17 @@ jobs:
         run: |
           set -euo pipefail
           variable="$(printf '%s' "$APP_NAME" | tr '[:lower:]' '[:upper:]')_SCREENSHOTS"
+          # A failure without a test annotation (a build error, a crashed test host) would only be in the log; its end
+          # becomes one annotation, so the cause can be read without the log.
+          report() {
+            local text
+            text="$(grep -v '^\s*$' "$1" | tail -n 60 | sed -e 's/%/%25/g' | awk '{ printf "%s%%0A", $0 }')"
+            echo "::error title=macOS $2 $3::$text"
+          }
           for project in ${{ inputs.tests }}; do
-            dotnet build "$project" -c Release ${{ needs.version.outputs.props }}
-            env "$variable=$GITHUB_WORKSPACE/screenshots" dotnet test "$project" -c Release --no-build --logger GitHubActions
+            dotnet build "$project" -c Release ${{ needs.version.outputs.props }} > build.log 2>&1 || { cat build.log; report build.log build "$project"; exit 1; }
+            env "$variable=$GITHUB_WORKSPACE/screenshots" dotnet test "$project" -c Release --no-build --logger GitHubActions > test.log 2>&1 || { cat test.log; report test.log test "$project"; exit 1; }
+            tail -n 5 test.log
           done
 
       - name: Publish and package (arm64 and x64)
