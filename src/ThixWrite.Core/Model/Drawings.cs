@@ -126,6 +126,18 @@ public sealed record DrawingShape(double X, double Y, double Width, double Heigh
     public bool AutoFit { get; init; }
 }
 
+/// <summary>
+/// Text stretched over its box (VML v:textpath with fitshape – Word's text watermark, old WordArt): <see cref="Text"/> in
+/// <see cref="FontFamily"/>, filled with <see cref="Color"/> at <see cref="Opacity"/> (1 = solid, Word's "Halbtransparent" 0.5).
+/// </summary>
+public sealed record DrawingWordArt(double X, double Y, double Width, double Height, string Text, string FontFamily, DrawingColor Color, double Opacity)
+    : DrawingElement(X, Y, Width, Height)
+{
+    public bool Bold { get; init; }
+
+    public bool Italic { get; init; }
+}
+
 /// <summary>A picture inside a drawing (pic:pic in a group or canvas).</summary>
 public sealed record DrawingPicture(double X, double Y, double Width, double Height, ImageData Image) : DrawingElement(X, Y, Width, Height);
 

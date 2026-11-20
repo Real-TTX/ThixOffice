@@ -82,6 +82,7 @@ public static class DocxWriter
         styles.Save();
 
         WriteNumbering(document, main);
+        DocxStyles.WriteTheme(document.Theme, main);
 
         if (main.DocumentSettingsPart?.Settings is { } settings)
         {

@@ -1033,7 +1033,7 @@ public sealed class WriteEditor : OfficeEditor
         return true;
     }
 
-    private static ImageData ReadPicture(string path) =>
+    internal static ImageData ReadPicture(string path) =>
         ImageData.FromBytes(ImageFiles.Read(path)) ?? throw new BusinessException($"„{Path.GetFileName(path)}“ ist kein lesbares Bild.");
 
     private async Task PutOnClipboardAsync(DocumentFragment fragment)

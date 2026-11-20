@@ -122,7 +122,85 @@ internal static class DocxStyles
         return new Theme(
             string.IsNullOrEmpty(major) ? Theme.Office.MajorFont : major,
             string.IsNullOrEmpty(minor) ? Theme.Office.MinorFont : minor,
-            colors.Count == 0 ? Theme.Office.Palette : colors.ToImmutable());
+            colors.Count == 0 ? Theme.Office.Palette : colors.ToImmutable())
+        {
+            ColorsName = elements.ColorScheme?.Name?.Value,
+            FontsName = elements.FontScheme?.Name?.Value,
+        };
+    }
+
+    /// <summary>
+    /// Writes the theme (Entwurf › Designs, Farben, Schriftarten): a theme part as read stays untouched while the document's theme is
+    /// the one read; a changed theme patches only the colour scheme's colours and the latin fonts (formats, effects and the rest stay).
+    /// A package without a theme part gets Word's Office theme with the document's colours and fonts.
+    /// </summary>
+    public static void WriteTheme(Theme theme, MainDocumentPart main)
+    {
+        if (main.ThemePart is not { } part)
+        {
+            part = main.AddNewPart<ThemePart>();
+            using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(NewThemeXml(theme)));
+            part.FeedData(stream);
+            return;
+        }
+
+        if (ReadTheme(part).ContentEquals(theme) || part.Theme?.ThemeElements is not { } elements)
+        {
+            return;
+        }
+
+        if (elements.ColorScheme is { } scheme)
+        {
+            scheme.Name = theme.ColorsName ?? scheme.Name;
+            foreach (var color in scheme.ChildElements.ToList())
+            {
+                if (theme.Palette.TryGetValue(color.LocalName, out var value) && ReadColor(color) != value)
+                {
+                    color.RemoveAllChildren();
+                    color.AppendChild(new A.RgbColorModelHex { Val = value });
+                }
+            }
+        }
+
+        if (elements.FontScheme is { } fonts)
+        {
+            fonts.Name = theme.FontsName ?? fonts.Name;
+            if (fonts.MajorFont?.LatinFont is { } major)
+            {
+                major.Typeface = theme.MajorFont;
+            }
+
+            if (fonts.MinorFont?.LatinFont is { } minor)
+            {
+                minor.Typeface = theme.MinorFont;
+            }
+        }
+
+        part.Theme.Save();
+    }
+
+    private static string? ReadColor(OpenXmlElement color) =>
+        color.GetFirstChild<A.RgbColorModelHex>()?.Val?.Value ?? color.GetFirstChild<A.SystemColor>()?.LastColor?.Value;
+
+    /// <summary>A whole theme part: Office's structure (formats and effects) with the theme's colours and fonts.</summary>
+    private static string NewThemeXml(Theme theme)
+    {
+        string Color(string key) => System.Security.SecurityElement.Escape(theme.Palette.TryGetValue(key, out var value) ? value : Theme.Office.Palette[key]);
+        string Escape(string text) => System.Security.SecurityElement.Escape(text);
+        var colors = string.Concat(new[] { "dk1", "lt1", "dk2", "lt2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6", "hlink", "folHlink" }
+            .Select(key => $"<a:{key}><a:srgbClr val=\"{Color(key)}\"/></a:{key}>"));
+        const string Fill = "<a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill>";
+        const string Line = "<a:ln w=\"6350\" cap=\"flat\" cmpd=\"sng\" algn=\"ctr\"><a:solidFill><a:schemeClr val=\"phClr\"/></a:solidFill><a:prstDash val=\"solid\"/><a:miter lim=\"800000\"/></a:ln>";
+        const string Effect = "<a:effectStyle><a:effectLst/></a:effectStyle>";
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
+            + "<a:theme xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" name=\"Office\"><a:themeElements>"
+            + $"<a:clrScheme name=\"{Escape(theme.ColorsName ?? "Office")}\">{colors}</a:clrScheme>"
+            + $"<a:fontScheme name=\"{Escape(theme.FontsName ?? "Office")}\">"
+            + $"<a:majorFont><a:latin typeface=\"{Escape(theme.MajorFont)}\"/><a:ea typeface=\"\"/><a:cs typeface=\"\"/></a:majorFont>"
+            + $"<a:minorFont><a:latin typeface=\"{Escape(theme.MinorFont)}\"/><a:ea typeface=\"\"/><a:cs typeface=\"\"/></a:minorFont></a:fontScheme>"
+            + $"<a:fmtScheme name=\"Office\"><a:fillStyleLst>{Fill}{Fill}{Fill}</a:fillStyleLst><a:lnStyleLst>{Line}{Line}{Line}</a:lnStyleLst>"
+            + $"<a:effectStyleLst>{Effect}{Effect}{Effect}</a:effectStyleLst><a:bgFillStyleLst>{Fill}{Fill}{Fill}</a:bgFillStyleLst></a:fmtScheme>"
+            + "</a:themeElements><a:objectDefaults/><a:extraClrSchemeLst/></a:theme>";
     }
 
     public static DocumentSettings ReadSettings(W.Settings? settings)

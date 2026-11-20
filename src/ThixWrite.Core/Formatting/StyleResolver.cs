@@ -395,13 +395,58 @@ public sealed class StyleResolver(Document document)
     public string FamilyOf(CharacterProperties properties) =>
         properties.FontTheme is { } slot ? Document.Theme.FontOf(slot) : properties.FontFamily ?? ImplicitFont;
 
+    /// <summary>A theme colour with w:themeTint / w:themeShade (hex 00–FF): the HSL luminance scaled (shade) or moved toward white (tint).</summary>
+    public static string ThemedColor(string hex, string? tint, string? shade)
+    {
+        if (tint is null && shade is null || hex.Length != 6)
+        {
+            return hex;
+        }
+
+        var value = int.Parse(hex, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture);
+        var (r, g, b) = (((value >> 16) & 0xFF) / 255.0, ((value >> 8) & 0xFF) / 255.0, (value & 0xFF) / 255.0);
+        var max = Math.Max(r, Math.Max(g, b));
+        var min = Math.Min(r, Math.Min(g, b));
+        var lightness = (max + min) / 2;
+        var delta = max - min;
+        var saturation = delta == 0 ? 0 : delta / (1 - Math.Abs((2 * lightness) - 1));
+        var hue = delta == 0 ? 0 : max == r ? 60 * (((g - b) / delta) % 6) : max == g ? 60 * (((b - r) / delta) + 2) : 60 * (((r - g) / delta) + 4);
+        static double Factor(string text) => int.TryParse(text, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out var number) ? number / 255.0 : 1;
+        if (shade is not null)
+        {
+            lightness *= Factor(shade);
+        }
+
+        if (tint is not null)
+        {
+            lightness = (lightness * Factor(tint)) + (1 - Factor(tint));
+        }
+
+        var chroma = (1 - Math.Abs((2 * lightness) - 1)) * saturation;
+        var x = chroma * (1 - Math.Abs(((hue < 0 ? hue + 360 : hue) / 60 % 2) - 1));
+        var m = lightness - (chroma / 2);
+        var sector = (int)Math.Floor((hue < 0 ? hue + 360 : hue) / 60) % 6;
+        var (red, green, blue) = sector switch
+        {
+            0 => (chroma, x, 0.0),
+            1 => (x, chroma, 0.0),
+            2 => (0.0, chroma, x),
+            3 => (0.0, x, chroma),
+            4 => (x, 0.0, chroma),
+            _ => (chroma, 0.0, x),
+        };
+        int Channel(double channel) => (int)Math.Round(Math.Clamp(channel + m, 0, 1) * 255); // Word's own values may differ by one step
+        return $"{Channel(red):X2}{Channel(green):X2}{Channel(blue):X2}";
+    }
+
     private EffectiveCharacterFormat ToEffective(CharacterProperties merged)
     {
         // Word writes the computed colour next to a theme colour; only an "auto" value falls back to the theme.
+        // A theme colour follows the document's theme (Entwurf › Farben), with its tint or shade as Word computes them (luminance in HSL).
         var color = merged.Color switch
         {
             null => "auto",
-            { IsAuto: true, ThemeColor: { } theme } when Document.Theme.ColorOf(theme) is { } themed => themed,
+            { ThemeColor: { } theme } themedColor when Document.Theme.ColorOf(theme) is { } themed => ThemedColor(themed, themedColor.ThemeTint, themedColor.ThemeShade),
             _ => merged.Color.Value,
         };
         return new EffectiveCharacterFormat(

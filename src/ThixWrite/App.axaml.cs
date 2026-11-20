@@ -36,13 +36,14 @@ public partial class App : OfficeApplication
     public const string WordFloatingScene = "main-word-floating";
     public const string WordLetterScene = "main-word-letter";
     public const string SpellingDialogScene = "dialog-spelling";
+    public const string DesignScene = "main-design";
 
     public override OfficeAppDefinition Definition => ThixWriteApp.Definition;
 
     /// <summary>ThixWrite underlines unknown words while the user types (Einstellungen › Allgemein can turn it off).</summary>
     public override bool ChecksSpelling => true;
 
-    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, TableScene, PictureScene, HeaderScene, ReferencesScene, CommentsScene, SpellingScene, SpellingDialogScene, FindScene, PageSetupScene, PrintScene, ExportScene, WordFloatingScene, WordLetterScene];
+    public override IReadOnlyList<string> SnapshotScenes => [LayoutScene, ViewScene, TableScene, PictureScene, HeaderScene, ReferencesScene, CommentsScene, SpellingScene, SpellingDialogScene, FindScene, PageSetupScene, PrintScene, ExportScene, WordFloatingScene, WordLetterScene, DesignScene];
 
     public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => WriteRibbon.Create(window);
 
@@ -71,6 +72,7 @@ public partial class App : OfficeApplication
         ShapeCommands.Add(window);
         InsertCommands.Add(window);
         HomeCommands.Add(window);
+        DesignCommands.Add(window);
         HeaderFooterCommands.Add(window);
         LinkCommands.Add(window);
         TextCommands.Add(window);
@@ -124,6 +126,13 @@ public partial class App : OfficeApplication
                 }
 
                 Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                return window;
+            case DesignScene:
+                // Entwurf open: the design Facette and the watermark VERTRAULICH on the sample report.
+                window.Ribbon.SelectTab("design");
+                editor.Session.ApplyDesign(ThixWrite.Core.Model.DocumentDesign.Find("Facette")!);
+                editor.Session.SetWatermark(new ThixWrite.Core.Model.Watermark { Text = "VERTRAULICH", FontFamily = editor.Session.Document.Theme.MinorFont });
+                editor.ZoomToWholePage();
                 return window;
             case LayoutScene:
                 window.Ribbon.SelectTab("layout");

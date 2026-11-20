@@ -200,6 +200,14 @@ public static class WriteCommandIds
     public const string ColumnBreak = "write.columnBreak";
     public const string SectionBreak = "write.sectionBreak";
     public const string PageColor = "write.pageColor";
+
+    /// <summary>Entwurf › Designs (menu; entries write.design.&lt;n&gt;), Farben, Schriftarten, Wasserzeichen.</summary>
+    public const string Design = "write.design";
+    public const string ThemeColors = "write.themeColors";
+    public const string ThemeFonts = "write.themeFonts";
+    public const string Watermark = "write.watermark";
+    public const string WatermarkCustom = "write.watermark.custom";
+    public const string WatermarkRemove = "write.watermark.remove";
     public const string ChangeCase = "write.changeCase";
     public const string AcceptAllRevisions = "write.acceptAllRevisions";
     public const string TrackChanges = "write.trackChanges";
@@ -406,10 +414,24 @@ public static class WriteRibbon
                     Button(WriteCommandIds.SymbolMore),
                 ]) { Size = MatRibbonSize.Large }));
 
-    /// <summary>Entwurf: Seitenhintergrund (Seitenfarbe).</summary>
+    /// <summary>Entwurf: Dokumentformatierung (Designs, Farben, Schriftarten), Seitenhintergrund (Wasserzeichen, Seitenfarbe, Seitenränder).</summary>
     private static MatRibbonTab DesignTab(Theme theme) =>
         new MatRibbonTab("design", "Entwurf").Add(
+            new MatRibbonGroup("document-formatting", "Dokumentformatierung") { Icon = "sparkles" }.Add(
+                new MatRibbonMenuButton(WriteCommandIds.Design, "", null,
+                    [.. DocumentDesign.All.Select((_, index) => Toggle(DesignCommands.DesignId(index), "design"))]) { Size = MatRibbonSize.Large },
+                new MatRibbonMenuButton(WriteCommandIds.ThemeColors, "", null,
+                    [.. ThemeColorSet.All.Select((_, index) => Toggle(DesignCommands.ColorsId(index), "themeColors"))]) { Size = MatRibbonSize.Large },
+                new MatRibbonMenuButton(WriteCommandIds.ThemeFonts, "", null,
+                    [.. ThemeFontSet.All.Select((_, index) => Toggle(DesignCommands.FontsId(index), "themeFonts"))]) { Size = MatRibbonSize.Large }),
             new MatRibbonGroup("page-background", "Seitenhintergrund") { Icon = "palette" }.Add(
+                new MatRibbonMenuButton(WriteCommandIds.Watermark, "", null,
+                [
+                    .. Watermark.Texts.Select((_, index) => Toggle(DesignCommands.WatermarkId(index), "watermark")),
+                    new MatRibbonSeparator("watermark-separator"),
+                    Button(WriteCommandIds.WatermarkCustom),
+                    Button(WriteCommandIds.WatermarkRemove),
+                ]) { Size = MatRibbonSize.Large },
                 ColorPicker(WriteCommandIds.PageColor, DocumentPalette.FontColors(theme), "Keine Farbe"),
                 Button(WriteCommandIds.PageBorders, MatRibbonSize.Large)));
 

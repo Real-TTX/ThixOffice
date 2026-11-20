@@ -217,6 +217,12 @@ public sealed class Document
         Raise(new DocumentChange(DocumentChangeKind.Layout));
     }
 
+    internal void SetTheme(Theme theme)
+    {
+        Theme = theme;
+        Raise(new DocumentChange(DocumentChangeKind.Styles)); // every themed font and colour may look different
+    }
+
     internal void SetSettings(DocumentSettings settings)
     {
         Settings = settings;

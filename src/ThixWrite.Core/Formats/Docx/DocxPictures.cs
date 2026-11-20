@@ -97,6 +97,11 @@ internal static class DocxPictures
             return elements;
         }
 
+        if (image.IsWatermark)
+        {
+            return [DocxWatermarks.WritePicture(image, context.PartFor(image.Image), context.NextId())]; // Word's VML picture watermark
+        }
+
         var created = Create(image, context.PartFor(image.Image), context.NextId());
         if (image.Anchor is not null)
         {

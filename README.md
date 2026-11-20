@@ -52,7 +52,8 @@ Dokumente aus Word sehen aus wie in Word: Deckblätter, frei positionierte Bilde
 Platz und der Text fließt um sie herum; Diagramme und SmartArt werden aus der Datei gezeichnet; Tabellenformatvorlagen zeigen ihre
 Überschriftszeile und Bänder; Spalten, Initialen, Seitenfarbe, Absatzrahmen, Kapitälchen und ausgeblendeter Text werden wie in Word
 dargestellt, nachverfolgte Änderungen als Endfassung (Überprüfen › Alle Änderungen annehmen/ablehnen). Neu im Menüband: Layout ›
-Spalten und Umbrüche, Entwurf › Seitenfarbe, Start › Groß-/Kleinschreibung (Umschalt+F3); die Tasten sind die des deutschen Word
+Spalten und Umbrüche, Entwurf › Designs, Farben, Schriftarten, Wasserzeichen (Text oder Bild, wie Word in jeder Kopfzeile) und
+Seitenfarbe, Start › Groß-/Kleinschreibung (Umschalt+F3); die Tasten sind die des deutschen Word
 (Strg+Umschalt+F/K/U, Strg+B Blocksatz, Strg+1/2/5, Strg+Umschalt+N, Alt+1/2/3, Strg+M).
 
 ![ThixWrite hell](docs/images/thixwrite-main-light.png)

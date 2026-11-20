@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using ThixOffice.Charts;
 using ThixOffice.Charts.Formats;
-
+using ThixOffice.Text;
 using ThixOffice.Text.Drawing;
 using ThixOffice.Text.Drawing.Geometry;
 using ThixWrite.Core.Formats.Docx;
@@ -348,10 +348,20 @@ public sealed partial class DocumentLayout
             items.Add(new VectorPathItem(frame, new SolidPaint(RgbColor.White), null, dropShadow));
         }
 
+        if (image.Washout)
+        {
+            items.Add(new OpacityBeginItem(0.3)); // "Auswaschen": the picture pale on the paper, like Word's watermark
+        }
+
         items.Add(new ImageItem(x, y, width, height, image.Image.Key, image.Image.Bytes)
         {
             Crop = image.Crop is { } crop ? (crop.Left, crop.Top, crop.Right, crop.Bottom) : null,
         });
+        if (image.Washout)
+        {
+            items.Add(OpacityEndItem.Instance);
+        }
+
         return items;
     }
 
@@ -460,6 +470,9 @@ public sealed partial class DocumentLayout
                 case DrawingChart chart:
                     DrawChart(chart, items);
                     break;
+                case DrawingWordArt wordArt:
+                    DrawWordArt(wordArt, items);
+                    break;
             }
 
             if (transformed)
@@ -470,6 +483,40 @@ public sealed partial class DocumentLayout
 
         items.Add(TransformEndItem.Instance);
         return items;
+    }
+
+    /// <summary>Text stretched over its box (a text watermark): shaped once at 100 pt, scaled to the box in both directions.</summary>
+    private void DrawWordArt(DrawingWordArt wordArt, List<DisplayItem> items)
+    {
+        var text = wordArt.Text.Replace('\n', ' ').Trim();
+        if (text.Length == 0 || wordArt.Width <= 0 || wordArt.Height <= 0)
+        {
+            return;
+        }
+
+        var font = new FontSpec(wordArt.FontFamily, 100, wordArt.Bold, wordArt.Italic);
+        var shaped = Measurer.Shape(text, font);
+        var metrics = Measurer.GetMetrics(font);
+        var textHeight = metrics.Ascent + metrics.Descent;
+        if (shaped.Width <= 0 || textHeight <= 0)
+        {
+            return;
+        }
+
+        var color = Color(wordArt.Color) ?? new RgbColor(0xC0, 0xC0, 0xC0);
+        var opacity = Math.Clamp(wordArt.Opacity, 0, 1) < 1;
+        if (opacity)
+        {
+            items.Add(new OpacityBeginItem(Math.Clamp(wordArt.Opacity, 0, 1)));
+        }
+
+        items.Add(new TransformBeginItem(Matrix2D.Scaling(wordArt.Width / shaped.Width, wordArt.Height / textHeight) * Matrix2D.Translation(wordArt.X, wordArt.Y)));
+        DisplayListBuilder.AddText(items, 0, metrics.Ascent, shaped, 0, text.Length, font, color, 0);
+        items.Add(TransformEndItem.Instance);
+        if (opacity)
+        {
+            items.Add(OpacityEndItem.Instance);
+        }
     }
 
     private void DrawShape(DrawingShape shape, List<DisplayItem> items)

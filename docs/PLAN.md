@@ -310,6 +310,16 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   Datum; auf-/absteigend), Rahmen-Menü und Schattierung im Absatz, Dialog Rahmen und Schattierung (Rahmen | Seitenrand | Schattierung;
   Seitenränder werden gezeichnet und als w:pgBorders geschrieben), Mehrstufige Liste (1. 1.1. 1.1.1., 1) a) i), Aufzählung) mit
   „Listenebene ändern“, die fehlenden Word-Tasten (siehe unten). Lücke: Markieren › Text mit ähnlicher Formatierung (braucht Mehrfachauswahl).
+  **B5 Entwurf erledigt:** Designs (zehn: Office, Office 2007 - 2010, Facette, Ion, Integral, Retrospektive, Galerie, Schiefer, Papier,
+  Violett), Farben (zwölf Farbsätze mit Words Werten), Schriftarten (16 Sätze) ändern das Design des Dokuments (ein Rückgängig-Schritt);
+  die eingebauten Formatvorlagen nennen jetzt Designfarben/-schriftarten wie in Word (Überschriften accent1 mit Schattierung BF/7F, Zitat
+  text1 Tönung BF, Hyperlink), Designfarben mit w:themeTint/themeShade werden über die HSL-Helligkeit berechnet (Words eigene Werte können
+  eine Stufe abweichen); geschrieben wird nur a:clrScheme/a:fontScheme der vorhandenen Designdatei, neue Dokumente bekommen ein
+  vollständiges Office-Design. Wasserzeichen: Words Galerie-Texte, „Benutzerdefiniertes Wasserzeichen“ (Text: Schriftart, Farbe,
+  halbtransparent, diagonal/horizontal; Bild: Skalieren, Auswaschen), „Wasserzeichen entfernen“; geschrieben wie Word als VML in jede
+  Kopfzeile (PowerPlusWaterMarkObject / WordPictureWatermark), gelesen und gezeichnet (gestreckter Text, gedreht, durchscheinend; Bild
+  blass hinter dem Text). Lücken: Designs aus .thmx-Dateien, eigene Farb-/Schriftsätze, Effekte, Absatzabstand; ein Wasserzeichen in einer
+  Kopfzeile mit Tabelle wird nicht gezeichnet (erhalten bleibt es).
   **Noch falsch:** die innere Tabelle ist nicht bearbeitbar; Einfügemarke und Markierung in gedrehten Zellen stehen waagrecht;
   Spaltenoperationen (Spalte einfügen/löschen) an Tabellen mit Lückenzeilen rechnen die Lücke nicht mit; eine schwebende Tabelle
   wird nie geteilt und umfließt keine anderen Objekte; Formeln sind nicht bearbeitbar (kein Formel-Editor), m:jc/Ausrichtung an „&“
@@ -350,10 +360,10 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
 | Einfügen | Datum und Uhrzeit, Symbol | vorhanden |
 | Einfügen | Formel | – (Formeln aus Dateien werden gezeigt, schreibgeschützt, und unverändert erhalten) |
 | Zeichnen | alle | – |
-| Entwurf | Designs, Farben, Schriftarten, Dokumentformatierung | fehlt |
+| Entwurf | Designs, Farben, Schriftarten, Dokumentformatierung | neu (Designs, Farben, Schriftarten; Absatzabstand und Effekte fehlen) |
 | Entwurf | Seitenfarbe | neu |
 | Entwurf | Seitenränder (Rahmen um die Seite) | neu |
-| Entwurf | Wasserzeichen | fehlt |
+| Entwurf | Wasserzeichen (Galerie, benutzerdefiniert: Text oder Bild, entfernen) | neu |
 | Layout | Seitenränder, Ausrichtung, Format, Seite einrichten (Dialog) | vorhanden |
 | Layout | Spalten (eins, zwei, drei, links, rechts) | neu |
 | Layout | Umbrüche: Seite, Spalte, Abschnitt (nächste Seite, fortlaufend, gerade, ungerade) | neu |
@@ -495,7 +505,7 @@ Formate, Sortieren/Filtern, Fixieren, bedingte Formatierung, Diagramme, xlsx/csv
   | Einfügen | Sparklines (Linie, Säule, Gewinn/Verlust) | fehlt (werden in der Datei erhalten) |
   | Einfügen | Datenschnitt, Zeitachse | fehlt (werden erhalten) |
   | Einfügen | Link, Kommentar/Notiz, Textfeld, Kopf- und Fußzeile, Symbol | Link, Notiz, Kopf/Fuß (Seite einrichten): vorhanden; Textfeld, Symbol: fehlt |
-  | Seitenlayout | Designs | fehlt (Theme wird gelesen und erhalten) |
+  | Seitenlayout | Designs | Entwurf › Designs, Farben, Schriftarten |
   | Seitenlayout | Seite einrichten (Ränder, Ausrichtung, Größe, Druckbereich, Umbrüche, Drucktitel) | vorhanden; manuelle Seitenumbrüche: fehlt |
   | Seitenlayout | An Format anpassen, Blattoptionen | vorhanden |
   | Formeln | Funktion einfügen, Funktionsbibliothek (alle Kategorien), AutoSumme | vorhanden |

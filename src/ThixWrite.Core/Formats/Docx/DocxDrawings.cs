@@ -543,6 +543,20 @@ internal static class DocxDrawings
 
     // ---------------------------------------------------------------- VML
 
+    /// <summary>What a VML shape without a text box shows (a watermark ThixWrite writes), read like the reader does.</summary>
+    internal static DrawingGraphic? ReadVmlShape(OpenXmlElement pict) => ReadVml(pict, NoPartContext.Instance);
+
+    private sealed class NoPartContext : IDrawingContext
+    {
+        public static readonly NoPartContext Instance = new();
+
+        public OpenXmlPart Part => throw new InvalidOperationException("A VML shape without a part.");
+
+        public Theme Theme => Theme.Office;
+
+        public Story ReadTextBox(OpenXmlElement textBoxContent) => new([Paragraph.Empty()]);
+    }
+
     /// <summary>A VML text box or filled rectangle of a w:pict (Word 2007 files, and the fallback of every Word 2010+ shape).</summary>
     private static DrawingGraphic? ReadVml(OpenXmlElement pict, IDrawingContext context)
     {
@@ -560,8 +574,27 @@ internal static class DocxDrawings
             return null;
         }
 
+        var rotation = double.TryParse(style.GetValueOrDefault("rotation")?.TrimEnd('f'), NumberStyles.Float, CultureInfo.InvariantCulture, out var degrees) ? degrees : 0;
+        if (shape.ChildElements.FirstOrDefault(child => child.LocalName == "textpath") is { } textPath
+            && DocxValues.AttributeValue(textPath, "string") is { Length: > 0 } wordArtText)
+        {
+            // Text stretched over the shape (Word's text watermark, old WordArt).
+            var textStyle = Style(DocxValues.AttributeValue(textPath, "style"));
+            var family = textStyle.GetValueOrDefault("font-family")?.Trim('"', '\'', ' ').Replace("&quot;", "") is { Length: > 0 } named ? named : "Calibri";
+            var opacity = shape.ChildElements.FirstOrDefault(child => child.LocalName == "fill") is { } fillElement ? VmlFraction(DocxValues.AttributeValue(fillElement, "opacity")) : 1;
+            DrawingElement wordArt = new DrawingWordArt(0, 0, width, height, wordArtText, family,
+                VmlColor(DocxValues.AttributeValue(shape, "fillcolor")) ?? DrawingColor.Of("C0C0C0"), opacity)
+            {
+                Rotation = rotation,
+                Bold = textStyle.GetValueOrDefault("font-weight") is "bold",
+                Italic = textStyle.GetValueOrDefault("font-style") is "italic",
+            };
+            return new DrawingGraphic(width, height, VmlAnchor(pict, style), [wordArt]);
+        }
+
         var result = new DrawingShape(0, 0, width, height)
         {
+            Rotation = rotation,
             Preset = shape.LocalName switch { "oval" => "ellipse", "roundrect" => "roundRect", _ => "rect" },
             Fill = DocxValues.AttributeValue(shape, "filled") is "f" or "false" ? null
                 : VmlColor(DocxValues.AttributeValue(shape, "fillcolor")) is { } fill ? new DrawingFill(fill) : null,
@@ -574,6 +607,12 @@ internal static class DocxDrawings
             result = result with { Text = context.ReadTextBox(content) };
         }
 
+        return new DrawingGraphic(width, height, VmlAnchor(pict, style), [result]);
+    }
+
+    /// <summary>The position of an absolutely positioned VML shape (style margin-left/top, mso-position-*); null in the line.</summary>
+    internal static DrawingAnchor? VmlAnchor(OpenXmlElement pict, IReadOnlyDictionary<string, string> style)
+    {
         DrawingAnchor? anchor = null;
         if (style.GetValueOrDefault("position") == "absolute")
         {
@@ -589,10 +628,25 @@ internal static class DocxDrawings
                 (DocxValues.ParseInteger(style.GetValueOrDefault("z-index")) ?? 0) < 0);
         }
 
-        return new DrawingGraphic(width, height, anchor, [result]);
+        return anchor;
     }
 
-    private static Dictionary<string, string> Style(string? style) =>
+    /// <summary>A VML fraction: ".5", "0.5" or "32768f" (65536ths); 1 when missing.</summary>
+    private static double VmlFraction(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return 1;
+        }
+
+        var text = value.Trim();
+        var sixtyFourK = text.EndsWith('f');
+        return double.TryParse(sixtyFourK ? text[..^1] : text, NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
+            ? Math.Clamp(sixtyFourK ? number / 65536 : number, 0, 1)
+            : 1;
+    }
+
+    internal static Dictionary<string, string> Style(string? style) =>
         (style ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries)
             .Select(pair => pair.Split(':', 2))
             .Where(pair => pair.Length == 2)
@@ -600,7 +654,7 @@ internal static class DocxDrawings
             .ToDictionary(group => group.Key, group => group.Last()[1].Trim(), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>A CSS length of VML in points ("12pt", "1.5in", "2cm", "30mm", "96px", "12" = pixels).</summary>
-    private static double Length(string? value)
+    internal static double Length(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -637,7 +691,16 @@ internal static class DocxDrawings
         var hex = value.Split(' ')[0].Trim().TrimStart('#');
         return hex.Length == 6 && hex.All(Uri.IsHexDigit) ? DrawingColor.Of(hex.ToUpperInvariant())
             : hex.Length == 3 && hex.All(Uri.IsHexDigit) ? DrawingColor.Of(string.Concat(hex.Select(character => $"{character}{character}")).ToUpperInvariant())
-            : hex switch { "white" => DrawingColor.Of("FFFFFF"), "black" => DrawingColor.Of("000000"), _ => null };
+            : hex.ToLowerInvariant() switch
+            {
+                "white" => DrawingColor.Of("FFFFFF"),
+                "black" => DrawingColor.Of("000000"),
+                "silver" => DrawingColor.Of("C0C0C0"),
+                "gray" or "grey" => DrawingColor.Of("808080"),
+                "red" => DrawingColor.Of("FF0000"),
+                "blue" => DrawingColor.Of("0000FF"),
+                _ => null,
+            };
     }
 
     // ---------------------------------------------------------------- helpers

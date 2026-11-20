@@ -193,7 +193,7 @@ public sealed class BordersDialog : WriteDialog
         },
     };
 
-    private static Avalonia.Controls.Templates.FuncDataTemplate<string> Swatches() => new((value, _) =>
+    internal static Avalonia.Controls.Templates.FuncDataTemplate<string> Swatches() => new((value, _) =>
     {
         var text = new TextBlock { Text = value, VerticalAlignment = VerticalAlignment.Center };
         if (value is null || !value.StartsWith('#'))

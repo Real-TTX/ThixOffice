@@ -247,6 +247,14 @@ public sealed record ImageInline(
     public DrawingShadow? Shadow { get; init; }
 
     /// <summary>
+    /// "Auswaschen": the picture drawn pale (Word's picture watermark, v:imagedata gain/blacklevel).
+    /// </summary>
+    public bool Washout { get; init; }
+
+    /// <summary>A picture watermark (Entwurf › Wasserzeichen; Word's VML "WordPictureWatermark" in a header), behind the text.</summary>
+    public bool IsWatermark { get; init; }
+
+    /// <summary>
     /// The same picture at another size. The drawing as read stays (<see cref="SourceXml"/>): the writer puts the new size, position and
     /// wrap into it, so that cropping, effects and the position of a floating picture are kept.
     /// </summary>
@@ -264,6 +272,8 @@ public sealed record ImageInline(
         && IsFloating == other.IsFloating
         && Anchor == other.Anchor
         && Crop == other.Crop
+        && Washout == other.Washout
+        && IsWatermark == other.IsWatermark
         && Revision == other.Revision;
 
     public override int GetHashCode() => HashCode.Combine(Image, Math.Round(Width), Math.Round(Height), Description, IsFloating);

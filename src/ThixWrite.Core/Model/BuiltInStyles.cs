@@ -102,11 +102,15 @@ public static class BuiltInStyles
         GermanNames.ContainsKey(name) || GermanNames.Values.Contains(name, StringComparer.CurrentCultureIgnoreCase);
 
     /// <summary>The styles of a new document, with Word's document defaults (Calibri 11, 8 pt after, 1.08 lines, German).</summary>
+    /// <summary>A theme colour as Word writes it in a style: the value for older readers plus the theme name, tint or shade.</summary>
+    private static TextColor Themed(string hex, string theme, string? tint = null, string? shade = null) => new(hex, theme, tint, shade);
+
     public static StyleSheet CreateDefault()
     {
         var characterDefaults = new CharacterProperties
         {
             FontFamily = BodyFont,
+            FontTheme = ThemeFontSlot.Minor,
             FontSize = BodySize,
             UnknownXml = $"<w:lang w:val=\"de-DE\" w:eastAsia=\"en-US\" w:bidi=\"ar-SA\" xmlns:w=\"{WordNamespace}\" />",
         };
@@ -173,7 +177,7 @@ public static class BuiltInStyles
                     LineSpacing = LineSpacing.Single,
                     ContextualSpacing = true,
                 },
-                Character = new CharacterProperties { FontFamily = HeadingFont, FontSize = 28 },
+                Character = new CharacterProperties { FontFamily = HeadingFont, FontTheme = ThemeFontSlot.Major, FontSize = 28 },
             },
             Subtitle => new Style
             {
@@ -200,7 +204,7 @@ public static class BuiltInStyles
                     IndentRight = 43.2,
                     Alignment = ParagraphAlignment.Center,
                 },
-                Character = new CharacterProperties { Italic = true, Color = TextColor.FromHex("404040") },
+                Character = new CharacterProperties { Italic = true, Color = Themed("404040", "text1", tint: "BF") },
             },
             IntenseQuote => new Style
             {
@@ -218,7 +222,7 @@ public static class BuiltInStyles
                     IndentRight = 43.2,
                     Alignment = ParagraphAlignment.Center,
                 },
-                Character = new CharacterProperties { Italic = true, Color = TextColor.FromHex("4472C4") },
+                Character = new CharacterProperties { Italic = true, Color = Themed("4472C4", "accent1") },
             },
             ListParagraph => new Style
             {
@@ -285,9 +289,9 @@ public static class BuiltInStyles
                 Character = id switch
                 {
                     SubtleEmphasis => new CharacterProperties { Italic = true, Color = TextColor.FromHex("404040") },
-                    IntenseEmphasis => new CharacterProperties { Italic = true, Color = TextColor.FromHex("4472C4") },
+                    IntenseEmphasis => new CharacterProperties { Italic = true, Color = Themed("4472C4", "accent1") },
                     SubtleReference => new CharacterProperties { SmallCaps = true, Color = TextColor.FromHex("5A5A5A") },
-                    IntenseReference => new CharacterProperties { Bold = true, SmallCaps = true, Color = TextColor.FromHex("4472C4"), Spacing = 0.25 },
+                    IntenseReference => new CharacterProperties { Bold = true, SmallCaps = true, Color = Themed("4472C4", "accent1"), Spacing = 0.25 },
                     _ => new CharacterProperties { Bold = true, Italic = true, Spacing = 0.25 },
                 },
             },
@@ -388,7 +392,7 @@ public static class BuiltInStyles
                 BasedOn = DefaultParagraphFont,
                 UiPriority = 99,
                 UnhideWhenUsed = true,
-                Character = new CharacterProperties { Color = TextColor.FromHex("0563C1"), Underline = UnderlineStyle.Single },
+                Character = new CharacterProperties { Color = Themed("0563C1", "hyperlink"), Underline = UnderlineStyle.Single },
             },
             _ => null,
         };
@@ -405,10 +409,10 @@ public static class BuiltInStyles
     {
         var (size, color, before) = level switch
         {
-            1 => (16.0, "2F5496", 12.0),
-            2 => (13.0, "2F5496", 2.0),
-            3 => (12.0, "1F3763", 2.0),
-            _ => (11.0, "2F5496", 2.0),
+            1 => (16.0, "BF", 12.0),
+            2 => (13.0, "BF", 2.0),
+            3 => (12.0, "7F", 2.0),
+            _ => (11.0, "BF", 2.0),
         };
         return new Style
         {
@@ -429,8 +433,9 @@ public static class BuiltInStyles
             Character = new CharacterProperties
             {
                 FontFamily = HeadingFont,
+                FontTheme = ThemeFontSlot.Major,
                 FontSize = size,
-                Color = TextColor.FromHex(color),
+                Color = Themed(color == "BF" ? "2F5496" : "1F3763", "accent1", shade: color),
                 Italic = level == 4 ? true : null,
             },
         };

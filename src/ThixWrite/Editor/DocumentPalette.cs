@@ -23,6 +23,9 @@ public static class DocumentPalette
     /// <summary>The paper for Skia.</summary>
     public static readonly SKColor PaperSkia = new(0xFF, 0xFF, 0xFF);
 
+    /// <summary>Word's watermark colour (silver), first in the Wasserzeichen dialog's colours.</summary>
+    public const string WatermarkSilver = "#C0C0C0";
+
     /// <summary>The bars and the grid of the chart picture of the sample report (Word's accent blue, a light grey).</summary>
     public static readonly SKColor[] SampleChart = [new(0x44, 0x72, 0xC4), new(0xD9, 0xD9, 0xD9), new(0x40, 0x40, 0x40)];
 

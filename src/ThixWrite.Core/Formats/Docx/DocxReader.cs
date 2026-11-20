@@ -476,6 +476,10 @@ public static class DocxReader
                     Flush();
                     inlines.Add(shape);
                     break;
+                case W.Picture watermarkPicture when DocxWatermarks.ReadPicture(watermarkPicture, context.Part, properties) is { } watermark:
+                    Flush();
+                    inlines.Add(watermark);
+                    break;
                 case W.Drawing or W.Picture:
                 case AlternateContent when child.Descendants().Any(descendant => descendant is W.Drawing or W.Picture):
                     var graphic = DocxDrawings.Read(child, context);

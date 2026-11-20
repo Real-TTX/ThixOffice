@@ -72,6 +72,9 @@ internal static class DocumentSteps
     public static EditStep FinalSection(Document document, SectionProperties section) =>
         new DocumentValueStep<SectionProperties>(document.FinalSection, section, (target, value) => target.SetFinalSection(value));
 
+    public static EditStep Theme(Document document, Theme theme) =>
+        new DocumentValueStep<Theme>(document.Theme, theme, (target, value) => target.SetTheme(value));
+
     public static EditStep Settings(Document document, DocumentSettings settings) =>
         new DocumentValueStep<DocumentSettings>(document.Settings, settings, (target, value) => target.SetSettings(value));
 }

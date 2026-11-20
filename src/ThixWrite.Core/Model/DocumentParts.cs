@@ -22,7 +22,27 @@ public sealed record Theme(string MajorFont, string MinorFont, ImmutableDictiona
         ["folHlink"] = "954F72",
     }.ToImmutableDictionary());
 
+    /// <summary>The colour scheme's name (a:clrScheme name: "Office", "Blau" …), null when unknown.</summary>
+    public string? ColorsName { get; init; }
+
+    /// <summary>The font scheme's name (a:fontScheme name), null when unknown.</summary>
+    public string? FontsName { get; init; }
+
     public string FontOf(ThemeFontSlot slot) => slot == ThemeFontSlot.Major ? MajorFont : MinorFont;
+
+    /// <summary>True when both themes have the same fonts and colours (names aside).</summary>
+    public bool ContentEquals(Theme other) =>
+        MajorFont == other.MajorFont && MinorFont == other.MinorFont
+        && Palette.Count == other.Palette.Count
+        && Palette.All(pair => other.Palette.TryGetValue(pair.Key, out var value) && string.Equals(value, pair.Value, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>This theme with the colours of <paramref name="colors"/> (Entwurf › Farben).</summary>
+    public Theme WithColors(ThemeColorSet colors) =>
+        this with { Palette = Palette.SetItems(colors.Palette), ColorsName = colors.Name };
+
+    /// <summary>This theme with the fonts of <paramref name="fonts"/> (Entwurf › Schriftarten).</summary>
+    public Theme WithFonts(ThemeFontSet fonts) =>
+        this with { MajorFont = fonts.Heading, MinorFont = fonts.Body, FontsName = fonts.Name };
 
     /// <summary>The colour of a theme colour name as Word writes it in w:themeColor (text1 = dk1, background1 = lt1 …).</summary>
     public string? ColorOf(string themeColor)
