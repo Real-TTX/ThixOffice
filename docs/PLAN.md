@@ -261,8 +261,7 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   **Noch falsch / Lücken:** Text umfließt nur rechteckig (keine Umbruchpolygone, keine „Durchgehend“-Form); Tabellen umfließen keine Objekte und stehen in Spalten über die
   ganze Breite; Formeln (OMML) werden nicht gezeigt;
   WordArt-Verformungen (prstTxWarp), Schatten/3-D/Effekte und Bildzuschnitt fehlen; Inhaltssteuerelemente in einer Zeile zeigen
-  ihren Text in einem Format; nachverfolgte Einfügungen zeigen die Formatierung ihres ersten Laufs; fehlende Schriften (Aptos, Calibri auf dem Mac) fallen auf die Systemschrift
-  zurück, Zeilenumbrüche weichen daher leicht ab; Spaltenumbruch und Spaltenausgleich gelten nicht in Tabellen.
+  ihren Text in einem Format; nachverfolgte Einfügungen zeigen die Formatierung ihres ersten Laufs; Spaltenumbruch und Spaltenausgleich gelten nicht in Tabellen.
 - **1e – Darstellung und Alltagsfunktionen (2026-11-20, laufend):**
   **Behoben:** verschachtelte Tabellen werden als Tabellen gezeigt (die äußere Tabelle ist bearbeitbar, die innere fährt in einem
   Absatz ihrer Zelle mit, wird schreibgeschützt aus ihrer eigenen Story gezeichnet und als w:tbl an ihrer Stelle zurückgeschrieben);
@@ -273,6 +272,9 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   gleich gerahmte Absätze bilden einen Kasten, dazwischen die Linie „zwischen“); ein Absatz, der um ein Objekt läuft und auf der
   nächsten Seite/Spalte weitergeht, wird dort für die Breite DORT neu umbrochen; ein auf Seite oder Rand positioniertes Objekt, das
   neben schon gesetzten Text reicht, steht beim zweiten Durchgang der Seite von Anfang an darauf (der Text vor seinem Anker umfließt es).
+  Fehlende Schriften werden durch die erste installierte Ersatzschrift gemessen und gezeichnet (`FontSubstitutes` in ThixOffice.Text:
+  zuerst metrisch gleiche – Carlito für Calibri, Caladea für Cambria, Liberation Sans/Serif/Mono für Arial/Times New Roman/Courier
+  New –, dann ähnliche: Aptos → Calibri → … → Helvetica Neue/Arial, Segoe UI → Helvetica Neue …); das Dokument behält seine Schriftnamen.
   **Noch falsch:** die innere Tabelle ist nicht bearbeitbar; Einfügemarke und Markierung in gedrehten Zellen stehen waagrecht;
   Spaltenoperationen (Spalte einfügen/löschen) an Tabellen mit Lückenzeilen rechnen die Lücke nicht mit; eine schwebende Tabelle
   wird nie geteilt und umfließt keine anderen Objekte.

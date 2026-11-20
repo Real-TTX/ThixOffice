@@ -150,9 +150,21 @@ public sealed class SkiaTextMeasurer : ITextMeasurer, IDisposable
             return cached;
         }
 
-        var typeface = _fontManager.MatchFamily(family, StyleOf(bold, italic))
-                       ?? _fontManager.MatchFamily(null, StyleOf(bold, italic))
-                       ?? SKTypeface.Default;
+        // The font itself, else a metric-compatible or look-alike substitute (FontSubstitutes), else the system's default.
+        SKTypeface? typeface = null;
+        foreach (var candidate in FontSubstitutes.CandidatesFor(family))
+        {
+            var match = _fontManager.MatchFamily(candidate, StyleOf(bold, italic));
+            if (match is not null && (string.Equals(match.FamilyName, candidate, StringComparison.OrdinalIgnoreCase) || candidate.StartsWith('.')))
+            {
+                typeface = match;
+                break;
+            }
+        }
+
+        typeface ??= _fontManager.MatchFamily(family, StyleOf(bold, italic))
+                     ?? _fontManager.MatchFamily(null, StyleOf(bold, italic))
+                     ?? SKTypeface.Default;
         _typefaces[key] = typeface;
         Register(typeface, bold, italic);
         return typeface;

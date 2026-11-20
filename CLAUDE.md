@@ -123,6 +123,8 @@ src/ThixOffice.Desktop     shared Avalonia UI
                            RibbonFlyoutButton (a ribbon button whose flyout the app builds on opening: picture galleries)
   Pages/OfficePrintPage    IPrintSource may add a second choice (Variants/Variant/VariantLabel: ThixShow's Farbe/Graustufen)
 src/ThixOffice.Text        (no UI, no native code) ITextMeasurer, FontSpec/FontMetrics, ShapedText, FixedWidthTextMeasurer (tests),
+                           FontSubstitutes (a missing font → metric-compatible, then look-alike families; SkiaTextMeasurer takes the
+                           first installed one for measuring AND drawing – documents keep their font names),
                            Drawing/ display lists in points: DisplayList.cs (RgbColor, GlyphRunItem, RectangleItem, LineItem, ImageItem,
                            ClipBegin/End) + VectorItems.cs = THE vector layer of every app (VectorPath + VectorPathBuilder with arcs as
                            Béziers, Matrix2D, paints – solid, linear/radial gradient, picture –, StrokeStyle with dashes/caps/joins,

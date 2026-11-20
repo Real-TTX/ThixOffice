@@ -16,6 +16,28 @@ public sealed class SkiaTextMeasurerTests : IDisposable
     public void Dispose() => _measurer.Dispose();
 
     [Fact]
+    public void A_missing_font_is_measured_with_its_first_installed_substitute_and_the_metric_compatible_ones_come_first()
+    {
+        Assert.Equal(["Calibri", "Carlito", "Aptos"], FontSubstitutes.CandidatesFor("Calibri").Take(3));
+        Assert.Equal("Caladea", FontSubstitutes.CandidatesFor("Cambria")[1]);
+        Assert.Equal("Liberation Sans", FontSubstitutes.CandidatesFor("Arial")[1]);
+        Assert.Equal("Liberation Serif", FontSubstitutes.CandidatesFor("Times New Roman")[1]);
+        Assert.Equal("Liberation Mono", FontSubstitutes.CandidatesFor("Courier New")[1]);
+        Assert.Equal(["Unbekannt"], FontSubstitutes.CandidatesFor("Unbekannt"));
+
+        // Aptos is missing on most machines: the face that shapes it is Aptos or one of its substitutes when any is installed.
+        var installed = _measurer.GetFamilies().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var candidates = FontSubstitutes.CandidatesFor("Aptos");
+        var expected = candidates.FirstOrDefault(installed.Contains);
+        var shaped = _measurer.Shape("Hallo", new FontSpec("Aptos", 11));
+        var face = shaped.GlyphRuns[0].Face.Family;
+        if (expected is not null)
+        {
+            Assert.Equal(expected, face, StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
     public void One_advance_per_code_unit_summing_to_the_width()
     {
         var shaped = _measurer.Shape("Hallo Welt", Font);
