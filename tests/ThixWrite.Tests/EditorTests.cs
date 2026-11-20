@@ -76,7 +76,7 @@ public sealed class EditorTests
         using var data = new TestData();
         var window = await NewWindowAsync();
         await TypeAsync(window, "normal ");
-        await PressAsync(window, PhysicalKey.F, CommandKey | RawInputModifiers.Shift); // Strg+Umschalt+F: fett
+        await BoldAsync(window); // Strg+Umschalt+F, ⌘B on the Mac
         await TypeAsync(window, "fett");
         var bold = window.RibbonDefinition.Get<MatRibbonToggle>(WriteCommandIds.Bold);
         Assert.True(bold.IsChecked);

@@ -189,6 +189,11 @@ public sealed class TestData : IDisposable
         await SettleAsync();
     }
 
+    /// <summary>Fett by its key: Strg+Umschalt+F (German Word), ⌘B on the Mac.</summary>
+    public static Task BoldAsync(OfficeWindow window) => OperatingSystem.IsMacOS()
+        ? PressAsync(window, PhysicalKey.B, CommandKey)
+        : PressAsync(window, PhysicalKey.F, CommandKey | RawInputModifiers.Shift);
+
     /// <summary>Wiederholen by its key: Strg+Y, ⇧⌘Z on the Mac.</summary>
     public static Task RedoAsync(OfficeWindow window) => OperatingSystem.IsMacOS()
         ? PressAsync(window, PhysicalKey.Z, CommandKey | RawInputModifiers.Shift)

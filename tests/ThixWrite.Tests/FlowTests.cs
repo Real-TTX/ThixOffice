@@ -178,7 +178,7 @@ public sealed class FlowTests
         var window = await NewWindowAsync();
         await TypeAsync(window, "Fast verloren");
         await PressAsync(window, PhysicalKey.A, CommandKey);
-        await PressAsync(window, PhysicalKey.F, CommandKey | RawInputModifiers.Shift); // fett
+        await BoldAsync(window);
         window.CloseKeepingRecovery(); // what the setup does before an update, what a crash leaves
         await SettleAsync();
 
