@@ -233,6 +233,14 @@ internal static class DocxPropertyReader
                     };
                     unknown.Add(child);
                     break;
+                case W.PageBorders pageBorders:
+                    result = result with
+                    {
+                        PageBorders = DocxTables.ReadBordersOf(pageBorders),
+                        PageBordersFromText = DocxValues.AttributeValue(pageBorders, "offsetFrom") == "text",
+                    };
+                    unknown.Add(child); // written back as read
+                    break;
                 case W.SectionType type:
                     result = result with { Start = ParseSectionStart(DocxValues.AttributeValue(type, "val")) };
                     break;

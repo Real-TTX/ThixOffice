@@ -27,6 +27,20 @@ public static class DisplayListBuilder
             items.Add(new RectangleItem(0, 0, page.Width, page.Height, color)); // "Seitenfarbe"
         }
 
+        if (page.Section.Properties is { PageBorders: { } pageBorders } setup)
+        {
+            // "Seitenränder": each line its distance from the page edge (or outside the text).
+            double Inset(BorderLine? line) => (line?.Space ?? 0) + ((line?.Width ?? 0) / 2);
+            var (left, top, right, bottom) = setup.PageBordersFromText
+                ? (setup.MarginLeft + setup.Gutter - Inset(pageBorders.Left), setup.MarginTop - Inset(pageBorders.Top),
+                    page.Width - setup.MarginRight + Inset(pageBorders.Right), page.Height - setup.MarginBottom + Inset(pageBorders.Bottom))
+                : (Inset(pageBorders.Left), Inset(pageBorders.Top), page.Width - Inset(pageBorders.Right), page.Height - Inset(pageBorders.Bottom));
+            AddBorder(items, pageBorders.Top, left, top, right, top);
+            AddBorder(items, pageBorders.Bottom, left, bottom, right, bottom);
+            AddBorder(items, pageBorders.Left, left, top, left, bottom);
+            AddBorder(items, pageBorders.Right, right, top, right, bottom);
+        }
+
         var floats = page.HeaderFooterFloats.Concat(page.Floats).OrderBy(placed => placed.Anchor.ZOrder).ToList();
         if (drawObject is not null)
         {

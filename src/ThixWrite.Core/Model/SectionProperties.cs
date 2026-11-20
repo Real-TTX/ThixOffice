@@ -81,6 +81,15 @@ public sealed record SectionProperties
         return [.. Enumerable.Range(0, count).Select(index => (index * (columnWidth + ColumnSpacing), columnWidth))];
     }
 
+    /// <summary>
+    /// "Seitenränder" (w:pgBorders): the lines around the page, each its distance (<see cref="BorderLine.Space"/>) from the page edge – or
+    /// from the text when <see cref="PageBordersFromText"/>. Read for the display; the element is kept in <see cref="UnknownXml"/>.
+    /// </summary>
+    public BorderSet? PageBorders { get; init; }
+
+    /// <summary>The page border is measured from the text (w:offsetFrom="text"), not from the page edge.</summary>
+    public bool PageBordersFromText { get; init; }
+
     /// <summary>"Erste Seite anders".</summary>
     public bool TitlePage { get; init; }
 

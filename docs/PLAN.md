@@ -306,6 +306,10 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
   Einfaches Markup (Endfassung, roter Änderungsstrich), Alle Markups (Einfügungen unterstrichen, Löschungen durchgestrichen in der Farbe
   des Autors, grauer Strich), Markup: keine, Original; Annehmen/Ablehnen (und weiter, Alle annehmen/ablehnen), Vorherige/Nächste; docx
   w:ins/w:del. Lücken: Formatänderungen (w:rPrChange werden nur erhalten), eingefügte/gelöschte Absatzmarken, Sprechblasen am Rand.
+  **B4 Start erledigt:** Sortieren (Absätze; Tabellenzeilen nach einer Spalte unter den Überschriftszeilen; Text deutsch sortiert, Zahl,
+  Datum; auf-/absteigend), Rahmen-Menü und Schattierung im Absatz, Dialog Rahmen und Schattierung (Rahmen | Seitenrand | Schattierung;
+  Seitenränder werden gezeichnet und als w:pgBorders geschrieben), Mehrstufige Liste (1. 1.1. 1.1.1., 1) a) i), Aufzählung) mit
+  „Listenebene ändern“, die fehlenden Word-Tasten (siehe unten). Lücke: Markieren › Text mit ähnlicher Formatierung (braucht Mehrfachauswahl).
   **Noch falsch:** die innere Tabelle ist nicht bearbeitbar; Einfügemarke und Markierung in gedrehten Zellen stehen waagrecht;
   Spaltenoperationen (Spalte einfügen/löschen) an Tabellen mit Lückenzeilen rechnen die Lücke nicht mit; eine schwebende Tabelle
   wird nie geteilt und umfließt keine anderen Objekte; Formeln sind nicht bearbeitbar (kein Formel-Editor), m:jc/Ausrichtung an „&“
@@ -325,13 +329,13 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
 | Start | Groß-/Kleinschreibung (Menü, Umschalt+F3) | neu |
 | Start | Texteffekte und Typografie | fehlt |
 | Start | Aufzählung, Nummerierung, Einzug, Ausrichtung, Zeilenabstand, Formatierungszeichen | vorhanden |
-| Start | Mehrstufige Liste (Galerie), Listenebene ändern | fehlt (Ebene per Tab) |
-| Start | Sortieren | fehlt |
-| Start | Schattierung, Rahmen und Schattierung (Dialog) | fehlt (Absatzrahmen/-schattierung aus Dateien werden gezeigt) |
+| Start | Mehrstufige Liste (Galerie: 1. 1.1., 1) a), Aufzählung), Listenebene ändern | neu |
+| Start | Sortieren (Absätze, Tabellenzeilen nach Spalte; Text/Zahl/Datum) | neu |
+| Start | Schattierung, Rahmen (Menü), Rahmen und Schattierung (Dialog: Rahmen, Seitenrand, Schattierung) | neu |
 | Start | Formatvorlagen-Galerie | neu: Words Schnellformatvorlagen in Words Reihenfolge und die eigenen des Dokuments; Menü mit „Auswahl als neue Schnellformatvorlage“ |
 | Start | Formatvorlage ändern / neu (Dialog), Bereich Formatvorlagen (Alt+Strg+Umschalt+S) | neu |
 | Start | Suchen, Ersetzen, Markieren (Alles) | vorhanden |
-| Start | Suchen erweitert (Format, Platzhalter), Markieren › ähnliche Formatierung | fehlt / geplant |
+| Start | Suchen erweitert (Format, Platzhalter), Markieren › ähnliche Formatierung | fehlt (ähnliche Formatierung braucht eine Mehrfachauswahl) |
 | Einfügen | Deckblatt (drei eigene Entwürfe), Leere Seite | neu |
 | Einfügen | Seitenumbruch | vorhanden |
 | Einfügen | Tabelle (Raster, Dialog) | vorhanden |
@@ -348,7 +352,8 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
 | Zeichnen | alle | – |
 | Entwurf | Designs, Farben, Schriftarten, Dokumentformatierung | fehlt |
 | Entwurf | Seitenfarbe | neu |
-| Entwurf | Wasserzeichen, Seitenränder (Rahmen) | fehlt |
+| Entwurf | Seitenränder (Rahmen um die Seite) | neu |
+| Entwurf | Wasserzeichen | fehlt |
 | Layout | Seitenränder, Ausrichtung, Format, Seite einrichten (Dialog) | vorhanden |
 | Layout | Spalten (eins, zwei, drei, links, rechts) | neu |
 | Layout | Umbrüche: Seite, Spalte, Abschnitt (nächste Seite, fortlaufend, gerade, ungerade) | neu |
@@ -370,9 +375,10 @@ Jede Phase endet mit grünem Build, Tests, Push nach `dev` (Nightly) und – wen
 **Tastenkombinationen wie im deutschen Word (neu):** Strg+Umschalt+F/K/U fett/kursiv/unterstrichen (Strg+B ist jetzt Blocksatz wie in
 Word; der Mac behält ⌘B/⌘I/⌘U und ⌘J für Blocksatz), Strg+E/L/R Ausrichtung, Strg+1/2/5 Zeilenabstand, Strg+Umschalt+N Standard,
 Alt+1/2/3 Überschrift 1–3 (Mac ⌘⌥1–3), Strg+M / Strg+Umschalt+M Einzug, Umschalt+F3 Groß-/Kleinschreibung, Strg+Eingabe Seitenumbruch,
-Strg+Umschalt+Eingabe Spaltenumbruch, Strg+Leertaste Formatierung löschen, F12 Speichern unter. **Fehlt noch:** Strg+Umschalt+Q
-Kapitälchen, Strg+Umschalt+D doppelt unterstrichen, Strg+# / Strg+Umschalt++ tief-/hochgestellt, Strg+0 Abstand vor, Strg+T hängender
-Einzug, Alt+Umschalt+T/P Uhrzeit/Seitenzahl.
+Strg+Umschalt+Eingabe Spaltenumbruch, Strg+Leertaste Formatierung löschen, F12 Speichern unter; seit 1e: Strg+Umschalt+Q Kapitälchen
+(Mac ⌘⇧K), Strg+Umschalt+D doppelt unterstrichen, Strg+Plus / Strg+# hoch-/tiefgestellt (Mac ⌘⇧= / ⌘=), Strg+0 Abstand vor, Strg+T /
+Strg+Umschalt+T hängender Einzug, Strg+Q Absatzformat zurücksetzen (Mac ⌥⌘Q), Strg+Umschalt+E Änderungen nachverfolgen.
+**Fehlt noch:** Alt+Umschalt+T/P Uhrzeit/Seitenzahl.
 
 ### Phase 2 – Drive in ThixCloud
 - MatCloud: App-IDs `write`, `calc`, `show`, `drive`; Modul `MatCloud.Apps.Drive` (Dateibaum, Versionen,

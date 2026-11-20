@@ -23,6 +23,35 @@ public static class BuiltInLists
         Levels = new EquatableArray<NumberingLevel>(Enumerable.Range(0, 9).Select(level => kind == ListKind.Bullet ? BulletLevel(level) : NumberLevel(level))),
     };
 
+    /// <summary>
+    /// A "Mehrstufige Liste" of Word's gallery: <c>outline</c> = 1. 1.1. 1.1.1. (each level with the numbers above it), <c>parenthesis</c> =
+    /// 1) a) i), <c>bullets</c> = • o ▪.
+    /// </summary>
+    public static AbstractNumbering CreateMultilevel(string style, int id) => style switch
+    {
+        "bullets" => Create(ListKind.Bullet, id),
+        "parenthesis" => new AbstractNumbering
+        {
+            Id = id,
+            MultiLevelType = "multilevel",
+            Levels = new EquatableArray<NumberingLevel>(Enumerable.Range(0, 9).Select(level => NumberLevel(level) with { Text = $"%{level + 1})" })),
+        },
+        _ => new AbstractNumbering
+        {
+            Id = id,
+            MultiLevelType = "multilevel",
+            Levels = new EquatableArray<NumberingLevel>(Enumerable.Range(0, 9).Select(level => new NumberingLevel
+            {
+                Level = level,
+                Start = 1,
+                Format = NumberFormat.Decimal,
+                Text = string.Concat(Enumerable.Range(1, level + 1).Select(number => $"%{number}.")),
+                IndentLeft = (21.6 * (level + 1)) + (level * 7.2),
+                FirstLineIndent = -(21.6 + (level * 7.2)),
+            })),
+        },
+    };
+
     /// <summary>The kind of list a definition is (bullets when its first level is a bullet).</summary>
     public static ListKind KindOf(AbstractNumbering definition) =>
         definition.LevelAt(0)?.Format == NumberFormat.Bullet ? ListKind.Bullet : ListKind.Numbered;

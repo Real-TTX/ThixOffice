@@ -540,6 +540,14 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   (w:framePr in UnknownXml), `Bookmarks/AddBookmark/DeleteBookmark/BookmarkNameProblem`; `SetHyperlink(…, anchor)`; UI `InsertCommands`,
   `Dialogs/BookmarkDialog`.
 
+### Start extras (sort, borders, multi-level lists, keys)
+
+- `EditingSession.Home.cs`: `Sort(SortKind, descending, column)` (paragraphs or table rows via `TableEdits.TableModel`), `SetParagraphBorders`,
+  `SetParagraphShading`, `SetPageBorders` (`SectionProperties.PageBorders` read from w:pgBorders, kept/replaced in UnknownXml; drawn by
+  `DisplayListBuilder`), `ApplyMultilevelList(style)` (`BuiltInLists.CreateMultilevel`), `CurrentListLevel`, `ToggleSmallCaps`,
+  `ToggleDoubleUnderline`, `ToggleSpaceBefore`, `ChangeHangingIndent`, `ResetParagraphFormatting`. UI: `HomeCommands`, `Dialogs/HomeDialogs`
+  (`SortDialog`, `BordersDialog` with tabs Rahmen | Seitenrand | Schattierung).
+
 ### Formatvorlagen
 
 - Session (`EditingSession.Styles.cs`): `GalleryStyles` (`BuiltInStyles.GalleryOrder` + the document's quick styles), `PaneStyles`,

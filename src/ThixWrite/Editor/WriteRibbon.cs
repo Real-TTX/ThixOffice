@@ -128,6 +128,21 @@ public static class WriteCommandIds
     public const string StyleNew = "write.style.new";
     public const string StyleModify = "write.style.modify";
     public const string StylesPane = "write.stylesPane";
+    public const string Sort = "write.sort";
+    public const string Borders = "write.borders"; // menu; entries write.borders.<bottom|top|box|none>
+    public const string BordersDialog = "write.bordersDialog";
+    public const string ParagraphShading = "write.paragraphShading"; // value: #rrggbb or empty
+    public const string PageBorders = "write.pageBorders";
+    public const string Multilevel = "write.multilevel"; // menu; entries write.multilevel.<outline|parenthesis|bullets>
+    public const string ListLevel = "write.listLevel"; // entries write.listLevel.<1..9>
+    public const string KeySmallCaps = "write.key.smallCaps";
+    public const string KeyDoubleUnderline = "write.key.doubleUnderline";
+    public const string KeySuperscript = "write.key.superscript";
+    public const string KeySubscript = "write.key.subscript";
+    public const string KeySpaceBefore = "write.key.spaceBefore";
+    public const string KeyHanging = "write.key.hanging";
+    public const string KeyUnhang = "write.key.unhang";
+    public const string KeyResetParagraph = "write.key.resetParagraph";
     public const string CoverPage = "write.coverPage"; // menu; entries write.coverPage.<band|sidebar|frame>
     public const string BlankPage = "write.blankPage";
     public const string DropCap = "write.dropCap"; // menu; entries write.dropCap.<none|drop>
@@ -324,6 +339,13 @@ public static class WriteRibbon
                         Toggle(WriteCommandIds.Numbering, size: MatRibbonSize.Small),
                         Button(WriteCommandIds.DecreaseIndent, MatRibbonSize.Small),
                         Button(WriteCommandIds.IncreaseIndent, MatRibbonSize.Small),
+                        new MatRibbonMenuButton(WriteCommandIds.Multilevel, "", null,
+                        [
+                            .. HomeCommands.MultilevelChoices.Select(choice => Button($"{WriteCommandIds.Multilevel}.{choice.Id}")),
+                            new MatRibbonSeparator("multilevel-separator"),
+                            .. Enumerable.Range(1, 9).Select(level => Toggle($"{WriteCommandIds.ListLevel}.{level}", "listLevel")),
+                        ]) { Size = MatRibbonSize.Small },
+                        Button(WriteCommandIds.Sort, MatRibbonSize.Small),
                         Toggle(WriteCommandIds.ShowMarks, size: MatRibbonSize.Small)),
                     new MatRibbonRow("paragraph-row-2",
                         Toggle(WriteCommandIds.AlignLeft, "align", MatRibbonSize.Small),
@@ -331,7 +353,14 @@ public static class WriteRibbon
                         Toggle(WriteCommandIds.AlignRight, "align", MatRibbonSize.Small),
                         Toggle(WriteCommandIds.Justify, "align", MatRibbonSize.Small),
                         new MatRibbonMenuButton(WriteCommandIds.LineSpacing, "", null,
-                            [.. WriteCommands.LineSpacings.Select(spacing => Toggle(WriteCommands.LineSpacingId(spacing), "lineSpacing"))]) { Size = MatRibbonSize.Small }))),
+                            [.. WriteCommands.LineSpacings.Select(spacing => Toggle(WriteCommands.LineSpacingId(spacing), "lineSpacing"))]) { Size = MatRibbonSize.Small },
+                        ColorPicker(WriteCommandIds.ParagraphShading, DocumentPalette.FontColors(theme), "Keine Farbe"),
+                        new MatRibbonMenuButton(WriteCommandIds.Borders, "", null,
+                        [
+                            .. HomeCommands.BorderChoices.Select(choice => Button($"{WriteCommandIds.Borders}.{choice.Id}")),
+                            new MatRibbonSeparator("borders-separator"),
+                            Button(WriteCommandIds.BordersDialog),
+                        ]) { Size = MatRibbonSize.Small }))),
             new MatRibbonGroup("styles", "Formatvorlagen") { Icon = "template", ShrinkOrder = 5 }.Add(
                 StylesGallery(styles)),
             new MatRibbonGroup("editing", "Bearbeiten") { Icon = "search", ShrinkOrder = 2 }.Add(
@@ -381,7 +410,8 @@ public static class WriteRibbon
     private static MatRibbonTab DesignTab(Theme theme) =>
         new MatRibbonTab("design", "Entwurf").Add(
             new MatRibbonGroup("page-background", "Seitenhintergrund") { Icon = "palette" }.Add(
-                ColorPicker(WriteCommandIds.PageColor, DocumentPalette.FontColors(theme), "Keine Farbe")));
+                ColorPicker(WriteCommandIds.PageColor, DocumentPalette.FontColors(theme), "Keine Farbe"),
+                Button(WriteCommandIds.PageBorders, MatRibbonSize.Large)));
 
     private static MatRibbonTab LayoutTab() =>
         new MatRibbonTab("layout", "Layout").Add(
