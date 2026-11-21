@@ -13,9 +13,9 @@ Eine Office-Suite aus einzelnen Anwendungen, die Windows-Nutzer sofort bedienen 
 | Word | **ThixWrite** | docx / odt | 1 |
 | Excel | **ThixCalc** | xlsx / ods, csv | 2 |
 | PowerPoint | **ThixShow** | pptx / odp | 3 |
-| Outlook | ThixMail | – | später |
-| Contacts | ThixContacts | vCard, CardDAV | später |
-| Calendar | ThixCalendar (existiert als eigenes Repo) | iCalendar, CalDAV | später, Fragen offen |
+| Outlook | ThixMail | IMAP/SMTP, eml | 5 (Phase 7) |
+| Contacts | ThixContacts | vCard, CSV (CardDAV später) | 4 (Phase 7) |
+| Calendar | ThixCalendar (existiert als eigenes Repo) | iCalendar | bleibt eigenständig, in ThixMail eingebettet (Phase 7) |
 | Access | ThixData | SQL | später |
 
 ## 2. Entscheidungen (mit Matthias am 2026-11-18 getroffen)
@@ -36,7 +36,7 @@ Noch offen (wird zum jeweiligen Zeitpunkt entschieden, blockiert jetzt nichts):
   Browser oder eigene Razor-Pages-Editoren auf demselben Core. Deshalb gilt ab sofort: Dokumentmodell,
   Befehle, Layout-Berechnung und Formel-Engine liegen UI-frei im Core; die Avalonia-Controls sind
   nur Darstellung und Eingabe. So bleiben beide Wege offen.
-- **Kalender/Mail/Kontakte/Data**: eigene Planungsrunde.
+- **Data**: eigene Planungsrunde. Mail/Kontakte/Kalender: entschieden, siehe Phase 7.
 
 ## 3. Was aus den bestehenden Thix-Apps übernommen wird
 
@@ -641,8 +641,57 @@ Rundreise-Tests gegen LibreOffice-Dateien, Druckqualität, Barrierefreiheit, Eng
 Write/Calc/Show im Browser, an die Desktop-Apps angelehnt, auf demselben Core, Dateien im Drive.
 Technikentscheidung zu Beginn der Phase (siehe 2).
 
+### Phase 7 – ThixContacts und ThixMail (Outlooks Platz)
+
+Entscheidungen (Matthias, 2026-11-20): drei Apps mit gemeinsamer Datenbasis – **ThixMail**, **ThixContacts** und das
+bestehende **ThixCalendar** (eigenes Repo, bleibt eigenständig). **ThixMail bettet Kalender und Kontakte als Ansichten ein,
+gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMTP**. ThixMail hat nichts mit MatMail zu tun
+(nichts daraus verwenden, nicht hineinsehen); wie überall nichts aus MatOffice.
+
+**Architektur**
+
+- Beide Apps leben in diesem Repo auf der gemeinsamen Hülle (`OfficeApplication`, Menüband, Backstage, Suche, Setup, Update,
+  ThixCloud-Anmeldung, Rechtschreibprüfung). Sie sind keine Dokument-Apps: ein Hauptfenster je App, kein „Datei › Öffnen“.
+  Dafür bekommt die Hülle eine zweite Betriebsart (`OfficeAppDefinition.Kind = Workspace`): ein Fenster, Backstage nur mit
+  Konten/Einstellungen/Info, Einzelinstanz holt das Fenster nach vorn, optional im Infobereich weiterlaufen.
+- UI-freie Kerne wie bisher: `ThixContacts.Core`, `ThixMail.Core` (Modell, Dienste als statische Business-Klassen, Speicher,
+  Sync); Avalonia zeigt nur an. Was beide brauchen (Personen, Adressen, der Sync-Client, der lokale Speicher), liegt in
+  `ThixOffice.Pim` (UI-frei), die gemeinsamen Ansichten (Personenkarte, Kalenderraster) in `ThixOffice.Pim.Desktop`.
+- **Sync = der allgemeine Sync von MatCloud** (Sammlungen von Elementen, letzter Schreiber gewinnt nach `UpdatedAt`,
+  Löschungen als Grabsteine) – derselbe, den ThixCalendar benutzt. Lokal eine SQLite-Datei je App und Konto
+  (`Microsoft.Data.Sqlite`, MIT) als Offline-Bestand; ohne ThixCloud arbeiten die Apps rein lokal.
+- **MatCloud (Vertrag 1.5.0):** App-Ids `contacts` und `mail`; neues Modul `MatCloud.Apps.Contacts` (Web-App `/Contacts`,
+  Sammlungen `contacts`, `contact-groups`; vCard-Import/-Export; CardDAV später). Gast-Freigaben wie beim Drive: `mail` darf
+  die Kontakte und den Kalender seines Kontos lesen und schreiben, `calendar` darf Kontakte lesen (Teilnehmer). Mail-Inhalte
+  liegen NICHT in der Cloud: über den Sync wandern nur Konten-Einstellungen ohne Kennwort, Signaturen, Regeln und Kategorien.
+- **Mail-Technik:** MailKit/MimeKit (MIT) für IMAP (IDLE, CONDSTORE/QRESYNC wo vorhanden), SMTP und MIME. Kennwörter nur im
+  `TokenStore` (DPAPI / Schlüsselbund). Offline-Cache: Kopfzeilen und Text in SQLite (Volltextsuche FTS5), Anhänge als Dateien
+  bei Bedarf. HTML-Mails werden mit dem eigenen Renderer gezeigt (HtmlImport → ThixWrite-Layout, nur lesend): keine WebView,
+  keine Skripte, externe Bilder erst nach Klick „Bilder laden“. Verfassen mit ThixWrites Editor (HTML + Textalternative).
+- **Kalender in ThixMail:** Ansichten Tag | Arbeitswoche | Woche | Monat auf den Sammlungen des Kalender-Moduls
+  (eigene Kalender über den allgemeinen Sync, Konten im Modus „Über MatCloud“ über `/api/v1/calendar/…`). Ohne
+  ThixCloud-Anmeldung zeigt der Bereich die Anmeldung statt eines leeren Kalenders. Einladungen (text/calendar) in Mails:
+  Zusagen / Vorläufig / Absagen schreibt den Termin und antwortet per iMIP.
+- Akzente: ThixMail `#0F6CBD`, ThixContacts `#8764B8`. Logos in denselben Detailstufen wie die anderen Apps.
+
+**Abschnitte**
+
+- **7a – Kontakte:** MatCloud-Modul + Vertrag 1.5.0; `ThixOffice.Pim`; Hülle im Workspace-Modus; ThixContacts (Liste mit
+  Suche/Filter/Sortierung, Personenkarte, Bearbeiten, Gruppen, Favoriten, Dubletten zusammenführen, vCard 3.0/4.0 und CSV
+  Import/Export, Foto, Drucken); CI `thixcontacts.yml`; Launcher-Eintrag.
+- **7b – ThixMail Grundgerüst:** Konten (IMAP/SMTP mit Autokonfiguration über SRV/autoconfig und Verbindungstest),
+  Ordnerbaum + gemeinsamer Posteingang, Nachrichtenliste (Unterhaltungen, gelesen/markiert/Kategorien, Suche), Lesebereich,
+  Verfassen/Antworten/Weiterleiten mit Anhängen und Signaturen, Entwürfe, Postausgang offline, Benachrichtigungen, Menüband
+  wie im deutschen Outlook (Start, Senden/Empfangen, Ordner, Ansicht), Tastenkürzel, Drucken/PDF, .eml öffnen/speichern.
+- **7c – Einbettung:** Umschaltleiste Mail | Kalender | Personen; Kalender- und Kontaktansichten über den Sync;
+  Adressvorschläge aus den Kontakten; Einladungen; „Kontakt aus Absender anlegen“.
+- **7d – Ausbau:** Regeln, Abwesenheitsnotiz (Sieve, wo vorhanden), S/MIME und OpenPGP, geteilte Postfächer, Microsoft 365
+  und Gmail über OAuth (braucht App-Registrierungen), CardDAV/CalDAV, Import aus pst/mbox.
+
+Offen: Umfang von 7d und ob ThixContacts später auch ohne ThixCloud per CardDAV synchronisiert.
+
 ### Später
-ThixMail, ThixContacts, ThixCalendar-Integration, ThixData.
+ThixData.
 
 ## 6. Launcher
 
