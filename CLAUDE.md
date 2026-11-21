@@ -6,7 +6,8 @@ The binding plan is `docs/PLAN.md` (German): architecture (section 4), phases (s
 ## What ThixOffice is
 
 An office suite of **separate native desktop apps** for **Windows and macOS** in one repository: **ThixWrite** (Word's place,
-accent `#185ABD`), **ThixCalc** (Excel, `#107C41`) and **ThixShow** (PowerPoint, `#C43E1C`). Windows users find everything
+accent `#185ABD`), **ThixCalc** (Excel, `#107C41`), **ThixShow** (PowerPoint, `#C43E1C`) and **ThixContacts** (Outlook's people, `#8764B8`; a
+workspace app, see "The workspace mode"; ThixMail `#0F6CBD` follows). Windows users find everything
 where Word/Excel/PowerPoint have it (ribbon, "Datei" = backstage, quick access, "Was möchten Sie tun?"), and the apps look like
 the other Thix apps (MatDesktop, "Apple-like"). Office formats are the default (docx/xlsx/pptx), ODF follows per app. Each
 document is a window of its own, all in one process per app (like Word). UI language German (the Office apps say **"Sie"**,
@@ -20,7 +21,8 @@ tab stops, the dialogs Schriftart/Absatz, format painter, symbols, HTML paste (s
 **Phase 2, ThixOffice side (done):** ThixCloud sign-in and documents in ThixDrive for every app (section "ThixCloud and ThixDrive").
 **Phase 3, first release of ThixCalc (done):** the grid, cell and formula editing, sheet tabs, the German Excel ribbon and dialogs,
 find/replace, clipboard, page setup, printing and PDF, CSV/xlsx/xlsm flows (section "ThixCalc's editor"; gaps in docs/PLAN.md).
-**ThixCalc charts (done):** the shared `ThixOffice.Charts` (section "Charts"). **Phase 4, first version of ThixShow (done):** the
+**ThixCalc charts (done):** the shared `ThixOffice.Charts` (section "Charts"). **Phase 7a, ThixContacts (done, first version):** the
+workspace mode of the shell, `ThixOffice.Pim` (+ `.Desktop`), ThixContacts on MatCloud's general sync (contract 1.5.0; section "ThixContacts"). **Phase 4, first version of ThixShow (done):** the
 slide editor, thumbnails, sorter, show and presenter view, the German PowerPoint ribbon, printing/PDF (section "ThixShow's editor";
 gaps in docs/PLAN.md). **ThixWrite 1c (done):** footnotes/endnotes, table of contents, comments, spelling (shared seam), Referenzen/Überprüfen, odt. **ODF for ThixCalc (done):** .ods read and write (section "OpenDocument Spreadsheet"). Next the
 launcher entry and ThixWrite 1d (gaps in docs/PLAN.md). Do not build ribbon controls of
@@ -82,7 +84,7 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
                            COM), GdiPrinterSystem (winspool/gdi32 LibraryImport: pages as Skia pixel bands ≤ 600 dpi via
                            StretchDIBits, paper/orientation per page in the DEVMODE, copies collated here); MacOS/ CupsPrinterSystem
                            (libcups: destinations; the pages as PDF to cupsPrintFile with the media option)
-  MatCloud/                COPY of the MatCloud contract 1.4.0 (never edited here): CloudContract, MatCloudClient(.Drive), CloudHandoff
+  MatCloud/                COPY of the MatCloud contract 1.5.0 (never edited here): CloudContract, MatCloudClient(.Drive), CloudHandoff
 src/ThixOffice.Desktop     shared Avalonia UI
   MatDesktop/              COPY of MatDesign's desktop toolkit 0.3.1 (never edited here)
   OfficeApplication        base Application of every app: Definition, CreateDocument, CreateEditor, AddCommands, CreateRibbon(window),
@@ -143,6 +145,23 @@ src/ThixOffice.Text.Skia   SkiaTextMeasurer (SkiaSharp typefaces + HarfBuzz shap
                            of every display item incl. the vector layer (any SKCanvas: editor surfaces, bitmaps via RenderPng, PDF,
                            print bands; .Vectors.cs: paths, paints, strokes, shadows), PdfExport (SKDocument.CreatePdf);
                            SkiaSharp 2.88.9 / HarfBuzzSharp 8.3.1.1 = Avalonia's
+src/ThixOffice.Pim         (no UI) what ThixContacts and ThixMail share: Model/Person (+ PersonGroup: key, the contract's ContactData, time), Rules/
+                           (PersonRules, PersonDuplicates, VCard 2.1/3.0/4.0, PersonCsv – a port of MatCloud's module Contacts, held to it by the shared
+                           fixtures tests/ThixOffice.Pim.Tests/Fixtures/Contacts = MatCloud's tests/MatCloud.Tests/Fixtures/Contacts), Store/ (PimStore:
+                           SQLite via Microsoft.Data.Sqlite, migrations by PRAGMA user_version, items of the general sync with IsDirty/Revision, pictures,
+                           cursor; PimStores: one file per app and account, the local one copied into a new account's; PersonItems: persons/groups <-> items,
+                           Suggest for address fields), Sync/PimSync (push dirty, pull above the cursor, last writer wins, tombstones, pictures up/down,
+                           the loop with long polls, retry 5 s to 5 min, 401 stops, 403 waits; ?app= for a granted app)
+src/ThixOffice.Pim.Desktop shared views: PersonAvatar (picture or initials), PersonCard (the read-only card), AddressField (suggestions, for ThixMail)
+src/ThixContacts.Core      (no UI) ThixContactsApp.Definition (Kind Workspace, .vcf as import type, cloud id contacts), ContactsSession (persons and
+                           groups in memory, Query: search/filter/sort, every change one undoable step, groups, categories, duplicates, merge, import with
+                           pictures, export), ContactsDocument (the workspace document: the session of the account's store, PimSync while signed in,
+                           ReconnectAsync on sign-in/out, StopSyncAsync when the cloud ends it), ContactFiles (read an import file, write an export atomically)
+src/ThixContacts           App (workspace: CreateDocument = the store, ImportFilesAsync for handed-over .vcf), Editor/ (ContactsEditor: folder pane, list
+                           with search + letters, PersonCard; ContactsCommands + ContactsCommandIds, ContactsRibbon, CategoryColors (Mat tokens by name),
+                           SampleContacts), Dialogs/ (ContactDialog: tabs Allgemein | Details | Notizen with value rows; Category, Members, Duplicates,
+                           Merge, CsvMapping, Export), Pages/ (ContactsPrintPage: Liste | Karten through OfficePrintPage, ContactsTransferPage, ContactsPdfPage;
+                           PrintPalette = the one file with literal colours), ContactsSelfTest
 src/ThixCalc.Core          (no UI) ThixCalcApp.Definition (.xlsx default, .xlsm, .csv, .ods; cloud id calc); Model/ (Workbook, Worksheet,
                            sparse CellStore, styles, rows/columns, merges, names, validation, conditional formats, PageSetup), Calculation/
                            + Formulas/ (parser, dependency graph, spills; FormulaTokens: the editor's scanner – colours, point mode, F4,
@@ -216,6 +235,11 @@ tests/ThixOffice.Desktop.Tests  headless with a small TestOfficeApp: shell, sear
 tests/ThixCalc.Core.Tests       model, engine, functions, formats, editing, layout, pagination, selection layer
 tests/ThixCalc.Tests            the real ThixCalc headless through keys/text/pointer: modes, point mode, F4, suggestions, autofill, resize,
                                 headers, wheel, 100k rows, tabs, ribbon state, find, clipboard, dialogs, printing, CSV, snapshots, colours
+tests/ThixOffice.Pim.Tests      the shared vCard/CSV fixtures, the store (migrations), the sync against SampleCloud (two computers, conflicts,
+                                tombstones, offline, 401/403, pictures, the loop, local to account), suggestions
+tests/ThixContacts.Core.Tests   the session on a real store (rules, undo, groups, merge, import/export, 50,000 contacts), the document's sync
+tests/ThixContacts.Tests        the real ThixContacts headless: workspace shell, Strg+N/F2/Entf/Strg+E, folders, letters, groups, import (vcf, CSV mapping),
+                                export, print, sync and sign-out, merge, snapshots, no literal colours
 tests/ThixShow.Core.Tests       colours against documented Office values, preset formulas against known paths, inheritance, rendering
                                 (fixed-width measurer, Skia pixels, PDF), pptx round trips + validator + preservation fixtures, editing
                                 (random undo/redo), show engine timelines and frames, 200-slide performance
@@ -267,6 +291,32 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - **Status bar**: `OfficeStatusBar` (MatStatusBar): `SetItem(id, text, side)`, `RemoveItem`, `TextOf`; its zoom and
   `OfficeEditor.Zoom` (10–500 %, `OnZoomChanged`, `ZoomChanged`) follow each other; commands `view.zoomIn/zoomOut/zoom100`.
 - The ribbon's collapsed state is remembered (`AppSettings.IsRibbonCollapsed`, `MatRibbon.CollapsedChanged`).
+
+## The workspace mode of the shell (ThixContacts, later ThixMail)
+
+- `OfficeAppDefinition.Kind = OfficeAppKind.Workspace` (`IsWorkspace`): ONE main window over the app's own data. `OfficeApplication.NewDocumentWindow`
+  brings it to the front (made once); a second start / Finder activation does the same and hands files to `ImportFilesAsync(window, files)` (the
+  app's `DocumentTypes` are IMPORT types: ThixContacts' .vcf); no recovery, no recent list. `OfficeWindow` registers no Neu/Öffnen/Speichern/Speichern
+  unter/Als PDF/Schließen commands, the quick access is Rückgängig/Wiederholen, the recovery timer is off, the backstage has only the app's
+  `CreateBackstageItems` + Einstellungen (no tab Speichern) + Info (`OfficeBackstage.Open(null)` falls back to Einstellungen). The document is a
+  workspace document (never dirty, no file: ThixContacts' `ContactsDocument`); undo/redo are its. Snapshots: `main`, `main-ribbon-collapsed`, the
+  app's scenes, `backstage-settings`, `-settings-updates`, `-about`, `-settings-cloud` (`OfficeApplication.CreateWorkspaceSample` fills the sample
+  through `FillSampleDocument`); the self test checks the main window, the app's backstage pages and the settings instead of the document flows.
+  `IFileDialogs.PickFileAsync` (default: null) picks a file to import. Document apps behave exactly as before.
+
+## ThixContacts
+
+- **Data:** the contacts are items of MatCloud's general sync (app `contacts`, collections `contacts` / `contact-groups`, data = the contract's
+  `ContactData` / `ContactGroupData`; unknown fields kept in `Extra`), kept locally in `PimStore` (`contacts-local.db` or `contacts-<account>.db`
+  in the data folder) and synced by `PimSync` while signed in. Pictures: by SHA-256 id, `POST/GET /api/v1/contacts/photos`. The rules are
+  `ThixOffice.Pim.Rules` (identical results to MatCloud's module: the shared fixtures; change both and both fixture copies together).
+- **Grants (contract 1.5.0):** ThixMail (`mail`) reads and writes the contacts and the calendar of its account (`?app=contacts` / `?app=calendar` on the
+  general sync; `MatCloudClient.GetChangesAsync(app, …)`), ThixCalendar reads the contacts. ThixMail uses `new PimSync(store, client, app: CloudApps.Contacts)`.
+- **UI:** `ContactsEditor` (folder pane | list + letters | card), the commands of `ContactsCommands` (Outlook's keys), `ContactsRibbon` (Start | Ordner
+  | Ansicht), dialogs in `Dialogs/`. Category colours = Mat tokens by the name's hash (`CategoryColors`). Snapshot scenes `dialog-edit`, `main-groups`,
+  `dialog-merge`, `dialog-import-mapping`, `main-signed-out`, `backstage-print`; `THIXCONTACTS_SCREENSHOTS=<folder> dotnet test tests/ThixContacts.Tests`.
+- **The cloud ends the sign-in (401):** the sync stops, the account's contacts stay in the window (message bar "Anmelden"); a new sign-in of the same
+  account restarts the sync on the same store; another account opens its store. After a restart while signed out the local store shows (gap).
 
 ## ThixCloud and ThixDrive (shared by every app)
 
@@ -845,7 +895,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   `src/MatDesktop`, version in `matdesktop.version`): never edit it here; copy again with `node tools/matdesktop-copy.js
   <path>/ThixOffice/src/ThixOffice.Desktop` in MatDesign. `RulesTests.The_copy_of_MatDesktop_is_unchanged` holds it. Icons the
   sprite lacks go into MatDesign's sprite first.
-- **MatCloud contract** (`src/ThixOffice.Core/MatCloud/`) is a COPY (1.4.0): run `node tools/contract-copy.js <path>/ThixOffice/src/ThixOffice.Core`
+- **MatCloud contract** (`src/ThixOffice.Core/MatCloud/`) is a COPY (1.5.0): run `node tools/contract-copy.js <path>/ThixOffice/src/ThixOffice.Core`
   inside MatCloud; `CopyTests` holds it.
 - **Integration run against a real MatCloud:** a THROWAWAY instance only (own compose project name, own port, tmpfs for /data –
   `uid=1654` – and for the database, `MATCLOUD_ADMIN_USER/PASSWORD` create the account; never the ports 4950–4952 or the volumes of a
@@ -894,7 +944,11 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   entry has DisplayVersion / InstallLocation / DisplayIcon / UninstallString / QuietUninstallString; macOS `CFBundleGetInfoString`
   is "<App> <version>"; `branding/launcher/<id>.png` is the catalog logo.
 
-## Adding an app to the suite (ThixCalc, ThixShow)
+## Adding an app to the suite (ThixCalc, ThixShow, ThixContacts)
+
+A workspace app (one window over its own data, like ThixContacts) sets `Kind = OfficeAppKind.Workspace`, returns its workspace document from
+`CreateDocument` (never dirty), puts its pages into `CreateBackstageItems`, imports handed-over files in `ImportFilesAsync`, and lists its import
+types as `DocumentTypes` (installer.json offers them unticked).
 
 1. `src/ThixCalc.Core`: `ThixCalcApp.Definition` (id `thixcalc`, name `ThixCalc`, accent, description, document types – formats
    without a reader are `Planned`; `UntitledBaseName` "Mappe", `BlankDocumentLabel` "Leere Arbeitsmappe", `CloudAppId = CloudApps.Calc` for ThixDrive) and the document model

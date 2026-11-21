@@ -11,6 +11,7 @@ und die aussieht wie die übrigen Thix-Apps.
 | **ThixWrite** | Word | docx, odt, txt | Meilenstein 1c; Dokumente in ThixDrive (Phase 2) |
 | **ThixCalc** | Excel | xlsx, xlsm, ods, csv | erstes Release (Phase 3), Arbeitsmappen in ThixDrive |
 | **ThixShow** | PowerPoint | pptx, pptm, später odp | erste Version (Phase 4), Präsentationen in ThixDrive |
+| **ThixContacts** | Outlook › Personen | vCard (Import/Export), CSV | erste Version (Phase 7a), Kontakte über die ThixCloud abgeglichen |
 
 Der Plan steht in [docs/PLAN.md](docs/PLAN.md).
 
@@ -275,6 +276,36 @@ Wie im deutschen PowerPoint (unter macOS ⌘ statt Strg):
 | Präsentation: Leertaste, →, ↓, Bild ab, N / Rücktaste, ←, ↑, Bild auf, P | Weiter / Zurück |
 | Präsentation: Nummer + Eingabe, Pos1, Ende, B, W, Esc | Zu Folie, erste/letzte Folie, schwarzer/weißer Bildschirm, beenden |
 
+## ThixContacts – erste Version
+
+ThixContacts ist das Adressbuch der Suite – Outlooks „Personen“ als eigenes Programm. Anders als Word, Excel und PowerPoint hat es keine
+Dokumente: **ein Hauptfenster** über Ihren Kontakten (ein zweiter Start holt es nach vorn), gespeichert sofort und ohne Nachfrage in einem lokalen
+Bestand (SQLite). Es arbeitet **ohne ThixCloud** nur auf diesem Computer; nach der Anmeldung unter *Datei › Einstellungen › Cloud* gleicht es die
+Kontakte mit der ThixCloud ab – auf allen Geräten gleich, auch im Browser (MatCloud `/Contacts`) und später in ThixMail.
+
+- **Liste** wie in Outlook: links der Ordnerbereich (Alle Kontakte, Favoriten, Kontaktgruppen, Kategorien mit Farben), in der Mitte die Liste mit
+  Suche (Name, E-Mail, Telefon – auch nur die Ziffern –, Firma, Kategorie), Sortierung nach Vorname, Nachname oder Firma und dem Alphabet zum
+  Springen; flüssig auch mit 50.000 Kontakten. Rechts die Kontaktkarte mit Bearbeiten, E-Mail und Favorit.
+- **Kontakt** in den Registerkarten Allgemein | Details | Notizen: Anrede, Vor-, weitere Vor- und Nachname, Namenszusatz, Anzeigename, Firma,
+  Abteilung, Position; beliebig viele E-Mail-Adressen, Telefonnummern, Adressen und Webadressen mit ihrer Art (Geschäftlich, Privat, Mobil …),
+  Geburtstag und Jahrestag (auch ohne Jahr), Spitzname, Kategorien, Gruppen, Bild aus einer Datei. Falsche Werte stehen an ihrem Feld.
+- **Kontaktgruppen** anlegen, umbenennen, löschen, Mitglieder hinzufügen und entfernen, „E-Mail an Gruppe“.
+- **Dubletten** finden (derselbe Name, eine gleiche E-Mail-Adresse oder Telefonnummer – auch +49 und 0049 gleich) und **Feld für Feld
+  zusammenführen**; Gruppen folgen dem behaltenen Kontakt.
+- **Importieren** aus vCard 2.1/3.0/4.0 (Outlook, Apple, Google, mit Bildern) und CSV (Spalten werden zugeordnet – deutsche und englische
+  Outlook-Spaltennamen werden erkannt), auf Wunsch ohne Dubletten; ein Doppelklick auf eine .vcf importiert sie. **Exportieren** als vCard 3.0, 4.0
+  oder CSV – alle oder die ausgewählten. **Drucken** als Liste oder Karten, **Als PDF speichern**.
+- **Löschen** mit „Rückgängig“ in der Meldungsleiste; jede Änderung lässt sich rückgängig machen.
+
+Tastenkürzel: Strg+N neuer Kontakt · Strg+Umschalt+L neue Kontaktgruppe · F2 oder Eingabe bearbeiten · Entf löschen · Strg+E / Strg+F suchen ·
+Strg+A alle · F9 jetzt synchronisieren · Strg+P drucken · Strg+Z / Strg+Y rückgängig / wiederholen (auf dem Mac ⌘ statt Strg).
+
+![ThixContacts hell](docs/images/thixcontacts-main-light.png)
+
+| | |
+| --- | --- |
+| ![Kontakt bearbeiten](docs/images/thixcontacts-dialog-edit-light.png) | ![Kontaktgruppe](docs/images/thixcontacts-main-groups-dark.png) |
+| ![Zusammenführen](docs/images/thixcontacts-dialog-merge-light.png) | ![CSV-Spalten zuordnen](docs/images/thixcontacts-dialog-import-mapping-light.png) |
 ## ThixCloud und ThixDrive
 
 ThixWrite, ThixCalc und ThixShow öffnen und speichern Dokumente direkt in **ThixDrive**, der Ablage Ihrer **ThixCloud** (MatCloud) – auf
@@ -333,7 +364,7 @@ Wie im deutschen Word, wo sie nicht kollidieren (unter macOS ⌘ statt Strg, ⌥
 
 ## Installieren
 
-- **Windows:** `ThixWriteSetup.exe`, `ThixCalcSetup.exe` bzw. `ThixShowSetup.exe` aus dem Release-Kanal herunterladen und starten. Das Programm installiert sich selbst für
+- **Windows:** `ThixWriteSetup.exe`, `ThixCalcSetup.exe`, `ThixShowSetup.exe` bzw. `ThixContactsSetup.exe` aus dem Release-Kanal herunterladen und starten. Das Programm installiert sich selbst für
   das eigene Benutzerkonto (ohne Administratorrechte) nach `%LocalAppData%\Programs\ThixWrite`, trägt sich im Startmenü, unter
   „Installierte Apps“ und unter „Öffnen mit“ für alle Dateitypen ein, die es öffnet (ThixWrite: .docx, .odt, .txt). Das Setup
   fragt, ob eine Desktop-Verknüpfung entstehen soll, ob Updates automatisch installiert werden und welche Dateitypen die App
@@ -374,6 +405,7 @@ dotnet test ThixOffice.slnx
 dotnet run --project src/ThixWrite                      # mit THIXWRITE_DATA_DIR=<Ordner> eine eigene Instanz
 dotnet run --project src/ThixWrite -- --snapshot shots  # alle Fenster hell und dunkel als PNG
 dotnet run --project src/ThixCalc                       # ThixCalc (THIXCALC_DATA_DIR=<Ordner>, --snapshot <Ordner> ebenso)
+dotnet run --project src/ThixContacts                   # ThixContacts (THIXCONTACTS_DATA_DIR=<Ordner>, --snapshot <Ordner> ebenso)
 dotnet run --project src/ThixShow                       # ThixShow (THIXSHOW_DATA_DIR=<Ordner>, --snapshot <Ordner> ebenso)
 cd tools && npm install && node render-icons.js         # Logos rendern
 ```

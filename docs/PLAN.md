@@ -593,6 +593,11 @@ fehlen (Name → wo, Platzhalter heute):
 | `next-footnote` | ThixWrite: Referenzen › Nächste Fußnote (`write.nextNote`) | `arrow-down` |
 | `navigation-pane` | ThixWrite: Ansicht › Navigationsbereich (`write.navigationPane`) | `sidebar` |
 | `wrap-inline`, `wrap-square`, `wrap-top-bottom`, `wrap-behind`, `wrap-front` | ThixWrite: Bildformat › Textumbruch (`write.picture.wrap.*`) | `type`, `wrap-text`, `row-insert`, `layers` |
+| `merge` | ThixContacts: Zusammenführen (`contacts.merge`), Dubletten | `layers` |
+| `duplicates` | ThixContacts: Dubletten suchen (`contacts.duplicates`) | `copy` |
+| `contact-card`, `address-book` | ThixContacts: Neuer Kontakt, Ordner „Alle Kontakte“ | `plus`, `users` |
+| `group-add` | ThixContacts: Neue Kontaktgruppe, Mitglieder hinzufügen | `users`, `plus` |
+| `sync` | ThixContacts: Jetzt synchronisieren (`contacts.sync`) | `refresh` |
 
 ### Phase 4 – ThixShow
 Folienmodell, Layouts/Designs, Formen/Text/Bilder/Tabellen, Folienübersicht, Übergänge/Animationen,
@@ -687,6 +692,22 @@ gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMT
   Adressvorschläge aus den Kontakten; Einladungen; „Kontakt aus Absender anlegen“.
 - **7d – Ausbau:** Regeln, Abwesenheitsnotiz (Sieve, wo vorhanden), S/MIME und OpenPGP, geteilte Postfächer, Microsoft 365
   und Gmail über OAuth (braucht App-Registrierungen), CardDAV/CalDAV, Import aus pst/mbox.
+
+- **Stand (2026-11-21): 7a erledigt – erste Version von ThixContacts (dev) und das MatCloud-Modul Contacts (MatCloud `feature/contacts` und
+  `dev`, Vertrag 1.5.0).** MatCloud: App-Ids `contacts` und `mail` mit Logos und Akzenten, das Kontaktmodell im Vertrag (`ContactData`,
+  `ContactGroupData`, Bild-Routen), `?app=` im allgemeinen Sync, Lese-Freigaben (`ICloudModule.ReadingGuestApps`): `mail` liest und schreibt Kontakte
+  und Kalender, `calendar` liest Kontakte; Modul `MatCloud.Apps.Contacts` (Liste mit Suche/Filter/Sortierung/Alphabet, Kontakt in Registerkarten,
+  Gruppen, Dubletten zusammenführen, vCard 2.1/3.0/4.0 und CSV mit Spaltenzuordnung, Bilder unter /data/contacts, Live-Liste). ThixOffice:
+  Workspace-Modus der Hülle, `ThixOffice.Pim` (Personen, Regeln = die des Moduls, gehalten durch gemeinsame Fixtures, SQLite-Bestand mit Migrationen,
+  Sync-Client mit Offline-Warteschlange und Wiederholung), `ThixOffice.Pim.Desktop` (Avatar, Personenkarte, Adressfeld), ThixContacts
+  (Ordnerbereich, Liste mit Suche/Sortierung/Alphabet für 50.000 Kontakte, Karte, Bearbeiten in Registerkarten, Gruppen, Kategorien mit Farben aus den
+  Tokens, Favoriten, Dubletten, Import/Export, Drucken als Liste oder Karten, PDF, Löschen mit Rückgängig, Menüband Start | Ordner | Ansicht,
+  Selbsttest, Bilder), CI `thixcontacts.yml`. Der Launcher-Eintrag folgt nach dem Release.
+  **Lücken gegenüber Outlooks Personen:** keine Visitenkarten-Ansicht als Raster (Liste + Karte), kein Verlauf/„Aktivitäten“, keine verknüpften
+  Kontakte, keine Kontaktordner neben „Meine Kontakte“ (nur Gruppen und Kategorien), Kategoriefarben aus dem Namen statt frei wählbar, Bilder werden
+  weder zugeschnitten noch verkleinert, CSV kennt je Art eine Spalte (eine zweite Privatadresse geht verloren), kein Seriendruck/keine Etiketten, kein
+  CardDAV/Exchange; nach einer von der Cloud beendeten Anmeldung zeigt ein Neustart bis zur neuen Anmeldung die Kontakte dieses Computers;
+  „E-Mail an Gruppe“ nutzt bis ThixMail `mailto:`.
 
 Offen: Umfang von 7d und ob ThixContacts später auch ohne ThixCloud per CardDAV synchronisiert.
 

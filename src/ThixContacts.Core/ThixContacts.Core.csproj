@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ThixContacts without UI: its app definition (a workspace app: one main window, vCard as its import type, cloud id contacts) and the
+    contacts' session – the persons and groups of the local store (ThixOffice.Pim) in memory for a list of 50,000, the query (search,
+    filter, sort, letters), every change undoable, groups, categories, duplicates and merging, pictures, import and export (vCard, CSV),
+    the sync with ThixCloud while signed in.
+  -->
+  <PropertyGroup>
+    <RootNamespace>ThixContacts.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixContacts" />
+    <InternalsVisibleTo Include="ThixContacts.Tests" />
+    <InternalsVisibleTo Include="ThixContacts.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThixOffice.Core\ThixOffice.Core.csproj" />
+    <ProjectReference Include="..\ThixOffice.Pim\ThixOffice.Pim.csproj" />
+  </ItemGroup>
+
+</Project>

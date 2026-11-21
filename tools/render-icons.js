@@ -8,7 +8,7 @@
 //   48+ px     logo-icon.svg            the tile with the whole glyph
 //   document   logo-document.svg        the file icon of the app's documents (logo-document-small.svg at 16-32 px if present)
 //   full       logo-full.svg            icon + word mark "Thix<Suffix>"
-// Output per app <id> (thixwrite, thixcalc, thixshow):
+// Output per app <id> (thixwrite, thixcalc, thixshow, thixcontacts, thixmail):
 //   branding/<id>/png/<id>-<size>.png            app icon 16 … 1024
 //   branding/<id>/png/<id>-mac-<size>.png        macOS app icon with Apple's margin (scripts/package-macos.sh builds the .icns)
 //   branding/<id>/png/<id>-document-<size>.png   document icon 16 … 1024 (and -document-mac-<size> for the .icns)
@@ -29,6 +29,8 @@ const apps = [
   { id: 'thixwrite', name: 'ThixWrite' },
   { id: 'thixcalc', name: 'ThixCalc' },
   { id: 'thixshow', name: 'ThixShow' },
+  { id: 'thixcontacts', name: 'ThixContacts' },
+  { id: 'thixmail', name: 'ThixMail' },
 ].filter((app) => fs.existsSync(path.join(branding, app.id, 'logo-icon.svg')));
 
 const read = (app, name) => {

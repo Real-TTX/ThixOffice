@@ -1,6 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/ThixCalc/ThixCalc.csproj" />
+    <Project Path="src/ThixContacts/ThixContacts.csproj" />
+    <Project Path="src/ThixContacts.Core/ThixContacts.Core.csproj" />
+    <Project Path="src/ThixOffice.Pim/ThixOffice.Pim.csproj" />
+    <Project Path="src/ThixOffice.Pim.Desktop/ThixOffice.Pim.Desktop.csproj" />
     <Project Path="src/ThixOffice.Core/ThixOffice.Core.csproj" />
     <Project Path="src/ThixOffice.Desktop/ThixOffice.Desktop.csproj" />
     <Project Path="src/ThixOffice.Text/ThixOffice.Text.csproj" />
@@ -15,6 +19,9 @@
   <Folder Name="/tests/">
     <Project Path="tests/ThixCalc.Core.Tests/ThixCalc.Core.Tests.csproj" />
     <Project Path="tests/ThixCalc.Tests/ThixCalc.Tests.csproj" />
+    <Project Path="tests/ThixContacts.Core.Tests/ThixContacts.Core.Tests.csproj" />
+    <Project Path="tests/ThixContacts.Tests/ThixContacts.Tests.csproj" />
+    <Project Path="tests/ThixOffice.Pim.Tests/ThixOffice.Pim.Tests.csproj" />
     <Project Path="tests/ThixOffice.Core.Tests/ThixOffice.Core.Tests.csproj" />
     <Project Path="tests/ThixOffice.Desktop.Tests/ThixOffice.Desktop.Tests.csproj" />
     <Project Path="tests/ThixShow.Core.Tests/ThixShow.Core.Tests.csproj" />

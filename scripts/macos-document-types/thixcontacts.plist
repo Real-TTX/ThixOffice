@@ -1,0 +1,24 @@
+  <!--
+    ThixContacts' document types for Finder (CFBundleDocumentTypes, put into Info.plist by package-macos.sh). ThixContacts is a workspace app: it
+    opens no documents, it IMPORTS vCards – a .vcf opened with it goes into its contacts. "Viewer" and "Alternate": it appears under "Öffnen mit"
+    and never takes .vcf from the Contacts app of macOS silently (it becomes the default only when the user chooses it). @DOCUMENT_ICON@ is the
+    document icon of the bundle.
+  -->
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>vCard-Datei</string>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>vcf</string></array>
+      <key>LSItemContentTypes</key>
+      <array><string>public.vcard</string></array>
+      <key>CFBundleTypeMIMETypes</key>
+      <array><string>text/vcard</string></array>
+      <key>CFBundleTypeIconFile</key>
+      <string>@DOCUMENT_ICON@</string>
+      <key>CFBundleTypeRole</key>
+      <string>Viewer</string>
+      <key>LSHandlerRank</key>
+      <string>Alternate</string>
+    </dict>
+  </array>

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!--
+    The file icon of saved messages (.eml) for ThixMail (Explorer, Finder): a white page with a folded corner, the grey lines of
+    a message, and ThixMail's tile as a badge at the bottom right (a white envelope), set off by a white ring.
+  -->
+  <defs>
+    <linearGradient id="badge" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#4C9BE8"/>
+      <stop offset="1" stop-color="#0A5AA3"/>
+    </linearGradient>
+  </defs>
+  <path d="M52 14h100l62 62v150a16 16 0 0 1-16 16H52a16 16 0 0 1-16-16V30a16 16 0 0 1 16-16z" fill="#FFFFFF" stroke="#CDD5E1" stroke-width="5"/>
+  <path d="M152 14v46a16 16 0 0 0 16 16h46z" fill="#CFE2F5"/>
+  <g fill="#D3DCE8">
+    <rect x="60" y="64" width="72" height="10" rx="5"/>
+    <rect x="60" y="92" width="120" height="10" rx="5"/>
+    <rect x="60" y="112" width="104" height="10" rx="5"/>
+    <rect x="60" y="132" width="40" height="10" rx="5"/>
+  </g>
+  <rect x="118" y="130" width="122" height="122" rx="30" fill="url(#badge)" stroke="#FFFFFF" stroke-width="8"/>
+  <rect x="142" y="164" width="74" height="54" rx="8" fill="#FFFFFF"/>
+  <path d="M146 170l33 24 33-24" fill="none" stroke="#0A5AA3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

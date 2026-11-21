@@ -1,0 +1,92 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ThixContacts, the spreadsheet of ThixOffice (Avalonia, Windows and macOS). The shell, the backstage, the setup and the
+    updates come from ThixOffice.Desktop; the workbook model, the formula engine, the formats and the grid layout from
+    ThixContacts.Core; this project adds the grid control, the formula bar, the sheet tabs, ThixContacts's commands, ribbon,
+    dialogs and its assets.
+    Windows: published self-contained single-file for win-x64; that ThixContacts.exe is its own setup (InstallService).
+    macOS:   published self-contained for osx-arm64 / osx-x64 and packed into ThixContacts.app (scripts/package-macos.sh).
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>ThixContacts</AssemblyName>
+    <RootNamespace>ThixContacts</RootNamespace>
+    <ApplicationIcon>Assets\thixcontacts.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyTitle>ThixContacts</AssemblyTitle>
+    <AvaloniaVersion>11.3.22</AvaloniaVersion>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <SupportedOSPlatformVersion Condition="'$(OS)' == 'Windows_NT'">10.0.17763.0</SupportedOSPlatformVersion>
+    <TieredPGO>true</TieredPGO>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <DebugType>none</DebugType>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
+    <PublishReadyToRun>true</PublishReadyToRun>
+  </PropertyGroup>
+
+  <!--
+    Windows: one file, which is also the setup. Trimmed in "partial" mode like ThixWrite: only libraries that declare
+    themselves trimmable lose what ThixContacts never calls; the own assemblies stay whole. The self test proves it.
+  -->
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('win-'))">
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <!-- macOS: the files go into ThixContacts.app/Contents/MacOS (scripts/package-macos.sh). -->
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('osx-'))">
+    <UseAppHost>true</UseAppHost>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixContacts.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Skia" Version="$(AvaloniaVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThixOffice.Core\ThixOffice.Core.csproj" />
+    <ProjectReference Include="..\ThixOffice.Desktop\ThixOffice.Desktop.csproj" />
+    <ProjectReference Include="..\ThixContacts.Core\ThixContacts.Core.csproj" />
+    <ProjectReference Include="..\ThixOffice.Pim\ThixOffice.Pim.csproj" />
+    <ProjectReference Include="..\ThixOffice.Pim.Desktop\ThixOffice.Pim.Desktop.csproj" />
+    <ProjectReference Include="..\ThixOffice.Text\ThixOffice.Text.csproj" />
+    <ProjectReference Include="..\ThixOffice.Text.Skia\ThixOffice.Text.Skia.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <TrimmerRootAssembly Include="ThixOffice.Core" />
+    <TrimmerRootAssembly Include="ThixOffice.Desktop" />
+    <TrimmerRootAssembly Include="ThixContacts.Core" />
+    <TrimmerRootAssembly Include="ThixOffice.Text" />
+    <TrimmerRootAssembly Include="ThixOffice.Pim" />
+    <TrimmerRootAssembly Include="ThixOffice.Pim.Desktop" />
+    <TrimmerRootAssembly Include="ThixOffice.Text.Skia" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\thixcontacts.ico" />
+    <AvaloniaResource Include="Assets\logo-256.png" />
+    <AvaloniaResource Include="Assets\logo-64.png" />
+    <!-- The icon of the document types (InstallService writes it next to the program; the file types point to it). -->
+    <EmbeddedResource Include="Assets\thixcontacts-document.ico" LogicalName="thixcontacts-document.ico" />
+    <!-- What the setup offers (SETUP-08): read by InstallerOptions, published in the update manifest as "installer" by CI. -->
+    <EmbeddedResource Include="installer.json" LogicalName="installer.json" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,70 @@
+name: thixcontacts
+# Builds, tests and packages ThixContacts (the reusable _desktop.yml does the work). Its run number is ThixContacts' build
+# number, so ThixContacts counts on its own. A cancelled macOS job (no runner) is repeated by a new run. Manually: Actions › thixcontacts › Run workflow.
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'src/ThixContacts/**'
+      - 'src/ThixContacts.Core/**'
+      - 'src/ThixOffice.Pim/**'
+      - 'src/ThixOffice.Pim.Desktop/**'
+      - 'src/ThixOffice.Core/**'
+      - 'src/ThixOffice.Desktop/**'
+      - 'src/ThixOffice.Text/**'
+      - 'src/ThixOffice.Text.Skia/**'
+      - 'tests/ThixOffice.Core.Tests/**'
+      - 'tests/ThixOffice.Desktop.Tests/**'
+      - 'tests/ThixOffice.Pim.Tests/**'
+      - 'tests/ThixContacts.Core.Tests/**'
+      - 'tests/ThixContacts.Tests/**'
+      - 'branding/thixcontacts/**'
+      - 'scripts/package-macos.sh'
+      - 'scripts/macos-document-types/thixcontacts.plist'
+      - 'Directory.Build.props'
+      - 'global.json'
+      - '.github/workflows/_desktop.yml'
+      - '.github/workflows/thixcontacts.yml'
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'src/ThixContacts/**'
+      - 'src/ThixContacts.Core/**'
+      - 'src/ThixOffice.Pim/**'
+      - 'src/ThixOffice.Pim.Desktop/**'
+      - 'src/ThixOffice.Core/**'
+      - 'src/ThixOffice.Desktop/**'
+      - 'src/ThixOffice.Text/**'
+      - 'src/ThixOffice.Text.Skia/**'
+      - 'tests/ThixOffice.Core.Tests/**'
+      - 'tests/ThixOffice.Desktop.Tests/**'
+      - 'tests/ThixOffice.Pim.Tests/**'
+      - 'tests/ThixContacts.Core.Tests/**'
+      - 'tests/ThixContacts.Tests/**'
+      - 'branding/thixcontacts/**'
+      - 'scripts/package-macos.sh'
+      - 'scripts/macos-document-types/thixcontacts.plist'
+      - 'Directory.Build.props'
+      - 'global.json'
+      - '.github/workflows/_desktop.yml'
+      - '.github/workflows/thixcontacts.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One run per branch at a time: two quick pushes must not publish ThixContacts to the same channel at once (queued, not cancelled).
+concurrency:
+  group: thixcontacts-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  desktop:
+    uses: ./.github/workflows/_desktop.yml
+    with:
+      app-name: ThixContacts
+      app-id: thixcontacts
+      project: src/ThixContacts/ThixContacts.csproj
+      tests: tests/ThixOffice.Core.Tests/ThixOffice.Core.Tests.csproj tests/ThixOffice.Desktop.Tests/ThixOffice.Desktop.Tests.csproj tests/ThixOffice.Pim.Tests/ThixOffice.Pim.Tests.csproj tests/ThixContacts.Core.Tests/ThixContacts.Core.Tests.csproj tests/ThixContacts.Tests/ThixContacts.Tests.csproj
+      build-number: ${{ github.run_number }}

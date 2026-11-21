@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 256 256">
+  <!--
+    ThixMail small icon (16-32 px): full-bleed tile in ThixMail's blue and a white envelope with a strong dark flap. No letter
+    and no @: too fine at this size.
+  -->
+  <rect x="0" y="0" width="256" height="256" rx="60" fill="#0F6CBD"/>
+  <rect x="28" y="60" width="200" height="140" rx="20" fill="#FFFFFF"/>
+  <path d="M36 72l92 64 92-64" fill="none" stroke="#0A4F8F" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

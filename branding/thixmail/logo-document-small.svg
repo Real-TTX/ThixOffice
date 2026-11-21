@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 256 256">
+  <!--
+    Message file icon, small (16-32 px): a page with a strong outline and a large badge in ThixMail's blue with a white envelope.
+  -->
+  <path d="M50 12h100l66 66v148a18 18 0 0 1-18 18H50a18 18 0 0 1-18-18V30a18 18 0 0 1 18-18z" fill="#FFFFFF" stroke="#8C98AA" stroke-width="12"/>
+  <path d="M150 12v50a16 16 0 0 0 16 16h50z" fill="#8C98AA"/>
+  <rect x="96" y="100" width="152" height="152" rx="36" fill="#0F6CBD"/>
+  <rect x="124" y="144" width="96" height="70" rx="10" fill="#FFFFFF"/>
+  <path d="M130 152l42 30 42-30" fill="none" stroke="#0A4F8F" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

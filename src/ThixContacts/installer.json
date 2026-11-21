@@ -1,0 +1,7 @@
+{
+  "desktopShortcut": { "default": false },
+  "automaticUpdates": { "default": true },
+  "fileTypes": [
+    { "extension": ".vcf", "name": "vCard-Datei (Kontakte importieren)", "default": false }
+  ]
+}

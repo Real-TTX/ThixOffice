@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!--
+    The file icon of vCards (.vcf) for ThixContacts (Explorer, Finder): a white page with a folded corner, a person and the grey
+    lines of a card, and ThixContacts' tile as a badge at the bottom right (a white person), set off by a white ring.
+  -->
+  <defs>
+    <linearGradient id="badge" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#A98AD6"/>
+      <stop offset="1" stop-color="#6A4A9A"/>
+    </linearGradient>
+  </defs>
+  <path d="M52 14h100l62 62v150a16 16 0 0 1-16 16H52a16 16 0 0 1-16-16V30a16 16 0 0 1 16-16z" fill="#FFFFFF" stroke="#CDD5E1" stroke-width="5"/>
+  <path d="M152 14v46a16 16 0 0 0 16 16h46z" fill="#E2D8F0"/>
+  <circle cx="84" cy="84" r="16" fill="#D3DCE8"/>
+  <path d="M60 126a24 20 0 0 1 48 0z" fill="#D3DCE8"/>
+  <g fill="#D3DCE8">
+    <rect x="60" y="142" width="80" height="10" rx="5"/>
+    <rect x="60" y="162" width="56" height="10" rx="5"/>
+  </g>
+  <rect x="118" y="130" width="122" height="122" rx="30" fill="url(#badge)" stroke="#FFFFFF" stroke-width="8"/>
+  <circle cx="179" cy="176" r="18" fill="#FFFFFF"/>
+  <path d="M147 226a32 28 0 0 1 64 0z" fill="#FFFFFF"/>
+</svg>
