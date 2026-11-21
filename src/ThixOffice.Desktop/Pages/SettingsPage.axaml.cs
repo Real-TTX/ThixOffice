@@ -64,7 +64,7 @@ public partial class SettingsPage : UserControl
     /// <summary>Shows a tab (<see cref="GeneralTab"/> …).</summary>
     public void ShowTab(string tab) => Tabs.SelectedItem = tab switch
     {
-        SaveTab => SaveTabItem,
+        SaveTab when SaveTabItem.IsVisible => SaveTabItem,
         CloudTab when CloudTabItem.IsVisible => CloudTabItem,
         UpdatesTab => UpdatesTabItem,
         AdvancedTab => AdvancedTabItem,
@@ -101,6 +101,8 @@ public partial class SettingsPage : UserControl
         AutostartRow.IsVisible = AutostartService.IsSupported;
         AutostartSwitch.IsChecked = AutostartService.IsSupported && AutostartService.IsEnabled();
 
+        // a workspace app saves nothing in files: no tab "Speichern"
+        SaveTabItem.IsVisible = !definition.IsWorkspace;
         SaveFolderBox.Text = SettingsService.SaveFolder;
         ResetFolderButton.IsVisible = settings.DefaultSaveFolder.Length > 0;
         BackupSwitch.IsChecked = settings.KeepBackupCopy;

@@ -29,6 +29,11 @@ public interface IFileDialogs
 
     /// <summary>A picture to insert (PNG, JPEG, GIF, BMP); null: cancelled. The default asks nothing (test doubles).</summary>
     Task<string?> PickPictureAsync(Window owner, string startFolder) => Task.FromResult<string?>(null);
+
+    /// <summary>
+    /// One file of the given types to read (an import: "vCard oder CSV", [".vcf", ".csv"]); null: cancelled. The default asks nothing (test doubles).
+    /// </summary>
+    Task<string?> PickFileAsync(Window owner, string title, string startFolder, string typeDescription, IReadOnlyList<string> extensions) => Task.FromResult<string?>(null);
 }
 
 /// <summary>The dialogs of Windows and macOS through Avalonia's storage provider; the filters are the app's supported types.</summary>
@@ -106,6 +111,18 @@ public sealed class SystemFileDialogs : IFileDialogs
     }
 
     /// <summary>One filter per type ("Textdokument (*.txt)").</summary>
+    public async Task<string?> PickFileAsync(Window owner, string title, string startFolder, string typeDescription, IReadOnlyList<string> extensions)
+    {
+        var files = await owner.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = title,
+            AllowMultiple = false,
+            SuggestedStartLocation = await Folder(owner, startFolder),
+            FileTypeFilter = [new FilePickerFileType(typeDescription) { Patterns = [.. extensions.Select(extension => "*" + extension)] }, FilePickerFileTypes.All],
+        });
+        return files.Select(file => file.TryGetLocalPath()).OfType<string>().FirstOrDefault();
+    }
+
     private static List<FilePickerFileType> Filters(IEnumerable<ThixOffice.Core.Models.DocumentType> types) =>
         [.. types.Select(type => new FilePickerFileType(type.Description)
         {

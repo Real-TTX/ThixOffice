@@ -102,7 +102,8 @@ public sealed class OfficeWindow : MatWindow
         RibbonDefinition = app.CreateRibbon(this);
         Ribbon.CustomContent = item => app.CreateRibbonContent(this, item);
         QuickAccess = new MatQuickAccess(RibbonDefinition);
-        foreach (var id in new[] { CommonCommandIds.Save, CommonCommandIds.Undo, CommonCommandIds.Redo })
+        // a workspace has nothing to save: its quick access is undo and redo
+        foreach (var id in IsWorkspace ? new[] { CommonCommandIds.Undo, CommonCommandIds.Redo } : [CommonCommandIds.Save, CommonCommandIds.Undo, CommonCommandIds.Redo])
         {
             QuickAccess.Add(OfficeRibbonItems.Button(id)); // items of their own, sharing the id (and the state) with the ribbon's
         }
@@ -639,7 +640,21 @@ public sealed class OfficeWindow : MatWindow
         return center;
     }
 
+    /// <summary>A window of a workspace app (ThixContacts): no document flows, no recovery, a backstage of the app's pages, Einstellungen and Info.</summary>
+    public static bool IsWorkspace => AppInfo.Definition.IsWorkspace;
+
     private void RegisterCommonCommands()
+    {
+        if (!IsWorkspace)
+        {
+            RegisterDocumentCommands();
+        }
+
+        RegisterWindowCommands();
+    }
+
+    /// <summary>Neu, Öffnen, Speichern, Speichern unter, Als PDF speichern, Schließen: the flows of a document app.</summary>
+    private void RegisterDocumentCommands()
     {
         Commands.Add(new OfficeCommand(CommonCommandIds.New, "Neu", () => _app.NewDocumentWindow())
         {
@@ -684,6 +699,11 @@ public sealed class OfficeWindow : MatWindow
             Description = "Schließt dieses Dokument und sein Fenster.",
             Keywords = ["beenden", "fenster"],
         });
+    }
+
+    /// <summary>The commands every window has: undo, the backstage, the ribbon, zoom, settings, info, updates.</summary>
+    private void RegisterWindowCommands()
+    {
         Commands.Add(new OfficeCommand(CommonCommandIds.Undo, "Rückgängig", () => Document.Undo())
         {
             Icon = "undo",
@@ -754,7 +774,14 @@ public sealed class OfficeWindow : MatWindow
         });
     }
 
-    private BackstageContent BuildBackstage() => new(
+    private BackstageContent BuildBackstage() => IsWorkspace
+        ? new(
+            [.. _app.CreateBackstageItems(this)],
+            new BackstageItem(SettingsPageId, "Einstellungen", "settings", () => new SettingsPage(this)),
+            new BackstageItem(AboutPageId, "Info", "info", () => new AboutPage(this)),
+            AppInfo.Version,
+            AppInfo.Channel)
+        : new(
         [
             new BackstageItem(NewPageId, "Neu", "file-new", () => new NewPage(this), Shortcut: ShortcutOf(CommonCommandIds.New)),
             new BackstageItem(OpenPageId, "Öffnen", "folder-open", () => new OpenPage(this), Shortcut: ShortcutOf(CommonCommandIds.Open)),
@@ -1027,6 +1054,11 @@ public sealed class OfficeWindow : MatWindow
     private void ConfigureRecoveryTimer(AppSettings settings)
     {
         _recoveryTimer.Stop();
+        if (IsWorkspace)
+        {
+            return; // the app keeps its data itself, there is no document to recover
+        }
+
         if (settings.AutoRecoverMinutes > 0)
         {
             _recoveryTimer.Interval = TimeSpan.FromMinutes(settings.AutoRecoverMinutes);

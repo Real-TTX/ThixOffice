@@ -55,7 +55,12 @@ public static class OfficeSelfTest
 
         var folder = Path.Combine(AppPaths.DataDirectory, "Dokumente");
         Directory.CreateDirectory(folder);
-        await Check("documents (atomic save, open, recent list, recovery)", () =>
+        if (!definition.IsWorkspace)
+        {
+            await CheckDocumentsAsync();
+        }
+
+        async Task CheckDocumentsAsync() => await Check("documents (atomic save, open, recent list, recovery)", () =>
         {
             var document = app.CreateDocument(DocumentService.NextUntitledName());
             var path = DocumentService.SaveAs(document, Path.Combine(folder, "Selbsttest"));
@@ -129,19 +134,23 @@ public static class OfficeSelfTest
             });
         }
 
-        await Check("document window, backstage, search", async () =>
+        await Check(definition.IsWorkspace ? "main window, backstage, search" : "document window, backstage, search", async () =>
         {
             var window = app.NewDocumentWindow();
             await Settle();
-            Ensure(window.Commands.Search("speichern").Any(command => command.Id == Core.Commands.CommonCommandIds.Save), "the command search does not find Speichern");
-            foreach (var page in new[] { OfficeWindow.NewPageId, OfficeWindow.OpenPageId, OfficeWindow.SaveAsPageId, OfficeWindow.SettingsPageId, OfficeWindow.AboutPageId })
+            var searched = definition.IsWorkspace ? Core.Commands.CommonCommandIds.Settings : Core.Commands.CommonCommandIds.Save;
+            Ensure(window.Commands.Search(definition.IsWorkspace ? "einstellungen" : "speichern").Any(command => command.Id == searched), "the command search does not find its command");
+            string[] pages = definition.IsWorkspace
+                ? [.. window.Backstage.PageIds, OfficeWindow.SettingsPageId, OfficeWindow.AboutPageId]
+                : [OfficeWindow.NewPageId, OfficeWindow.OpenPageId, OfficeWindow.SaveAsPageId, OfficeWindow.SettingsPageId, OfficeWindow.AboutPageId];
+            foreach (var page in pages.Distinct())
             {
                 window.Backstage.Open(page);
                 await Settle();
                 Ensure(window.Backstage.CurrentPageId == page && window.Backstage.CurrentPage is not null, $"backstage page {page} not shown");
             }
 
-            foreach (var tab in new[] { Pages.SettingsPage.SaveTab, Pages.SettingsPage.UpdatesTab, Pages.SettingsPage.AdvancedTab })
+            foreach (var tab in definition.IsWorkspace ? [Pages.SettingsPage.UpdatesTab, Pages.SettingsPage.AdvancedTab] : new[] { Pages.SettingsPage.SaveTab, Pages.SettingsPage.UpdatesTab, Pages.SettingsPage.AdvancedTab })
             {
                 window.ShowSettings(tab);
                 await Settle();
@@ -159,10 +168,11 @@ public static class OfficeSelfTest
             ProblemReports.WriteHang(TimeSpan.FromSeconds(9), withDump: false);
             Dialogs.ProblemReportDialog.ShowUnseen()?.Close();
             window.Close();
+            await Settle();
             return "";
         });
 
-        if (definition.HasCloud)
+        if (definition.HasCloud && !definition.IsWorkspace)
         {
             await Check("ThixCloud and ThixDrive (a cloud in memory)", () => CheckCloudAsync(app, folder));
         }

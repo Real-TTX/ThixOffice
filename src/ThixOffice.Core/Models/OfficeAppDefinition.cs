@@ -16,6 +16,16 @@ public enum DocumentTypeSupport
     Export = 2,
 }
 
+/// <summary>The two kinds of apps of the suite (<see cref="OfficeAppDefinition.Kind"/>).</summary>
+public enum OfficeAppKind
+{
+    /// <summary>A window per document, the file flows of Word (ThixWrite, ThixCalc, ThixShow).</summary>
+    Document = 0,
+
+    /// <summary>One main window over the app's own data, kept by the app itself (ThixContacts, later ThixMail).</summary>
+    Workspace = 1,
+}
+
 /// <summary>
 /// A document type of an app. <see cref="ProgId"/> is the Windows class of the type (<c>ThixWrite.Document</c>), the
 /// <see cref="Description"/> the name Explorer and Finder show. <see cref="IsDefault"/> is the app's own format (new
@@ -101,6 +111,16 @@ public sealed record OfficeAppDefinition
 
     /// <summary>The tile of "Neu" that makes an empty document ("Leeres Dokument", "Leere Arbeitsmappe").</summary>
     public string BlankDocumentLabel { get; init; } = "Leeres Dokument";
+
+    /// <summary>
+    /// What the app is: a <see cref="OfficeAppKind.Document"/> app (ThixWrite: a window per document, Neu/Öffnen/Speichern, recent list, recovery,
+    /// the unsaved prompt) or a <see cref="OfficeAppKind.Workspace"/> app (ThixContacts: ONE main window over the app's own data, no document flows;
+    /// <see cref="DocumentTypes"/> are then the types it IMPORTS – a file opened with it is handed to the app, never "opened").
+    /// </summary>
+    public OfficeAppKind Kind { get; init; } = OfficeAppKind.Document;
+
+    /// <summary>True for a <see cref="OfficeAppKind.Workspace"/> app.</summary>
+    public bool IsWorkspace => Kind == OfficeAppKind.Workspace;
 
     /// <summary>
     /// The app's id at ThixCloud (MatCloud's <c>CloudApps</c>: <c>write</c>, <c>calc</c>, <c>show</c>): its devices sign in as this app and

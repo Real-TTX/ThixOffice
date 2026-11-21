@@ -103,6 +103,22 @@ public abstract class OfficeApplication : Application
         return document;
     }
 
+    /// <summary>
+    /// A workspace app's snapshots: its document (the workspace) filled with the sample data (<see cref="FillSampleDocument"/>; a workspace app
+    /// keeps the sample in its store in the temporary data folder of the snapshot).
+    /// </summary>
+    public OfficeDocument CreateWorkspaceSample()
+    {
+        var document = CreateDocument(DocumentService.NextUntitledName());
+        FillSampleDocument(document);
+        return document;
+    }
+
+    /// <summary>After the snapshots of a workspace app: the app lets go of its sample (closes its store).</summary>
+    public virtual void EndWorkspaceSample(OfficeWindow window)
+    {
+    }
+
     /// <summary>The file name (without extension) the sample document is shown under in the snapshots.</summary>
     public virtual string SampleDocumentName => "Projektbericht";
 
@@ -202,8 +218,29 @@ public abstract class OfficeApplication : Application
 
     // ===== Documents and windows =====
 
-    /// <summary>"Neu": a new, empty document in a window of its own.</summary>
-    public OfficeWindow NewDocumentWindow() => ShowWindow(CreateDocument(DocumentService.NextUntitledName()));
+    /// <summary>
+    /// "Neu": a new, empty document in a window of its own. A workspace app (<see cref="OfficeAppDefinition.IsWorkspace"/>) has ONE window: it
+    /// comes to the front (made when there is none yet).
+    /// </summary>
+    public OfficeWindow NewDocumentWindow()
+    {
+        if (Definition.IsWorkspace && _windows.FirstOrDefault() is { } main)
+        {
+            main.BringToFront();
+            return main;
+        }
+
+        return ShowWindow(CreateDocument(DocumentService.NextUntitledName()));
+    }
+
+    /// <summary>The one window of a workspace app (null while it is not shown), or the first document window.</summary>
+    public OfficeWindow? MainWindow => _windows.FirstOrDefault();
+
+    /// <summary>
+    /// A workspace app gets the files handed to it (a double click on a .vcf, "Öffnen mit", a second start): it imports them into its own data.
+    /// The default does nothing. Never called for a document app (it opens its files).
+    /// </summary>
+    public virtual Task ImportFilesAsync(OfficeWindow window, IReadOnlyList<string> files) => Task.CompletedTask;
 
     /// <summary>Shows <paramref name="document"/> in a new window.</summary>
     public OfficeWindow ShowWindow(OfficeDocument document)
@@ -354,6 +391,17 @@ public abstract class OfficeApplication : Application
             return;
         }
 
+        if (Definition.IsWorkspace)
+        {
+            var main = NewDocumentWindow();
+            if (files.Count > 0)
+            {
+                _ = ImportFilesAsync(main, files);
+            }
+
+            return;
+        }
+
         if (files.Count > 0)
         {
             _ = OpenFilesAsync(files);
@@ -482,14 +530,26 @@ public abstract class OfficeApplication : Application
         ApplyTheme(SettingsService.Get().Theme);
         SettingsService.Changed += (_, settings) => Ui.Post(() => ApplyTheme(settings.Theme));
 
-        var recovered = RecoverDocuments();
-        if (files.Count > 0)
+        if (Definition.IsWorkspace)
         {
-            _ = OpenFilesAsync(files);
+            // one main window over the app's own data; files the system handed over are imported into it
+            var main = NewDocumentWindow();
+            if (files.Count > 0)
+            {
+                Dispatcher.UIThread.Post(() => _ = ImportFilesAsync(main, files), DispatcherPriority.Background);
+            }
         }
-        else if (recovered == 0)
+        else
         {
-            NewDocumentWindow();
+            var recovered = RecoverDocuments();
+            if (files.Count > 0)
+            {
+                _ = OpenFilesAsync(files);
+            }
+            else if (recovered == 0)
+            {
+                NewDocumentWindow();
+            }
         }
 
         // Crashed or hung last time: say so, with the report.

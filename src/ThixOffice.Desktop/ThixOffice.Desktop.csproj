@@ -28,6 +28,9 @@
     <InternalsVisibleTo Include="ThixCalc.Tests" />
     <InternalsVisibleTo Include="ThixShow" />
     <InternalsVisibleTo Include="ThixShow.Tests" />
+    <InternalsVisibleTo Include="ThixOffice.Pim.Desktop" />
+    <InternalsVisibleTo Include="ThixContacts" />
+    <InternalsVisibleTo Include="ThixContacts.Tests" />
   </ItemGroup>
 
   <ItemGroup>

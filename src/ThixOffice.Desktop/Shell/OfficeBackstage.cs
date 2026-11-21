@@ -98,7 +98,7 @@ public sealed class OfficeBackstage
             return;
         }
 
-        var entry = pageId is not null && _entries.TryGetValue(pageId, out var found) ? found : _entries[_content.Items.First(item => item.IsPage).Id];
+        var entry = pageId is not null && _entries.TryGetValue(pageId, out var found) ? found : _entries[(_content.Items.FirstOrDefault(item => item.IsPage) ?? _content.Settings).Id];
         if (!entry.Item.IsPage)
         {
             Close();
@@ -111,6 +111,9 @@ public sealed class OfficeBackstage
     }
 
     public void Close() => View.Close();
+
+    /// <summary>The ids of the pages of the upper part (the app's; a workspace app has only its own), for the self test.</summary>
+    public IReadOnlyList<string> PageIds => _content?.Items.Where(item => item.IsPage).Select(item => item.Id).ToList() ?? [];
 
     private Entry Add(BackstageItem item, bool lower)
     {

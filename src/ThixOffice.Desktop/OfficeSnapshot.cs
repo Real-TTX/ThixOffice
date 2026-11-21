@@ -42,6 +42,9 @@ public static class OfficeSnapshot
         "backstage-settings-save", "backstage-settings-updates", "backstage-about", "dialog-save-changes",
     ];
 
+    /// <summary>The window pictures of a workspace app (no document flows: no Neu/Öffnen/Speichern unter, no tab Speichern, no unsaved question).</summary>
+    private static readonly string[] WorkspacePictures = ["main", "main-ribbon-collapsed", "backstage-settings", "backstage-settings-updates", "backstage-about"];
+
     private static readonly string[] SetupPictures = ["setup-welcome", "setup-options", "setup-update", "setup-uninstall"];
 
     /// <summary>The pictures of ThixCloud and ThixDrive (an app with a cloud id): drawn against the sample cloud in memory.</summary>
@@ -51,13 +54,15 @@ public static class OfficeSnapshot
     ];
 
     /// <summary>Every file a snapshot writes, by app id: thixwrite-main-light.png …</summary>
-    public static IReadOnlyList<string> FileNames(string appId) => FileNames(appId, [], hasCloud: false);
+    public static IReadOnlyList<string> FileNames(string appId) => FileNames(appId, [], hasCloud: false, isWorkspace: false);
 
     /// <summary>Every file a snapshot of <paramref name="app"/> writes, its own scenes (<see cref="OfficeApplication.SnapshotScenes"/>) included.</summary>
-    public static IReadOnlyList<string> FileNames(OfficeApplication app) => FileNames(app.Definition.Id, app.SnapshotScenes, app.Definition.HasCloud);
+    public static IReadOnlyList<string> FileNames(OfficeApplication app) => FileNames(app.Definition.Id, app.SnapshotScenes, app.Definition.HasCloud, app.Definition.IsWorkspace);
 
-    private static IReadOnlyList<string> FileNames(string appId, IEnumerable<string> scenes, bool hasCloud) =>
-        [.. WindowPictures.Concat(scenes).Concat(hasCloud ? CloudPictures : []).Concat(SetupPictures).SelectMany(name => Themes.Select(theme => $"{appId}-{name}-{theme}.png"))];
+    private static IReadOnlyList<string> FileNames(string appId, IEnumerable<string> scenes, bool hasCloud, bool isWorkspace) =>
+        [.. (isWorkspace ? WorkspacePictures : WindowPictures).Concat(scenes)
+            .Concat(hasCloud ? isWorkspace ? ["backstage-settings-cloud"] : CloudPictures : [])
+            .Concat(SetupPictures).SelectMany(name => Themes.Select(theme => $"{appId}-{name}-{theme}.png"))];
 
     /// <summary>The command: sets Avalonia up headless, draws every picture into the folder, ends with 0 (all written) or 1.</summary>
     public static int Run<TApp>(string[] args)
@@ -135,6 +140,12 @@ public static class OfficeSnapshot
 
         void RenderWindow(OfficeApplication application, string target, string theme, SnapshotReport written)
         {
+            if (application.Definition.IsWorkspace)
+            {
+                RenderWorkspace(application, target, theme, written);
+                return;
+            }
+
             var window = application.ShowWindow(application.CreateSampleDocument(Path.Combine(Documents, application.SampleDocumentName + application.Definition.SaveType.Extension)));
             window.Width = 1180;
             window.Height = 760;
@@ -197,6 +208,65 @@ public static class OfficeSnapshot
             DocumentService.DiscardRecovery(window.Document);
             Settle(window);
         }
+    }
+
+    /// <summary>
+    /// The one window of a workspace app with its sample data (<see cref="OfficeApplication.CreateWorkspaceSample"/>): the window, collapsed
+    /// ribbon, the app's scenes, Einstellungen (Allgemein, Updates, and Cloud signed in at the sample cloud), Info.
+    /// </summary>
+    private static void RenderWorkspace(OfficeApplication app, string folder, string theme, SnapshotReport report)
+    {
+        var id = app.Definition.Id;
+        var window = app.ShowWindow(app.CreateWorkspaceSample());
+        window.Width = 1180;
+        window.Height = 760;
+        Settle(window, waitLonger: true);
+        Save(window, folder, $"{id}-main-{theme}.png", report);
+
+        window.Ribbon.IsCollapsed = true;
+        Settle(window);
+        Save(window, folder, $"{id}-main-ribbon-collapsed-{theme}.png", report);
+        window.Ribbon.IsCollapsed = false;
+        Settle(window);
+
+        foreach (var scene in app.SnapshotScenes)
+        {
+            var shown = app.ShowSnapshotScene(window, scene);
+            Settle(shown, waitLonger: true);
+            Save(shown, folder, $"{id}-{scene}-{theme}.png", report);
+            app.EndSnapshotScene(window, scene, shown);
+            Settle(window);
+        }
+
+        foreach (var (tab, name) in new[] { (SettingsPage.GeneralTab, "settings"), (SettingsPage.UpdatesTab, "settings-updates") })
+        {
+            window.ShowSettings(tab);
+            Settle(window);
+            Save(window, folder, $"{id}-backstage-{name}-{theme}.png", report);
+        }
+
+        window.Backstage.Open(OfficeWindow.AboutPageId);
+        (window.Backstage.CurrentPage as AboutPage)?.ShowMachine($"Microsoft Windows 10.0.26100 (win-x64), .NET 10.0.0", $@"C:\Users\Anna\AppData\Local\{app.Definition.Name}");
+        Settle(window);
+        Save(window, folder, $"{id}-backstage-about-{theme}.png", report);
+        window.Backstage.Close();
+
+        if (app.Definition.HasCloud)
+        {
+            SettingsService.UpdateCloud(_ => new CloudSettings { ServerUrl = SampleCloud.ServerUrl, UserName = SampleCloud.UserName, DeviceName = MachineName });
+            Wait(Task.Run(() => CloudService.ConnectAsync(SampleCloud.ServerUrl, SampleCloud.UserName, SampleCloud.Password, MachineName)));
+            window.ShowSettings(SettingsPage.CloudTab);
+            Settle(window, waitLonger: true);
+            Save(window, folder, $"{id}-backstage-settings-cloud-{theme}.png", report);
+            window.Backstage.Close();
+            Wait(Task.Run(CloudService.DisconnectAsync));
+            SettingsService.UpdateCloud(_ => new CloudSettings());
+            CloudService.ShowStatusForSnapshot(null);
+        }
+
+        app.EndWorkspaceSample(window);
+        window.CloseKeepingRecovery();
+        Settle(window);
     }
 
     /// <summary>
