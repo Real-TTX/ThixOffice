@@ -1,0 +1,111 @@
+{
+  "mapping": [
+    "prefix",
+    "given",
+    "middle",
+    "family",
+    "suffix",
+    "company",
+    "department",
+    "title",
+    "work-street",
+    "work-city",
+    "work-postal",
+    "work-country",
+    "phone-work",
+    "phone-mobile",
+    "birthday",
+    "categories",
+    "notes",
+    "email-1",
+    "",
+    "email-2",
+    "url"
+  ],
+  "contacts": [
+    {
+      "prefix": "",
+      "givenName": "Klaus",
+      "middleName": "",
+      "familyName": "Wagner",
+      "suffix": "",
+      "nickname": "",
+      "displayName": "",
+      "company": "Wagner & Söhne",
+      "department": "",
+      "jobTitle": "Inhaber",
+      "emails": [
+        {
+          "label": "other",
+          "value": "klaus@wagner.example"
+        }
+      ],
+      "phones": [
+        {
+          "label": "mobile",
+          "value": "0172 1112223"
+        },
+        {
+          "label": "work",
+          "value": "0221 4711"
+        }
+      ],
+      "addresses": [
+        {
+          "label": "work",
+          "street": "Am Markt 3",
+          "postalCode": "50667",
+          "city": "Köln",
+          "region": "",
+          "country": "Deutschland"
+        }
+      ],
+      "urls": [
+        {
+          "label": "work",
+          "value": "https://wagner.example"
+        }
+      ],
+      "birthday": "1965-12-24",
+      "anniversary": "",
+      "notes": "Mehrzeilige\nNotiz mit \"Zitat\"",
+      "photoId": "",
+      "categories": [
+        "Lieferant",
+        "Wichtig"
+      ],
+      "isFavorite": false
+    },
+    {
+      "prefix": "",
+      "givenName": "Lena",
+      "middleName": "",
+      "familyName": "Koch",
+      "suffix": "",
+      "nickname": "",
+      "displayName": "",
+      "company": "",
+      "department": "",
+      "jobTitle": "",
+      "emails": [
+        {
+          "label": "other",
+          "value": "lena.koch@example.de"
+        },
+        {
+          "label": "other",
+          "value": "lena@koch.example"
+        }
+      ],
+      "phones": [],
+      "addresses": [],
+      "urls": [],
+      "birthday": "",
+      "anniversary": "",
+      "notes": "",
+      "photoId": "",
+      "categories": [],
+      "isFavorite": false
+    }
+  ]
+}

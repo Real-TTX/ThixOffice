@@ -1,0 +1,5 @@
+﻿"Anrede";"Vorname";"Weitere Vornamen";"Nachname";"Suffix";"Firma";"Abteilung";"Position";"Straße geschäftlich";"Ort geschäftlich";"Postleitzahl geschäftlich";"Land/Region geschäftlich";"Telefon geschäftlich";"Mobiltelefon";"Geburtstag";"Kategorien";"Notizen";"E-Mail-Adresse";"E-Mail-Typ";"E-Mail 2: Adresse";"Webseite"
+"";"Klaus";"";"Wagner";"";"Wagner & Söhne";"";"Inhaber";"Am Markt 3";"Köln";"50667";"Deutschland";"0221 4711";"0172 1112223";"24.12.1965";"Lieferant;Wichtig";"Mehrzeilige
+Notiz mit ""Zitat""";"klaus@wagner.example";"SMTP";"";"wagner.example"
+"";"Lena";"";"Koch";"";"";"";"";"";"";"";"";"";"";"0.0.00";"";"";"lena.koch@example.de";"SMTP";"lena@koch.example";""
+"";"";"";"";"";"";"";"";"";"";"";"";"";"";"";"";"leer";"";"";"";""

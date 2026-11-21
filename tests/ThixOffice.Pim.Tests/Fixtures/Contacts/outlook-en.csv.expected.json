@@ -1,0 +1,81 @@
+{
+  "mapping": [
+    "given",
+    "family",
+    "company",
+    "email-1",
+    "phone-work",
+    "phone-home",
+    "birthday",
+    "categories",
+    ""
+  ],
+  "contacts": [
+    {
+      "prefix": "",
+      "givenName": "Tom",
+      "middleName": "",
+      "familyName": "Baker",
+      "suffix": "",
+      "nickname": "",
+      "displayName": "",
+      "company": "Baker, Inc.",
+      "department": "",
+      "jobTitle": "",
+      "emails": [
+        {
+          "label": "other",
+          "value": "tom@baker.example"
+        }
+      ],
+      "phones": [
+        {
+          "label": "work",
+          "value": "+1 555 0100"
+        }
+      ],
+      "addresses": [],
+      "urls": [],
+      "birthday": "1975-03-14",
+      "anniversary": "",
+      "notes": "",
+      "photoId": "",
+      "categories": [],
+      "isFavorite": false
+    },
+    {
+      "prefix": "",
+      "givenName": "Sara",
+      "middleName": "",
+      "familyName": "O'Neil",
+      "suffix": "",
+      "nickname": "",
+      "displayName": "",
+      "company": "",
+      "department": "",
+      "jobTitle": "",
+      "emails": [
+        {
+          "label": "other",
+          "value": "sara@example.com"
+        }
+      ],
+      "phones": [
+        {
+          "label": "home",
+          "value": "+1 555 0199"
+        }
+      ],
+      "addresses": [],
+      "urls": [],
+      "birthday": "",
+      "anniversary": "",
+      "notes": "",
+      "photoId": "",
+      "categories": [
+        "Friends"
+      ],
+      "isFavorite": false
+    }
+  ]
+}

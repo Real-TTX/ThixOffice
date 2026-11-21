@@ -1,0 +1,98 @@
+[
+  {
+    "prefix": "Dr.",
+    "givenName": "Anna",
+    "middleName": "Maria",
+    "familyName": "Müller",
+    "suffix": "",
+    "nickname": "",
+    "displayName": "",
+    "company": "Beispiel GmbH",
+    "department": "Vertrieb",
+    "jobTitle": "Leiterin Vertrieb",
+    "emails": [
+      {
+        "label": "other",
+        "value": "anna.mueller@beispiel.de"
+      },
+      {
+        "label": "home",
+        "value": "anna@privat.example"
+      }
+    ],
+    "phones": [
+      {
+        "label": "work",
+        "value": "+49 89 1234567"
+      },
+      {
+        "label": "mobile",
+        "value": "0171 2345678"
+      },
+      {
+        "label": "work-fax",
+        "value": "+49 89 1234568"
+      }
+    ],
+    "addresses": [
+      {
+        "label": "work",
+        "street": "Hauptstraße 1",
+        "postalCode": "80331",
+        "city": "München",
+        "region": "Bayern",
+        "country": "Deutschland"
+      },
+      {
+        "label": "home",
+        "street": "Gartenweg 5\nHinterhaus",
+        "postalCode": "82319",
+        "city": "Starnberg",
+        "region": "",
+        "country": "Deutschland"
+      }
+    ],
+    "urls": [
+      {
+        "label": "work",
+        "value": "https://www.beispiel.de"
+      }
+    ],
+    "birthday": "1980-05-01",
+    "anniversary": "2010-06-12",
+    "notes": "Kennt sich mit Verträgen aus, gern anrufen.\nZweite Zeile.",
+    "photoId": "6b7fa434f92a8b80aab02d9bf1a12e49ffcae424e4013a1c4f68b67e3d2bbcd0",
+    "categories": [
+      "Kunde",
+      "Wichtig"
+    ],
+    "isFavorite": false
+  },
+  {
+    "prefix": "",
+    "givenName": "",
+    "middleName": "",
+    "familyName": "",
+    "suffix": "",
+    "nickname": "",
+    "displayName": "",
+    "company": "Beispiel GmbH",
+    "department": "",
+    "jobTitle": "",
+    "emails": [],
+    "phones": [
+      {
+        "label": "work",
+        "value": "089 1234500"
+      }
+    ],
+    "addresses": [],
+    "urls": [],
+    "birthday": "",
+    "anniversary": "",
+    "notes": "",
+    "photoId": "",
+    "categories": [],
+    "isFavorite": false
+  }
+]

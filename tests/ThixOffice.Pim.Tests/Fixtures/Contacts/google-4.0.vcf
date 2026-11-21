@@ -1,0 +1,17 @@
+BEGIN:VCARD
+VERSION:4.0
+FN:Ella Fischer
+N:Fischer;Ella;;;
+EMAIL;TYPE=work:ella.fischer@firma.example
+EMAIL;TYPE=home:ella@example.net
+TEL;VALUE=uri;TYPE="voice,home":tel:+49-30-555-0101
+URL:https://ella.example/blog
+ANNIVERSARY:20150820
+CATEGORIES:Familie,Freunde,familie
+PHOTO:data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==
+END:VCARD
+BEGIN:VCARD
+VERSION:4.0
+FN:info@laden.example
+EMAIL:info@laden.example
+END:VCARD

@@ -1,0 +1,35 @@
+BEGIN:VCARD
+VERSION:3.0
+N:Müller;Anna;Maria;Dr.;
+FN:Dr. Anna Maria Müller
+ORG:Beispiel GmbH;Vertrieb
+TITLE:Leiterin Vertrieb
+TEL;TYPE=WORK,VOICE:+49 89 1234567
+TEL;TYPE=CELL:0171 2345678
+TEL;TYPE=WORK,FAX:+49 89 1234568
+ADR;TYPE=WORK:;;Hauptstraße 1;München;Bayern;80331;Deutschland
+ADR;TYPE=HOME:;;Gartenweg 5\nHinterhaus;Starnberg;;82319;Deutschland
+EMAIL;TYPE=PREF,INTERNET:anna.mueller@beispiel.de
+EMAIL;TYPE=INTERNET,HOME:anna@privat.example
+URL;TYPE=WORK:www.beispiel.de
+BDAY:1980-05-01
+X-MS-ANNIVERSARY:2010-06-12
+NOTE:Kennt sich mit Verträgen aus\, gern anrufen.\nZweite Zeile.
+CATEGORIES:Kunde,Wichtig
+PHOTO;ENCODING=b;TYPE=PNG:iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAf
+ FcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==
+REV:20261101T120000Z
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+N:;;;;
+FN:Beispiel GmbH
+ORG:Beispiel GmbH
+TEL;TYPE=WORK:089 1234500
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+N:;;;;
+FN:
+NOTE:Nur eine Notiz – kein Kontakt
+END:VCARD

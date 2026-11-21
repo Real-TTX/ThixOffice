@@ -1,0 +1,43 @@
+[
+  {
+    "key": "6f1c2b8e-3a4d-4c5e-9f00-0a1b2c3d4e5f",
+    "photo": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "data": {
+      "prefix": "Dr.",
+      "givenName": "Anna",
+      "middleName": "Maria",
+      "familyName": "Müller",
+      "company": "Beispiel GmbH",
+      "department": "Vertrieb",
+      "jobTitle": "Leiterin Vertrieb",
+      "emails": [ { "label": "work", "value": "anna.mueller@beispiel.de" }, { "label": "home", "value": "anna@privat.example" } ],
+      "phones": [ { "label": "work", "value": "+49 89 1234567" }, { "label": "mobile", "value": "0171 2345678" }, { "label": "work-fax", "value": "+49 89 1234568" } ],
+      "addresses": [ { "label": "work", "street": "Hauptstraße 1", "postalCode": "80331", "city": "München", "region": "Bayern", "country": "Deutschland" },
+                     { "label": "home", "street": "Gartenweg 5\nHinterhaus", "postalCode": "82319", "city": "Starnberg", "country": "Deutschland" } ],
+      "urls": [ { "label": "work", "value": "https://www.beispiel.de" } ],
+      "birthday": "1980-05-01",
+      "anniversary": "2010-06-12",
+      "notes": "Kennt sich mit Verträgen aus, gern anrufen; ein sehr langer Satz, damit die Zeile gefaltet werden muss: äöüß€.\nZweite Zeile.",
+      "photoId": "",
+      "categories": [ "Kunde", "Wichtig" ],
+      "isFavorite": true
+    }
+  },
+  {
+    "key": "b2",
+    "data": {
+      "displayName": "Jogi",
+      "givenName": "Jörg",
+      "familyName": "Schmidt",
+      "suffix": "jun.",
+      "nickname": "Jogi",
+      "emails": [ { "label": "other", "value": "joerg@example.org" } ],
+      "phones": [ { "label": "büro zürich", "value": "+41 44 123 45 67" } ],
+      "birthday": "--03-15"
+    }
+  },
+  {
+    "key": "c3",
+    "data": { "company": "Beispiel GmbH", "phones": [ { "label": "main", "value": "089 1234500" } ] }
+  }
+]

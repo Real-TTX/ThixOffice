@@ -1,0 +1,42 @@
+[
+  {
+    "prefix": "",
+    "givenName": "Peter",
+    "middleName": "",
+    "familyName": "Grüßer",
+    "suffix": "",
+    "nickname": "",
+    "displayName": "",
+    "company": "",
+    "department": "",
+    "jobTitle": "",
+    "emails": [
+      {
+        "label": "other",
+        "value": "peter@example.com"
+      }
+    ],
+    "phones": [
+      {
+        "label": "work",
+        "value": "(0221) 98765"
+      },
+      {
+        "label": "home-fax",
+        "value": "0221 12345"
+      },
+      {
+        "label": "pager",
+        "value": "0221 777"
+      }
+    ],
+    "addresses": [],
+    "urls": [],
+    "birthday": "1970-01-02",
+    "anniversary": "",
+    "notes": "Erste Zeile\nZweite Zeile, sehr lang und weiter",
+    "photoId": "",
+    "categories": [],
+    "isFavorite": false
+  }
+]

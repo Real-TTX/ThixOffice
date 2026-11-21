@@ -1,0 +1,43 @@
+BEGIN:VCARD
+VERSION:3.0
+UID:6f1c2b8e-3a4d-4c5e-9f00-0a1b2c3d4e5f
+FN:Anna Maria Müller
+N:Müller;Anna;Maria;Dr.;
+ORG:Beispiel GmbH;Vertrieb
+TITLE:Leiterin Vertrieb
+EMAIL;TYPE=INTERNET,WORK:anna.mueller@beispiel.de
+EMAIL;TYPE=INTERNET,HOME:anna@privat.example
+TEL;TYPE=WORK,VOICE:+49 89 1234567
+TEL;TYPE=CELL:0171 2345678
+TEL;TYPE=WORK,FAX:+49 89 1234568
+ADR;TYPE=WORK:;;Hauptstraße 1;München;Bayern;80331;Deutschland
+ADR;TYPE=HOME:;;Gartenweg 5\nHinterhaus;Starnberg;;82319;Deutschland
+URL;TYPE=WORK:https://www.beispiel.de
+BDAY:1980-05-01
+X-ANNIVERSARY:2010-06-12
+NOTE:Kennt sich mit Verträgen aus\, gern anrufen\; ein sehr langer Satz\, 
+ damit die Zeile gefaltet werden muss: äöüß€.\nZweite Zeile.
+CATEGORIES:Kunde,Wichtig
+X-THIX-FAVORITE:TRUE
+PHOTO;ENCODING=b;TYPE=PNG:iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAD
+ UlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+UID:b2
+FN:Jogi
+N:Schmidt;Jörg;;;jun.
+NICKNAME:Jogi
+EMAIL;TYPE=INTERNET:joerg@example.org
+item1.X-ABLabel:büro zürich
+item1.TEL;TYPE=VOICE:+41 44 123 45 67
+BDAY:--03-15
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+UID:c3
+FN:Beispiel GmbH
+N:;;;;
+ORG:Beispiel GmbH
+TEL;TYPE=MAIN:089 1234500
+END:VCARD

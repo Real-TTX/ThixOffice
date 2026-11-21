@@ -1,0 +1,16 @@
+BEGIN:VCARD
+VERSION:3.0
+PRODID:-//Apple Inc.//macOS 15.0//EN
+N:Schmidt;Jörg;;;jun.
+FN:Jörg Schmidt jun.
+NICKNAME:Jogi
+item1.EMAIL;type=INTERNET;type=pref:joerg@example.org
+item1.X-ABLabel:_$!<Other>!$_
+item2.TEL:+41 44 123 45 67
+item2.X-ABLabel:Büro Zürich
+TEL;type=IPHONE;type=CELL;type=VOICE;type=pref:+49 151 9876543
+item3.ADR;type=HOME;type=pref:;;Seestraße 12;Zürich;;8001;Schweiz
+item3.X-ABADR:ch
+BDAY;X-APPLE-OMIT-YEAR=1604:--03-15
+X-THIX-FAVORITE:TRUE
+END:VCARD

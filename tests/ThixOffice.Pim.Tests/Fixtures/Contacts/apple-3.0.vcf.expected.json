@@ -1,0 +1,47 @@
+[
+  {
+    "prefix": "",
+    "givenName": "Jörg",
+    "middleName": "",
+    "familyName": "Schmidt",
+    "suffix": "jun.",
+    "nickname": "Jogi",
+    "displayName": "",
+    "company": "",
+    "department": "",
+    "jobTitle": "",
+    "emails": [
+      {
+        "label": "other",
+        "value": "joerg@example.org"
+      }
+    ],
+    "phones": [
+      {
+        "label": "büro zürich",
+        "value": "+41 44 123 45 67"
+      },
+      {
+        "label": "mobile",
+        "value": "+49 151 9876543"
+      }
+    ],
+    "addresses": [
+      {
+        "label": "home",
+        "street": "Seestraße 12",
+        "postalCode": "8001",
+        "city": "Zürich",
+        "region": "",
+        "country": "Schweiz"
+      }
+    ],
+    "urls": [],
+    "birthday": "--03-15",
+    "anniversary": "",
+    "notes": "",
+    "photoId": "",
+    "categories": [],
+    "isFavorite": true
+  }
+]

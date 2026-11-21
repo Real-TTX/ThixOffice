@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ThixOffice.Pim.Desktop: the views ThixContacts and (later) ThixMail share, on Avalonia and MatDesktop: the avatar of a person (picture or initials),
+    the person card (name, work, every e-mail address, number, address, web address, the dates, categories, notes), the address field with
+    suggestions from the contacts (ThixMail's "An"). Colours only from MatDesktop's tokens, icons only from its sprite.
+  -->
+  <PropertyGroup>
+    <RootNamespace>ThixOffice.Pim.Desktop</RootNamespace>
+    <AvaloniaVersion>11.3.22</AvaloniaVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixContacts" />
+    <InternalsVisibleTo Include="ThixContacts.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThixOffice.Core\ThixOffice.Core.csproj" />
+    <ProjectReference Include="..\ThixOffice.Desktop\ThixOffice.Desktop.csproj" />
+    <ProjectReference Include="..\ThixOffice.Pim\ThixOffice.Pim.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,73 @@
+[
+  {
+    "prefix": "",
+    "givenName": "Ella",
+    "middleName": "",
+    "familyName": "Fischer",
+    "suffix": "",
+    "nickname": "",
+    "displayName": "",
+    "company": "",
+    "department": "",
+    "jobTitle": "",
+    "emails": [
+      {
+        "label": "work",
+        "value": "ella.fischer@firma.example"
+      },
+      {
+        "label": "home",
+        "value": "ella@example.net"
+      }
+    ],
+    "phones": [
+      {
+        "label": "home",
+        "value": "+49-30-555-0101"
+      }
+    ],
+    "addresses": [],
+    "urls": [
+      {
+        "label": "other",
+        "value": "https://ella.example/blog"
+      }
+    ],
+    "birthday": "",
+    "anniversary": "2015-08-20",
+    "notes": "",
+    "photoId": "6b7fa434f92a8b80aab02d9bf1a12e49ffcae424e4013a1c4f68b67e3d2bbcd0",
+    "categories": [
+      "Familie",
+      "Freunde"
+    ],
+    "isFavorite": false
+  },
+  {
+    "prefix": "",
+    "givenName": "",
+    "middleName": "",
+    "familyName": "",
+    "suffix": "",
+    "nickname": "",
+    "displayName": "",
+    "company": "",
+    "department": "",
+    "jobTitle": "",
+    "emails": [
+      {
+        "label": "other",
+        "value": "info@laden.example"
+      }
+    ],
+    "phones": [],
+    "addresses": [],
+    "urls": [],
+    "birthday": "",
+    "anniversary": "",
+    "notes": "",
+    "photoId": "",
+    "categories": [],
+    "isFavorite": false
+  }
+]
