@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Web;
 using MatCloud.Contract;
+using MatCloud.Contract.Contacts;
 using MatCloud.Contract.Drive;
 
 namespace ThixOffice.Core.Platform;
@@ -32,6 +33,54 @@ internal sealed class SampleCloud : HttpMessageHandler
     private readonly List<long> _recent = [];
     private long _nextId = 100;
     private long _nextVersion = 5000;
+    private readonly Dictionary<(string App, string Collection, string Key), SyncItemDto> _syncItems = [];
+    private readonly Dictionary<string, byte[]> _photos = [];
+    private long _revision;
+
+    /// <summary>The app the devices sign in as (the account's answer); ThixContacts sets <c>contacts</c>.</summary>
+    public string App { get; set; } = CloudApps.Write;
+
+    /// <summary>Every request of the general sync and of the pictures answers this status (null: normal): 401, 403, 500 …</summary>
+    public HttpStatusCode? SyncFailsWith { get; set; }
+
+    /// <summary>
+    /// Another device of the account changes an item of the general sync (last writer wins like the real cloud; a tombstone when
+    /// <paramref name="data"/> is null). Answers its revision.
+    /// </summary>
+    public long PushElsewhere(string app, string collection, string key, string? data, DateTimeOffset updatedAt, string source = "LAPTOP-BERT")
+    {
+        lock (_gate)
+        {
+            return Apply(app, new SyncItemDto { Collection = collection, Key = key, Data = data, IsDeleted = data is null, UpdatedAt = updatedAt }, source).Revision;
+        }
+    }
+
+    /// <summary>The live items of an app's collection (tests).</summary>
+    public IReadOnlyList<SyncItemDto> SyncItems(string app, string collection)
+    {
+        lock (_gate)
+        {
+            return _syncItems.Where(pair => pair.Key.App == app && pair.Key.Collection == collection && !pair.Value.IsDeleted).Select(pair => pair.Value).ToList();
+        }
+    }
+
+    /// <summary>The item of an app's collection (a tombstone too), or null.</summary>
+    public SyncItemDto? SyncItem(string app, string collection, string key)
+    {
+        lock (_gate)
+        {
+            return _syncItems.GetValueOrDefault((app, collection, key));
+        }
+    }
+
+    /// <summary>The bytes of a picture of a contact, or null.</summary>
+    public byte[]? Photo(string id)
+    {
+        lock (_gate)
+        {
+            return _photos.GetValueOrDefault(id);
+        }
+    }
 
     /// <summary>No network: every request fails like a cable that was pulled.</summary>
     public bool IsOffline { get; set; }
@@ -198,7 +247,12 @@ internal sealed class SampleCloud : HttpMessageHandler
                 _tokens.Remove(request.Headers.Authorization!.Parameter!);
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             case ("GET", CloudContract.Account):
-                return Json(new AccountInfo(UserName, DisplayName, LastDeviceName ?? "ANNA-PC", CloudApps.Write, "1.4.0"));
+                return Json(new AccountInfo(UserName, DisplayName, LastDeviceName ?? "ANNA-PC", App, "1.5.0"));
+        }
+
+        if (path.StartsWith("/api/v1/sync/", StringComparison.Ordinal) || path.StartsWith(ContactsContract.Root, StringComparison.Ordinal))
+        {
+            return SyncFailsWith is { } failure ? Error(failure, failure == HttpStatusCode.Forbidden ? "ThixContacts ist abgeschaltet." : "Fehler.") : Sync(method, path, query, body);
         }
 
         if (!path.StartsWith(DriveContract.Root, StringComparison.Ordinal))
@@ -292,6 +346,62 @@ internal sealed class SampleCloud : HttpMessageHandler
         return Error(HttpStatusCode.NotFound, "Nicht gefunden.");
     }
 
+    // ---- the general sync and the pictures of contacts ----
+
+    private HttpResponseMessage Sync(string method, string path, System.Collections.Specialized.NameValueCollection query, byte[] body)
+    {
+        var app = query[SyncContract.AppParameter] ?? App;
+        switch (method, path)
+        {
+            case ("GET", SyncContract.Changes):
+                var since = long.TryParse(query["since"], CultureInfo.InvariantCulture, out var s) ? s : 0;
+                var limit = Math.Clamp(Number(query["limit"], 100), 1, SyncContract.MaxBatchSize);
+                var changes = _syncItems.Where(pair => pair.Key.App == app && pair.Value.Revision > since).Select(pair => pair.Value).OrderBy(item => item.Revision).ToList();
+                var page = changes.Take(limit).ToList();
+                return Json(new SyncChangeSet(page, page.Count > 0 ? page[^1].Revision : since, changes.Count > limit));
+            case ("GET", SyncContract.Wait):
+                return Json(new WaitResult(LatestOf(app)));
+            case ("POST", SyncContract.Push):
+                var push = Read<SyncPushRequest>(body);
+                var results = push.Items.Select(item => Apply(app, item, LastDeviceName ?? "ANNA-PC")).ToList();
+                return Json(new SyncPushResponse(results, LatestOf(app)));
+            case ("POST", ContactsContract.Photos):
+                if (body.Length > ContactsContract.MaxPhotoBytes)
+                {
+                    return Error(HttpStatusCode.RequestEntityTooLarge, "Das Bild ist zu groß.", "photo");
+                }
+
+                var id = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(body));
+                _photos[id] = body;
+                return Json(new ContactPhotoInfo(id, "image/png", body.Length));
+        }
+
+        if (method == "GET" && path.StartsWith(ContactsContract.Photos + "/", StringComparison.Ordinal))
+        {
+            return _photos.TryGetValue(path[(ContactsContract.Photos.Length + 1)..], out var bytes)
+                ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) }
+                : Error(HttpStatusCode.NotFound, "Nicht gefunden.");
+        }
+
+        return Error(HttpStatusCode.NotFound, "Nicht gefunden.");
+    }
+
+    private long LatestOf(string app) => _syncItems.Where(pair => pair.Key.App == app).Select(pair => pair.Value.Revision).DefaultIfEmpty(0).Max();
+
+    /// <summary>The rule of the real cloud: the last writer wins by UpdatedAt; a push that loses gets the item that won.</summary>
+    private SyncPushResult Apply(string app, SyncItemDto item, string source)
+    {
+        var key = (app, item.Collection, item.Key);
+        if (_syncItems.TryGetValue(key, out var existing) && existing.UpdatedAt > item.UpdatedAt)
+        {
+            return new SyncPushResult(item.Collection, item.Key, existing.Revision, false, existing);
+        }
+
+        var stored = item with { Data = item.IsDeleted ? null : item.Data, Source = source, Revision = ++_revision };
+        _syncItems[key] = stored;
+        return new SyncPushResult(item.Collection, item.Key, stored.Revision, true);
+    }
+
     private HttpResponseMessage Login(DeviceLoginRequest login)
     {
         if (login.UserName != UserName || login.Password != Password)
@@ -336,7 +446,7 @@ internal sealed class SampleCloud : HttpMessageHandler
     {
         var token = "token-" + Guid.NewGuid().ToString("N");
         _tokens.Add(token);
-        return new DeviceLoginResponse(token, 7, new AccountInfo(UserName, DisplayName, deviceName, CloudApps.Write, "1.4.0"));
+        return new DeviceLoginResponse(token, 7, new AccountInfo(UserName, DisplayName, deviceName, App, "1.5.0"));
     }
 
     private bool IsAuthorized(HttpRequestMessage request) =>

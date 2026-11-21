@@ -1,4 +1,4 @@
-// MatCloud.Contract 1.4.0 – a copy from MatCloud, do not edit here
+// MatCloud.Contract 1.5.0 – a copy from MatCloud, do not edit here
 using System.Security.Cryptography;
 using System.Text;
 
@@ -28,6 +28,12 @@ namespace MatCloud.Contract.Calendar;
 /// </summary>
 public static class CalendarContract
 {
+    /// <summary>
+    /// The apps whose devices may read and write the calendar of their account besides ThixCalendar's own (contract 1.5.0): ThixMail shows the calendar
+    /// and answers invitations (the general sync with <c>?app=calendar</c>, see <see cref="SyncContract.AppParameter"/>).
+    /// </summary>
+    public static readonly IReadOnlyList<string> GuestApps = [CloudApps.Mail];
+
     public const string Settings = "settings";
     public const string Accounts = "accounts";
     public const string Calendars = "calendars";

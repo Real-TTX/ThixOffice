@@ -18,6 +18,13 @@
     <InternalsVisibleTo Include="ThixWrite.Tests" />
     <InternalsVisibleTo Include="ThixCalc.Tests" />
     <InternalsVisibleTo Include="ThixShow.Tests" />
+    <InternalsVisibleTo Include="ThixOffice.Pim" />
+    <InternalsVisibleTo Include="ThixOffice.Pim.Desktop" />
+    <InternalsVisibleTo Include="ThixOffice.Pim.Tests" />
+    <InternalsVisibleTo Include="ThixContacts" />
+    <InternalsVisibleTo Include="ThixContacts.Core" />
+    <InternalsVisibleTo Include="ThixContacts.Core.Tests" />
+    <InternalsVisibleTo Include="ThixContacts.Tests" />
   </ItemGroup>
 
   <ItemGroup>

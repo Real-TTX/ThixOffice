@@ -319,7 +319,9 @@ public static class CloudService
                 SignedOutByCloud();
                 return new BusinessException("Die ThixCloud hat die Anmeldung beendet (das Gerät wurde dort entfernt). Bitte melden Sie sich erneut an.");
             case CloudException { IsForbidden: true }:
-                var forbidden = $"ThixDrive ist für {AppInfo.ProductName} von der Verwaltung der ThixCloud abgeschaltet.";
+                var forbidden = AppInfo.Definition.IsWorkspace
+                    ? $"{AppInfo.ProductName} ist von der Verwaltung der ThixCloud abgeschaltet."
+                    : $"ThixDrive ist für {AppInfo.ProductName} von der Verwaltung der ThixCloud abgeschaltet.";
                 SetStatus(new CloudStatus(CloudState.Forbidden, forbidden));
                 return new BusinessException(forbidden);
             case CloudException { StatusCode: HttpStatusCode.NotFound }:

@@ -1,4 +1,4 @@
-// MatCloud.Contract 1.4.0 – a copy from MatCloud, do not edit here
+// MatCloud.Contract 1.5.0 – a copy from MatCloud, do not edit here
 using System.Text.RegularExpressions;
 
 namespace MatCloud.Contract;
@@ -26,6 +26,14 @@ public static partial class SyncContract
     public const string Changes = "/api/v1/sync/changes";
     public const string Wait = "/api/v1/sync/wait";
     public const string Push = "/api/v1/sync/push";
+
+    /// <summary>
+    /// The query value that names ANOTHER app's data (contract 1.5.0): <c>?app=contacts</c>. Without it (the default) a device reaches its own app. A
+    /// device may name an app only when that app's module grants it (<c>ContactsContract.GuestApps</c>: ThixMail reads and writes the contacts and the
+    /// calendar of its account; <c>ContactsContract.ReadingGuestApps</c>: ThixCalendar reads the contacts – changes and wait, no push); anything else is
+    /// 403, and so is an app the administrator switched off.
+    /// </summary>
+    public const string AppParameter = "app";
 
     /// <summary>The most items one push or one change set carries.</summary>
     public const int MaxBatchSize = 200;
