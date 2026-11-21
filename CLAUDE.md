@@ -900,7 +900,8 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - **Integration run against a real MatCloud:** a THROWAWAY instance only (own compose project name, own port, tmpfs for /data –
   `uid=1654` – and for the database, `MATCLOUD_ADMIN_USER/PASSWORD` create the account; never the ports 4950–4952 or the volumes of a
   local instance; `docker compose down -v --rmi local` afterwards), then `THIXOFFICE_MATCLOUD_URL=… THIXOFFICE_MATCLOUD_USER=…
-  THIXOFFICE_MATCLOUD_PASSWORD=… dotnet test tests/ThixOffice.Core.Tests --filter MatCloudIntegrationTests` (without them it does nothing).
+  THIXOFFICE_MATCLOUD_PASSWORD=… dotnet test tests/ThixOffice.Core.Tests --filter MatCloudIntegrationTests` (without them it does nothing); the
+  contacts the same way: `dotnet test tests/ThixOffice.Pim.Tests --filter MatCloudContactsIntegrationTests` (needs MatCloud with contract 1.5.0).
 
 ## Rules
 
