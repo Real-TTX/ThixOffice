@@ -65,7 +65,13 @@ public static class HtmlImport
     }
 
     /// <summary>The content of <paramref name="html"/> as a fragment (null when it holds nothing to paste).</summary>
-    public static DocumentFragment? Import(string html)
+    public static DocumentFragment? Import(string html) => Import(html, HtmlImportOptions.Clipboard);
+
+    /// <summary>
+    /// The content of <paramref name="html"/> as a fragment, read with <paramref name="options"/> (ThixMail reads a mail with
+    /// <see cref="HtmlImportOptions.Mail"/>: pictures by cid: or after consent, layout tables without lines, quotes as indented bars).
+    /// </summary>
+    public static DocumentFragment? Import(string html, HtmlImportOptions options)
     {
         var start = html.IndexOf("<!--StartFragment-->", StringComparison.OrdinalIgnoreCase);
         var end = html.IndexOf("<!--EndFragment-->", StringComparison.OrdinalIgnoreCase);
@@ -75,9 +81,85 @@ public static class HtmlImport
         }
 
         var root = Parse(html);
-        var builder = new Builder();
+        var builder = new Builder(options);
         builder.Block(root, new Style(), ParagraphContext.Body);
         return builder.Finish();
+    }
+
+    /// <summary>The whole text of <paramref name="html"/> as a reader sees it (scripts, styles and hidden parts dropped): search and previews.</summary>
+    public static string PlainText(string html)
+    {
+        var text = new StringBuilder();
+        Collect(Parse(html), text);
+        return CollapseWhitespace(text.ToString());
+
+        static void Collect(Node node, StringBuilder text)
+        {
+            foreach (var child in node.Children)
+            {
+                if (child.IsText)
+                {
+                    text.Append(child.Text);
+                    continue;
+                }
+
+                if (IsHidden(child))
+                {
+                    continue;
+                }
+
+                if (child.Tag is "br" or "p" or "div" or "tr" or "li" or "h1" or "h2" or "h3" or "blockquote")
+                {
+                    text.Append('\n');
+                }
+                else if (child.Tag is "td" or "th")
+                {
+                    text.Append(' ');
+                }
+
+                Collect(child, text);
+            }
+        }
+    }
+
+    private static string CollapseWhitespace(string text)
+    {
+        var lines = text.Replace("\r", "").Split('\n')
+            .Select(line => string.Join(' ', line.Split([' ', '\t', ' '], StringSplitOptions.RemoveEmptyEntries)))
+            .ToList();
+        var result = new StringBuilder();
+        var blank = false;
+        foreach (var line in lines)
+        {
+            if (line.Length == 0)
+            {
+                blank = result.Length > 0;
+                continue;
+            }
+
+            if (result.Length > 0)
+            {
+                result.Append(blank ? "\n\n" : "\n");
+            }
+
+            result.Append(line);
+            blank = false;
+        }
+
+        return result.ToString();
+    }
+
+    /// <summary>display:none (and Outlook's mso-hide:all): a newsletter's hidden preview text.</summary>
+    private static bool IsHidden(Node node)
+    {
+        var css = node["style"];
+        if (css is null)
+        {
+            return node.Attributes.ContainsKey("hidden");
+        }
+
+        var compact = css.Replace(" ", "", StringComparison.Ordinal).ToLowerInvariant();
+        return compact.Contains("display:none", StringComparison.Ordinal) || compact.Contains("mso-hide:all", StringComparison.Ordinal);
     }
 
     // ---------------------------------------------------------------- parsing
@@ -293,7 +375,7 @@ public static class HtmlImport
         public bool Preformatted { get; init; }
     }
 
-    private sealed class Builder
+    private sealed class Builder(HtmlImportOptions options)
     {
         private readonly List<Block> _blocks = [];
         private readonly List<Inline> _inlines = [];
@@ -301,6 +383,7 @@ public static class HtmlImport
         private NumberingDefinitions _numbering = NumberingDefinitions.Empty;
         private readonly List<(ListKind Kind, int Instance)> _lists = [];
         private readonly HashSet<string> _styles = new(StringComparer.Ordinal);
+        private int _quoteDepth;
 
         public void Block(Node node, Style style, ParagraphContext context)
         {
@@ -318,6 +401,11 @@ public static class HtmlImport
                 return;
             }
 
+            if (IsHidden(node))
+            {
+                return;
+            }
+
             var tag = node.Tag;
             switch (tag)
             {
@@ -326,6 +414,23 @@ public static class HtmlImport
                     return;
                 case "hr":
                     Flush();
+                    if (options.RulesAsLines)
+                    {
+                        _blocks.Add(Paragraph.Empty(new ParagraphProperties
+                        {
+                            SpacingBefore = 3,
+                            SpacingAfter = 6,
+                            Borders = new BorderSet(Bottom: new BorderLine("single", 0.75, options.QuoteBarColor, 1)),
+                        }));
+                    }
+
+                    return;
+                case "blockquote" when options.QuotesAsBars:
+                    Flush();
+                    _quoteDepth++;
+                    Block(node, Inherit(node, style), context);
+                    Flush();
+                    _quoteDepth--;
                     return;
                 case "img":
                     AddImage(node, style);
@@ -365,6 +470,7 @@ public static class HtmlImport
                 "h3" or "h4" or "h5" or "h6" => Styled(BuiltInStyles.Heading3),
                 "blockquote" => Styled(BuiltInStyles.Quote),
                 "li" => ListItem(),
+                "p" when options.ParagraphSpacing => new ParagraphProperties { SpacingAfter = 11 },
                 _ => ParagraphProperties.Empty,
             };
             var align = (node["align"] ?? StyleValue(node, "text-align"))?.Trim().ToLowerInvariant();
@@ -432,41 +538,33 @@ public static class HtmlImport
 
         private void AddImage(Node node, Style style)
         {
-            var source = node["src"] ?? "";
-            if (!source.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+            var source = (node["src"] ?? "").Trim();
+            var image = source.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase) ? FromDataUri(source) : options.ResolveImage?.Invoke(source);
+            if (image is null)
             {
-                return; // a picture from the web is never fetched
-            }
-
-            var comma = source.IndexOf(',');
-            if (comma < 0 || !source[..comma].Contains(";base64", StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
-            byte[] bytes;
-            try
-            {
-                bytes = Convert.FromBase64String(source[(comma + 1)..].Trim());
-            }
-            catch (FormatException)
-            {
-                return;
-            }
-
-            if (ImageData.FromBytes(bytes) is not { } image)
-            {
-                return;
+                return; // a picture from the web is never fetched here (the host decides: cid: parts, remote pictures after consent)
             }
 
             var (width, height) = image.NaturalSize;
-            if (Length(node["width"]) is { } givenWidth && givenWidth > 0)
+            var givenWidth = Length(node["width"]) ?? Length(StyleValue(node, "width"));
+            var givenHeight = Length(node["height"]) ?? Length(StyleValue(node, "height"));
+            if (givenWidth is > 0)
             {
-                height = Length(node["height"]) ?? height * givenWidth / width;
-                width = givenWidth;
+                height = givenHeight ?? height * givenWidth.Value / width;
+                width = givenWidth.Value;
+            }
+            else if (givenHeight is > 0)
+            {
+                width = width * givenHeight.Value / height;
+                height = givenHeight.Value;
             }
 
-            const double widest = 6 * 72; // a picture wider than a page is fitted
+            if (width <= 2 && height <= 2)
+            {
+                return; // a tracking pixel shows nothing
+            }
+
+            var widest = options.ContentWidth; // a picture wider than the text is fitted
             if (width > widest)
             {
                 height *= widest / width;
@@ -477,6 +575,24 @@ public static class HtmlImport
             _inlines.Add(new ImageInline(image, width, height, style.Characters, string.IsNullOrWhiteSpace(description) ? null : description, style.Link));
         }
 
+        private static ImageData? FromDataUri(string source)
+        {
+            var comma = source.IndexOf(',');
+            if (comma < 0 || !source[..comma].Contains(";base64", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            try
+            {
+                return ImageData.FromBytes(Convert.FromBase64String(source[(comma + 1)..].Trim()));
+            }
+            catch (FormatException)
+            {
+                return null;
+            }
+        }
+
         private void AddTable(Node table, Style style)
         {
             var rows = Descendants(table, "tr").ToList();
@@ -485,18 +601,56 @@ public static class HtmlImport
                 return;
             }
 
-            var model = new TableEdits.TableModel { Properties = new TableProperties { StyleId = BuiltInStyles.TableGrid, Width = TableWidth.Auto } };
-            _styles.Add(BuiltInStyles.TableGrid);
+            // A table of a mail is usually layout (a newsletter's columns): no lines unless the HTML asks for them.
+            var border = int.TryParse(table["border"], NumberStyles.None, CultureInfo.InvariantCulture, out var given) ? given : 0;
+            var lines = !options.BorderlessTables || border > 0;
+            var styleId = lines ? BuiltInStyles.TableGrid : BuiltInStyles.TableNormal;
+            var available = options.ContentWidth;
+            var tableWidth = WidthOf(table, available);
+            var properties = new TableProperties
+            {
+                StyleId = styleId,
+                Width = tableWidth is { } points ? TableWidth.Points(points) : TableWidth.Auto,
+                Shading = ShadingOf(table) is { } fill ? new Shading(fill) : null,
+                Alignment = (table["align"] ?? "").Equals("center", StringComparison.OrdinalIgnoreCase) ? TableAlignment.Center : null,
+            };
+            var model = new TableEdits.TableModel { Properties = properties };
+            _styles.Add(styleId);
+            var columnWidths = new List<double?>();
             foreach (var row in rows)
             {
                 var rowModel = new TableEdits.RowModel { Properties = TableRowProperties.Empty };
+                var column = 0;
                 foreach (var cell in row.Children.Where(child => child.Tag is "td" or "th"))
                 {
-                    var cellBuilder = new Builder();
-                    cellBuilder.Block(cell, cell.Tag == "th" ? style with { Characters = style.Characters with { Bold = true } } : style, ParagraphContext.Cell);
+                    var cellBuilder = new Builder(options with { ContentWidth = Math.Max(36, (tableWidth ?? available) / Math.Max(1, row.Children.Count(c => c.Tag is "td" or "th"))) });
+                    var cellStyle = Inherit(cell, cell.Tag == "th" ? style with { Characters = style.Characters with { Bold = true } } : style);
+                    cellBuilder.Block(cell, cellStyle, ParagraphContext.Cell);
                     var paragraphs = cellBuilder.Paragraphs();
                     var span = int.TryParse(cell["colspan"], NumberStyles.None, CultureInfo.InvariantCulture, out var colspan) ? Math.Clamp(colspan, 1, 63) : 1;
-                    rowModel.Cells.Add(new TableEdits.CellModel { Properties = TableCellProperties.Empty with { GridSpan = span }, Paragraphs = paragraphs });
+                    var cellProperties = TableCellProperties.Empty with { GridSpan = span };
+                    if (ShadingOf(cell) is { } cellFill)
+                    {
+                        cellProperties = cellProperties with { Shading = new Shading(cellFill) };
+                    }
+
+                    if ((cell["valign"] ?? StyleValue(cell, "vertical-align"))?.Trim().ToLowerInvariant() is "middle" or "center")
+                    {
+                        cellProperties = cellProperties with { VerticalAlignment = CellVerticalAlignment.Center };
+                    }
+
+                    if (span == 1 && WidthOf(cell, tableWidth ?? available) is { } cellWidth)
+                    {
+                        while (columnWidths.Count <= column)
+                        {
+                            columnWidths.Add(null);
+                        }
+
+                        columnWidths[column] ??= cellWidth;
+                    }
+
+                    rowModel.Cells.Add(new TableEdits.CellModel { Properties = cellProperties, Paragraphs = paragraphs });
+                    column += span;
                 }
 
                 if (rowModel.Cells.Count > 0)
@@ -511,8 +665,45 @@ public static class HtmlImport
             }
 
             var columns = model.Rows.Max(row => row.Cells.Sum(cell => cell.Span));
-            model.Grid = [.. Enumerable.Repeat(453.6 / columns, columns)];
+            var total = tableWidth ?? (options.BorderlessTables ? available : 453.6);
+            model.Grid = [.. DistributeColumns(columns, columnWidths, total)];
             _blocks.AddRange(model.Emit());
+        }
+
+        /// <summary>The widths of the grid: the cells' own widths where given, the rest shared equally, scaled to <paramref name="total"/>.</summary>
+        private static IEnumerable<double> DistributeColumns(int columns, List<double?> given, double total)
+        {
+            var widths = Enumerable.Range(0, columns).Select(index => index < given.Count ? given[index] : null).ToList();
+            var known = widths.Where(width => width is not null).Sum(width => width!.Value);
+            var unknown = widths.Count(width => width is null);
+            var rest = unknown == 0 ? 0 : Math.Max(18, (total - known) / unknown);
+            var result = widths.Select(width => width ?? rest).ToList();
+            var sum = result.Sum();
+            return sum > total * 1.001 || unknown == 0 ? result.Select(width => width * total / sum) : result;
+        }
+
+        /// <summary>A width="…" or CSS width as points (percent of <paramref name="available"/>), at most the available width.</summary>
+        private static double? WidthOf(Node node, double available)
+        {
+            var value = (node["width"] ?? StyleValue(node, "width"))?.Trim();
+            if (string.IsNullOrEmpty(value))
+            {
+                return null;
+            }
+
+            if (value.EndsWith('%') && double.TryParse(value[..^1], NumberStyles.Float, CultureInfo.InvariantCulture, out var percent))
+            {
+                return Math.Clamp(percent, 1, 100) * available / 100;
+            }
+
+            return Length(value) is { } points && points > 0 ? Math.Min(points, available) : null;
+        }
+
+        /// <summary>bgcolor="…" or a CSS background(-color) as RRGGBB (white is no shading).</summary>
+        private static string? ShadingOf(Node node)
+        {
+            var fill = Color(node["bgcolor"]) ?? Color(StyleValue(node, "background-color")) ?? Color(StyleValue(node, "background")?.Split(' ')[0]);
+            return fill is null or "FFFFFF" ? null : fill;
         }
 
         /// <summary>The paragraphs a cell got (at least one, no tables inside a cell: their text).</summary>
@@ -538,7 +729,18 @@ public static class HtmlImport
                 _inlines[^1] = last with { Text = trimmed };
             }
 
-            _blocks.Add(new Paragraph(_inlines, _paragraph));
+            var paragraph = _paragraph;
+            if (_quoteDepth > 0)
+            {
+                // A quoted part of a reply: indented with a bar at the left, one step per level (as mail programs show it)
+                paragraph = paragraph with
+                {
+                    IndentLeft = (paragraph.IndentLeft ?? 0) + (10 * _quoteDepth),
+                    Borders = new BorderSet(Left: new BorderLine("single", 1.5, options.QuoteBarColor, 4)),
+                };
+            }
+
+            _blocks.Add(new Paragraph(_inlines, paragraph));
             _inlines.Clear();
             _paragraph = ParagraphProperties.Empty;
         }
@@ -800,4 +1002,46 @@ public static class HtmlImport
             }
         }
     }
+}
+
+/// <summary>How <see cref="HtmlImport"/> reads HTML: the clipboard (the default) or a mail (<see cref="Mail"/>).</summary>
+public sealed record HtmlImportOptions
+{
+    /// <summary>Pasting: only data: pictures, tables with lines, Word's paragraph spacing.</summary>
+    public static HtmlImportOptions Clipboard { get; } = new();
+
+    /// <summary>
+    /// A mail: <paramref name="resolveImage"/> answers a picture's src (cid: parts of the message, remote pictures only after consent – null =
+    /// left out), layout tables without lines, paragraphs with HTML's spacing, quotes as indented bars, rules as lines, text <paramref name="contentWidth"/> wide.
+    /// </summary>
+    public static HtmlImportOptions Mail(Func<string, ImageData?>? resolveImage, double contentWidth) => new()
+    {
+        ResolveImage = resolveImage,
+        BorderlessTables = true,
+        ParagraphSpacing = true,
+        QuotesAsBars = true,
+        RulesAsLines = true,
+        ContentWidth = contentWidth,
+    };
+
+    /// <summary>The picture of a src that is not a data: URI (null = left out). Nothing is fetched by the import itself.</summary>
+    public Func<string, ImageData?>? ResolveImage { get; init; }
+
+    /// <summary>Tables without border="1" get no lines (newsletters lay out with tables).</summary>
+    public bool BorderlessTables { get; init; }
+
+    /// <summary>A &lt;p&gt; gets space below it as a browser shows it.</summary>
+    public bool ParagraphSpacing { get; init; }
+
+    /// <summary>A &lt;blockquote&gt; is indented with a bar at the left per level (a quoted reply), not Word's Zitat style.</summary>
+    public bool QuotesAsBars { get; init; }
+
+    /// <summary>A &lt;hr&gt; is a line.</summary>
+    public bool RulesAsLines { get; init; }
+
+    /// <summary>The colour of quote bars and rules ("RRGGBB": document data).</summary>
+    public string QuoteBarColor { get; init; } = "B4B4B4";
+
+    /// <summary>The width of the text in points: wider pictures and tables are fitted.</summary>
+    public double ContentWidth { get; init; } = 6 * 72;
 }

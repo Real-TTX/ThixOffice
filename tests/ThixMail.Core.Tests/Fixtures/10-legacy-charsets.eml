@@ -1,0 +1,21 @@
+From: Tanaka Yuki <yuki@example.jp>
+To: anna@example.de
+Subject: =?ISO-2022-JP?B?GyRCMnE1RCROO3FOQRsoQg==?=
+Date: Sun, 22 Nov 2026 03:00:00 +0900
+Message-ID: <jis-10@example.jp>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="mix10"
+
+--mix10
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+
+$B%"%s%J$5$s(B
+$B2q5D$N;qNA$rAw$j$^$9!#(B
+$B$h$m$7$/$*4j$$$7$^$9!#(B
+--mix10
+Content-Type: text/plain; charset=KOI8-R
+Content-Transfer-Encoding: 8bit
+
+Привет, Анна! Документы во вложении.
+--mix10--

@@ -8,6 +8,7 @@ on:
     paths:
       - 'src/ThixWrite/**'
       - 'src/ThixWrite.Core/**'
+      - 'src/ThixWrite.Desktop/**'
       - 'src/ThixOffice.Core/**'
       - 'src/ThixOffice.Desktop/**'
       - 'src/ThixOffice.Text/**'
@@ -27,6 +28,7 @@ on:
     paths:
       - 'src/ThixWrite/**'
       - 'src/ThixWrite.Core/**'
+      - 'src/ThixWrite.Desktop/**'
       - 'src/ThixOffice.Core/**'
       - 'src/ThixOffice.Desktop/**'
       - 'src/ThixOffice.Text/**'

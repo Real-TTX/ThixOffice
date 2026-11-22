@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ThixWrite.Desktop: ThixWrite's text surface on Avalonia, shared by every app that edits or shows rich text with ThixWrite's engine – ThixWrite
+    itself (the pages of a document, headers and footers) and ThixMail (the reading pane shows a mail as a read-only story; the composer edits one).
+    DocumentSurface (+ CaretLayer, WriteInputClient: keys, text input, the input method, the pointer), PagePictures (+ FormattingMarks: the pages
+    as Skia pictures), WriteFonts (the measurer of the process), DocumentPalette (the colours that are document data – paper, ink, the font and
+    highlight palettes – the one file with literal colours, exempted by the rules tests of ThixWrite and ThixMail).
+  -->
+  <PropertyGroup>
+    <RootNamespace>ThixWrite.Editor</RootNamespace>
+    <AvaloniaVersion>11.3.22</AvaloniaVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixWrite" />
+    <InternalsVisibleTo Include="ThixWrite.Tests" />
+    <InternalsVisibleTo Include="ThixMail" />
+    <InternalsVisibleTo Include="ThixMail.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Skia" Version="$(AvaloniaVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThixOffice.Core\ThixOffice.Core.csproj" />
+    <ProjectReference Include="..\ThixOffice.Desktop\ThixOffice.Desktop.csproj" />
+    <ProjectReference Include="..\ThixWrite.Core\ThixWrite.Core.csproj" />
+    <ProjectReference Include="..\ThixOffice.Text\ThixOffice.Text.csproj" />
+    <ProjectReference Include="..\ThixOffice.Text.Skia\ThixOffice.Text.Skia.csproj" />
+  </ItemGroup>
+
+</Project>

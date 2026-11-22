@@ -17,7 +17,7 @@ public sealed record StoredItem(string Collection, string Key, string? Data, Dat
 /// thread reads and writes, the sync loop on a worker thread too. Writes of this computer mark an item dirty; the sync marks it clean when the cloud
 /// has it (<see cref="MarkClean"/>) and writes what came from the cloud (<see cref="ApplyRemote"/>: a newer change of this computer is kept).
 /// </summary>
-public sealed class PimStore : IDisposable
+public sealed class PimStore : SqliteDatabase
 {
     /// <summary>The migrations, in order: index + 1 is the version a store has after it.</summary>
     internal static readonly IReadOnlyList<string> Migrations =
@@ -44,80 +44,26 @@ public sealed class PimStore : IDisposable
         """,
     ];
 
-    private readonly SqliteConnection _connection;
-    private readonly object _gate = new();
-
-    private PimStore(string path, SqliteConnection connection)
+    private PimStore(string path)
+        : base(path, Migrations, "Die Kontakte auf diesem Computer stammen von einer neueren Version. Bitte aktualisieren Sie die App.")
     {
-        Path = path;
-        _connection = connection;
     }
 
     /// <summary>Raised after the sync wrote items that came from the cloud (the collections it touched); any thread.</summary>
     public event EventHandler<IReadOnlyCollection<string>>? RemoteChanged;
 
-    /// <summary>The file of the store (":memory:" for tests).</summary>
-    public string Path { get; }
-
-    /// <summary>The schema version of the store (the number of migrations applied).</summary>
-    public int SchemaVersion => (int)Scalar<long>("PRAGMA user_version");
-
     /// <summary>The version a store has after every migration of this build.</summary>
     public static int CurrentVersion => Migrations.Count;
 
     /// <summary>Opens (or creates) the store at <paramref name="path"/> and brings its schema up to date.</summary>
-    public static PimStore Open(string path)
-    {
-        if (path != ":memory:")
-        {
-            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(path))!);
-        }
-
-        var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = path, Pooling = false }.ToString());
-        connection.Open();
-        var store = new PimStore(path, connection);
-        store.Execute("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON;");
-        store.Migrate();
-        return store;
-    }
-
-    /// <summary>Applies the migrations the store does not have yet, each in its own transaction with its version.</summary>
-    private void Migrate()
-    {
-        lock (_gate)
-        {
-            var version = SchemaVersion;
-            if (version > Migrations.Count)
-            {
-                throw new Core.Models.BusinessException("Die Kontakte auf diesem Computer stammen von einer neueren Version. Bitte aktualisieren Sie die App.");
-            }
-
-            for (var next = version; next < Migrations.Count; next++)
-            {
-                using var transaction = _connection.BeginTransaction();
-                using (var command = Command(Migrations[next]))
-                {
-                    command.Transaction = transaction;
-                    command.ExecuteNonQuery();
-                }
-
-                using (var bump = Command($"PRAGMA user_version = {next + 1}"))
-                {
-                    bump.Transaction = transaction;
-                    bump.ExecuteNonQuery();
-                }
-
-                transaction.Commit();
-            }
-        }
-    }
+    public static PimStore Open(string path) => new(path);
 
     // ---- items ----
 
     /// <summary>The items of a collection (tombstones only when asked for).</summary>
     public IReadOnlyList<StoredItem> Items(string collection, bool withDeleted = false)
     {
-        lock (_gate)
+        lock (Gate)
         {
             using var command = Command("SELECT Collection, Key, Data, UpdatedAt, IsDeleted, IsDirty, Revision FROM Item WHERE Collection = $c" + (withDeleted ? "" : " AND IsDeleted = 0"));
             command.Parameters.AddWithValue("$c", collection);
@@ -127,7 +73,7 @@ public sealed class PimStore : IDisposable
 
     public StoredItem? Get(string collection, string key)
     {
-        lock (_gate)
+        lock (Gate)
         {
             using var command = Command("SELECT Collection, Key, Data, UpdatedAt, IsDeleted, IsDirty, Revision FROM Item WHERE Collection = $c AND Key = $k");
             command.Parameters.AddWithValue("$c", collection);
@@ -140,9 +86,9 @@ public sealed class PimStore : IDisposable
     public void Write(IEnumerable<(string Collection, string Key, string? Data)> changes, DateTimeOffset? at = null)
     {
         var when = at ?? DateTimeOffset.UtcNow;
-        lock (_gate)
+        lock (Gate)
         {
-            using var transaction = _connection.BeginTransaction();
+            using var transaction = Connection.BeginTransaction();
             foreach (var (collection, key, data) in changes)
             {
                 using var command = Command("""
@@ -165,7 +111,7 @@ public sealed class PimStore : IDisposable
     /// <summary>The changes of this computer that wait to go up, oldest first.</summary>
     public IReadOnlyList<StoredItem> Dirty(int limit = SyncContract.MaxBatchSize)
     {
-        lock (_gate)
+        lock (Gate)
         {
             using var command = Command("SELECT Collection, Key, Data, UpdatedAt, IsDeleted, IsDirty, Revision FROM Item WHERE IsDirty = 1 ORDER BY UpdatedAt LIMIT $l");
             command.Parameters.AddWithValue("$l", limit);
@@ -178,7 +124,7 @@ public sealed class PimStore : IDisposable
     {
         get
         {
-            lock (_gate)
+            lock (Gate)
             {
                 return (int)Scalar<long>("SELECT COUNT(*) FROM Item WHERE IsDirty = 1");
             }
@@ -188,7 +134,7 @@ public sealed class PimStore : IDisposable
     /// <summary>The cloud has the change of <paramref name="updatedAt"/>: clean – unless this computer changed the item again since.</summary>
     public void MarkClean(string collection, string key, DateTimeOffset updatedAt, long revision)
     {
-        lock (_gate)
+        lock (Gate)
         {
             using var command = Command("UPDATE Item SET IsDirty = 0, Revision = $r WHERE Collection = $c AND Key = $k AND UpdatedAt = $u");
             command.Parameters.AddWithValue("$c", collection);
@@ -207,9 +153,9 @@ public sealed class PimStore : IDisposable
     {
         var written = 0;
         var collections = new HashSet<string>(StringComparer.Ordinal);
-        lock (_gate)
+        lock (Gate)
         {
-            using var transaction = _connection.BeginTransaction();
+            using var transaction = Connection.BeginTransaction();
             foreach (var item in items)
             {
                 using (var check = Command("SELECT UpdatedAt, IsDirty FROM Item WHERE Collection = $c AND Key = $k"))
@@ -254,7 +200,7 @@ public sealed class PimStore : IDisposable
     /// <summary>Every live item becomes a change of this computer (a local store that is taken into an account: everything goes up).</summary>
     public void MarkAllDirty()
     {
-        lock (_gate)
+        lock (Gate)
         {
             Execute("UPDATE Item SET IsDirty = 1, Revision = 0 WHERE IsDeleted = 0; DELETE FROM Item WHERE IsDeleted = 1; UPDATE Photo SET IsUploaded = 0;");
             SetMeta("cursor", "0");
@@ -264,7 +210,7 @@ public sealed class PimStore : IDisposable
     /// <summary>Tombstones the cloud has seen long ago go (a year, like MatCloud's).</summary>
     public int RemoveOldTombstones(TimeSpan age)
     {
-        lock (_gate)
+        lock (Gate)
         {
             using var command = Command("DELETE FROM Item WHERE IsDeleted = 1 AND IsDirty = 0 AND UpdatedAt < $u");
             command.Parameters.AddWithValue("$u", (DateTimeOffset.UtcNow - age).ToUnixTimeMilliseconds());
@@ -290,7 +236,7 @@ public sealed class PimStore : IDisposable
 
     public string? GetMeta(string name)
     {
-        lock (_gate)
+        lock (Gate)
         {
             using var command = Command("SELECT Value FROM Meta WHERE Name = $n");
             command.Parameters.AddWithValue("$n", name);
@@ -300,7 +246,7 @@ public sealed class PimStore : IDisposable
 
     public void SetMeta(string name, string value)
     {
-        lock (_gate)
+        lock (Gate)
         {
             using var command = Command("INSERT INTO Meta (Name, Value) VALUES ($n, $v) ON CONFLICT (Name) DO UPDATE SET Value = $v");
             command.Parameters.AddWithValue("$n", name);
@@ -314,7 +260,7 @@ public sealed class PimStore : IDisposable
     /// <summary>Keeps a picture by its id (the SHA-256 of the bytes); <paramref name="isUploaded"/>: the cloud has it already.</summary>
     public void PutPhoto(string id, byte[] bytes, bool isUploaded)
     {
-        lock (_gate)
+        lock (Gate)
         {
             using var command = Command("INSERT INTO Photo (Id, Bytes, IsUploaded) VALUES ($i, $b, $u) ON CONFLICT (Id) DO UPDATE SET IsUploaded = MAX(IsUploaded, $u)");
             command.Parameters.AddWithValue("$i", id);
@@ -326,7 +272,7 @@ public sealed class PimStore : IDisposable
 
     public byte[]? Photo(string id)
     {
-        lock (_gate)
+        lock (Gate)
         {
             using var command = Command("SELECT Bytes FROM Photo WHERE Id = $i");
             command.Parameters.AddWithValue("$i", id);
@@ -336,7 +282,7 @@ public sealed class PimStore : IDisposable
 
     public bool HasPhoto(string id)
     {
-        lock (_gate)
+        lock (Gate)
         {
             using var command = Command("SELECT 1 FROM Photo WHERE Id = $i");
             command.Parameters.AddWithValue("$i", id);
@@ -347,7 +293,7 @@ public sealed class PimStore : IDisposable
     /// <summary>The ids of the pictures the cloud does not have yet.</summary>
     public IReadOnlyList<string> PhotosToUpload()
     {
-        lock (_gate)
+        lock (Gate)
         {
             using var command = Command("SELECT Id FROM Photo WHERE IsUploaded = 0");
             using var reader = command.ExecuteReader();
@@ -363,7 +309,7 @@ public sealed class PimStore : IDisposable
 
     public void MarkPhotoUploaded(string id)
     {
-        lock (_gate)
+        lock (Gate)
         {
             using var command = Command("UPDATE Photo SET IsUploaded = 1 WHERE Id = $i");
             command.Parameters.AddWithValue("$i", id);
@@ -374,7 +320,7 @@ public sealed class PimStore : IDisposable
     /// <summary>Pictures no live item names any more (<paramref name="named"/>) go; answers how many.</summary>
     public int RemovePhotosExcept(IReadOnlySet<string> named)
     {
-        lock (_gate)
+        lock (Gate)
         {
             var all = new List<string>();
             using (var command = Command("SELECT Id FROM Photo"))
@@ -395,41 +341,6 @@ public sealed class PimStore : IDisposable
             }
 
             return removed;
-        }
-    }
-
-    public void Dispose()
-    {
-        lock (_gate)
-        {
-            _connection.Dispose();
-        }
-    }
-
-    // ---- helpers ----
-
-    private SqliteCommand Command(string sql)
-    {
-        var command = _connection.CreateCommand();
-        command.CommandText = sql;
-        return command;
-    }
-
-    private void Execute(string sql)
-    {
-        lock (_gate)
-        {
-            using var command = Command(sql);
-            command.ExecuteNonQuery();
-        }
-    }
-
-    private T Scalar<T>(string sql)
-    {
-        lock (_gate)
-        {
-            using var command = Command(sql);
-            return (T)Convert.ChangeType(command.ExecuteScalar()!, typeof(T), CultureInfo.InvariantCulture);
         }
     }
 

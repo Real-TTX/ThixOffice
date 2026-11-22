@@ -12,6 +12,10 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="ThixContacts" />
+    <InternalsVisibleTo Include="ThixMail" />
+    <InternalsVisibleTo Include="ThixMail.Core" />
+    <InternalsVisibleTo Include="ThixMail.Tests" />
+    <InternalsVisibleTo Include="ThixMail.Core.Tests" />
     <InternalsVisibleTo Include="ThixContacts.Tests" />
   </ItemGroup>
 

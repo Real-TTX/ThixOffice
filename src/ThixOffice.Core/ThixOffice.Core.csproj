@@ -22,6 +22,10 @@
     <InternalsVisibleTo Include="ThixOffice.Pim.Desktop" />
     <InternalsVisibleTo Include="ThixOffice.Pim.Tests" />
     <InternalsVisibleTo Include="ThixContacts" />
+    <InternalsVisibleTo Include="ThixMail" />
+    <InternalsVisibleTo Include="ThixMail.Core" />
+    <InternalsVisibleTo Include="ThixMail.Tests" />
+    <InternalsVisibleTo Include="ThixMail.Core.Tests" />
     <InternalsVisibleTo Include="ThixContacts.Core" />
     <InternalsVisibleTo Include="ThixContacts.Core.Tests" />
     <InternalsVisibleTo Include="ThixContacts.Tests" />

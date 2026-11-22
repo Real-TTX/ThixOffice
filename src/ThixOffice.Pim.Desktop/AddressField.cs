@@ -49,13 +49,22 @@ public sealed class AddressField : UserControl
         }
     }
 
+    /// <summary>
+    /// Suggestions as ready entries ("Anna Berger &lt;anna@example.de&gt;") – ThixMail's recent recipients and the contacts of the account; used instead of
+    /// <see cref="Suggestions"/> when set.
+    /// </summary>
+    public Func<string, IReadOnlyList<string>>? EntrySuggestions { get; set; }
+
     private void Refresh()
     {
         var part = CurrentPart;
-        var found = part.Length == 0 || Suggestions is null ? [] : Suggestions(part);
-        _list.ItemsSource = found.Select(f => $"{f.Person.Name} <{f.Email}>").ToList();
-        _list.SelectedIndex = found.Count > 0 ? 0 : -1;
-        _popup.IsOpen = found.Count > 0;
+        IReadOnlyList<string> entries = part.Length == 0 ? []
+            : EntrySuggestions is { } entrySuggestions ? entrySuggestions(part)
+            : Suggestions is { } suggestions ? [.. suggestions(part).Select(f => $"{f.Person.Name} <{f.Email}>")]
+            : [];
+        _list.ItemsSource = entries;
+        _list.SelectedIndex = entries.Count > 0 ? 0 : -1;
+        _popup.IsOpen = entries.Count > 0;
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)

@@ -1,0 +1,52 @@
+From: Jonas Weber <jonas.weber@example.de>
+To: Anna Berger <anna@example.de>
+Subject: Einladung: Projektbesprechung Nordlicht (Do. 26.11.2026 14:00)
+Date: Fri, 20 Nov 2026 12:00:00 +0100
+Message-ID: <cal-07@example.de>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="mix07"
+
+--mix07
+Content-Type: multipart/alternative; boundary="alt07"
+
+--alt07
+Content-Type: text/plain; charset=utf-8
+
+Projektbesprechung Nordlicht
+Wann: Donnerstag, 26. November 2026, 14:00-15:00
+Wo: Raum 2.14
+--alt07
+Content-Type: text/html; charset=utf-8
+
+<html><body><h2>Projektbesprechung Nordlicht</h2><p><b>Wann:</b> Donnerstag, 26. November 2026, 14:00&ndash;15:00<br><b>Wo:</b> Raum 2.14</p></body></html>
+--alt07
+Content-Type: text/calendar; charset=utf-8; method=REQUEST
+
+BEGIN:VCALENDAR
+PRODID:-//Example//Kalender//DE
+VERSION:2.0
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:termin-07@example.de
+DTSTART:20261126T130000Z
+DTEND:20261126T140000Z
+SUMMARY:Projektbesprechung Nordlicht
+LOCATION:Raum 2.14
+ORGANIZER;CN=Jonas Weber:mailto:jonas.weber@example.de
+ATTENDEE;CN=Anna Berger;RSVP=TRUE:mailto:anna@example.de
+END:VEVENT
+END:VCALENDAR
+--alt07--
+--mix07
+Content-Type: application/ics; name="einladung.ics"
+Content-Disposition: attachment; filename="einladung.ics"
+Content-Transfer-Encoding: base64
+
+QkVHSU46VkNBTEVOREFSDQpQUk9ESUQ6LS8vRXhhbXBsZS8vS2FsZW5kZXIvL0RFDQpWRVJTSU9O
+OjIuMA0KTUVUSE9EOlJFUVVFU1QNCkJFR0lOOlZFVkVOVA0KVUlEOnRlcm1pbi0wN0BleGFtcGxl
+LmRlDQpEVFNUQVJUOjIwMjYxMTI2VDEzMDAwMFoNCkRURU5EOjIwMjYxMTI2VDE0MDAwMFoNClNV
+TU1BUlk6UHJvamVrdGJlc3ByZWNodW5nIE5vcmRsaWNodA0KTE9DQVRJT046UmF1bSAyLjE0DQpP
+UkdBTklaRVI7Q049Sm9uYXMgV2ViZXI6bWFpbHRvOmpvbmFzLndlYmVyQGV4YW1wbGUuZGUNCkFU
+VEVOREVFO0NOPUFubmEgQmVyZ2VyO1JTVlA9VFJVRTptYWlsdG86YW5uYUBleGFtcGxlLmRlDQpF
+TkQ6VkVWRU5UDQpFTkQ6VkNBTEVOREFS
+--mix07--

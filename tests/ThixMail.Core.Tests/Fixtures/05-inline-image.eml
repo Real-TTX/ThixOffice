@@ -1,0 +1,43 @@
+From: Marketing <marketing@example.net>
+To: anna@example.de
+Subject: Unser neues Logo
+Date: Thu, 19 Nov 2026 11:30:00 +0100
+Message-ID: <inline-05@example.net>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="rel05"; type="text/html"
+
+--rel05
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: base64
+
+PGh0bWw+PGJvZHk+PHA+SGFsbG8gQW5uYSw8L3A+PHA+c28gc2llaHQgdW5zZXIgbmV1ZXMgTG9n
+byBhdXM6PC9wPjxwPjxpbWcgc3JjPSJjaWQ6bG9nbzA1QGV4YW1wbGUubmV0IiBhbHQ9IkxvZ28i
+PjwvcD48cD5XYXMgbWVpbnN0IGR1PzwvcD48L2JvZHk+PC9odG1sPg==
+--rel05
+Content-Type: image/png; name="logo.png"
+Content-Disposition: inline; filename="logo.png"
+Content-ID: <logo05@example.net>
+Content-Transfer-Encoding: base64
+
+iVBORw0KGgoAAAANSUhEUgAAAPAAAAA8CAYAAABYfzddAAAAAXNSR0IArs4c6QAAAARnQU1BAACx
+jwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAQaSURBVHhe7Zs9bhRBEIV9A3IuwAE4AAfgApyA
+iAwiQmeEkBFCSAgpSEhIWCJAJiBAMgEBiRMiYqO30rNKtV2zI2x5pna/kj7ZqumfamveVHXP+OjW
+ow8XANCTo+wAgD4gYIDGIGCAxiBggMYgYIDGIGCAxiBggMYgYIDGIGCAxiBggMYgYIDGIGCAxiBg
+gMYgYIDGIGCAxiBggMYgYIDGIGCAxiBggMYgYIDGzBbwkzc/Lv7X3p2eb8a49+zLpU+/5zmmuErf
+jGM6fvtzs67bjz9utRlx//nXTXv1PTv/e+U4ItX6Kj+AOFgBR3vw8ttWmxHZrhpHpFpf5QcQswU8
+hU0iz9cia7kZbcqisteff2+1ySj7ZruJNazlbwbr5KAFrBLalttkXrz/tWnnn7KbWMNa/mawTg5a
+wN7PypRhc7tRn5iJb2INa/mbwTpZVMB3j0825Ws0Zbg7Tz/t7Cuf+tuqMvjhq++XbfS7fDbF6+ua
+N/c1nufk7M8wjoziV3b3w8Gmkl3zjPpV41Z+ALGYgGMpOrIs4upGjodr+QbXGDYfpAmb+sY2OV7j
+Ultir+IwOhCbY/ngrBq38gOIxQQsU0Zy6apXOVGMOSNO3cg+jNLP+EooZvf4QLA5Xvevymhf1xhT
+ccSHgbK1MrevKa5YDchi32rcyg8gFhXw6P1rzMxV33wjx2vKlvLFvWqOK/udYfNDQ7h8lojzXDmO
+KNDR2uJcsijwatzKDyAWE7CFloklaNV3dCNnYdiUCXNbm+ON7XNbj+t4d8Wxi6rkr8at/ABiMQHn
+PeCoTcxiu25ktXWpGy1mOWOL8dpyGe0xPc6uODIuu5Wd84HdHKFWfgCxmICrm7FqU/mrvrIqntH1
++J7XvlFmnhOHHk75BHpkc9ZX+QHEXgk4Z+GqnS3G6z2z97pitDfeFcfodF1jKvtK2LHUn7O+yg8g
+9krAURyyfCptbDFetbO5XB6dTk/FEffvEmy+LtgDw3WyNwKO1+NecxRTdc399CAYlc95nhyHDsxk
+8Z1zBgHDdbIXAo6ls7NuFEo+yLLleP0aSGM4m+cvvKbiqMaNxL3xnPVVfgCxFwIeZbUo6vwqyZbj
+jR9iuG8+LZ+Kw31G75NF/kprzvoqP4BoL+BY6uZ3y7FPjG3kMy6DbXkPXcUh4gGWxnZffxudbc76
+Kj+AaC/gKLgsNhH3wy6lbaN4o9By5p6KQ2j+/ACIpgwdvxDzP1dMjVv5AURrAcfSOX+AYeLpsgVp
+G8UbM3oU2FQceT5l4vg6S/NqLD9gvA+Oh13VuJUfQFyLgAFgGRAwQGMQMEBjEDBAYxAwQGMQMEBj
+EDBAYxAwQGMQMEBjEDBAYxAwQGMQMEBjEDBAYxAwQGMQMEBjEDBAYxAwQGMQMEBjEDBAY/4BAKgR
+HEERMJIAAAAASUVORK5CYII=
+--rel05--

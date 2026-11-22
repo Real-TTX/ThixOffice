@@ -31,9 +31,9 @@ public sealed class SnapshotTests
         // the colours that are document data (paper, ink, the palettes of Schriftfarbe and Hervorhebung) in DocumentPalette.cs.
         var literal = new Regex(@"#[0-9A-Fa-f]{6}\b|#[0-9A-Fa-f]{8}\b|Color\.(Parse|FromRgb|FromArgb)|Colors\.\w+|Brushes\.\w+");
         var root = FindRoot();
-        var palette = Path.Combine(root, "src", "ThixWrite", "Editor", "DocumentPalette.cs");
+        var palette = Path.Combine(root, "src", "ThixWrite.Desktop", "Editor", "DocumentPalette.cs");
         Assert.True(File.Exists(palette));
-        var findings = new[] { "ThixWrite", "ThixWrite.Core" }
+        var findings = new[] { "ThixWrite", "ThixWrite.Core", "ThixWrite.Desktop" }
             .SelectMany(project => Directory.EnumerateFiles(Path.Combine(root, "src", project), "*.*", SearchOption.AllDirectories))
             .Where(file => file != palette)
             .Where(file => (file.EndsWith(".cs", StringComparison.Ordinal) || file.EndsWith(".axaml", StringComparison.Ordinal))

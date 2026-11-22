@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Tests of ThixMail.Core: the sync against SampleMailServer (first sync, new mail, flags both ways with and without CONDSTORE, moves, expunges,
+    UIDVALIDITY, the offline queue, the outbox, drafts, IDLE, reconnecting), threading, the full-text search, 200,000 messages, MIME with the 12
+    fixture mails (Fixtures/, made by Fixtures/make-fixtures.ps1), composing and replying, the sanitizer as a table of attacks, auto-configuration and
+    accounts. MatMailIntegrationTests run against a real IMAP/SMTP server only when THIXMAIL_IMAP_HOST is set (a throwaway GreenMail container).
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <SupportedOSPlatformVersion Condition="'$(OS)' == 'Windows_NT'">10.0.17763.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="GitHubActionsTestLogger" Version="2.4.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Fixtures\*.eml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ThixOffice.Core\ThixOffice.Core.csproj" />
+    <ProjectReference Include="..\..\src\ThixOffice.Pim\ThixOffice.Pim.csproj" />
+    <ProjectReference Include="..\..\src\ThixWrite.Core\ThixWrite.Core.csproj" />
+    <ProjectReference Include="..\..\src\ThixMail.Core\ThixMail.Core.csproj" />
+  </ItemGroup>
+
+</Project>

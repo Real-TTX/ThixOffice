@@ -14,6 +14,11 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="ThixWrite" />
+    <InternalsVisibleTo Include="ThixWrite.Desktop" />
+    <InternalsVisibleTo Include="ThixMail" />
+    <InternalsVisibleTo Include="ThixMail.Core" />
+    <InternalsVisibleTo Include="ThixMail.Tests" />
+    <InternalsVisibleTo Include="ThixMail.Core.Tests" />
     <InternalsVisibleTo Include="ThixWrite.Tests" />
     <InternalsVisibleTo Include="ThixWrite.Core.Tests" />
   </ItemGroup>

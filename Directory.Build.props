@@ -23,6 +23,7 @@
     <ThixApp Condition="'$(ThixApp)' == '' and $(MSBuildProjectName.StartsWith('ThixCalc'))">ThixCalc</ThixApp>
     <ThixApp Condition="'$(ThixApp)' == '' and $(MSBuildProjectName.StartsWith('ThixShow'))">ThixShow</ThixApp>
     <ThixApp Condition="'$(ThixApp)' == '' and $(MSBuildProjectName.StartsWith('ThixContacts'))">ThixContacts</ThixApp>
+    <ThixApp Condition="'$(ThixApp)' == '' and $(MSBuildProjectName.StartsWith('ThixMail'))">ThixMail</ThixApp>
     <ThixApp Condition="'$(ThixApp)' == ''">ThixOffice</ThixApp>
     <ThixAppId>$(ThixApp.ToLowerInvariant())</ThixAppId>
     <Product>$(ThixApp)</Product>
@@ -46,6 +47,8 @@
     <ThixShowMinor>1</ThixShowMinor>
     <ThixContactsMajor>0</ThixContactsMajor>
     <ThixContactsMinor>1</ThixContactsMinor>
+    <ThixMailMajor>0</ThixMailMajor>
+    <ThixMailMinor>1</ThixMailMinor>
     <ThixOfficeMajor>0</ThixOfficeMajor>
     <ThixOfficeMinor>1</ThixOfficeMinor>
 
@@ -57,6 +60,8 @@
     <AppMinor Condition="'$(ThixApp)' == 'ThixShow'">$(ThixShowMinor)</AppMinor>
     <AppMajor Condition="'$(ThixApp)' == 'ThixContacts'">$(ThixContactsMajor)</AppMajor>
     <AppMinor Condition="'$(ThixApp)' == 'ThixContacts'">$(ThixContactsMinor)</AppMinor>
+    <AppMajor Condition="'$(ThixApp)' == 'ThixMail'">$(ThixMailMajor)</AppMajor>
+    <AppMinor Condition="'$(ThixApp)' == 'ThixMail'">$(ThixMailMinor)</AppMinor>
     <AppMajor Condition="'$(AppMajor)' == ''">$(ThixOfficeMajor)</AppMajor>
     <AppMinor Condition="'$(AppMinor)' == ''">$(ThixOfficeMinor)</AppMinor>
 

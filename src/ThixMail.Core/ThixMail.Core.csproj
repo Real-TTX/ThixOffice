@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ThixMail without UI: its app definition (a workspace app: one main window, .eml as the type it opens, cloud id mail), the accounts (IMAP/SMTP
+    settings without passwords – those live only in the TokenStore –, auto-configuration with a connection test), the protocol seam IMailTransport
+    with MailKit's IMAP/SMTP behind it and SampleMailServer (a server in memory for tests, snapshots and the self test), the offline store (SQLite
+    through ThixOffice.Pim's SqliteDatabase: folders, headers, flags, threads, cached bodies, attachments, FTS5 search, the operations queue, the
+    outbox), the sync engine, MIME reading and composing (MimeKit), and the safety of shown mail (sanitized HTML, links, attachments). The HTML
+    of a mail becomes a ThixWrite document (ThixWrite.Core's HtmlImport) – the reading pane and the composer show it with ThixWrite's layout.
+  -->
+  <PropertyGroup>
+    <RootNamespace>ThixMail.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixMail" />
+    <InternalsVisibleTo Include="ThixMail.Tests" />
+    <InternalsVisibleTo Include="ThixMail.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThixOffice.Core\ThixOffice.Core.csproj" />
+    <ProjectReference Include="..\ThixOffice.Pim\ThixOffice.Pim.csproj" />
+    <ProjectReference Include="..\ThixWrite.Core\ThixWrite.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MailKit" Version="5.0.0" />
+  </ItemGroup>
+
+</Project>

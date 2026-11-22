@@ -1,0 +1,28 @@
+From: Lena Koch <lena.koch@example.org>
+To: anna@example.de
+Subject: Einladung zum Sommerfest
+Date: Tue, 17 Nov 2026 16:40:00 +0100
+Message-ID: <html-02@example.org>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="alt02"
+
+--alt02
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+
+TGllYmUgS29sbGVnaW5uZW4gdW5kIEtvbGxlZ2VuLA0KDQphbSBGcmVpdGFnIGZlaWVybiB3aXIg
+dW5zZXIgU29tbWVyZmVzdC4NCi0gQmVnaW5uIDE3IFVocg0KLSBHcmlsbGVuIGltIEhvZg0KLSBN
+dXNpayBhYiAxOSBVaHINCg0KQW5tZWxkdW5nOiBodHRwczovL2V4YW1wbGUub3JnL2Zlc3QNCg0K
+TGVuYQ==
+--alt02
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: base64
+
+PGh0bWw+PGJvZHkgc3R5bGU9ImZvbnQtZmFtaWx5OlNlZ29lIFVJLEFyaWFsO2ZvbnQtc2l6ZTox
+NHB4Ij48cD5MaWViZSBLb2xsZWdpbm5lbiB1bmQgS29sbGVnZW4sPC9wPjxwPmFtIDxiPkZyZWl0
+YWc8L2I+IGZlaWVybiB3aXIgdW5zZXIgPHNwYW4gc3R5bGU9ImNvbG9yOiNDNDNFMUMiPlNvbW1l
+cmZlc3Q8L3NwYW4+LjwvcD48dWw+PGxpPkJlZ2lubiAxNyZuYnNwO1VocjwvbGk+PGxpPkdyaWxs
+ZW4gaW0gSG9mPC9saT48bGk+TXVzaWsgYWIgMTkmbmJzcDtVaHI8L2xpPjwvdWw+PHA+Qml0dGUg
+bWVsZGV0IGV1Y2ggPGEgaHJlZj0iaHR0cHM6Ly9leGFtcGxlLm9yZy9mZXN0Ij5oaWVyIGFuPC9h
+Pi48L3A+PHA+VmllbGUgR3LDvMOfZTxicj48aT5MZW5hPC9pPjwvcD48L2JvZHk+PC9odG1sPg==
+--alt02--

@@ -1,0 +1,17 @@
+From: Kaputt Mailer <broken@example.invalid>
+To: anna@example.de
+Subject: Defekte Nachricht
+Date: Kein Datum
+This line is not a header
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="never-closed"
+
+--never-closed
+Content-Type: text/plain
+
+Dieser Teil hat Umlaute ohne Zeichensatz:Grüße הצü
+--never-closed
+Content-Type: image/png; name=x.png
+Content-Transfer-Encoding: base64
+
+%%%% not base64 at all !!!!
