@@ -123,6 +123,19 @@ public sealed record OfficeAppDefinition
     public bool IsWorkspace => Kind == OfficeAppKind.Workspace;
 
     /// <summary>
+    /// The app shows system notifications (ThixMail: new mail). On Windows its Start-menu shortcut then carries <see cref="AppUserModelId"/> (toasts of
+    /// an unpackaged app need it) and the process uses it too, and the setup registers the URL scheme <see cref="UrlScheme"/> (a click on a toast starts
+    /// "&lt;scheme&gt;:…", which the running instance takes over).
+    /// </summary>
+    public bool ShowsNotifications { get; init; }
+
+    /// <summary>The Windows AppUserModelID of an app with notifications (the bundle id: <c>info.schmoldt.thixmail</c>).</summary>
+    public string AppUserModelId => MacBundleId;
+
+    /// <summary>The app's own URL scheme for activations from notifications: <c>thixmail</c>.</summary>
+    public string UrlScheme => Id;
+
+    /// <summary>
     /// The app's id at ThixCloud (MatCloud's <c>CloudApps</c>: <c>write</c>, <c>calc</c>, <c>show</c>): its devices sign in as this app and
     /// reach the Drive of their account (ThixDrive). Null: the app has no cloud (sign-in, the ThixDrive places and the Cloud tab are hidden).
     /// </summary>

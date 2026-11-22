@@ -56,7 +56,13 @@ public sealed class RecordingNotifier : IMailNotifier
 {
     public List<(string Title, string Text, Action Click)> Shown { get; } = [];
 
-    public void Show(string title, string text, Action onClick) => Shown.Add((title, text, onClick));
+    public List<string> Links { get; } = [];
+
+    public void Show(MailNotice notice)
+    {
+        Shown.Add((notice.Title, notice.Text, notice.Open));
+        Links.Add(notice.Link);
+    }
 }
 
 /// <summary>

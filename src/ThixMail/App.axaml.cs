@@ -104,6 +104,12 @@ public partial class App : OfficeApplication
     {
         foreach (var file in files)
         {
+            if (MailLinks.IsLink(file))
+            {
+                OpenLink(window, file);
+                continue;
+            }
+
             try
             {
                 var raw = EmlFiles.Read(file);
@@ -130,13 +136,38 @@ public partial class App : OfficeApplication
         var first = e.Messages[0];
         var title = e.Messages.Count == 1 ? first.From.Display : $"{e.Messages.Count} neue Nachrichten";
         var text = e.Messages.Count == 1 ? first.Subject : string.Join(" · ", e.Messages.Take(3).Select(m => m.From.Display));
-        MailNotifications.Notifier.Show(title, text, () =>
+        MailNotifications.LinkActivated ??= link => Ui.Post(() => OpenLink(window, link));
+        MailNotifications.Notifier.Show(new MailNotice(title, text, MailLinks.Message(first.Id), () => OpenMessage(window, editor, first.Id)));
+    }
+
+    /// <summary>A link of a notification (<c>thixmail:message?id=…</c>): the window to the front with the message selected.</summary>
+    internal static void OpenLink(OfficeWindow window, string link)
+    {
+        if (window.Editor is not MailEditor editor)
         {
-            window.Show();
-            window.BringToFront();
-            editor.SelectFolder(first.FolderId);
-            editor.Select(first.Id);
-        });
+            return;
+        }
+
+        if (MailLinks.MessageId(link) is { } id)
+        {
+            OpenMessage(window, editor, id);
+            return;
+        }
+
+        window.Show();
+        window.BringToFront();
+    }
+
+    private static void OpenMessage(OfficeWindow window, MailEditor editor, long messageId)
+    {
+        window.Show();
+        window.BringToFront();
+        if (editor.Document.Store.Header(messageId) is { } header)
+        {
+            editor.ShowView(MailArea.Mail);
+            editor.SelectFolder(header.FolderId);
+            editor.Select(header.Id);
+        }
     }
 
     private void ShowTray(OfficeWindow window)

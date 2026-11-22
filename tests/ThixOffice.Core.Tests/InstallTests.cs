@@ -181,6 +181,79 @@ public sealed class InstallTests
     }
 
     [Fact]
+    public void An_app_with_notifications_gets_its_AppUserModelID_on_the_shortcut_and_its_URL_scheme()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var data = new TestData();
+        AppInfo.Initialize(TestApp.Definition with { ShowsNotifications = true }, typeof(TestData).Assembly);
+        var programFolder = Path.Combine(data.Folder, "Programs", "ThixTest");
+        InstallService.UseLocationsForTests(programFolder);
+        var source = Path.Combine(data.Folder, "Downloads", "ThixTestSetup.exe");
+        Directory.CreateDirectory(Path.GetDirectoryName(source)!);
+        File.WriteAllBytes(source, new byte[2048]);
+
+        InstallService.Install(source, new InstallChoices(DesktopShortcut: false, AutomaticUpdates: false), _ => { });
+
+        Assert.Equal("info.schmoldt.thixtest", ThixOffice.Core.Platform.Windows.ShellLink.ReadAppUserModelId(InstallService.StartMenuShortcut));
+        Assert.Equal("", data.Registry.GetValue(@"Software\Classes\thixtest", "URL Protocol"));
+        Assert.Equal($"\"{Path.Combine(programFolder, "ThixTest.exe")}\" \"%1\"", data.Registry.GetValue(@"Software\Classes\thixtest\shell\open\command", ""));
+        Assert.Equal("<toast launch=\"thixtest:message?id=1&amp;x\" activationType=\"protocol\"><visual><binding template=\"ToastGeneric\"><text>A &lt;b&gt;</text><text>„T“</text></binding></visual></toast>",
+            ThixOffice.Core.Platform.Windows.WindowsToasts.ToastXml("A <b>", "„T“", "thixtest:message?id=1&x"));
+
+        InstallService.Uninstall(deleteUserData: true, _ => { });
+        Assert.False(data.Registry.KeyExists(@"Software\Classes\thixtest"));
+    }
+
+    [Fact]
+    public void A_shortcut_of_an_app_without_notifications_has_no_AppUserModelID()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var data = new TestData();
+        var path = Path.Combine(data.Folder, "plain.lnk");
+        ThixOffice.Core.Platform.Windows.ShellLink.Write(path, Environment.ProcessPath!, data.Folder, "Test", Environment.ProcessPath!);
+        Assert.Null(ThixOffice.Core.Platform.Windows.ShellLink.ReadAppUserModelId(path));
+    }
+
+    /// <summary>
+    /// A REAL toast on this machine (env-gated: THIXOFFICE_REAL_TOAST=1): a Start-menu shortcut with a test AUMID for the time of the test, the toast
+    /// through the WinRT vtables, the shortcut removed again. Shows a notification "ThixOffice-Test" in the Action Center.
+    /// </summary>
+    [Fact]
+    public void A_real_toast_is_shown_through_the_shortcut_AUMID()
+    {
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 10240) || Environment.GetEnvironmentVariable("THIXOFFICE_REAL_TOAST") != "1")
+        {
+            return;
+        }
+
+        const string aumid = "info.schmoldt.thixoffice.toasttest";
+        var shortcut = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "ThixOffice Toast-Test.lnk");
+        // an AUMID without a shortcut: nothing shown or a quiet toast – never an exception
+        _ = ThixOffice.Core.Platform.Windows.WindowsToasts.Show(aumid + ".unknown", ThixOffice.Core.Platform.Windows.WindowsToasts.ToastXml("ThixOffice-Test", "ohne Verknüpfung", null));
+        ThixOffice.Core.Platform.Windows.ShellLink.Write(shortcut, Environment.ProcessPath!, AppContext.BaseDirectory, "ThixOffice Toast-Test", Environment.ProcessPath!, aumid);
+        try
+        {
+            Thread.Sleep(1500); // the shell indexes the new shortcut
+            Assert.Equal(aumid, ThixOffice.Core.Platform.Windows.ShellLink.ReadAppUserModelId(shortcut));
+            Assert.True(ThixOffice.Core.Platform.Windows.WindowsToasts.Show(aumid,
+                ThixOffice.Core.Platform.Windows.WindowsToasts.ToastXml("ThixOffice-Test", "Eine echte Benachrichtigung – ein Klick startet thixtest:…", "thixtest:message?id=1")),
+                ThixOffice.Core.Platform.Windows.WindowsToasts.LastFailure);
+        }
+        finally
+        {
+            File.Delete(shortcut);
+        }
+    }
+
+    [Fact]
     public void The_command_line_carries_the_install_options_and_refuses_what_it_does_not_know()
     {
         using var data = new TestData();

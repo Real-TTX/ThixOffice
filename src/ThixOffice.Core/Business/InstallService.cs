@@ -76,6 +76,10 @@ public static class InstallService
 
         CreateShortcut(StartMenuShortcut);
         log("Startmenü-Eintrag angelegt");
+        if (AppInfo.Definition.ShowsNotifications)
+        {
+            RegisterUrlScheme(UserRegistry.Current, InstalledExecutable);
+        }
 
         // Also an update applies them again: the file types point at the installed file and its document icon.
         InstallerOptions.Apply(wanted, InstalledExecutable, log);
@@ -103,6 +107,11 @@ public static class InstallService
         StopRunningInstances(log);
 
         AutostartService.RemoveEntry();
+        if (AppInfo.Definition.ShowsNotifications)
+        {
+            UserRegistry.Current.DeleteTree(UrlSchemeKey);
+        }
+
         DeleteFile(StartMenuShortcut);
         DeleteFile(DesktopShortcut);
         log("Verknüpfungen entfernt");
@@ -229,6 +238,20 @@ public static class InstallService
         }
     }
 
+    internal static string UrlSchemeKey => $@"Software\Classes\{AppInfo.Definition.UrlScheme}";
+
+    /// <summary>
+    /// The app's URL scheme (<c>thixmail:</c>) for activations from its notifications: a click on a toast starts the program with the link, the
+    /// running instance takes it over (single instance) – the only way an unpackaged app learns about the click without a COM activator.
+    /// </summary>
+    internal static void RegisterUrlScheme(IUserRegistry registry, string executable)
+    {
+        registry.SetValue(UrlSchemeKey, "", $"URL:{AppInfo.Definition.Name}");
+        registry.SetValue(UrlSchemeKey, "URL Protocol", "");
+        registry.SetValue($@"{UrlSchemeKey}\DefaultIcon", "", $"\"{executable}\",0");
+        registry.SetValue($@"{UrlSchemeKey}\shell\open\command", "", $"\"{executable}\" \"%1\"");
+    }
+
     /// <summary>The desktop shortcut on or off (install options).</summary>
     internal static void SetDesktopShortcut(bool wanted)
     {
@@ -245,7 +268,8 @@ public static class InstallService
     private static void CreateShortcut(string path)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        Platform.Windows.ShellLink.Write(path, InstalledExecutable, ProgramFolder, AppInfo.Definition.Description, InstalledExecutable);
+        Platform.Windows.ShellLink.Write(path, InstalledExecutable, ProgramFolder, AppInfo.Definition.Description, InstalledExecutable,
+            AppInfo.Definition.ShowsNotifications ? AppInfo.Definition.AppUserModelId : null);
     }
 
     private static void DeleteFile(string path)

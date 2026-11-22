@@ -319,6 +319,31 @@ public sealed class MailUiTests
     }
 
     [AvaloniaFact]
+    public async Task A_click_on_a_system_notification_comes_back_as_a_link_and_opens_the_message()
+    {
+        using var data = new TestData();
+        var window = await data.WindowAsync();
+        var editor = EditorOf(window);
+        var sync = editor.Document.SyncOf(SampleMailbox.Account.Id)!;
+        await UntilAsync(() => sync.Status.Phase == ThixMail.Core.Sync.SyncPhase.Idle, "the loop idling");
+        window.Hide();
+        data.Server.Deliver(SampleMailbox.Address, "INBOX", new MailAddress("Lena Koch", "lena.koch@beispiel.de"), "Per Toast", "Hallo");
+        await UntilAsync(() => data.Notifier.Links.Count == 1, "the notification");
+        var link = data.Notifier.Links[0];
+        Assert.StartsWith("thixmail:message?id=", link, StringComparison.Ordinal);
+
+        // Windows starts "ThixMail.exe thixmail:message?id=…"; the second start hands the arguments to this instance
+        var handedOver = ThixOffice.Desktop.OfficeApplication.DocumentFilesIn(["--quiet-not-a-file", link, "kein-link:x"]);
+        Assert.Equal([link], handedOver);
+        TestData.App.HandleActivation(handedOver);
+        await SettleAsync();
+        Assert.True(window.IsVisible);
+        Assert.Equal("Per Toast", editor.Current?.Subject);
+        Assert.Null(MailLinks.MessageId("thixmail:message?id=abc"));
+        Assert.Null(MailLinks.MessageId("thixmail:anderes"));
+    }
+
+    [AvaloniaFact]
     public async Task An_eml_handed_over_opens_in_a_message_window_and_Speichern_unter_writes_one()
     {
         using var data = new TestData();

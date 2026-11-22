@@ -559,6 +559,11 @@ public abstract class OfficeApplication : Application
         Dispatcher.UIThread.UnhandledException += OnUnhandledException;
         UiWatchdog.Start();
         Log.Info($"{Definition.Name} {AppInfo.Version} starting on {UpdateService.PlatformKey}");
+        if (Definition.ShowsNotifications && OperatingSystem.IsWindowsVersionAtLeast(10, 0, 10240))
+        {
+            ThixOffice.Core.Platform.Windows.WindowsToasts.UseAppUserModelId(Definition.AppUserModelId);
+        }
+
         UpdateService.RemoveOldPackages();
 
         ApplyTheme(SettingsService.Get().Theme);
@@ -772,6 +777,11 @@ public abstract class OfficeApplication : Application
         args.Where(argument => !argument.StartsWith("--", StringComparison.Ordinal))
             .Select(argument =>
             {
+                if (IsOwnLink(argument))
+                {
+                    return argument; // a click on a notification: "thixmail:message?id=…", handed to the app as it is
+                }
+
                 try
                 {
                     return Path.GetFullPath(argument);
@@ -782,8 +792,12 @@ public abstract class OfficeApplication : Application
                 }
             })
             .OfType<string>()
-            .Where(File.Exists)
+            .Where(argument => IsOwnLink(argument) || File.Exists(argument))
             .ToList();
+
+    /// <summary>A link of the app's own URL scheme (only apps with notifications have one: ThixMail's toasts start "thixmail:…").</summary>
+    internal static bool IsOwnLink(string argument) =>
+        AppInfo.IsInitialized && AppInfo.Definition.ShowsNotifications && argument.StartsWith(AppInfo.Definition.UrlScheme + ":", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// The instance of an app: per user, and per <paramref name="scope"/> (the data folder of a development or test run).

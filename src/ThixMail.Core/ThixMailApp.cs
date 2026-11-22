@@ -30,6 +30,7 @@ public static class ThixMailApp
         ])
     {
         Kind = OfficeAppKind.Workspace,
+        ShowsNotifications = true,
         UntitledBaseName = "E-Mail",
         CloudAppId = MatCloud.Contract.CloudApps.Mail,
     };
