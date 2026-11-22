@@ -58,7 +58,7 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
                            ways), OdfPackage (reader: HasMimeType, Read(stream, German message, …) turns every ZIP/XML failure into
                            InvalidDataException, Xml/Bytes of parts), OdfPackageWriter (mimetype first and stored, parts, AddPicture once
                            per content, the manifest of every part last, Meta)
-  Documents/               OfficeDocument: the UI-free base of every document model (FilePath, FileType, Title, IsDirty, IsPristine,
+  Documents/               OfficeDocument: the UI-free base of every document model (FilePath, FileType, Title (virtual), IsDirty, IsPristine,
                            IsRecovered, Undo/Redo, protected Read/Write(Stream), Changed; Drive + DriveState + LocationText for a ThixDrive
                            document whose FilePath is its local working copy)
   Commands/                OfficeCommand (Id, Label, Icon, Shortcut "Ctrl+S", MacShortcut, CurrentShortcut, Description, Keywords,
@@ -83,7 +83,7 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
                            TokenStore (DPAPI / Keychain), Log, ProblemReports, FileSystemProbe (snapshots show C:\Users\Anna\…),
                            AppPaths.DriveDirectory (the working copies of ThixDrive documents)
   Platform/                IPrinterSystem (+ SamplePrinterSystem for snapshots/tests); SampleCloud (a ThixCloud in memory: sign-in,
-                           Drive, faults – snapshots, self test, tests); Windows/ ShellLink (.lnk through generated
+                           Drive, faults, a long poll of at most 2 s – snapshots, self test, tests); Windows/ ShellLink (.lnk through generated
                            COM), GdiPrinterSystem (winspool/gdi32 LibraryImport: pages as Skia pixel bands ≤ 600 dpi via
                            StretchDIBits, paper/orientation per page in the DEVMODE, copies collated here); MacOS/ CupsPrinterSystem
                            (libcups: destinations; the pages as PDF to cupsPrintFile with the media option)
@@ -282,7 +282,7 @@ tests/ThixContacts.Core.Tests   the session on a real store (rules, undo, groups
 tests/ThixContacts.Tests        the real ThixContacts headless: workspace shell, Strg+N/F2/Entf/Strg+E, folders, letters, groups, import (vcf, CSV mapping),
                                 export, print, sync and sign-out, merge, snapshots, no literal colours
 tests/ThixMail.Core.Tests       EmbeddingTests (7c against SampleCloud + SampleMailServer: two computers, a contact in ThixContacts' model,
-                                the invitation round trip, meetings), the sync against SampleMailServer (CONDSTORE and polling, moves, expunges, UIDVALIDITY, queue replay, outbox, drafts,
+                                the invitation round trip, meetings, 401/403), MatCloudEmbeddingIntegrationTests (env-gated, a real MatCloud), the sync against SampleMailServer (CONDSTORE and polling, moves, expunges, UIDVALIDITY, queue replay, outbox, drafts,
                                 IDLE, reconnect), threading, FTS5 search, 200,000 messages, the 15 fixture mails (Fixtures/, made by make-fixtures.ps1),
                                 composing/replying, the sanitizer as a table of attacks, auto-configuration, accounts and passwords
 tests/ThixMail.Tests            EmbeddingUiTests (Strg+1/2/3, the sign-in, appointments, contacts, the invitation bar), the real ThixMail headless: add an account (test, certificate), read (pictures blocked/loaded), reply + Strg+Eingabe,
@@ -409,7 +409,12 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - **Views:** `MailEditor.ShowView(MailArea)` (the navigation bar, Strg+1/2/3, Ansicht › Navigation). Kalender = `CalendarView`, Personen = `PeopleView`
   (the same as ThixContacts'), both on `MailDocument.Pim` (`MailPim`: stores `mailcontacts` and `mailcalendar` of the account, `PimSync` with
   `?app=contacts` / `?app=calendar` – the grants of contract 1.5.0). Without a ThixCloud account the views show why and the `CloudSignInPanel`; mail
-  works without. Sign-in changes reach `MailPim.ReconnectAsync` through the editor (`CloudService.StatusChanged`); 401 stops the syncs, data stays.
+  works without. Sign-in changes reach `MailPim.ReconnectAsync` through the editor (`CloudService.StatusChanged`); 401 stops BOTH syncs (the second meets
+  "not signed in": `PimSync` stops on SignedOut/Off), data stays, changes wait; `ReconnectAsync` after a new sign-in starts new syncs on the same stores
+  (`IsSyncing` = a loop runs). A 403 for one granted app (ThixCalendar or ThixContacts switched off in MatCloud) is that sync's own state ("ThixCalendar
+  ist in der ThixCloud abgeschaltet", `PimSync` with `app`: no app-wide Forbidden; `CloudService.RefreshAccountAsync` decides whether ThixMail itself
+  is off); the other sync goes on. `MailPim.SyncStatusChanged` keeps the views' status bar current. The title bar names the view
+  (`MailDocument.ViewName` → `Title`; `OfficeDocument.Title` is virtual for that).
 - **Commands and keys:** every mail command acts only in the view E-Mail (`MailCommands` wraps them), the calendar's only in Kalender, the people
   commands only in Personen – so Strg+N, Entf, Strg+E, F9 belong to the active view: `OfficeWindow` runs the FIRST ENABLED command of a key (a text field
   keeps a key no command can use now). Ribbon: the contextual tabs of the contexts `calendar` (Kalender) and `people` (Personen, Kontaktgruppen,
@@ -418,6 +423,14 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   account + calendar "Kalender" when the account has none –, calendars MatCloud keeps in step (cloud-*) are shown read-only; online accounts each computer
   syncs itself are not in the cloud and do not show. The contract has no series, participants or organizer for own events: invitations enter their first
   meeting; the participants of meetings sent from ThixMail are kept in the store's meta (not synced). Reminders are ThixCalendar's (ThixMail fires none).
+  `CalendarBook.Normalize/Validate` are ThixCalendar's (`CalendarService` there): trimmed texts, all-day at midnight UTC, the meeting address taken from
+  location/notes (`MeetingLinks`, its regex) and checked as http(s) – an item ThixCalendar would normalize differently is written back by it. Own
+  calendars are made like its `AddLocal` (no default reminder) and only after the store's first sync (`CalendarBook.AwaitsFirstSync`, set by
+  `MailPim`): before, ThixCalendar's own calendars may still be on their way and a second "Eigene Kalender" would appear everywhere.
+- **Checked against the real thing:** `MatCloudEmbeddingIntegrationTests` (ThixMail.Core.Tests, the env variables of the MatCloud integration run) –
+  contacts with ThixContacts' sync, the calendar with ThixCalendar's sync and its item shapes/rules copied into the test (`ThixCalendarShapes`), grants,
+  401, 403 (switches ThixCalendar off through Verwaltung › Apps: the user must be the instance's administrator). `THIXOFFICE_MATCLOUD_KEEP_APPOINTMENTS=1`
+  leaves ThixMail's appointments in the account for a look with ThixCalendar itself (its core can be driven from a copy of its sources outside both repos).
 - **Invitations:** `MailReader` keeps a text/calendar part (`ReadMail.Calendar`), `MailInvitations.View` reads it (`Invitations.Read`) with the
   overlaps; `MessageView.ShowInvitation` draws the bar (Zusagen | Mit Vorbehalt | Absagen, "Aus Kalender entfernen" for a CANCEL); answers write the
   appointment (key `CalendarBook.KeyOfInvitation(uid)`, the same on every computer) and send the REPLY. Sent invitations: multipart/alternative with
@@ -1006,7 +1019,9 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   `uid=1654` – and for the database, `MATCLOUD_ADMIN_USER/PASSWORD` create the account; never the ports 4950–4952 or the volumes of a
   local instance; `docker compose down -v --rmi local` afterwards), then `THIXOFFICE_MATCLOUD_URL=… THIXOFFICE_MATCLOUD_USER=…
   THIXOFFICE_MATCLOUD_PASSWORD=… dotnet test tests/ThixOffice.Core.Tests --filter MatCloudIntegrationTests` (without them it does nothing); the
-  contacts the same way: `dotnet test tests/ThixOffice.Pim.Tests --filter MatCloudContactsIntegrationTests` (needs MatCloud with contract 1.5.0).
+  contacts the same way: `dotnet test tests/ThixOffice.Pim.Tests --filter MatCloudContactsIntegrationTests` (needs MatCloud with contract 1.5.0); ThixMail's
+  calendar and people: `dotnet test tests/ThixMail.Core.Tests --filter MatCloudEmbeddingIntegrationTests` (the account must be the administrator; MatCloud
+  lets ten sign-ins a minute through – the tests wait for the next window, so a run takes about a minute).
 
 ## Rules
 

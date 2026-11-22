@@ -780,6 +780,18 @@ gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMT
   Drucken des Kalenders, keine Zeitzonen-Auswahl im Dialog, kein Kalender ohne ThixCloud (bewusst: Entscheidung „über den Sync“). Personen: kein Drucken
   in ThixMail (ThixContacts druckt).
 
+- **Stand (2026-11-22): 7c gegen eine echte MatCloud geprüft.** Wegwerf-Instanz (MatCloud main 703dfaa, Vertrag 1.5.0) und die Tests
+  `MatCloudEmbeddingIntegrationTests` (ThixMail.Core.Tests, env-gesteuert wie die Kontakte): ThixMail ↔ ThixContacts (Kontakte beide Richtungen, Löschen),
+  ThixMail ↔ ThixCalendar (Termine beide Richtungen, ganztägig, Löschen; was ThixMail schreibt, ist byte-genau ThixCalendars Form und besteht dessen
+  Regeln), die Freigaben (nur `contacts`/`calendar`, `cloud-*` bleiben MatCloud's, ThixCalendar liest Kontakte nur), 401 (Daten bleiben, Änderungen
+  warten, nach neuer Anmeldung gehen sie hoch) und 403 (ThixCalendar in der Verwaltung ausgeschaltet). Zusätzlich lief ThixCalendars echter Kern (eine
+  Kopie seiner Quellen in einem Wegwerf-Projekt außerhalb beider Repos) auf demselben Konto: ThixMails Termine erscheinen dort richtig, nach dem Abholen
+  und nach einem Speichern durch ThixCalendars Regeln schreibt er nichts zurück; seine Termine erscheinen in ThixMail. Dabei behoben: der
+  Besprechungslink wird wie in ThixCalendar aus Ort/Notizen übernommen und geprüft (sonst schrieb ThixCalendar den Termin zurück); eigene Kalender ohne
+  Standard-Erinnerung (wie ThixCalendars); vor dem ersten Abgleich legt ThixMail keinen eigenen Kalender an (sonst ein zweites „Eigene Kalender“);
+  ein 403 nur für den Kalender (ThixCalendar ausgeschaltet) meldet „ThixCalendar ist in der ThixCloud abgeschaltet“ statt ThixMail abzuschalten, die
+  Kontakte laufen weiter; nach einem 401 hält auch der zweite Abgleich an, eine neue Anmeldung startet beide wieder; die Titelleiste nennt die Ansicht.
+
 Offen: Umfang von 7d und ob ThixContacts später auch ohne ThixCloud per CardDAV synchronisiert.
 
 ### Später
