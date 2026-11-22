@@ -897,8 +897,16 @@ gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMT
   Konto von einem anderen Computer verbindet sich erst, wenn der Verbindungstest hier bestanden ist („Prüfen?“, Konten › Bearbeiten); ändert ein
   anderer Computer die Server eines laufenden Kontos, hält es hier an (die Mails bleiben), und kein hier gespeichertes Kennwort geht an die neuen
   Server. Name, Signaturen und Reihenfolge von einem anderen Computer wirken sofort.
-- **Nicht gebaut (7d, Kalender in ThixMail):** Termine mit der Maus ziehen/aufziehen, Erinnerungen in ThixMail (mit Rücksicht auf ThixCalendar),
-  Drucken der Kalenderansichten – offen.
+- **Stand (2026-11-22): 7d – Kalender in ThixMail (dev).** Termine mit der Maus verschieben (Tag/Arbeitswoche/Woche: Zeit und Tag; Monat: auf einen
+  anderen Tag, die Uhrzeit bleibt) und am unteren Rand aufziehen – in Viertelstunden, ein Rückgängig-Schritt („Termin verschieben“/„Termin
+  verlängern“); Kalender, die MatCloud abgleicht, lehnen ab („ändern in ThixCalendar“), eine Besprechung mit Teilnehmern ändert man im Termin (dann
+  bekommen sie das Update). Erinnerungen, solange ThixMail läuft: ein kleines Fenster über den anderen mit „Schließen“, „Erneut erinnern“ (5/10/15
+  Minuten, 1 Stunde) und „Alle schließen“; was beantwortet ist, bleibt auf diesem Computer und gilt für diesen Zeitpunkt (ein verschobener Termin
+  erinnert neu). Läuft ThixCalendar (es hält den Mutex „ThixCalendar.SingleInstance“), zeigt ThixMail keine Erinnerungen – nichts doppelt.
+  Drucken/PDF in der Ansicht Kalender: Tages-, Wochen- (Arbeitswoche wie gezeigt) und Monatsformat auf A4 quer (Strg+P, Datei › Drucken/Als PDF
+  speichern). **Lücken:** ganztägige Termine lassen sich in der Wochenansicht nicht ziehen (im Monat schon), kein Ziehen in einen anderen Kalender,
+  keine Erinnerung als System-Toast (nur das Fenster), Erinnerungen nur für die nächsten 30 Tage und nur ohne laufendes ThixCalendar (dessen eigene
+  Kalender ohne ThixCloud-Abgleich kennt ThixMail ohnehin nicht), Druck ohne Notizen/Aufgaben-Spalte und ohne eigene Stundenspanne.
 
 Offen: Umfang von 7d und ob ThixContacts später auch ohne ThixCloud per CardDAV synchronisiert.
 

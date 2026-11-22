@@ -23,6 +23,7 @@ public static class MailSelfTest
 {
     public static async Task<string> RunAsync(App app)
     {
+        Editor.MailReminders.CalendarRunsForTests ??= () => true; // no reminder window of the sample during the self test
         var window = app.NewDocumentWindow();
         await Settle();
         var editor = (MailEditor)window.Editor;
@@ -104,6 +105,14 @@ public static class MailSelfTest
             await Settle();
             Ensure(editor.SignInPanel is not null || editor.CalendarView is not null, "the view Kalender does not show");
             editor.ShowView(Editor.MailArea.Mail);
+
+            // 7d: the calendar on paper (Wochen- and Monatsformat through Skia into a PDF)
+            var sample = new ThixOffice.Pim.Calendar.CalendarAppointment { Key = "s", CalendarKey = "a/b", Title = "Selbsttest", Start = ThixOffice.Pim.Calendar.CalendarAppointment.FromLocal(DateTime.Today.AddHours(10)), End = ThixOffice.Pim.Calendar.CalendarAppointment.FromLocal(DateTime.Today.AddHours(11)) };
+            var week = ThixOffice.Pim.Desktop.Calendar.CalendarPrinting.Pages(ThixOffice.Pim.Desktop.Calendar.CalendarPrintStyle.Week, DateTime.Today, false, [sample], _ => null, OfficeFonts.Skia);
+            var month = ThixOffice.Pim.Desktop.Calendar.CalendarPrinting.Pages(ThixOffice.Pim.Desktop.Calendar.CalendarPrintStyle.Month, DateTime.Today, false, [sample], _ => null, OfficeFonts.Skia);
+            using var calendarPdf = new MemoryStream();
+            PdfExport.Export([.. week, .. month], calendarPdf, null, OfficeFonts.Skia);
+            Ensure(calendarPdf.Length > 1000 && week[0].Items.OfType<ThixOffice.Text.Drawing.GlyphRunItem>().Any(g => g.Text.StartsWith("Selbsttest", StringComparison.Ordinal)), "the calendar does not print");
 
             return $"{count} messages synced, {server.Sent.Count} sent, PDF {pdf.Length / 1024} KB, {document.Store.CachedBytes / 1024} KB cached";
         }

@@ -225,6 +225,9 @@ public class OfficePrintPage : UserControl
     /// <summary>The app's choice of what to print (ThixCalc: Aktives Blatt, Gesamte Arbeitsmappe, Auswahl).</summary>
     public ComboBox ScopeChoice => _scope;
 
+    /// <summary>The pages as they will print now (tests).</summary>
+    public PrintablePages Pages => _pages;
+
     public Button PrintButton { get; }
 
     public NumericUpDown Copies { get; }

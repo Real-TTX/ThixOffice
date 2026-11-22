@@ -13,6 +13,9 @@ using ThixOffice.Pim.Calendar;
 
 namespace ThixOffice.Pim.Desktop.Calendar;
 
+/// <summary>An appointment as a drag left it (start/end changed) and the name of the step ("Termin verschieben", "Termin verlängern").</summary>
+public sealed record CalendarChange(CalendarAppointment Appointment, string Label);
+
 /// <summary>Outlook's arrangements of the calendar.</summary>
 public enum CalendarMode
 {
@@ -124,6 +127,12 @@ public sealed class CalendarView : Border
     /// <summary>A double click on an appointment (or Enter): the host opens it.</summary>
     public event EventHandler<CalendarAppointment>? OpenRequested;
 
+    /// <summary>
+    /// An appointment dragged to another time or day, or its lower edge dragged (snapped to quarter hours): the host saves it as one step – or refuses it
+    /// (a calendar kept in step by MatCloud) and the view shows the appointment where it was.
+    /// </summary>
+    public event EventHandler<CalendarChange>? ChangeRequested;
+
     /// <summary>A double click on a free time (or Enter on it): the host makes a new appointment there (all-day for the header and the month).</summary>
     public event EventHandler<(DateTime Start, bool AllDay)>? NewRequested;
 
@@ -169,6 +178,24 @@ public sealed class CalendarView : Border
 
     /// <summary>The calendars of the account with whether they are shown (left pane).</summary>
     public IReadOnlyList<(CalendarEntry Calendar, bool Shown)> CalendarChoices => [.. (Book?.Calendars ?? []).Select(c => (c, !_hidden.Contains(c.Key)))];
+
+    /// <summary>The print style that matches the arrangement shown (Tag → Tagesformat, Arbeitswoche/Woche → Wochenformat, Monat → Monatsformat).</summary>
+    public CalendarPrintStyle PrintStyle => Mode switch
+    {
+        CalendarMode.Day => CalendarPrintStyle.Day,
+        CalendarMode.Month => CalendarPrintStyle.Month,
+        _ => CalendarPrintStyle.Week,
+    };
+
+    /// <summary>The chosen day's period on paper in <paramref name="style"/> – the shown calendars only.</summary>
+    public IReadOnlyList<ThixOffice.Text.Drawing.PageDisplayList> PrintPages(CalendarPrintStyle style, ThixOffice.Text.ITextMeasurer measurer)
+    {
+        var workWeek = Mode == CalendarMode.WorkWeek;
+        var days = CalendarPrinting.DaysOf(style, Anchor, workWeek);
+        var book = Book;
+        IReadOnlyList<CalendarAppointment> appointments = book is null ? [] : [.. book.Between(days[0], days[^1].AddDays(1)).Where(a => !_hidden.Contains(a.CalendarKey))];
+        return CalendarPrinting.Pages(style, Anchor, workWeek, appointments, key => book?.Calendar(key)?.Color, measurer);
+    }
 
     // ===== what the commands do =====
 
@@ -430,6 +457,7 @@ public sealed class CalendarView : Border
                 block.Height = Math.Max(16, bottom - top - 2);
                 Canvas.SetLeft(block, TimeColumn + (i * dayWidth) + 2 + (column * columnWidth));
                 Canvas.SetTop(block, top + 1);
+                EnableDrag(block, appointment, _hours, i);
                 _hours.Children.Add(block);
             }
         }
@@ -540,6 +568,7 @@ public sealed class CalendarView : Border
                 block.Height = 18;
                 Canvas.SetLeft(block, x + 3);
                 Canvas.SetTop(block, y + 22 + (i * 19));
+                EnableDrag(block, appointment, _month, index);
                 _month.Children.Add(block);
             }
         }
@@ -616,6 +645,139 @@ public sealed class CalendarView : Border
         }
 
         _hourLines.InvalidateVisual();
+    }
+
+    // ===== dragging (Outlook: move a block, its lower edge changes the end; quarter hours) =====
+
+    private const double EdgeGrip = 6;
+    private const double DragThreshold = 4;
+    private Drag? _drag;
+
+    /// <summary>The appointment of a running drag as it would be dropped now (tests, the preview).</summary>
+    public CalendarAppointment? Dragged => _drag?.Result;
+
+    private void EnableDrag(Border block, CalendarAppointment appointment, Canvas surface, int dayIndex)
+    {
+        var timed = surface == _hours;
+        block.PointerMoved += (_, e) =>
+        {
+            if (_drag is { } drag && drag.Block == block)
+            {
+                DragTo(drag, e.GetPosition(surface));
+                return;
+            }
+
+            if (timed)
+            {
+                block.Cursor = new Cursor(e.GetPosition(block).Y >= block.Bounds.Height - EdgeGrip ? StandardCursorType.SizeNorthSouth : StandardCursorType.Hand);
+            }
+        };
+        block.AddHandler(PointerPressedEvent, (_, e) =>
+        {
+            if (e.ClickCount != 1 || !e.GetCurrentPoint(block).Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
+
+            _drag = new Drag(block, appointment, surface, dayIndex, e.GetPosition(surface), timed && e.GetPosition(block).Y >= block.Bounds.Height - EdgeGrip,
+                Canvas.GetLeft(block), Canvas.GetTop(block), block.Height);
+            e.Pointer.Capture(block);
+        }, handledEventsToo: true);
+        block.PointerReleased += (_, e) =>
+        {
+            if (_drag is not { } drag || drag.Block != block)
+            {
+                return;
+            }
+
+            _drag = null;
+            e.Pointer.Capture(null);
+            if (drag.Result is { } result && !CalendarMoves.Same(result, appointment))
+            {
+                ChangeRequested?.Invoke(this, new CalendarChange(result, drag.Resize ? "Termin verlängern" : "Termin verschieben"));
+                Refresh(); // where the book has it now – moved, or back where it was when the host refused
+            }
+        };
+        block.PointerCaptureLost += (_, _) =>
+        {
+            if (_drag is { } drag && drag.Block == block)
+            {
+                _drag = null;
+                Canvas.SetLeft(block, drag.Left);
+                Canvas.SetTop(block, drag.Top);
+                block.Height = drag.Height;
+                block.Opacity = 1;
+            }
+        };
+    }
+
+    private void DragTo(Drag drag, Point point)
+    {
+        var delta = point - drag.Origin;
+        if (!drag.Moving && Math.Abs(delta.X) < DragThreshold && Math.Abs(delta.Y) < DragThreshold)
+        {
+            return;
+        }
+
+        drag.Moving = true;
+        drag.Block.Opacity = 0.75;
+        drag.Block.ZIndex = 10;
+        var appointment = drag.Appointment;
+        var days = Days;
+        if (drag.Surface == _hours)
+        {
+            var dayWidth = DayWidth(_hours.Bounds.Width);
+            var minutes = delta.Y / HourHeight * 60;
+            if (drag.Resize)
+            {
+                var resized = CalendarMoves.Resized(appointment, appointment.EndLocal.AddMinutes(minutes));
+                drag.Result = resized;
+                drag.Block.Height = Math.Max(16, ((resized.EndLocal - resized.StartLocal).TotalHours * HourHeight) - 2);
+                return;
+            }
+
+            var target = Math.Clamp((int)Math.Floor((point.X - TimeColumn) / dayWidth), 0, days.Count - 1);
+            var moved = CalendarMoves.Moved(appointment, appointment.StartLocal.AddMinutes(minutes) + (days[target] - days[drag.DayIndex]));
+            drag.Result = moved;
+            var top = Math.Clamp((moved.StartLocal - days[target]).TotalHours * HourHeight, 0, (24 * HourHeight) - drag.Height);
+            Canvas.SetTop(drag.Block, top + 1);
+            Canvas.SetLeft(drag.Block, TimeColumn + (target * dayWidth) + 2);
+            return;
+        }
+
+        // the month: the day under the pointer, the same time of day
+        var cellWidth = _month.Bounds.Width / 7;
+        var cellHeight = (_month.Bounds.Height - 24) / 6;
+        var column = Math.Clamp((int)(point.X / cellWidth), 0, 6);
+        var row = Math.Clamp((int)((point.Y - 24) / cellHeight), 0, 5);
+        drag.Result = CalendarMoves.MovedToDay(appointment, days[(row * 7) + column]);
+        Canvas.SetLeft(drag.Block, (column * cellWidth) + 3);
+        Canvas.SetTop(drag.Block, 24 + (row * cellHeight) + 22);
+    }
+
+    private sealed class Drag(Border block, CalendarAppointment appointment, Canvas surface, int dayIndex, Point origin, bool resize, double left, double top, double height)
+    {
+        public Border Block { get; } = block;
+
+        public CalendarAppointment Appointment { get; } = appointment;
+
+        public Canvas Surface { get; } = surface;
+
+        public int DayIndex { get; } = dayIndex;
+
+        public Point Origin { get; } = origin;
+
+        public bool Resize { get; } = resize;
+
+        public double Left { get; } = left;
+
+        public double Top { get; } = top;
+
+        public double Height { get; } = height;
+
+        public bool Moving { get; set; }
+
+        public CalendarAppointment? Result { get; set; }
     }
 
     // ===== pointer and keys =====

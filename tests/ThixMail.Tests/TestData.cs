@@ -98,6 +98,7 @@ public sealed class TestData : IDisposable
         RemotePictures.FetchForTests = (_, _) => Task.FromResult<byte[]?>(Png);
         OfficeApplication.FileDialogs = Dialogs;
         MailNotifications.Notifier = Notifier;
+        MailReminders.CalendarRunsForTests = () => true; // no reminder window unless a test asks for it
         Ui.OpenExternalForTests = address => Opened.Add(address);
     }
 
@@ -167,6 +168,8 @@ public sealed class TestData : IDisposable
 
         MailDocument.Transport = MailKitTransport.Instance;
         MailDocument.ConfigureSyncForTests = null;
+        MailReminders.CalendarRunsForTests = null;
+        MailReminders.NowForTests = null;
         AutoConfig.FetchForTests = null;
         DnsLookup.ResolverForTests = null;
         RemotePictures.FetchForTests = null;

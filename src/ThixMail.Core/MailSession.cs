@@ -66,6 +66,9 @@ public sealed class MailSession
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>An action outside the mail store done already (a calendar change) as one step of the same history: Rückgängig / Wiederholen run it.</summary>
+    internal void RecordDone(string label, Action undo, Action redo) => Record(label, undo, redo);
+
     private void Record(string label, Action undo, Action redo)
     {
         _undo.Push(new UndoStep(label, undo, redo));

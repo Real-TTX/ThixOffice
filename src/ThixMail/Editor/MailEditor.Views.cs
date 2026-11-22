@@ -44,6 +44,9 @@ public sealed partial class MailEditor
     /// <summary>The view shown: E-Mail, Kalender or Personen.</summary>
     public MailArea ActiveView { get; private set; } = MailArea.Mail;
 
+    /// <summary>The reminders of the calendar while ThixMail runs (set by the app).</summary>
+    public MailReminders? Reminders { get; internal set; }
+
     /// <summary>The calendar view (made when Kalender is shown the first time with ThixCloud), or null.</summary>
     public CalendarView? CalendarView => _calendar;
 
@@ -142,6 +145,19 @@ public sealed partial class MailEditor
             _calendar.StateChanged += (_, _) => ScheduleViewState();
             _calendar.OpenRequested += async (_, appointment) => await CalendarCommands.OpenAsync(_window, this, appointment);
             _calendar.NewRequested += async (_, request) => await CalendarCommands.NewAsync(_window, this, request.Start, request.AllDay, meeting: false);
+            _calendar.ChangeRequested += (_, change) =>
+            {
+                try
+                {
+                    var saved = Document.ChangeAppointment(change.Appointment, change.Label);
+                    _calendar.Refresh();
+                    _calendar.Select(Document.Pim.Calendar?.Find(saved.Key));
+                }
+                catch (ThixOffice.Core.Models.BusinessException exception)
+                {
+                    _window.ShowMessage(exception.Message, InfoSeverity.Warning, isClosable: true);
+                }
+            };
         }
 
         return _calendar;

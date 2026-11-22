@@ -495,6 +495,37 @@ public sealed class MailDocument : OfficeDocument
         }
     }
 
+    // ===== calendar =====
+
+    /// <summary>
+    /// An appointment dragged to another time or day, or its end dragged (<see cref="ThixOffice.Pim.Calendar.CalendarMoves"/>): saved as ONE step of the
+    /// history (Rückgängig puts it back). Refused in German for a calendar MatCloud keeps in step (read-only here) and for a meeting with attendees (its
+    /// change goes to the attendees through the appointment's dialog).
+    /// </summary>
+    public ThixOffice.Pim.Calendar.CalendarAppointment ChangeAppointment(ThixOffice.Pim.Calendar.CalendarAppointment changed, string label)
+    {
+        if (Pim.Calendar is not { } book || book.Find(changed.Key) is not { } before)
+        {
+            throw new BusinessException("Diesen Termin gibt es nicht mehr.");
+        }
+
+        if (before.IsReadOnly || book.Calendar(before.CalendarKey) is { IsReadOnly: true })
+        {
+            throw new BusinessException("Dieser Kalender wird über die ThixCloud abgeglichen – ändern Sie den Termin in ThixCalendar.");
+        }
+
+        if (book.MeetingOf(before.Key) is { Attendees.Count: > 0 })
+        {
+            throw new BusinessException("Eine Besprechung ändern Sie im Termin selbst (Öffnen) – die Teilnehmer bekommen dann das Update.");
+        }
+
+        var saved = book.Save(changed with { CalendarKey = before.CalendarKey });
+        Session.RecordDone(label,
+            () => (Pim.Calendar ?? book).Save(before),
+            () => (Pim.Calendar ?? book).Save(saved));
+        return saved;
+    }
+
     // ===== address suggestions =====
 
     /// <summary>Suggestions for an address field: recent recipients first, then contacts of the ThixCloud account (when signed in).</summary>

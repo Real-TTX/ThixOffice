@@ -46,13 +46,15 @@ public partial class App : OfficeApplication
     public const string InvitationScene = "main-invitation";
     public const string CalendarSignInScene = "main-calendar-signin";
     public const string AppointmentScene = "dialog-appointment";
+    public const string ReminderScene = "reminder";
+    public const string CalendarPrintScene = "backstage-print-calendar";
 
     private MatTray? _tray;
     private bool _quitting;
 
     public override OfficeAppDefinition Definition => ThixMailApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [ConversationScene, NewsletterScene, ComposeScene, AccountScene, BrowserSignInScene, NoClientScene, AttachmentsScene, OfflineScene, SignaturesScene, CalendarSignInScene, CalendarScene, CalendarMonthScene, AppointmentScene, PeopleScene, InvitationScene];
+    public override IReadOnlyList<string> SnapshotScenes => [ConversationScene, NewsletterScene, ComposeScene, AccountScene, BrowserSignInScene, NoClientScene, AttachmentsScene, OfflineScene, SignaturesScene, CalendarSignInScene, CalendarScene, CalendarMonthScene, AppointmentScene, ReminderScene, CalendarPrintScene, PeopleScene, InvitationScene];
 
     public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => MailRibbon.Create(window);
 
@@ -79,8 +81,10 @@ public partial class App : OfficeApplication
                 ShowTray(window);
             }
         };
+        editor.Reminders = new MailReminders(window, mail);
         window.Closed += async (_, _) =>
         {
+            editor.Reminders?.Dispose();
             _tray?.Dispose();
             _tray = null;
             await mail.CloseAsync();
@@ -293,6 +297,24 @@ public partial class App : OfficeApplication
                 editor.ShowView(MailArea.Calendar);
                 Settle();
                 return window;
+            case ReminderScene or CalendarPrintScene:
+                SignInForSample(editor);
+                editor.ShowView(MailArea.Calendar);
+                Settle();
+                editor.CalendarView!.SetMode(ThixOffice.Pim.Desktop.Calendar.CalendarMode.WorkWeek);
+                Settle();
+                if (name == CalendarPrintScene)
+                {
+                    window.ShowBackstage(MailPrintPage.PageId);
+                    Settle();
+                    return window;
+                }
+
+                var due = editor.CalendarView.Shown.Where(a => !a.IsAllDay).OrderBy(a => a.Start).Take(2)
+                    .Select(a => new ThixOffice.Pim.Calendar.DueReminder(a, a.Start.AddMinutes(-15))).ToList();
+                var reminders = editor.Reminders!.ShowForSample(due, due.Count > 0 ? due[0].Appointment.Start.AddMinutes(-10) : DateTimeOffset.Now);
+                Settle();
+                return reminders;
             case CalendarScene or CalendarMonthScene or PeopleScene or InvitationScene or AppointmentScene:
                 SignInForSample(editor);
                 if (name == InvitationScene)
@@ -336,6 +358,7 @@ public partial class App : OfficeApplication
     /// <summary>The sample's account of ThixCloud (the cloud in memory of the snapshots): the views Kalender and Personen with the sample's data.</summary>
     private static void SignInForSample(MailEditor editor)
     {
+        MailReminders.CalendarRunsForTests ??= () => true; // the sample's appointments remind only in the scene that shows it
         if (!CloudService.IsConnected)
         {
             SettingsService.UpdateCloud(_ => new CloudSettings { ServerUrl = SampleCloud.ServerUrl, UserName = SampleCloud.UserName, DeviceName = "ANNA-PC" });
@@ -401,7 +424,8 @@ public partial class App : OfficeApplication
             case SignaturesScene:
                 window.Backstage.Close();
                 break;
-            case CalendarScene or CalendarMonthScene or PeopleScene or InvitationScene or AppointmentScene or CalendarSignInScene:
+            case CalendarScene or CalendarMonthScene or PeopleScene or InvitationScene or AppointmentScene or CalendarSignInScene or ReminderScene or CalendarPrintScene:
+                window.Backstage.Close();
                 if (shown is Window dialog && shown != window)
                 {
                     dialog.Close();

@@ -412,6 +412,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   it in `OfficeApplication.Start`); a click starts the URL scheme `thixmail:` (`InstallService.RegisterUrlScheme`), `OfficeApplication.DocumentFilesIn`
   passes the app's own links through, `App.ImportFilesAsync` → `OpenLink`. Fallback MatNotification (development builds, toasts off). macOS:
   `MacNotifications` (NSUserNotificationCenter + a run-time delegate class; click → `MailNotifications.LinkActivated`), fallback osascript.
+  "In front" (no notification) = active AND shown AND not minimized (Windows keeps a minimized window active). The decisions go into the log.
 - **Protocol:** everything goes through `IMailTransport` (`MailDocument.Transport`; tests/snapshots/self test: `SampleMailServer`). MailKit 5 is
   rooted for trimming (`TrimmerRootAssembly` MailKit, MimeKit.Core); code pages are registered by `MailMime`'s module initializer before MimeKit
   builds its charset table.
@@ -434,12 +435,20 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - **Shell extensions used:** `OfficeApplication.CreateSettingsTabs` (Lesen, Verfassen, Signaturen, Benachrichtigungen after Allgemein;
   `SettingsPage.ShowTab(id)`/`AppTab(id)`), `CreateBackstageItems` (Konten, Drucken, Als PDF speichern), `ImportFilesAsync` (.eml → `MessageWindow`).
 - Snapshot scenes `main-conversation`, `main-newsletter`, `compose`, `backstage-add-account` (+ `-browser`, `-microsoft`), `main-attachments`, `main-offline`,
-  `backstage-settings-signatures`, `main-calendar-signin`, `main-calendar`, `main-calendar-month`, `dialog-appointment`, `main-people`,
+  `backstage-settings-signatures`, `main-calendar-signin`, `main-calendar`, `main-calendar-month`, `dialog-appointment`, `reminder`, `backstage-print-calendar`, `main-people`,
   `main-invitation` on `SampleMailbox` (+ `SampleMailbox.FillPim` after a sign-in at the snapshots' cloud in memory); `THIXMAIL_SCREENSHOTS=<folder> dotnet test tests/ThixMail.Tests` also draws the 15 fixture mails
   into `<folder>/mails`. The integration run against a real IMAP/SMTP server: `scripts/greenmail-test.ps1` (throwaway GreenMail container, env-gated
   `RealServerTests`).
 
 ### Calendar and people in ThixMail (7c)
+
+- **7d additions:** dragging in `CalendarView` (`EnableDrag`: a block moves, its lower 6 px change the end; `CalendarMoves` in ThixOffice.Pim: quarter
+  hours, length kept, month = another day at the same time) raises `ChangeRequested(CalendarChange)`; the host calls `MailDocument.ChangeAppointment`
+  (one step of `MailSession` via `RecordDone`; refuses read-only calendars and meetings with attendees). Reminders: `CalendarReminders` (Due/Dismiss/
+  Snooze, answers in the calendar store's meta `reminder:<key>`, per trigger) + `MailReminders` (30 s timer, `ReminderWindow`; quiet while the mutex
+  "ThixCalendar.SingleInstance" exists; `NowForTests`/`CalendarRunsForTests` – tests, snapshots and the self test keep it quiet). Printing: `CalendarPrinting`
+  (ThixOffice.Pim.Desktop: Tages-/Wochen-/Monatsformat, A4 landscape; print colours in `CalendarPalette`), `CalendarView.PrintPages/PrintStyle`;
+  `MailPrintPage`/`MailPdfPage` print the calendar while the view Kalender is shown (Strg+P works there too).
 
 - **Views:** `MailEditor.ShowView(MailArea)` (the navigation bar, Strg+1/2/3, Ansicht › Navigation). Kalender = `CalendarView`, Personen = `PeopleView`
   (the same as ThixContacts'), both on `MailDocument.Pim` (`MailPim`: stores `mailcontacts` and `mailcalendar` of the account, `PimSync` with

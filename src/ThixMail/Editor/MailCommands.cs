@@ -196,9 +196,9 @@ public static class MailCommands
         {
             Icon = "print",
             Shortcut = "Ctrl+P",
-            Description = "Druckt die ausgewählte Nachricht (oder speichert sie als PDF).",
-            Keywords = ["drucken", "pdf", "papier"],
-            CanExecute = HasOne,
+            Description = "Druckt die ausgewählte Nachricht – in der Ansicht Kalender den Kalender (Tages-, Wochen- oder Monatsformat).",
+            Keywords = ["drucken", "pdf", "papier", "kalender"],
+            CanExecute = () => HasOne() || window.Editor is MailEditor { ActiveView: MailArea.Calendar, CalendarView: not null },
         });
 
         // Senden/Empfangen
@@ -364,8 +364,8 @@ public static class MailCommands
         });
 
         // The mail commands act while the view "E-Mail" is shown (Kalender and Personen have their own Strg+N, Entf, Strg+E …); accounts and offline
-        // work everywhere.
-        var everywhere = new HashSet<string>(StringComparer.Ordinal) { MailCommandIds.AddAccount, MailCommandIds.WorkOffline };
+        // work everywhere, Drucken also in the calendar (it prints the calendar there).
+        var everywhere = new HashSet<string>(StringComparer.Ordinal) { MailCommandIds.AddAccount, MailCommandIds.WorkOffline, MailCommandIds.Print };
         bool InMail() => window.Editor is MailEditor { ActiveView: MailArea.Mail };
         foreach (var command in commands.All)
         {
