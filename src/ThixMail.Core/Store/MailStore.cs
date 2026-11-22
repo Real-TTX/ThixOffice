@@ -103,6 +103,10 @@ public sealed class MailStore : SqliteDatabase
         CREATE TABLE TrustedSender (Address TEXT PRIMARY KEY COLLATE NOCASE);
         CREATE TABLE Meta (Name TEXT PRIMARY KEY, Value TEXT NOT NULL);
         """,
+        // 2: "Später senden" – a message of the Postausgang waits until its time
+        """
+        ALTER TABLE Outbox ADD COLUMN SendAt INTEGER NULL;
+        """,
     ];
 
     private MailStore(string path, string filesFolder)
@@ -378,6 +382,19 @@ public sealed class MailStore : SqliteDatabase
     public IReadOnlyList<uint> Uids(long folderId) => Query("SELECT Uid FROM Message WHERE Folder = $f AND Uid > 0 ORDER BY Uid", r => (uint)r.GetInt64(0), ("$f", folderId));
 
     /// <summary>The lowest UID the store fetched of a folder (older ones wait for "load more" rounds), 0 when none.</summary>
+    /// <summary>The store ids of messages of a folder by their UIDs (unknown UIDs left out).</summary>
+    public IReadOnlyList<long> IdsOfUids(long folderId, IReadOnlyCollection<uint> uids)
+    {
+        if (uids.Count == 0)
+        {
+            return [];
+        }
+
+        var wanted = uids.ToHashSet();
+        return Query("SELECT Id, Uid FROM Message WHERE Folder = $f AND Uid >= $low", r => (Id: r.GetInt64(0), Uid: (uint)r.GetInt64(1)), ("$f", folderId), ("$low", (long)uids.Min()))
+            .Where(m => wanted.Contains(m.Uid)).Select(m => m.Id).ToList();
+    }
+
     public uint OldestUid(long folderId) => (uint)Scalar<long>("SELECT OldestUid FROM Folder WHERE Id = $f", ("$f", folderId));
 
     /// <summary>
@@ -912,22 +929,24 @@ public sealed class MailStore : SqliteDatabase
 
     // ===== the outbox =====
 
-    public long AddToOutbox(string accountId, byte[] raw, string subject, string recipients, string messageId, long? originalMessage, int originKind)
+    public long AddToOutbox(string accountId, byte[] raw, string subject, string recipients, string messageId, long? originalMessage, int originKind,
+        DateTimeOffset? sendAt = null)
     {
         var path = WriteFile("outbox", raw);
         var id = Scalar<long>("""
-            INSERT INTO Outbox (Account, Path, Subject, Recipients, CreatedAt, MessageId, OriginalMessage, OriginKind) VALUES ($a, $p, $s, $r, $t, $m, $o, $k) RETURNING Id
+            INSERT INTO Outbox (Account, Path, Subject, Recipients, CreatedAt, MessageId, OriginalMessage, OriginKind, SendAt) VALUES ($a, $p, $s, $r, $t, $m, $o, $k, $w) RETURNING Id
             """, ("$a", accountId), ("$p", path), ("$s", subject), ("$r", recipients), ("$t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()), ("$m", messageId),
-            ("$o", originalMessage), ("$k", originKind));
+            ("$o", originalMessage), ("$k", originKind), ("$w", sendAt?.ToUnixTimeMilliseconds()));
         QueueChanged?.Invoke(this, EventArgs.Empty);
         return id;
     }
 
     public IReadOnlyList<OutboxItem> Outbox(string? accountId = null) =>
-        Query("SELECT Id, Account, Path, Subject, Recipients, CreatedAt, State, Attempts, LastError, MessageId, OriginalMessage, OriginKind FROM Outbox" +
+        Query("SELECT Id, Account, Path, Subject, Recipients, CreatedAt, State, Attempts, LastError, MessageId, OriginalMessage, OriginKind, SendAt FROM Outbox" +
               (accountId is null ? "" : " WHERE Account = $a") + " ORDER BY Id",
             r => new OutboxItem(r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4), DateTimeOffset.FromUnixTimeMilliseconds(r.GetInt64(5)),
-                (OutboxState)r.GetInt32(6), r.GetInt32(7), r.IsDBNull(8) ? null : r.GetString(8), r.GetString(9), r.IsDBNull(10) ? null : r.GetInt64(10), r.GetInt32(11)),
+                (OutboxState)r.GetInt32(6), r.GetInt32(7), r.IsDBNull(8) ? null : r.GetString(8), r.GetString(9), r.IsDBNull(10) ? null : r.GetInt64(10), r.GetInt32(11),
+                r.IsDBNull(12) ? null : DateTimeOffset.FromUnixTimeMilliseconds(r.GetInt64(12))),
             ("$a", accountId));
 
     public void SetOutboxState(long id, OutboxState state, string? error = null, bool countAttempt = false)

@@ -73,4 +73,8 @@ public enum OutboxState
 
 /// <summary>A message in the Postausgang.</summary>
 public sealed record OutboxItem(long Id, string AccountId, string RawPath, string Subject, string Recipients, DateTimeOffset CreatedAt, OutboxState State,
-    int Attempts, string? LastError, string MessageId, long? OriginalMessage, int OriginKind);
+    int Attempts, string? LastError, string MessageId, long? OriginalMessage, int OriginKind, DateTimeOffset? SendAt = null)
+{
+    /// <summary>"Später senden": the time has not come yet.</summary>
+    public bool IsWaitingForItsTime(DateTimeOffset now) => SendAt is { } at && at > now;
+}

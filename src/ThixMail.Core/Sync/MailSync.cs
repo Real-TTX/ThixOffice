@@ -34,6 +34,9 @@ public sealed record SyncReport(int NewMessages, int Removed, int FlagChanges, i
 /// <summary>New unread messages arrived in a Posteingang (a notification shows them).</summary>
 public sealed record NewMailEventArgs(MailAccount Account, IReadOnlyList<MessageHeader> Messages);
 
+/// <summary>New messages arrived in a Posteingang – read or not (the rules run on them before <see cref="MailSync.NewMail"/>).</summary>
+public sealed record ArrivedEventArgs(MailAccount Account, IReadOnlyList<MessageHeader> Messages);
+
 /// <summary>
 /// The sync of one account: a background loop that connects (back-off 5 s → 5 min while the server cannot be reached), lists the folders, replays the
 /// operations queue in order (each operation idempotent), sends the Postausgang through SMTP (a copy into Gesendete Elemente unless the server keeps one
@@ -51,6 +54,15 @@ public sealed class MailSync : IAsyncDisposable
     /// <summary>Messages whose flags are polled per round when the server has no CONDSTORE (the newest, plus a moving window over the rest).</summary>
     public const int FlagPoll = 300;
 
+    /// <summary>The window over older messages in a full round (a folder of 20,000 is gone through in ten full rounds).</summary>
+    public const int FlagWindowFull = 2000;
+
+    /// <summary>How often a folder other than the Posteingang has its flags polled without CONDSTORE.</summary>
+    public static TimeSpan FlagPollInterval { get; set; } = TimeSpan.FromMinutes(15);
+
+    private readonly Dictionary<long, DateTimeOffset> _flagPolled = [];
+    private bool _inFullRound;
+
     private readonly MailStore _store;
     private readonly IMailTransport _transport;
     private readonly CredentialSource _credentials;
@@ -64,6 +76,7 @@ public sealed class MailSync : IAsyncDisposable
     private bool _fullRequested = true;
     private DateTimeOffset _lastFull = DateTimeOffset.MinValue;
     private bool _firstRound = true;
+    private bool _backfill;
     private AccountSyncStatus _status;
 
     /// <summary>What an account signs in with at a server ("imap"/"smtp"): a password or an OAuth access token (<paramref name="renew"/>: the last was refused).</summary>
@@ -92,8 +105,11 @@ public sealed class MailSync : IAsyncDisposable
     /// <summary>Raised when <see cref="Status"/> changes (any thread).</summary>
     public event EventHandler<AccountSyncStatus>? StatusChanged;
 
-    /// <summary>New unread mail in the Posteingang (not in the first round; any thread).</summary>
+    /// <summary>New unread mail in the Posteingang (not in the first round; any thread) – raised after <see cref="Arrived"/>, without what the rules moved or marked read.</summary>
     public event EventHandler<NewMailEventArgs>? NewMail;
+
+    /// <summary>New mail in the Posteingang (not in the first round; the sync's thread): the client-side rules run here.</summary>
+    public event EventHandler<ArrivedEventArgs>? Arrived;
 
     /// <summary>Waits between rounds of the loop (tests make it short).</summary>
     public TimeSpan IdleTime { get; set; } = TimeSpan.FromMinutes(9);
@@ -197,19 +213,20 @@ public sealed class MailSync : IAsyncDisposable
                         wake = _wake!.Token;
                     }
 
-                    if (PendingWork())
+                    if (PendingWork() || _backfill)
                     {
+                        // older messages of a big folder are still missing: the next round fetches the next window at once instead of waiting in IDLE
                         continue;
                     }
 
                     var inbox = _store.FolderByRole(Account.Id, FolderRole.Inbox);
                     if (inbox is null)
                     {
-                        await DelayAsync(IdleTime, wake);
+                        await DelayAsync(UntilNextSending(), wake);
                     }
                     else
                     {
-                        await imap.IdleAsync(inbox.Path, IdleTime, wake);
+                        await imap.IdleAsync(inbox.Path, UntilNextSending(), wake);
                     }
                 }
             }
@@ -239,6 +256,14 @@ public sealed class MailSync : IAsyncDisposable
                 backoff = TimeSpan.FromTicks(Math.Min(backoff.Ticks * 2, MaximumBackoff.Ticks));
             }
         }
+    }
+
+    /// <summary>How long to wait: the idle time, or less when a message of "Später senden" is due earlier.</summary>
+    private TimeSpan UntilNextSending()
+    {
+        var next = _store.Outbox(Account.Id).Where(item => item.SendAt is not null && item.State != OutboxState.Failed).Select(item => item.SendAt!.Value).DefaultIfEmpty(DateTimeOffset.MaxValue).Min();
+        var wait = next == DateTimeOffset.MaxValue ? IdleTime : next - DateTimeOffset.Now + TimeSpan.FromSeconds(1);
+        return wait < TimeSpan.FromSeconds(1) ? TimeSpan.FromSeconds(1) : wait < IdleTime ? wait : IdleTime;
     }
 
     private bool PendingWork()
@@ -345,11 +370,12 @@ public sealed class MailSync : IAsyncDisposable
                 _store.SyncFolders(Account.Id, await imap.ListFoldersAsync(cancellationToken));
             }
 
+            _inFullRound = full;
             var sent = await SendOutboxAsync(cancellationToken);
             var folders = _store.Folders(Account.Id).Where(f => f.IsSelectable).OrderBy(f => f.RoleOrder).ThenBy(f => f.Path, StringComparer.Ordinal).ToList();
             if (!full)
             {
-                folders = [.. folders.Where(f => f.Role is FolderRole.Inbox or FolderRole.Sent or FolderRole.Drafts or FolderRole.Trash)];
+                folders = [.. folders.Where(f => f.Role is FolderRole.Inbox or FolderRole.Sent or FolderRole.Drafts or FolderRole.Trash || _store.OldestUid(f.Id) != 1)];
             }
 
             int added = 0, removed = 0, flags = 0;
@@ -368,6 +394,7 @@ public sealed class MailSync : IAsyncDisposable
             }
 
             _firstRound = false;
+            _backfill = _store.Folders(Account.Id).Any(f => f.IsSelectable && _store.OldestUid(f.Id) != 1);
             return new SyncReport(added, removed, flags, replayed, sent);
         }
         finally
@@ -391,7 +418,7 @@ public sealed class MailSync : IAsyncDisposable
         var unchanged = folder.UidNext != 0 && state.UidNext == folder.UidNext && state.Count == known.Count
                         && (state.HighestModSeq == 0 || state.HighestModSeq == folder.HighestModSeq) && oldest == 1;
         int added = 0, removed = 0, flagChanges = 0;
-        var newUnread = new List<long>();
+        var arrived = new List<uint>();
         if (!unchanged)
         {
             var server = await imap.UidsAsync(folder.Path, cancellationToken);
@@ -402,6 +429,7 @@ public sealed class MailSync : IAsyncDisposable
 
             var missing = server.Where(uid => !knownSet.Contains(uid)).OrderByDescending(uid => uid).ToList();
             var newer = folder.UidNext == 0 ? [] : missing.Where(uid => uid >= folder.UidNext).ToList();
+            var newerSet = newer.ToHashSet();
             var olderAll = missing.Except(newer).ToList();
             var older = olderAll.Take(Window).ToList();
             var toFetch = newer.Concat(older).ToList();
@@ -411,7 +439,7 @@ public sealed class MailSync : IAsyncDisposable
                 added += _store.AddMessages(folder.Id, Account.Id, messages);
                 if (folder.Role == FolderRole.Inbox && !_firstRound && folder.UidNext != 0)
                 {
-                    newUnread.AddRange(messages.Where(m => newer.Contains(m.Uid) && !m.Flags.HasFlag(MessageFlags.Seen)).Select(m => (long)m.Uid));
+                    arrived.AddRange(messages.Where(m => newerSet.Contains(m.Uid)).Select(m => m.Uid));
                 }
             }
 
@@ -429,8 +457,12 @@ public sealed class MailSync : IAsyncDisposable
                 flagChanges += _store.ApplyFlags(folder.Id, changes) ? changes.Count : 0;
             }
         }
-        else if (current.Count > 0)
+        else if (current.Count > 0 && (folder.Role == FolderRole.Inbox || DateTimeOffset.UtcNow - _flagPolled.GetValueOrDefault(folder.Id) > FlagPollInterval))
         {
+            // without CONDSTORE: the newest every time the folder is polled (the Posteingang every round, other folders at most every 15 minutes),
+            // and a moving window over the older ones – the larger in a full round, so a big folder is gone through within a few rounds
+            _flagPolled[folder.Id] = DateTimeOffset.UtcNow;
+            var windowSize = folder.Role == FolderRole.Inbox && !_inFullRound ? FlagPoll : FlagWindowFull;
             var newest = current.Skip(Math.Max(0, current.Count - FlagPoll)).ToList();
             var start = _store.FlagWindow(folder.Id);
             if (start >= current.Count)
@@ -438,18 +470,32 @@ public sealed class MailSync : IAsyncDisposable
                 start = 0;
             }
 
-            var window = current.Skip(start).Take(FlagPoll).ToList();
-            _store.SetFlagWindow(folder.Id, start + FlagPoll >= current.Count ? 0 : start + FlagPoll);
+            var window = current.Skip(start).Take(windowSize).ToList();
+            _store.SetFlagWindow(folder.Id, start + windowSize >= current.Count ? 0 : start + windowSize);
             var poll = newest.Union(window).ToList();
             var states = await imap.FlagsAsync(folder.Path, poll, 0, cancellationToken);
             flagChanges += _store.ApplyFlags(folder.Id, states) ? 1 : 0;
         }
 
         _store.SetFolderState(folder.Id, state.UidValidity, state.UidNext, state.HighestModSeq, oldest == 0 ? null : oldest);
-        if (newUnread.Count > 0 && NewMail is { } handler)
+        if (arrived.Count > 0)
         {
-            var ids = _store.List(new MessageQuery([folder.Id], ListFilter.Unread)).Take(newUnread.Count).Select(e => e.Id).ToList();
-            handler(this, new NewMailEventArgs(Account, [.. _store.Headers(ids).OrderByDescending(h => h.Date)]));
+            var ids = _store.IdsOfUids(folder.Id, arrived);
+            try
+            {
+                Arrived?.Invoke(this, new ArrivedEventArgs(Account, _store.Headers(ids)));
+            }
+            catch (Exception exception) when (exception is ThixOffice.Core.Models.BusinessException or InvalidOperationException)
+            {
+                Log.Warning($"The rules on new mail failed: {exception.Message}");
+            }
+
+            // what is still in the Posteingang and unread after the rules
+            var unread = _store.Headers(ids).Where(h => h.FolderId == folder.Id && !h.IsRead).OrderByDescending(h => h.Date).ToList();
+            if (unread.Count > 0)
+            {
+                NewMail?.Invoke(this, new NewMailEventArgs(Account, unread));
+            }
         }
 
         return (added, removed, flagChanges);
@@ -532,7 +578,8 @@ public sealed class MailSync : IAsyncDisposable
 
     private async Task<int> SendOutboxAsync(CancellationToken cancellationToken)
     {
-        var waiting = _store.Outbox(Account.Id).Where(item => item.State != OutboxState.Failed).ToList();
+        var now = DateTimeOffset.Now;
+        var waiting = _store.Outbox(Account.Id).Where(item => item.State != OutboxState.Failed && !item.IsWaitingForItsTime(now)).ToList();
         if (waiting.Count == 0)
         {
             return 0;

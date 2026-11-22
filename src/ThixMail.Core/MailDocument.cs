@@ -38,6 +38,103 @@ public sealed class MailDocument : OfficeDocument
         IsWorkingOffline = SettingsService.AppValue(Settings.WorkOffline) == "true";
         StartSyncs();
         Pim = new MailPim();
+        Accounts.Changed += OnAccountsChanged;
+        StartSettingsSync();
+    }
+
+    private PimSync? _settingsSync;
+    private bool _savingAccount;
+
+    /// <summary>The state of the settings' sync through ThixCloud (accounts without passwords, signatures, categories, rules, templates).</summary>
+    public SyncStatus SettingsSyncStatus => _settingsSync?.Status ?? SyncStatus.Off;
+
+    /// <summary>The sign-in of ThixCloud changed: the settings' sync follows (started, stopped, or – another ThixCloud account – started afresh).</summary>
+    public async Task ReconnectSettingsAsync()
+    {
+        if (_settingsSync is { } running && (!CloudService.IsConnected || Accounts.Store.GetMeta(CloudAccountMeta) != CloudIdentity()))
+        {
+            await running.DisposeAsync();
+            _settingsSync = null;
+        }
+
+        StartSettingsSync();
+    }
+
+    private const string CloudAccountMeta = "cloudAccount";
+
+    private static string CloudIdentity()
+    {
+        var cloud = SettingsService.Get().Cloud;
+        return $"{cloud.UserName}@{cloud.ServerUrl}";
+    }
+
+    /// <summary>
+    /// ThixCloud's general sync of the settings store as the app <c>mail</c> (contract 1.5.0 takes any collection of the app's own: mail-accounts,
+    /// mail-signatures, mail-categories, mail-rules, mail-templates). Passwords and OAuth tokens are meta values of the store and never items: they stay on
+    /// this computer. Another ThixCloud account than last time starts the pull from the beginning.
+    /// </summary>
+    private void StartSettingsSync()
+    {
+        if (_settingsSync is not null || IsClosed || !CloudService.IsConnected || AccessPolicy.IsCloudDisabled)
+        {
+            return;
+        }
+
+        var identity = CloudIdentity();
+        if (Accounts.Store.GetMeta(CloudAccountMeta) != identity)
+        {
+            Accounts.Store.Cursor = 0;
+            Accounts.Store.SetMeta(CloudAccountMeta, identity);
+        }
+
+        _settingsSync = new PimSync(Accounts.Store, CloudService.CreateClient);
+        _settingsSync.Start();
+    }
+
+    /// <summary>The settings changed – here (they go up) or from another computer through ThixCloud (accounts that came start, accounts that went stop).</summary>
+    private void OnAccountsChanged(object? sender, EventArgs e)
+    {
+        if (IsClosed)
+        {
+            return;
+        }
+
+        _settingsSync?.Trigger();
+        if (_savingAccount)
+        {
+            return; // AddAccount / UpdateAccount / RemoveAccountAsync take care of the syncs themselves
+        }
+
+        var accounts = Accounts.Accounts;
+        foreach (var account in accounts)
+        {
+            if (!_syncs.ContainsKey(account.Id))
+            {
+                StartSync(account);
+            }
+        }
+
+        foreach (var gone in _syncs.Keys.Where(id => accounts.All(a => a.Id != id)).ToList())
+        {
+            _ = RemoveSyncAsync(gone);
+        }
+    }
+
+    /// <summary>An account removed on another computer: its sync stops, its mail and secrets on this computer go.</summary>
+    private async Task RemoveSyncAsync(string accountId)
+    {
+        if (!_syncs.Remove(accountId, out var sync))
+        {
+            return;
+        }
+
+        sync.StatusChanged -= OnSyncStatus;
+        sync.NewMail -= OnNewMail;
+        sync.Arrived -= OnArrived;
+        await sync.DisposeAsync();
+        Store.RemoveAccount(accountId);
+        AccountService.ForgetPasswords(Accounts, accountId);
+        RaiseChanged();
     }
 
     public MailStore Store { get; }
@@ -100,7 +197,7 @@ public sealed class MailDocument : OfficeDocument
             throw new BusinessException("Dieses Konto ist schon eingerichtet.", nameof(MailAccount.Address));
         }
 
-        Accounts.Save(valid);
+        SaveQuietly(() => Accounts.Save(valid));
         if (valid.UsesOAuth)
         {
             AccountService.SetOAuthTokens(Accounts, valid.Id, tokens ?? throw new BusinessException("Bitte melden Sie sich zuerst im Browser an.", "Password"));
@@ -124,7 +221,7 @@ public sealed class MailDocument : OfficeDocument
     public MailAccount UpdateAccount(MailAccount account, string? imapPassword = null, string? smtpPassword = null, OAuthTokens? tokens = null)
     {
         var valid = AccountService.Validate(account);
-        Accounts.Save(valid);
+        SaveQuietly(() => Accounts.Save(valid));
         if (tokens is not null)
         {
             AccountService.SetOAuthTokens(Accounts, valid.Id, tokens);
@@ -164,6 +261,20 @@ public sealed class MailDocument : OfficeDocument
         return valid;
     }
 
+    /// <summary>Writes an account without the reconciliation of remote changes (the caller starts or stops its sync itself).</summary>
+    private void SaveQuietly(Action write)
+    {
+        _savingAccount = true;
+        try
+        {
+            write();
+        }
+        finally
+        {
+            _savingAccount = false;
+        }
+    }
+
     /// <summary>Removes an account from this computer: its sync stops, its messages, queue and passwords go (the server keeps everything).</summary>
     public async Task RemoveAccountAsync(string accountId)
     {
@@ -171,6 +282,7 @@ public sealed class MailDocument : OfficeDocument
         {
             sync.StatusChanged -= OnSyncStatus;
             sync.NewMail -= OnNewMail;
+            sync.Arrived -= OnArrived;
             await sync.DisposeAsync();
         }
 
@@ -184,7 +296,12 @@ public sealed class MailDocument : OfficeDocument
             AccountService.ForgetPasswords(Accounts, accountId);
         }
 
-        Accounts.Remove(accountId);
+        foreach (var rule in Accounts.Rules.Where(r => r.AccountId == accountId))
+        {
+            SaveQuietly(() => Accounts.RemoveRule(rule.Id)); // its folders are gone with the account
+        }
+
+        SaveQuietly(() => Accounts.Remove(accountId));
         RaiseChanged();
     }
 
@@ -289,6 +406,7 @@ public sealed class MailDocument : OfficeDocument
             ConfigureSyncForTests?.Invoke(sync);
             sync.StatusChanged += OnSyncStatus;
             sync.NewMail += OnNewMail;
+            sync.Arrived += OnArrived;
             _syncs[account.Id] = sync;
         }
 
@@ -306,6 +424,22 @@ public sealed class MailDocument : OfficeDocument
     private void OnSyncStatus(object? sender, AccountSyncStatus status) => SyncStatusChanged?.Invoke(this, status);
 
     private void OnNewMail(object? sender, NewMailEventArgs e) => NewMail?.Invoke(this, e);
+
+    /// <summary>New mail in a Posteingang: the enabled rules run on it at once (on the sync's thread, not undoable – like Outlook's rules on arrival).</summary>
+    private void OnArrived(object? sender, ArrivedEventArgs e)
+    {
+        var rules = Accounts.Rules;
+        if (rules.Count == 0 || IsClosed)
+        {
+            return;
+        }
+
+        var outcomes = MailRules.Plan(rules, e.Messages, Store);
+        if (outcomes.Count > 0)
+        {
+            Session.ApplyRules(outcomes, undoable: false);
+        }
+    }
 
     // ===== address suggestions =====
 
@@ -341,6 +475,13 @@ public sealed class MailDocument : OfficeDocument
         }
 
         IsClosed = true;
+        Accounts.Changed -= OnAccountsChanged;
+        if (_settingsSync is { } settingsSync)
+        {
+            await settingsSync.DisposeAsync();
+            _settingsSync = null;
+        }
+
         foreach (var sync in _syncs.Values)
         {
             sync.StatusChanged -= OnSyncStatus;

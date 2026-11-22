@@ -9,6 +9,8 @@ namespace ThixMail.Core.Store;
 [JsonSerializable(typeof(MailAccount))]
 [JsonSerializable(typeof(MailSignature))]
 [JsonSerializable(typeof(MailCategory))]
+[JsonSerializable(typeof(MailRule))]
+[JsonSerializable(typeof(MailTemplate))]
 [JsonSerializable(typeof(OperationData))]
 [JsonSerializable(typeof(List<MailAddress>))]
 [JsonSerializable(typeof(List<string>))]

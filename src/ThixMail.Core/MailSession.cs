@@ -214,6 +214,57 @@ public sealed class MailSession
         }
     }
 
+    /// <summary>
+    /// Verschieben into a folder of ANOTHER account: every message's whole text first (cached or fetched through <paramref name="body"/>; nothing changes
+    /// when one cannot be loaded), then a copy into the target (shown at once, appended by the target's sync) and the originals into Gelöschte Elemente
+    /// of their accounts (for good where there is none). Not undoable – the originals wait in Gelöschte Elemente. Answers how many were moved.
+    /// </summary>
+    public async Task<int> MoveToAccountAsync(IReadOnlyCollection<long> ids, long targetFolderId, Func<long, CancellationToken, Task<byte[]?>> body, CancellationToken cancellationToken)
+    {
+        var target = _store.Folder(targetFolderId) ?? throw new BusinessException("Diesen Ordner gibt es nicht mehr.");
+        var headers = _store.Headers(ids).Where(h => h.AccountId != target.AccountId).ToList();
+        var copies = new List<(MessageHeader Header, byte[] Raw)>();
+        foreach (var header in headers)
+        {
+            var raw = await body(header.Id, cancellationToken)
+                      ?? throw new BusinessException($"„{header.Subject}“ ist nicht auf diesem Computer gespeichert und der Mailserver ist nicht erreichbar. Verschieben Sie die Nachricht, wenn ThixMail online ist.");
+            copies.Add((header, raw));
+        }
+
+        foreach (var (header, raw) in copies)
+        {
+            var flags = header.Flags & (MessageFlags.Seen | MessageFlags.Flagged | MessageFlags.Answered | MessageFlags.Forwarded);
+            var path = _store.WriteFile("move", raw);
+            _store.Enqueue(target.AccountId, OperationKind.Append, new OperationData { Folder = target.Path, RawPath = path, Add = (int)flags, MessageId = header.MessageId });
+            var id = _store.AddLocalMessage(target.Id, target.AccountId, MailMime.Summarize(0, raw, flags, [.. header.Categories], 0));
+            _store.SetBody(id, raw, MailReader.Read(raw).Text);
+        }
+
+        var toTrash = new List<(long Id, long Target)>();
+        var forGood = new List<long>();
+        foreach (var (header, _) in copies)
+        {
+            if (_store.FolderByRole(header.AccountId, FolderRole.Trash) is { } trash && trash.Id != header.FolderId)
+            {
+                toTrash.Add((header.Id, trash.Id));
+            }
+            else
+            {
+                forGood.Add(header.Id);
+            }
+        }
+
+        ApplyMoves(toTrash);
+        if (forGood.Count > 0)
+        {
+            Expunge(forGood);
+        }
+
+        _wake(target.AccountId);
+        Changed?.Invoke(this, EventArgs.Empty);
+        return copies.Count;
+    }
+
     /// <summary>Archivieren: into the account's Archiv (refused when the account has none).</summary>
     public void Archive(IReadOnlyCollection<long> ids)
     {
@@ -236,9 +287,16 @@ public sealed class MailSession
 
     private void MoveRecorded(IReadOnlyList<(long Id, long Target)> moves, string label)
     {
+        var (undo, redo) = MoveStep(moves);
+        Record(label, undo, redo);
+    }
+
+    /// <summary>Moves now; answers how to take it back and how to do it again (one undo step, alone or within the rules' step).</summary>
+    private (Action Undo, Action Redo) MoveStep(IReadOnlyList<(long Id, long Target)> moves)
+    {
         var before = moves.Select(m => (m.Id, Folder: _store.Header(m.Id)!.FolderId, Uid: _store.RawUid(m.Id))).ToList();
         var operations = ApplyMoves(moves);
-        Record(label,
+        return (
             () =>
             {
                 // the server has not seen the move yet: take it back; else move back
@@ -262,6 +320,82 @@ public sealed class MailSession
                 }
             },
             () => operations = ApplyMoves(moves));
+    }
+
+    // ===== rules =====
+
+    /// <summary>
+    /// Carries out what the rules decided (<see cref="MailRules.Plan"/>): read, flagged, categories, moves, deletions into Gelöschte Elemente (an
+    /// account without one keeps the message – a rule never deletes for good). <paramref name="undoable"/>: ONE step "Regeln anwenden" ("Regeln
+    /// jetzt anwenden"); on arrival nothing is recorded (it may run on the sync's thread). Answers how many messages changed.
+    /// </summary>
+    public int ApplyRules(IReadOnlyList<RuleOutcome> outcomes, bool undoable)
+    {
+        var steps = new List<(Action Undo, Action Redo)>();
+        var read = outcomes.Where(o => o.MarkRead).Select(o => o.MessageId).ToList();
+        if (read.Count > 0)
+        {
+            ApplyFlags(read, MessageFlags.Seen, MessageFlags.None);
+            steps.Add((() => ApplyFlags(read, MessageFlags.None, MessageFlags.Seen), () => ApplyFlags(read, MessageFlags.Seen, MessageFlags.None)));
+        }
+
+        var flagged = outcomes.Where(o => o.Flag).Select(o => o.MessageId).ToList();
+        if (flagged.Count > 0)
+        {
+            ApplyFlags(flagged, MessageFlags.Flagged, MessageFlags.None);
+            steps.Add((() => ApplyFlags(flagged, MessageFlags.None, MessageFlags.Flagged), () => ApplyFlags(flagged, MessageFlags.Flagged, MessageFlags.None)));
+        }
+
+        foreach (var group in outcomes.SelectMany(o => o.Categories.Select(c => (o.MessageId, Category: c))).GroupBy(p => p.Category, StringComparer.OrdinalIgnoreCase))
+        {
+            var ids = group.Select(p => p.MessageId).ToList();
+            ApplyCategory(ids, group.Key, add: true);
+            steps.Add((() => ApplyCategory(ids, group.Key, add: false), () => ApplyCategory(ids, group.Key, add: true)));
+        }
+
+        var moves = new List<(long Id, long Target)>();
+        foreach (var outcome in outcomes)
+        {
+            if (outcome.MoveTo is { } target)
+            {
+                moves.Add((outcome.MessageId, target));
+            }
+            else if (outcome.Delete && _store.Header(outcome.MessageId) is { } header && _store.FolderByRole(header.AccountId, FolderRole.Trash) is { } trash && trash.Id != header.FolderId)
+            {
+                moves.Add((outcome.MessageId, trash.Id));
+            }
+        }
+
+        if (moves.Count > 0)
+        {
+            steps.Add(MoveStep(moves));
+        }
+
+        if (undoable && steps.Count > 0)
+        {
+            Record("Regeln anwenden", () =>
+            {
+                for (var index = steps.Count - 1; index >= 0; index--)
+                {
+                    steps[index].Undo();
+                }
+            }, () =>
+            {
+                foreach (var step in steps)
+                {
+                    step.Redo();
+                }
+            });
+        }
+
+        return outcomes.Count(o => !o.IsEmpty);
+    }
+
+    /// <summary>"Regeln jetzt anwenden" on a folder: every enabled rule on every message there, one undoable step; how many messages changed.</summary>
+    public int ApplyRulesNow(long folderId)
+    {
+        var messages = _store.Headers([.. _store.List(new MessageQuery([folderId])).Select(e => e.Id)]);
+        return ApplyRules(MailRules.Plan(_accounts.Rules, messages, _store), undoable: true);
     }
 
     /// <summary>Moves in the store and queues one operation per source folder and target; answers the operations' ids.</summary>
@@ -415,13 +549,18 @@ public sealed class MailSession
     /// Senden (Strg+Eingabe): into the Postausgang (sent by the sync now, or when the server can be reached again), the recipients remembered for
     /// suggestions, the saved draft removed. Refused with a German message at the field that is wrong.
     /// </summary>
-    public long Send(Draft draft)
+    public long Send(Draft draft, DateTimeOffset? sendAt = null)
     {
         var account = ValidateForSending(draft);
+        if (sendAt is { } at && at <= DateTimeOffset.Now.AddMinutes(1))
+        {
+            throw new BusinessException("Der Zeitpunkt zum Senden muss in der Zukunft liegen.", "SendAt");
+        }
+
         var sending = draft with { From = account.Sender };
         var raw = MailComposer.ToBytes(sending);
         var recipients = JsonSerializer.Serialize(sending.Recipients.ToList(), MailJson.Default.ListMailAddress);
-        var id = _store.AddToOutbox(account.Id, raw, sending.Subject, recipients, sending.MessageId, sending.OriginalMessage, (int)sending.Origin);
+        var id = _store.AddToOutbox(account.Id, raw, sending.Subject, recipients, sending.MessageId, sending.OriginalMessage, (int)sending.Origin, sendAt);
         _store.RememberRecipients(sending.Recipients);
         if (draft.SavedDraft is { } saved)
         {

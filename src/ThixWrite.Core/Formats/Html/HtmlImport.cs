@@ -524,6 +524,12 @@ public static partial class HtmlImport
                     return;
                 case "table":
                     Flush();
+                    if (options.BorderlessTables && _blocks.Count > 0 && _blocks[^1] is Paragraph { Cell: not null })
+                    {
+                        // two tables in a row: browsers keep them apart (cellspacing, margins) – a thin empty paragraph instead of glued cells
+                        _blocks.Add(Paragraph.Empty(new ParagraphProperties { SpacingBefore = 0, SpacingAfter = 0, LineSpacing = new LineSpacing(LineSpacingRule.Exact, 6) }));
+                    }
+
                     AddTable(node, style, context);
                     return;
                 case "ul" or "ol":
@@ -591,6 +597,11 @@ public static partial class HtmlImport
                 }
             }
 
+            if (options.ParagraphSpacing && LineHeightOf(node) is { } lineHeight)
+            {
+                properties = properties with { LineSpacing = lineHeight };
+            }
+
             var alignment = AlignmentOf(node);
             if (options.BorderlessTables && BordersOf(node) is { } lines)
             {
@@ -598,6 +609,31 @@ public static partial class HtmlImport
             }
 
             return alignment is null ? properties : properties with { Alignment = alignment };
+        }
+
+        /// <summary>
+        /// CSS line-height as the paragraph's line spacing: a number or percentage = a multiple, a length = at least that many points (never smaller than
+        /// the text, unlike a browser's exact height – no line is cut). "normal" and nonsense: null.
+        /// </summary>
+        private static LineSpacing? LineHeightOf(Node node)
+        {
+            var value = StyleValue(node, "line-height")?.Replace("!important", "", StringComparison.OrdinalIgnoreCase).Trim().ToLowerInvariant();
+            if (string.IsNullOrEmpty(value) || value == "normal")
+            {
+                return null;
+            }
+
+            if (value.EndsWith('%') && double.TryParse(value[..^1], NumberStyles.Float, CultureInfo.InvariantCulture, out var percent))
+            {
+                return percent is > 50 and < 400 ? new LineSpacing(LineSpacingRule.Multiple, percent / 100) : null;
+            }
+
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var factor))
+            {
+                return factor is > 0.5 and < 4 ? new LineSpacing(LineSpacingRule.Multiple, factor) : null;
+            }
+
+            return Length(value) is { } points and > 4 and < 144 ? new LineSpacing(LineSpacingRule.AtLeast, points) : null;
         }
 
         /// <summary>The text alignment an element sets (text-align, align=, &lt;center&gt;), or null.</summary>
@@ -1373,11 +1409,14 @@ public static partial class HtmlImport
 
             if (_quoteDepth > 0)
             {
-                // A quoted part of a reply: indented with a bar at the left, one step per level (as mail programs show it)
+                // A quoted part of a reply: indented with a bar at the left, one step per level (as mail programs show it); a quote inside a quote
+                // gets two bars (a paragraph has one left border: a double line), deeper levels stay at two
                 paragraph = paragraph with
                 {
                     IndentLeft = (paragraph.IndentLeft ?? 0) + (10 * _quoteDepth),
-                    Borders = new BorderSet(Left: new BorderLine("single", 1.5, options.QuoteBarColor, 4)),
+                    Borders = new BorderSet(Left: _quoteDepth >= 2
+                        ? new BorderLine("double", 1.5, options.QuoteBarColor, 7)
+                        : new BorderLine("single", 1.5, options.QuoteBarColor, 4)),
                 };
             }
 

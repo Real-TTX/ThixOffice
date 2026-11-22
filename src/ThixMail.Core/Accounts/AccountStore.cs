@@ -19,12 +19,20 @@ public sealed class AccountStore : IDisposable
 
     public const string CategoriesCollection = "mail-categories";
 
+    public const string RulesCollection = "mail-rules";
+
+    public const string TemplatesCollection = "mail-templates";
+
     private readonly PimStore _store;
 
     public AccountStore(PimStore store)
     {
         _store = store;
+        _store.RemoteChanged += (_, _) => Changed?.Invoke(this, EventArgs.Empty); // what ThixCloud brought (another computer's settings)
     }
+
+    /// <summary>The store under it – the one ThixCloud's general sync keeps in step (app <c>mail</c>; never the protected secrets, they are meta values).</summary>
+    internal PimStore Store => _store;
 
     /// <summary>Raised after an account, a signature or a category changed.</summary>
     public event EventHandler? Changed;
@@ -83,6 +91,48 @@ public sealed class AccountStore : IDisposable
     public void RemoveCategory(string name)
     {
         _store.Write([(CategoriesCollection, name.ToLowerInvariant(), null)]);
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>The templates by name.</summary>
+    public IReadOnlyList<MailTemplate> Templates =>
+        [.. _store.Items(TemplatesCollection).Select(i => Read(i.Data, MailJson.Default.MailTemplate)).Where(t => t is not null).Select(t => t!).OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)];
+
+    /// <summary>Keeps a template (a name given twice replaces the older one: Outlook's "Speichern unter" a template's name).</summary>
+    public MailTemplate SaveTemplate(string name, string subject, string html, string text)
+    {
+        var clean = name.Trim();
+        if (clean.Length == 0)
+        {
+            throw new ThixOffice.Core.Models.BusinessException("Bitte geben Sie der Vorlage einen Namen.", "Name");
+        }
+
+        var id = Templates.FirstOrDefault(t => t.Name.Equals(clean, StringComparison.CurrentCultureIgnoreCase))?.Id ?? Guid.NewGuid().ToString("N");
+        var template = new MailTemplate(id, clean, subject, html, text);
+        _store.Write([(TemplatesCollection, id, JsonSerializer.Serialize(template, MailJson.Default.MailTemplate))]);
+        Changed?.Invoke(this, EventArgs.Empty);
+        return template;
+    }
+
+    public void RemoveTemplate(string id)
+    {
+        _store.Write([(TemplatesCollection, id, null)]);
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>The rules in their order.</summary>
+    public IReadOnlyList<MailRule> Rules =>
+        [.. _store.Items(RulesCollection).Select(i => Read(i.Data, MailJson.Default.MailRule)).Where(r => r is not null).Select(r => r!).OrderBy(r => r.Order).ThenBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase)];
+
+    public void Save(MailRule rule)
+    {
+        _store.Write([(RulesCollection, rule.Id, JsonSerializer.Serialize(rule, MailJson.Default.MailRule))]);
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void RemoveRule(string id)
+    {
+        _store.Write([(RulesCollection, id, null)]);
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
