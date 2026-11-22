@@ -6,7 +6,7 @@ using static ThixMail.Core.Tests.TestData;
 
 namespace ThixMail.Core.Tests;
 
-/// <summary>Reading the 12 fixture mails, composing, replying and forwarding.</summary>
+/// <summary>Reading the 15 fixture mails, composing, replying and forwarding.</summary>
 public sealed class MimeTests
 {
     [Theory]
@@ -21,6 +21,9 @@ public sealed class MimeTests
     [InlineData("09-windows-1252-html.eml", "Ihre Bestellung „Premium“", "service@example.shop", true, 0, 0)]
     [InlineData("10-legacy-charsets.eml", "会議の資料", "yuki@example.jp", false, 0, 0)]
     [InlineData("12-outlook-html.eml", "Präsentation für Donnerstag", "maria.schulz@example.com", true, 1, 1)]
+    [InlineData("13-order-confirmation.eml", "Ihre Bestellung 40213 ist bestätigt", "bestellung@shop.example.com", true, 0, 0)]
+    [InlineData("14-newsletter-columns.eml", "Winterzeit ist Teezeit", "post@news.example.org", true, 0, 3)]
+    [InlineData("15-web-signature.eml", "AW: Zahlen Q3", "tobias.krueger@example.com", true, 0, 1)]
     public void Every_fixture_reads_with_its_header_body_and_parts(string file, string subject, string from, bool isHtml, int attachments, int inline)
     {
         var mail = MailReader.Read(Fixture(file));

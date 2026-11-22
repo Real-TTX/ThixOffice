@@ -77,6 +77,13 @@ public static class HtmlExport
                 return; // the document's closing empty paragraph
             }
 
+            if (paragraph.Inlines is [OpaqueInline { Nested: { } nested }])
+            {
+                // a table shown inside a table cell (a quoted newsletter): written as the table it is
+                new Writer(document, pictureSource, html).Blocks(nested.Blocks.Take(nested.Blocks.Count - 1).ToList());
+                return;
+            }
+
             var tag = (properties.StyleId ?? style?.Id) switch
             {
                 BuiltInStyles.Heading1 or BuiltInStyles.Title => "h1",
@@ -186,6 +193,9 @@ public static class HtmlExport
                         html.Append("<img src=\"").Append(Attribute(pictureSource(image.Image))).Append("\" width=\"")
                             .Append(Number(Math.Round(image.Width * 4 / 3))).Append("\" height=\"").Append(Number(Math.Round(image.Height * 4 / 3)))
                             .Append("\" alt=\"").Append(Attribute(image.Description ?? "")).Append("\" style=\"border:0\">");
+                        break;
+                    case OpaqueInline { Nested: { } nested }:
+                        new Writer(document, pictureSource, html).Blocks(nested.Blocks.Take(nested.Blocks.Count - 1).ToList());
                         break;
                     case OpaqueInline { DisplayText.Length: > 0 } opaque:
                         Run(opaque.DisplayText, opaque.Properties);
@@ -323,6 +333,13 @@ public static class HtmlExport
                     }
 
                     html.Append("<td valign=\"top\"");
+                    var firstColumn = table.GridColumnOf(row, cell);
+                    var cellWidth = table.Grid.Skip(firstColumn).Take(Math.Max(1, properties.GridSpan)).Sum();
+                    if (cellWidth > 0)
+                    {
+                        html.Append(" width=\"").Append(Number(Math.Round(cellWidth * 4 / 3))).Append('"');
+                    }
+
                     if (properties.GridSpan > 1)
                     {
                         html.Append(" colspan=\"").Append(properties.GridSpan.ToString(CultureInfo.InvariantCulture)).Append('"');

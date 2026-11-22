@@ -1086,6 +1086,12 @@ internal sealed class DocumentSurface : Control
             return null;
         }
 
+        var (page, pageY) = PageAt(point);
+        if (Layout.NestedLinkAt(page, (point.X - PageRect(page).X) / _scale, pageY) is { } nested)
+        {
+            return nested; // a link in a table shown inside a table cell (a mail's columns)
+        }
+
         var position = HitAt(point).Position;
         if (Session.LinkRange(position) is not { } link || position.Offset >= link.Range.End.Offset)
         {

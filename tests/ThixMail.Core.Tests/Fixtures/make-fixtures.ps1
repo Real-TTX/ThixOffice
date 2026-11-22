@@ -1,5 +1,5 @@
 ﻿param([string]$Out)
-# Generates the 12 fixture mails of ThixMail (tests/ThixMail.Core.Tests/Fixtures). Run once; the files are committed.
+# Generates the fixture mails of ThixMail (tests/ThixMail.Core.Tests/Fixtures). Run once; the files are committed.
 New-Item -ItemType Directory -Force $Out | Out-Null
 Add-Type -AssemblyName System.Drawing
 
@@ -392,5 +392,199 @@ Content-Transfer-Encoding: base64
 
 $(B64 $pdf)
 --_004_outlook_--
+"@
+# 13 an order confirmation: a style sheet with classes and ids (colours only there), @media for phones, address columns, an item table with widths
+$order = @"
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<style type="text/css">
+/* Kaffeerösterei – Bestellbestätigung */
+body { margin:0; padding:0; background-color:#F3EFEA; }
+.frame { background-color:#FFFFFF; }
+.brand td { background-color:#4A2C2A; color:#FFFFFF; font-family:Georgia, serif; font-size:22px; }
+.lead { font-size:15px; color:#333333; margin:0 0 12px 0; }
+h2.section { font-family:Arial, sans-serif; font-size:13px; color:#4A2C2A; text-transform:uppercase; margin:18px 0 6px 0; }
+.address p { margin:0; font-size:13px; color:#333333; }
+.items th { font-size:12px; color:#777777; text-align:left; border-bottom:1px solid #DDDDDD; }
+.items td { font-size:13px; color:#333333; border-bottom:1px solid #EEEEEE; }
+.price { text-align:right; }
+#total td { font-weight:bold; font-size:15px; color:#4A2C2A; }
+.button td { background-color:#C8763A; }
+.button a { color:#FFFFFF; font-weight:bold; text-decoration:none; }
+.mobile-only { display:none; }
+.footer p { font-size:11px; color:#8A8A8A; margin:0; }
+@media only screen and (max-width:480px) {
+  .mobile-only { display:block !important; }
+  .desktop-only { display:none !important; }
+  .column { width:100% !important; display:block !important; }
+}
+</style></head>
+<body>
+<div class="mobile-only">Diese Zeile sehen nur Telefone.</div>
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 0">
+<table class="frame" width="560" cellpadding="0" cellspacing="0">
+ <tr class="brand"><td style="padding:18px 24px">Kaffeerösterei Beispiel</td></tr>
+ <tr><td style="padding:24px">
+  <p class="lead">Guten Tag Frau Berger,</p>
+  <p class="lead">vielen Dank für Ihre Bestellung <b>40213</b> vom 20.11.2026. Wir rösten Ihren Kaffee frisch und versenden ihn innerhalb von zwei Werktagen.</p>
+  <table width="100%" cellpadding="0" cellspacing="0" class="address"><tr>
+   <td class="column" width="50%" valign="top"><h2 class="section">Lieferadresse</h2><p>Anna Berger</p><p>Lindenstraße 12</p><p>50674 Köln</p></td>
+   <td class="column" width="50%" valign="top"><h2 class="section">Rechnungsadresse</h2><p>Anna Berger</p><p>Lindenstraße 12</p><p>50674 Köln</p></td>
+  </tr></table>
+  <h2 class="section">Ihre Bestellung</h2>
+  <table width="100%" cellpadding="6" cellspacing="0" class="items">
+   <tr><th width="60%">Artikel</th><th width="15%">Menge</th><th width="25%" class="price">Preis</th></tr>
+   <tr><td>Espresso „Nordlicht“, 500 g, ganze Bohne</td><td>2</td><td class="price">27,80&nbsp;€</td></tr>
+   <tr><td>Filterkaffee Hochland, 250 g, gemahlen</td><td>1</td><td class="price">8,50&nbsp;€</td></tr>
+   <tr><td>Versand</td><td></td><td class="price">0,00&nbsp;€</td></tr>
+   <tr id="total"><td>Gesamt (inkl. 7&nbsp;% MwSt.)</td><td></td><td class="price">36,30&nbsp;€</td></tr>
+  </table>
+  <table cellpadding="0" cellspacing="0" style="margin:20px auto 0 auto" class="button"><tr><td style="padding:10px 22px"><a href="https://shop.example.com/konto/bestellungen/40213">Bestellung ansehen</a></td></tr></table>
+ </td></tr>
+ <tr><td class="footer" style="padding:16px 24px;border-top:1px solid #EEEEEE"><p>Kaffeerösterei Beispiel GmbH · Am Hafen 3 · 20457 Hamburg</p><p>Fragen? Antworten Sie einfach auf diese E-Mail.</p></td></tr>
+</table>
+</td></tr></table>
+</body></html>
+"@
+Write-Ascii "13-order-confirmation.eml" @"
+From: =?utf-8?B?$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("Kaffeerösterei Beispiel")))?= <bestellung@shop.example.com>
+To: Anna Berger <anna@example.de>
+Subject: =?utf-8?B?$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("Ihre Bestellung 40213 ist bestätigt")))?=
+Date: Fri, 20 Nov 2026 18:22:00 +0100
+Message-ID: <order-13@shop.example.com>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="alt13"
+
+--alt13
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+
+$(Utf8B64 "Guten Tag Frau Berger,`n`nvielen Dank für Ihre Bestellung 40213 vom 20.11.2026.`n`nEspresso Nordlicht, 500 g (2)   27,80 EUR`nFilterkaffee Hochland, 250 g (1)   8,50 EUR`nGesamt   36,30 EUR`n`nBestellung ansehen: https://shop.example.com/konto/bestellungen/40213")
+--alt13
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: base64
+
+$(Utf8B64 $order)
+--alt13--
+"@
+
+# 14 a newsletter with three product columns inside a framed column (spacer cells left and right), pictures by cid, a coloured hero, social links
+$p1 = Png 160 110 "#2E7D32" "Tee"
+$p2 = Png 160 110 "#6D4C41" "Kakao"
+$p3 = Png 160 110 "#AD1457" "Beeren"
+$columns = @"
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+.hero { background-color:#0F6CBD; }
+.hero h1 { color:#FFFFFF; font-family:Arial, sans-serif; font-size:26px; margin:0; }
+.hero p { color:#DCEBFA; margin:6px 0 0 0; font-size:14px; }
+.product p { margin:4px 0 0 0; font-size:13px; color:#333333; }
+.product .name { font-weight:bold; color:#1B1B1B; }
+.product a { color:#0F6CBD; }
+.social td { font-size:12px; }
+</style></head>
+<body style="margin:0">
+<span style="display:none !important;mso-hide:all">Drei neue Sorten für den Winter – und Versand frei ab 30 €</span>
+<table width="100%" cellpadding="0" cellspacing="0" bgcolor="#F2F2F2"><tr>
+ <td width="20">&nbsp;</td>
+ <td align="center">
+  <table width="600" cellpadding="0" cellspacing="0" bgcolor="#FFFFFF">
+   <tr><td class="hero" style="padding:28px 24px"><h1>Winterzeit ist Teezeit</h1><p>Drei neue Sorten – jetzt im Laden und online.</p></td></tr>
+   <tr><td height="16" style="font-size:1px;line-height:1px">&nbsp;</td></tr>
+   <tr><td style="padding:0 12px">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+     <td width="33%" valign="top" class="product" style="padding:0 6px"><img src="cid:tee@news.example.org" width="176" alt="Tee"><p class="name">Rooibos Orange</p><p>100 g · 6,90&nbsp;€</p><p><a href="https://news.example.org/tee">Zum Tee</a></p></td>
+     <td width="33%" valign="top" class="product" style="padding:0 6px"><img src="cid:kakao@news.example.org" width="176" alt="Kakao"><p class="name">Trinkschokolade</p><p>250 g · 8,40&nbsp;€</p><p><a href="https://news.example.org/kakao">Zum Kakao</a></p></td>
+     <td width="33%" valign="top" class="product" style="padding:0 6px"><img src="cid:beeren@news.example.org" width="176" alt="Beeren"><p class="name">Winterbeeren</p><p>100 g · 7,20&nbsp;€</p><p><a href="https://news.example.org/beeren">Zu den Beeren</a></p></td>
+    </tr></table>
+   </td></tr>
+   <tr><td height="20" style="font-size:1px;line-height:1px">&nbsp;</td></tr>
+   <tr><td bgcolor="#1B1B1B" style="padding:14px 24px">
+    <table cellpadding="0" cellspacing="0" class="social"><tr>
+     <td style="padding-right:14px"><a href="https://news.example.org/instagram" style="color:#FFFFFF">Instagram</a></td>
+     <td style="padding-right:14px"><a href="https://news.example.org/mastodon" style="color:#FFFFFF">Mastodon</a></td>
+     <td><a href="https://news.example.org/abmelden" style="color:#BBBBBB">Abmelden</a></td>
+    </tr></table>
+   </td></tr>
+  </table>
+ </td>
+ <td width="20">&nbsp;</td>
+</tr></table>
+</body></html>
+"@
+Write-Ascii "14-newsletter-columns.eml" @"
+From: Teehaus Beispiel <post@news.example.org>
+To: anna@example.de
+Subject: Winterzeit ist Teezeit
+Date: Sat, 21 Nov 2026 08:15:00 +0100
+Message-ID: <nl-14@news.example.org>
+List-Unsubscribe: <https://news.example.org/abmelden>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="rel14"; type="text/html"
+
+--rel14
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: base64
+
+$(Utf8B64 $columns)
+--rel14
+Content-Type: image/png
+Content-ID: <tee@news.example.org>
+Content-Disposition: inline
+Content-Transfer-Encoding: base64
+
+$(B64 $p1)
+--rel14
+Content-Type: image/png
+Content-ID: <kakao@news.example.org>
+Content-Disposition: inline
+Content-Transfer-Encoding: base64
+
+$(B64 $p2)
+--rel14
+Content-Type: image/png
+Content-ID: <beeren@news.example.org>
+Content-Disposition: inline
+Content-Transfer-Encoding: base64
+
+$(B64 $p3)
+--rel14--
+"@
+
+# 15 a reply from a web mailer: <div><br></div> gaps, a signature table with fixed widths and a picture, Outlook's quoted header with a line above
+$avatar = Png 64 64 "#8764B8" "TK"
+$web = @"
+<html><head><style>.sig td { font-family:Arial, sans-serif; font-size:12px; color:#444444; } .sig .name { font-size:14px; font-weight:bold; color:#8764B8; }</style></head>
+<body><div>Hallo Anna,</div><div><br></div><div>die Zahlen für das dritte Quartal sind jetzt vollständig – die Tabelle hängt im Projektordner.</div><div><br></div><div>Viele Grüße</div><div>Tobias</div><div><br></div>
+<table class="sig" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
+ <td style="width:72px;padding:0 12px 0 0" valign="top"><img src="cid:avatar15@example.com" width="64" height="64" alt="Tobias Krüger"></td>
+ <td style="width:260px;border-left:2px solid #8764B8;padding:0 0 0 12px" valign="top"><div class="name">Tobias Krüger</div><div>Controlling · Beispiel GmbH</div><div>Tel. +49 221 555 0142</div><div><a href="https://www.example.com">www.example.com</a></div></td>
+</tr></table>
+<div><br></div>
+<div style="border:none;border-top:solid #E1E1E1 1.0pt;padding:3.0pt 0cm 0cm 0cm"><p style="margin:0"><b>Von:</b> Anna Berger &lt;anna@example.de&gt;<br><b>Gesendet:</b> Donnerstag, 19. November 2026 16:02<br><b>An:</b> Tobias Krüger<br><b>Betreff:</b> Zahlen Q3</p></div>
+<div><br></div><div>Hallo Tobias, hast du die Zahlen fürs dritte Quartal schon?</div><div><br></div><div>Anna</div>
+</body></html>
+"@
+Write-Ascii "15-web-signature.eml" @"
+From: =?utf-8?B?$([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("Tobias Krüger")))?= <tobias.krueger@example.com>
+To: Anna Berger <anna@example.de>
+Subject: AW: Zahlen Q3
+Date: Fri, 20 Nov 2026 09:41:00 +0100
+Message-ID: <web-15@example.com>
+In-Reply-To: <q3-14@example.de>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="rel15"; type="text/html"
+
+--rel15
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: base64
+
+$(Utf8B64 $web)
+--rel15
+Content-Type: image/png
+Content-ID: <avatar15@example.com>
+Content-Disposition: inline
+Content-Transfer-Encoding: base64
+
+$(B64 $avatar)
+--rel15--
 "@
 Get-ChildItem $Out | ForEach-Object { "{0,10} {1}" -f $_.Length, $_.Name }

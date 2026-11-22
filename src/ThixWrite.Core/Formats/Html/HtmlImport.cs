@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using ThixWrite.Core.Editing;
+using ThixWrite.Core.Formats.Docx;
 using ThixWrite.Core.Model;
 
 namespace ThixWrite.Core.Formats.Html;
@@ -13,7 +14,7 @@ namespace ThixWrite.Core.Formats.Html;
 /// data: URIs. Sanitized: scripts, styles, frames, objects, forms and comments are dropped; nothing is fetched (a picture from the
 /// web is left out), nothing runs. A small tolerant parser – clipboard HTML is rarely well-formed.
 /// </summary>
-public static class HtmlImport
+public static partial class HtmlImport
 {
     private static readonly HashSet<string> Dropped = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -149,17 +150,37 @@ public static class HtmlImport
         return result.ToString();
     }
 
-    /// <summary>display:none (and Outlook's mso-hide:all): a newsletter's hidden preview text.</summary>
+    /// <summary>display:none (the last display of its style, also from a style sheet) and Outlook's mso-hide:all: a newsletter's hidden preview text.</summary>
     private static bool IsHidden(Node node)
     {
-        var css = node["style"];
-        if (css is null)
+        if (node.Attributes.ContainsKey("hidden"))
         {
-            return node.Attributes.ContainsKey("hidden");
+            return true;
         }
 
-        var compact = css.Replace(" ", "", StringComparison.Ordinal).ToLowerInvariant();
-        return compact.Contains("display:none", StringComparison.Ordinal) || compact.Contains("mso-hide:all", StringComparison.Ordinal);
+        if (node["style"] is null)
+        {
+            return false;
+        }
+
+        return string.Equals(StyleValue(node, "display")?.Replace("!important", "", StringComparison.OrdinalIgnoreCase).Trim(), "none", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(StyleValue(node, "mso-hide")?.Trim(), "all", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The value of a CSS property in an element's style (the last declaration wins, as in CSS), or null.</summary>
+    private static string? StyleValue(Node node, string property)
+    {
+        string? found = null;
+        foreach (var declaration in (node["style"] ?? "").Split(';'))
+        {
+            var colon = declaration.IndexOf(':');
+            if (colon > 0 && declaration[..colon].Trim().Equals(property, StringComparison.OrdinalIgnoreCase))
+            {
+                found = declaration[(colon + 1)..].Trim();
+            }
+        }
+
+        return found;
     }
 
     // ---------------------------------------------------------------- parsing
@@ -182,6 +203,18 @@ public static class HtmlImport
     }
 
     private static Node Parse(string html)
+    {
+        var sheets = new List<string>();
+        var root = ParseTree(html, sheets);
+        if (sheets.Count > 0)
+        {
+            HtmlCss.Apply(root, HtmlCss.ParseSheets(sheets));
+        }
+
+        return root;
+    }
+
+    private static Node ParseTree(string html, List<string> sheets)
     {
         var root = new Node("#root");
         var current = root;
@@ -240,8 +273,18 @@ public static class HtmlImport
             ReadAttributes(tag, element);
             if (Dropped.Contains(element.Tag))
             {
-                // Its content goes too (a script, a style sheet …): skip to its end tag.
+                // Its content goes too (a script, a style sheet …): skip to its end tag. A style sheet is read first – only as rules for the
+                // elements' looks (HtmlCss: simple selectors, no @media, no url() is ever fetched).
                 var closing = html.IndexOf($"</{element.Tag}", index, StringComparison.OrdinalIgnoreCase);
+                if (element.Tag == "style" && !tag.EndsWith('/'))
+                {
+                    sheets.Add(closing < 0 ? html[index..] : html[index..closing]);
+                }
+                else if (element.Tag == "head")
+                {
+                    CollectStyleSheets(closing < 0 ? html[index..] : html[index..closing], sheets);
+                }
+
                 if (!tag.EndsWith('/') && !Void.Contains(element.Tag))
                 {
                     index = closing < 0 ? html.Length : Math.Max(index, html.IndexOf('>', closing) + 1);
@@ -262,6 +305,30 @@ public static class HtmlImport
         }
 
         return root;
+    }
+
+    /// <summary>The text of every &lt;style&gt; element in a part that is dropped as a whole (the head).</summary>
+    private static void CollectStyleSheets(string part, List<string> sheets)
+    {
+        var index = 0;
+        while (index < part.Length)
+        {
+            var open = part.IndexOf("<style", index, StringComparison.OrdinalIgnoreCase);
+            if (open < 0)
+            {
+                return;
+            }
+
+            var tagEnd = FindTagEnd(part, open);
+            if (tagEnd < 0)
+            {
+                return;
+            }
+
+            var close = part.IndexOf("</style", tagEnd, StringComparison.OrdinalIgnoreCase);
+            sheets.Add(close < 0 ? part[(tagEnd + 1)..] : part[(tagEnd + 1)..close]);
+            index = close < 0 ? part.Length : close + 7;
+        }
     }
 
     private static int FindTagEnd(string html, int open)
@@ -297,7 +364,9 @@ public static class HtmlImport
     {
         var name = new string(tag.TakeWhile(character => !char.IsWhiteSpace(character) && character != '/' && character != '>').ToArray());
         var colon = name.IndexOf(':');
-        return (colon >= 0 ? name[(colon + 1)..] : name).ToLowerInvariant(); // o:p, w:… of Word's HTML
+        var local = (colon >= 0 ? name[(colon + 1)..] : name).ToLowerInvariant(); // w:… of Word's HTML
+        return colon >= 0 && local == "p" ? "o:p" : local; // Word's <o:p> is an inline wrapper, not a paragraph
+
     }
 
     private static void ReadAttributes(string tag, Node element)
@@ -375,16 +444,33 @@ public static class HtmlImport
         public bool Preformatted { get; init; }
     }
 
-    private sealed class Builder(HtmlImportOptions options)
+    /// <summary>What every builder of one import shares (cells are built by builders of their own): the lists and the styles used.</summary>
+    private sealed class SharedState
+    {
+        public NumberingDefinitions Numbering { get; set; } = NumberingDefinitions.Empty;
+
+        public HashSet<string> Styles { get; } = new(StringComparer.Ordinal);
+    }
+
+    private sealed class Builder(HtmlImportOptions options, SharedState? shared = null)
     {
         private readonly List<Block> _blocks = [];
         private readonly List<Inline> _inlines = [];
+        private readonly SharedState _shared = shared ?? new SharedState();
         private ParagraphProperties _paragraph = ParagraphProperties.Empty;
-        private NumberingDefinitions _numbering = NumberingDefinitions.Empty;
         private readonly List<(ListKind Kind, int Instance)> _lists = [];
-        private readonly HashSet<string> _styles = new(StringComparer.Ordinal);
         private int _quoteDepth;
         private string? _fill;
+        private bool _centerTables;
+        private ParagraphAlignment? _inheritedAlignment;
+
+        private NumberingDefinitions Numbering
+        {
+            get => _shared.Numbering;
+            set => _shared.Numbering = value;
+        }
+
+        private HashSet<string> UsedStyles => _shared.Styles;
 
         public void Block(Node node, Style style, ParagraphContext context)
         {
@@ -458,9 +544,19 @@ public static class HtmlImport
             if (BlockTags.Contains(tag))
             {
                 Flush();
+                var savedFill = _fill;
+                if (options.BorderlessTables && ShadingOf(node) is { } blockFill)
+                {
+                    _fill = blockFill; // a coloured block of a mail: its paragraphs get its background
+                }
+
+                var savedAlignment = _inheritedAlignment;
+                _inheritedAlignment = AlignmentOf(node) ?? _inheritedAlignment; // text-align is inherited by what is inside
                 _paragraph = ParagraphFor(node, tag);
                 Block(node, inner, context);
                 Flush();
+                _fill = savedFill;
+                _inheritedAlignment = savedAlignment;
                 return;
             }
 
@@ -480,20 +576,51 @@ public static class HtmlImport
                 "p" when options.ParagraphSpacing && !(node["class"] ?? "").StartsWith("Mso", StringComparison.OrdinalIgnoreCase) => new ParagraphProperties { SpacingAfter = 11 },
                 _ => ParagraphProperties.Empty,
             };
-            var align = (node["align"] ?? StyleValue(node, "text-align"))?.Trim().ToLowerInvariant();
-            var alignment = tag == "center" ? ParagraphAlignment.Center : align switch
+            if (options.ParagraphSpacing && tag is "p" or "div" or "h1" or "h2" or "h3" or "h4" or "h5" or "h6")
             {
-                "center" => ParagraphAlignment.Center,
+                // the margins of its style (inline or from a style sheet: Outlook's p.MsoNormal {margin:0}) as spacing above and below
+                var (top, bottom) = Margins(node);
+                if (top is { } before)
+                {
+                    properties = properties with { SpacingBefore = before };
+                }
+
+                if (bottom is { } after)
+                {
+                    properties = properties with { SpacingAfter = after };
+                }
+            }
+
+            var alignment = AlignmentOf(node);
+            if (options.BorderlessTables && BordersOf(node) is { } lines)
+            {
+                properties = properties with { Borders = lines }; // a line above a quoted header (Outlook's "Von:" block), a bar beside a quote
+            }
+
+            return alignment is null ? properties : properties with { Alignment = alignment };
+        }
+
+        /// <summary>The text alignment an element sets (text-align, align=, &lt;center&gt;), or null.</summary>
+        private static ParagraphAlignment? AlignmentOf(Node node)
+        {
+            if (node.Tag == "center")
+            {
+                return ParagraphAlignment.Center;
+            }
+
+            return (StyleValue(node, "text-align") ?? node["align"])?.Replace("!important", "", StringComparison.OrdinalIgnoreCase).Trim().ToLowerInvariant() switch
+            {
+                "center" or "middle" => ParagraphAlignment.Center,
                 "right" => ParagraphAlignment.Right,
                 "justify" => ParagraphAlignment.Justify,
-                _ => (ParagraphAlignment?)null,
+                "left" => ParagraphAlignment.Left,
+                _ => null,
             };
-            return alignment is null ? properties : properties with { Alignment = alignment };
         }
 
         private ParagraphProperties Styled(string styleId)
         {
-            _styles.Add(styleId);
+            UsedStyles.Add(styleId);
             return new ParagraphProperties { StyleId = styleId };
         }
 
@@ -508,14 +635,14 @@ public static class HtmlImport
             var (kind, instance) = _lists[0];
             if (instance < 0)
             {
-                var definition = BuiltInLists.Create(kind, _numbering.NextDefinitionId());
-                _numbering = _numbering.WithDefinition(definition);
-                instance = _numbering.NextInstanceId();
-                _numbering = _numbering.WithInstance(new NumberingInstance { Id = instance, AbstractId = definition.Id });
+                var definition = BuiltInLists.Create(kind, Numbering.NextDefinitionId());
+                Numbering = Numbering.WithDefinition(definition);
+                instance = Numbering.NextInstanceId();
+                Numbering = Numbering.WithInstance(new NumberingInstance { Id = instance, AbstractId = definition.Id });
                 _lists[0] = (kind, instance);
             }
 
-            _styles.Add(BuiltInStyles.ListParagraph);
+            UsedStyles.Add(BuiltInStyles.ListParagraph);
             return new ParagraphProperties { StyleId = BuiltInStyles.ListParagraph, Numbering = new NumberingReference(instance, Math.Min(level, 8)) };
         }
 
@@ -608,17 +735,35 @@ public static class HtmlImport
                 return;
             }
 
-            // A mail's layout table of one cell (a centring wrapper, a button) and a table inside a cell (ThixWrite has no nested tables) give their
-            // content as paragraphs – a cell's background goes along as the paragraphs' shading, so light text keeps its dark background.
-            var cellCount = rows.Sum(row => row.Children.Count(child => child.Tag is "td" or "th"));
-            if (options.BorderlessTables && (cellCount == 1 || context == ParagraphContext.Cell))
+            if (options.BorderlessTables && IsWrapper(table, rows))
             {
+                // A mail's layout table that only stacks (a centring wrapper, one column of blocks without colours, a frame around other tables):
+                // its content as paragraphs, so the text stays text of the mail; tables inside it come out at this level.
                 Flush();
-                var outer = ShadingOf(table);
-                foreach (var cell in rows.SelectMany(row => row.Children.Where(child => child.Tag is "td" or "th")))
+                var savedCenter = _centerTables;
+                foreach (var cell in rows.SelectMany(Cells).Where(cell => !IsEmptyCell(cell)))
+                {
+                    _centerTables = savedCenter || (table["align"] ?? "").Equals("center", StringComparison.OrdinalIgnoreCase)
+                        || (cell["align"] ?? StyleValue(cell, "text-align") ?? "").Trim().Equals("center", StringComparison.OrdinalIgnoreCase);
+                    var savedAlignment = _inheritedAlignment;
+                    _inheritedAlignment = AlignmentOf(cell) ?? _inheritedAlignment;
+                    Block(cell, Inherit(cell, cell.Tag == "th" ? style with { Characters = style.Characters with { Bold = true } } : style), context);
+                    Flush();
+                    _inheritedAlignment = savedAlignment;
+                }
+
+                _centerTables = savedCenter;
+                return;
+            }
+
+            if (context == ParagraphContext.Cell && !options.NestedTables)
+            {
+                // A table inside a cell where tables cannot nest (pasting): its cells' content as paragraphs of the cell.
+                Flush();
+                foreach (var cell in rows.SelectMany(Cells))
                 {
                     var saved = _fill;
-                    _fill = ShadingOf(cell) ?? ShadingOf(cell.Parent ?? cell) ?? outer ?? _fill;
+                    _fill = ShadingOf(cell) ?? ShadingOf(cell.Parent ?? cell) ?? ShadingOf(table) ?? _fill;
                     Block(cell, Inherit(cell, cell.Tag == "th" ? style with { Characters = style.Characters with { Bold = true } } : style), context);
                     Flush();
                     _fill = saved;
@@ -627,52 +772,136 @@ public static class HtmlImport
                 return;
             }
 
+            var available = options.ContentWidth;
+            var built = BuildTable(table, rows, style, available);
+            if (built is null)
+            {
+                return;
+            }
+
+            var (blocks, width) = built.Value;
+            if (context == ParagraphContext.Cell)
+            {
+                // A table in a cell of a mail (a newsletter's columns inside its frame): a paragraph carrying it, shown read-only side by side.
+                Flush();
+                var carrier = new OpaqueInline("", PreservedKind.Table, false, CharacterProperties.Empty, "", Math.Max(1, width)) { Nested = new Story(blocks) };
+                _blocks.Add(new Paragraph([carrier], DocxReader.NestedCarrierProperties));
+                return;
+            }
+
+            _blocks.AddRange(blocks);
+        }
+
+        /// <summary>The table as blocks (cells' paragraphs naming it) and the width it takes; null when it has no cells.</summary>
+        private (List<Block> Blocks, double Width)? BuildTable(Node table, List<Node> rows, Style style, double available)
+        {
             // A table of a mail is usually layout (a newsletter's columns): no lines unless the HTML asks for them.
             var border = int.TryParse(table["border"], NumberStyles.None, CultureInfo.InvariantCulture, out var given) ? given : 0;
             var lines = !options.BorderlessTables || border > 0;
             var styleId = lines ? BuiltInStyles.TableGrid : BuiltInStyles.TableNormal;
-            var available = options.ContentWidth;
             var tableWidth = WidthOf(table, available);
-            var properties = new TableProperties
+            var isPercent = (table["width"] ?? StyleValue(table, "width"))?.Trim().EndsWith('%') == true;
+            var padding = options.BorderlessTables
+                ? (int.TryParse(table["cellpadding"], NumberStyles.None, CultureInfo.InvariantCulture, out var tablePadding) ? tablePadding * 0.75 : 0.75)
+                : (double?)null;
+            var margins = padding is { } pad ? new CellMargins(pad, pad, pad, pad) : null;
+            var marginX = padding is { } side ? side * 2 : 10.8;
+            var centered = (table["align"] ?? "").Equals("center", StringComparison.OrdinalIgnoreCase)
+                || (StyleValue(table, "margin")?.Contains("auto", StringComparison.OrdinalIgnoreCase) ?? false)
+                || (_centerTables && options.BorderlessTables);
+            var styleIdUsed = styleId;
+            UsedStyles.Add(styleIdUsed);
+
+            // the widths the cells are built for: given widths, the rest shared (a picture or an inner table is fitted to them)
+            var columnCount = rows.Max(row => Cells(row).Sum(SpanOf));
+            var givenWidths = new double?[columnCount];
+            foreach (var row in rows)
             {
-                StyleId = styleId,
-                Width = tableWidth is { } points ? TableWidth.Points(points) : TableWidth.Auto,
-                Shading = ShadingOf(table) is { } fill ? new Shading(fill) : null,
-                Alignment = (table["align"] ?? "").Equals("center", StringComparison.OrdinalIgnoreCase) ? TableAlignment.Center : null,
+                var column = 0;
+                foreach (var cell in Cells(row))
+                {
+                    if (SpanOf(cell) == 1 && column < columnCount && WidthOf(cell, tableWidth ?? available) is { } cellWidth)
+                    {
+                        givenWidths[column] ??= cellWidth;
+                    }
+
+                    column += SpanOf(cell);
+                }
+            }
+
+            var room = tableWidth ?? available;
+            var unknownCount = givenWidths.Count(width => width is null);
+            var shared = unknownCount == 0 ? 0 : Math.Max(18, (room - givenWidths.Sum(width => width ?? 0)) / unknownCount);
+            var model = new TableEdits.TableModel
+            {
+                Properties = new TableProperties
+                {
+                    StyleId = styleIdUsed,
+                    Width = TableWidth.Auto,
+                    Shading = ShadingOf(table) is { } fill ? new Shading(fill) : null,
+                    Alignment = centered ? TableAlignment.Center : null,
+                    CellMargins = margins,
+                    Indent = padding, // the table's edge (not its first text) lines up with the text, as in a browser
+                },
             };
-            var model = new TableEdits.TableModel { Properties = properties };
-            _styles.Add(styleId);
-            var columnWidths = new List<double?>();
+            var natural = new double[columnCount];
             foreach (var row in rows)
             {
                 var rowModel = new TableEdits.RowModel { Properties = TableRowProperties.Empty };
-                var column = 0;
-                foreach (var cell in row.Children.Where(child => child.Tag is "td" or "th"))
+                if ((Length(row["height"]) ?? Length(StyleValue(row, "height"))) is > 0 and var rowHeight)
                 {
-                    var cellBuilder = new Builder(options with { ContentWidth = Math.Max(36, (tableWidth ?? available) / Math.Max(1, row.Children.Count(c => c.Tag is "td" or "th"))) });
+                    rowModel.Properties = rowModel.Properties with { Height = rowHeight };
+                }
+
+                var column = 0;
+                foreach (var cell in Cells(row))
+                {
+                    var span = SpanOf(cell);
+                    var cellPadding = options.BorderlessTables ? Sides(cell, "padding") : [null, null, null, null];
+                    var paddingX = (cellPadding[1] ?? padding ?? 5.4) + (cellPadding[3] ?? padding ?? 5.4);
+                    var builtFor = Enumerable.Range(column, Math.Min(span, Math.Max(0, columnCount - column))).Sum(index => givenWidths[index] ?? shared);
+                    var cellBuilder = new Builder(options with { ContentWidth = Math.Max(36, builtFor - paddingX) }, _shared)
+                    {
+                        _centerTables = (cell["align"] ?? "").Equals("center", StringComparison.OrdinalIgnoreCase),
+                        _inheritedAlignment = AlignmentOf(cell) ?? AlignmentOf(row), // not across a table: a centring frame does not centre the text of the tables it holds
+                    };
                     var cellStyle = Inherit(cell, cell.Tag == "th" ? style with { Characters = style.Characters with { Bold = true } } : style);
                     cellBuilder.Block(cell, cellStyle, ParagraphContext.Cell);
                     var paragraphs = cellBuilder.Paragraphs();
-                    var span = int.TryParse(cell["colspan"], NumberStyles.None, CultureInfo.InvariantCulture, out var colspan) ? Math.Clamp(colspan, 1, 63) : 1;
                     var cellProperties = TableCellProperties.Empty with { GridSpan = span };
-                    if (ShadingOf(cell) is { } cellFill)
+                    if ((ShadingOf(cell) ?? ShadingOf(row)) is { } cellFill)
                     {
                         cellProperties = cellProperties with { Shading = new Shading(cellFill) };
                     }
 
-                    if ((cell["valign"] ?? StyleValue(cell, "vertical-align"))?.Trim().ToLowerInvariant() is "middle" or "center")
+                    if (cellPadding.Any(side => side is not null))
                     {
-                        cellProperties = cellProperties with { VerticalAlignment = CellVerticalAlignment.Center };
+                        cellProperties = cellProperties with { Margins = new CellMargins(cellPadding[0], cellPadding[3], cellPadding[2], cellPadding[1]) };
                     }
 
-                    if (span == 1 && WidthOf(cell, tableWidth ?? available) is { } cellWidth)
+                    if (options.BorderlessTables && BordersOf(cell) is { } cellLines)
                     {
-                        while (columnWidths.Count <= column)
-                        {
-                            columnWidths.Add(null);
-                        }
+                        cellProperties = cellProperties with { Borders = cellLines };
+                    }
 
-                        columnWidths[column] ??= cellWidth;
+                    var vertical = (StyleValue(cell, "vertical-align") ?? cell["valign"] ?? row["valign"])?.Trim().ToLowerInvariant();
+                    cellProperties = vertical switch
+                    {
+                        "middle" or "center" => cellProperties with { VerticalAlignment = CellVerticalAlignment.Center },
+                        "bottom" => cellProperties with { VerticalAlignment = CellVerticalAlignment.Bottom },
+                        "top" => cellProperties,
+                        // a browser centres a cell's content when nothing is said (mail layouts say valign="top" where they mean it)
+                        _ when options.BorderlessTables => cellProperties with { VerticalAlignment = CellVerticalAlignment.Center },
+                        _ => cellProperties,
+                    };
+                    if (span == 1 && column < columnCount)
+                    {
+                        natural[column] = Math.Max(natural[column], NaturalWidth(paragraphs) + paddingX);
+                    }
+
+                    if ((Length(cell["height"]) ?? Length(StyleValue(cell, "height"))) is > 0 and var cellHeight && (rowModel.Properties.Height ?? 0) < cellHeight)
+                    {
+                        rowModel.Properties = rowModel.Properties with { Height = cellHeight };
                     }
 
                     rowModel.Cells.Add(new TableEdits.CellModel { Properties = cellProperties, Paragraphs = paragraphs });
@@ -687,13 +916,374 @@ public static class HtmlImport
 
             if (model.Rows.Count == 0)
             {
-                return;
+                return null;
             }
 
             var columns = model.Rows.Max(row => row.Cells.Sum(cell => cell.Span));
-            var total = tableWidth ?? (options.BorderlessTables ? available : 453.6);
-            model.Grid = [.. DistributeColumns(columns, columnWidths, total)];
-            _blocks.AddRange(model.Emit());
+            List<double> grid;
+            if (!options.BorderlessTables)
+            {
+                grid = [.. DistributeColumns(columns, [.. givenWidths], tableWidth ?? 453.6)];
+            }
+            else
+            {
+                grid = MailColumns(columns, givenWidths, natural, tableWidth, available, marginX);
+            }
+
+            model.Grid = grid;
+            var total = grid.Sum();
+            if (options.BorderlessTables && (isPercent || tableWidth is not null) && available > 0)
+            {
+                // a frame of 100 % (or 600 px in a narrower pane) follows the width it is shown in
+                model.Properties = model.Properties with { Width = TableWidth.Percent(Math.Min(100, total * 100 / available)) };
+            }
+            else if (options.BorderlessTables)
+            {
+                model.Properties = model.Properties with { Width = TableWidth.Points(total) };
+            }
+            else
+            {
+                model.Properties = model.Properties with { Width = tableWidth is { } points ? TableWidth.Points(points) : TableWidth.Auto };
+            }
+
+            return ([.. model.Emit()], total);
+        }
+
+        /// <summary>
+        /// The widths of a mail table's columns as a browser gives them: a table without a width is as wide as its content (given cell widths, else
+        /// the content's natural width), at most the room; a table with a width shares what the given cells leave by the content of the others.
+        /// </summary>
+        private static List<double> MailColumns(int columns, double?[] given, double[] natural, double? tableWidth, double available, double marginX)
+        {
+            var widths = new double[columns];
+            for (var index = 0; index < columns; index++)
+            {
+                var content = index < natural.Length ? Math.Max(natural[index], marginX + 6) : marginX + 6;
+                widths[index] = index < given.Length && given[index] is { } fixedWidth ? Math.Max(fixedWidth, 6) : Math.Min(content, available);
+            }
+
+            var target = tableWidth ?? Math.Min(widths.Sum(), available);
+            var fixedSum = Enumerable.Range(0, columns).Where(index => index < given.Length && given[index] is not null).Sum(index => widths[index]);
+            var freeIndexes = Enumerable.Range(0, columns).Where(index => index >= given.Length || given[index] is null).ToList();
+            if (tableWidth is not null && freeIndexes.Count > 0 && target - fixedSum > 0)
+            {
+                // what the given cells leave goes to the others by their content
+                var free = target - fixedSum;
+                var weights = freeIndexes.Sum(index => widths[index]);
+                foreach (var index in freeIndexes)
+                {
+                    widths[index] = weights > 0 ? free * widths[index] / weights : free / freeIndexes.Count;
+                }
+            }
+
+            var sum = widths.Sum();
+            if (sum > 0 && (sum > target * 1.001 || (tableWidth is not null && sum < target * 0.999)))
+            {
+                var scale = target / sum;
+                for (var index = 0; index < columns; index++)
+                {
+                    widths[index] *= scale;
+                }
+            }
+
+            return [.. widths];
+        }
+
+        /// <summary>The width a cell's content wants on one line (text by an average letter width, pictures, inner tables).</summary>
+        private static double NaturalWidth(IEnumerable<Paragraph> paragraphs)
+        {
+            double widest = 0;
+            foreach (var paragraph in paragraphs)
+            {
+                var size = paragraph.Properties.StyleId switch
+                {
+                    BuiltInStyles.Heading1 => 18,
+                    BuiltInStyles.Heading2 => 15,
+                    BuiltInStyles.Heading3 => 13,
+                    _ => 11.0,
+                };
+                double line = 0;
+                foreach (var inline in paragraph.Inlines)
+                {
+                    switch (inline)
+                    {
+                        case TextRun run:
+                            var runSize = run.Properties.FontSize ?? size;
+                            var bold = run.Properties.Bold == true ? 1.07 : 1;
+                            foreach (var character in run.Text)
+                            {
+                                if (character == SpecialCharacters.LineBreak)
+                                {
+                                    widest = Math.Max(widest, line);
+                                    line = 0;
+                                    continue;
+                                }
+
+                                line += runSize * bold * (character switch
+                                {
+                                    ' ' or ' ' => 0.28,
+                                    _ when char.IsUpper(character) => 0.66,
+                                    _ when char.IsDigit(character) => 0.56,
+                                    'i' or 'l' or 'j' or 't' or 'f' or 'r' or '.' or ',' or ':' or ';' or '\'' or '|' or '!' => 0.3,
+                                    'm' or 'w' or '@' or '€' => 0.8,
+                                    _ => 0.52,
+                                });
+                            }
+
+                            break;
+                        case ImageInline image:
+                            line += image.Width;
+                            break;
+                        case OpaqueInline { Nested: not null } nested:
+                            line += nested.Width;
+                            break;
+                    }
+                }
+
+                widest = Math.Max(widest, line + (paragraph.Properties.IndentLeft ?? 0) + 2);
+            }
+
+            return widest;
+        }
+
+        /// <summary>
+        /// True for a layout table that only stacks blocks: every row has at most one cell with content, and no such cell (nor its row, nor the
+        /// table) has a colour or a border of its own – or every content cell holds nothing but other tables (a frame, its colour only around them).
+        /// </summary>
+        private static bool IsWrapper(Node table, List<Node> rows)
+        {
+            var contentCells = new List<Node>();
+            foreach (var row in rows)
+            {
+                var content = Cells(row).Where(cell => !IsEmptyCell(cell)).ToList();
+                if (content.Count > 1)
+                {
+                    return false;
+                }
+
+                contentCells.AddRange(content);
+            }
+
+            if (contentCells.Count == 0)
+            {
+                return true;
+            }
+
+            if (contentCells.All(HoldsOnlyTables))
+            {
+                return true;
+            }
+
+            var border = int.TryParse(table["border"], NumberStyles.None, CultureInfo.InvariantCulture, out var given) ? given : 0;
+            return border == 0 && ShadingOf(table) is null && StyleValue(table, "border") is null
+                && contentCells.All(cell => ShadingOf(cell) is null && (cell.Parent is null || ShadingOf(cell.Parent) is null) && !HasBorder(cell));
+
+            static bool HasBorder(Node cell) =>
+                new[] { "border", "border-left", "border-right", "border-top", "border-bottom" }
+                    .Any(property => StyleValue(cell, property) is { } value && !value.Contains("none", StringComparison.OrdinalIgnoreCase) && !value.StartsWith('0'));
+        }
+
+        /// <summary>A cell that shows nothing (a spacer): no text but spaces, no picture larger than a pixel, no table with content.</summary>
+        private static bool IsEmptyCell(Node cell) => !HasContent(cell);
+
+        private static bool HasContent(Node node)
+        {
+            foreach (var child in node.Children)
+            {
+                if (child.IsText)
+                {
+                    if (child.Text!.Any(character => !char.IsWhiteSpace(character) && character != ' ' && character != '‌' && character != '​'))
+                    {
+                        return true;
+                    }
+
+                    continue;
+                }
+
+                if (IsHidden(child))
+                {
+                    continue;
+                }
+
+                if (child.Tag == "img")
+                {
+                    var width = Length(child["width"]) ?? Length(StyleValue(child, "width"));
+                    var height = Length(child["height"]) ?? Length(StyleValue(child, "height"));
+                    if (!(width is <= 2 && height is <= 2))
+                    {
+                        return true;
+                    }
+
+                    continue;
+                }
+
+                if (child.Tag == "hr" || HasContent(child))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>A cell whose content is only tables (and spaces, hidden parts, tracking pixels).</summary>
+        private static bool HoldsOnlyTables(Node cell)
+        {
+            var tables = 0;
+            foreach (var child in cell.Children)
+            {
+                if (child.Tag == "table")
+                {
+                    tables++;
+                    continue;
+                }
+
+                if (child.Tag is "center" or "div" && !HasDirectContent(child))
+                {
+                    tables += Descendants(child, "table").Count();
+                    continue;
+                }
+
+                if (HasContent(new Node("#x") { Children = { child } }))
+                {
+                    return false;
+                }
+            }
+
+            return tables > 0;
+
+            static bool HasDirectContent(Node node) => node.Children.Any(child => child.Tag != "table" && (child.IsText ? !string.IsNullOrWhiteSpace(child.Text) : child.Tag is not ("div" or "center") || HasDirectContent(child)));
+        }
+
+        private static IEnumerable<Node> Cells(Node row) => row.Children.Where(child => child.Tag is "td" or "th");
+
+        private static int SpanOf(Node cell) => int.TryParse(cell["colspan"], NumberStyles.None, CultureInfo.InvariantCulture, out var colspan) ? Math.Clamp(colspan, 1, 63) : 1;
+
+        /// <summary>The four sides (top, right, bottom, left) of margin or padding in points, from the shorthand and the single sides in order.</summary>
+        private static double?[] Sides(Node node, string property)
+        {
+            var sides = new double?[4];
+            foreach (var declaration in (node["style"] ?? "").Split(';'))
+            {
+                var colon = declaration.IndexOf(':');
+                if (colon <= 0)
+                {
+                    continue;
+                }
+
+                var name = declaration[..colon].Trim().ToLowerInvariant();
+                var value = declaration[(colon + 1)..].Replace("!important", "", StringComparison.OrdinalIgnoreCase).Trim();
+                if (name == property)
+                {
+                    var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(Length).ToArray();
+                    if (parts.Length is 0 or > 4)
+                    {
+                        continue;
+                    }
+
+                    var (top, right, bottom, left) = parts.Length switch
+                    {
+                        1 => (parts[0], parts[0], parts[0], parts[0]),
+                        2 => (parts[0], parts[1], parts[0], parts[1]),
+                        3 => (parts[0], parts[1], parts[2], parts[1]),
+                        _ => (parts[0], parts[1], parts[2], parts[3]),
+                    };
+                    sides = [top, right, bottom, left];
+                }
+                else if (name.StartsWith(property + "-", StringComparison.Ordinal))
+                {
+                    var index = name[(property.Length + 1)..] switch
+                    {
+                        "top" => 0,
+                        "right" => 1,
+                        "bottom" => 2,
+                        "left" => 3,
+                        _ => -1,
+                    };
+                    if (index >= 0)
+                    {
+                        sides[index] = Length(value);
+                    }
+                }
+            }
+
+            return sides;
+        }
+
+        /// <summary>The CSS borders of an element (border, border-top/right/bottom/left: width, style, colour in any order), or null when it has none.</summary>
+        private static BorderSet? BordersOf(Node node)
+        {
+            var sides = new BorderLine?[4];
+            var any = false;
+            foreach (var declaration in (node["style"] ?? "").Split(';'))
+            {
+                var colon = declaration.IndexOf(':');
+                if (colon <= 0)
+                {
+                    continue;
+                }
+
+                var name = declaration[..colon].Trim().ToLowerInvariant();
+                int[] indexes = name switch
+                {
+                    "border" => [0, 1, 2, 3],
+                    "border-top" => [0],
+                    "border-right" => [1],
+                    "border-bottom" => [2],
+                    "border-left" => [3],
+                    _ => [],
+                };
+                if (indexes.Length == 0)
+                {
+                    continue;
+                }
+
+                var line = BorderLineOf(declaration[(colon + 1)..]);
+                foreach (var index in indexes)
+                {
+                    sides[index] = line;
+                }
+
+                any = true;
+            }
+
+            return any && sides.Any(side => side is not null) ? new BorderSet(Top: sides[0], Right: sides[1], Bottom: sides[2], Left: sides[3]) : null;
+        }
+
+        private static BorderLine? BorderLineOf(string value)
+        {
+            double width = 0.75;
+            string? color = "000000";
+            var style = "single";
+            foreach (var token in value.Replace("!important", "", StringComparison.OrdinalIgnoreCase).Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var lower = token.ToLowerInvariant();
+                if (lower is "none" or "hidden")
+                {
+                    return null;
+                }
+
+                if (lower is "solid" or "dashed" or "dotted" or "double")
+                {
+                    style = lower switch { "dashed" => "dashed", "dotted" => "dotted", "double" => "double", _ => "single" };
+                }
+                else if (Color(lower) is { } found)
+                {
+                    color = found;
+                }
+                else if (Length(lower) is { } length)
+                {
+                    width = length;
+                }
+            }
+
+            return width <= 0 ? null : new BorderLine(style, Math.Min(width, 6), color);
+        }
+
+        private static (double? Top, double? Bottom) Margins(Node node)
+        {
+            var sides = Sides(node, "margin");
+            return (sides[0] is { } top ? Math.Clamp(top, 0, 72) : null, sides[2] is { } bottom ? Math.Clamp(bottom, 0, 72) : null);
         }
 
         /// <summary>The widths of the grid: the cells' own widths where given, the rest shared equally, scaled to <paramref name="total"/>.</summary>
@@ -711,8 +1301,8 @@ public static class HtmlImport
         /// <summary>A width="…" or CSS width as points (percent of <paramref name="available"/>), at most the available width.</summary>
         private static double? WidthOf(Node node, double available)
         {
-            var value = (node["width"] ?? StyleValue(node, "width"))?.Trim();
-            if (string.IsNullOrEmpty(value))
+            var value = (StyleValue(node, "width") ?? node["width"])?.Trim();
+            if (string.IsNullOrEmpty(value) || value.Equals("auto", StringComparison.OrdinalIgnoreCase))
             {
                 return null;
             }
@@ -748,14 +1338,34 @@ public static class HtmlImport
                 return;
             }
 
-            // Trailing spaces of a paragraph go (HTML shows none).
+            // Trailing spaces of a paragraph go (HTML shows none), and so does a last <br>: a browser ends the block there without a blank line –
+            // a block of nothing but one <br> is one empty line.
             if (_inlines[^1] is TextRun last && last.Text.TrimEnd(' ').Length != last.Text.Length)
             {
                 var trimmed = last.Text.TrimEnd(' ');
                 _inlines[^1] = last with { Text = trimmed };
             }
 
+            if (options.ParagraphSpacing && _inlines[^1] is TextRun { Text.Length: > 0 } ending && ending.Text[^1] == SpecialCharacters.LineBreak)
+            {
+                var shorter = ending.Text[..^1].TrimEnd(' ');
+                if (shorter.Length > 0)
+                {
+                    _inlines[^1] = ending with { Text = shorter };
+                }
+                else
+                {
+                    _inlines.RemoveAt(_inlines.Count - 1);
+                }
+            }
+
+            _inlines.RemoveAll(inline => inline is TextRun { Text.Length: 0 });
+
             var paragraph = _paragraph;
+            if (paragraph.Alignment is null && _inheritedAlignment is { } inherited && options.BorderlessTables)
+            {
+                paragraph = paragraph with { Alignment = inherited };
+            }
             if (_fill is not null && paragraph.Shading is null)
             {
                 paragraph = paragraph with { Shading = new Shading(_fill) };
@@ -796,12 +1406,12 @@ public static class HtmlImport
             }
 
             var styles = BuiltInStyles.CreateDefault();
-            foreach (var id in _styles)
+            foreach (var id in UsedStyles)
             {
                 styles = BuiltInStyles.Ensure(styles, id);
             }
 
-            return new DocumentFragment(blocks, styles, _numbering);
+            return new DocumentFragment(blocks, styles, Numbering);
         }
 
         /// <summary>The formatting an element adds: tags (b, i, u, s, sub, sup, a, font) and its style attribute.</summary>
@@ -881,13 +1491,16 @@ public static class HtmlImport
                     "font-style" => characters with { Italic = value is "italic" or "oblique" },
                     "text-decoration" or "text-decoration-line" => characters with
                     {
-                        Underline = value.Contains("underline", StringComparison.Ordinal) ? UnderlineStyle.Single : characters.Underline,
+                        Underline = value.Contains("underline", StringComparison.Ordinal) ? UnderlineStyle.Single
+                            : value.Contains("none", StringComparison.Ordinal) ? UnderlineStyle.None : characters.Underline,
                         Strikethrough = value.Contains("line-through", StringComparison.Ordinal) ? true : characters.Strikethrough,
                     },
                     "color" when Color(value) is { } color => characters with { Color = TextColor.FromHex(color) },
-                    "font-size" when Length(value) is { } size && size is > 1 and < 400 => characters with { FontSize = Math.Round(size * 2) / 2 },
+                    "font-size" when Length(value) is { } size && size is > 0.5 and < 400 => characters with { FontSize = Math.Max(1, Math.Round(size * 2) / 2) },
                     "font-family" when value.Split(',')[0].Trim().Trim('"', '\'') is { Length: > 0 } family && family is not ("inherit" or "initial") =>
                         characters.WithFont(CultureInfo.InvariantCulture.TextInfo.ToTitleCase(family)),
+                    "text-transform" => characters with { Caps = value == "uppercase" ? true : value == "none" ? null : characters.Caps },
+                    "font-variant" when value == "small-caps" => characters with { SmallCaps = true },
                     "vertical-align" when value == "super" => characters with { VerticalPosition = VerticalPosition.Superscript },
                     "vertical-align" when value == "sub" => characters with { VerticalPosition = VerticalPosition.Subscript },
                     _ => characters,
@@ -895,20 +1508,6 @@ public static class HtmlImport
             }
 
             return characters;
-        }
-
-        private static string? StyleValue(Node node, string property)
-        {
-            foreach (var declaration in (node["style"] ?? "").Split(';'))
-            {
-                var colon = declaration.IndexOf(':');
-                if (colon > 0 && declaration[..colon].Trim().Equals(property, StringComparison.OrdinalIgnoreCase))
-                {
-                    return declaration[(colon + 1)..].Trim();
-                }
-            }
-
-            return null;
         }
 
         /// <summary>A length as points: "12pt", "16px" (¾ pt), "1em" (12 pt), a bare number of pixels.</summary>
@@ -931,6 +1530,7 @@ public static class HtmlImport
                 "pt" => number,
                 "px" or "" => number * 0.75,
                 "em" or "rem" => number * 12,
+                "ex" => number * 6,
                 "cm" => number * 72 / 2.54,
                 "mm" => number * 72 / 25.4,
                 "in" => number * 72,
@@ -1052,6 +1652,7 @@ public sealed record HtmlImportOptions
         ParagraphSpacing = true,
         QuotesAsBars = true,
         RulesAsLines = true,
+        NestedTables = true,
         ContentWidth = contentWidth,
     };
 
@@ -1066,6 +1667,9 @@ public sealed record HtmlImportOptions
 
     /// <summary>A &lt;blockquote&gt; is indented with a bar at the left per level (a quoted reply), not Word's Zitat style.</summary>
     public bool QuotesAsBars { get; init; }
+
+    /// <summary>A table in a table cell stays a table (shown read-only beside its neighbours) instead of becoming the cell's paragraphs.</summary>
+    public bool NestedTables { get; init; }
 
     /// <summary>A &lt;hr&gt; is a line.</summary>
     public bool RulesAsLines { get; init; }

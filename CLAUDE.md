@@ -263,7 +263,7 @@ tests/ThixContacts.Core.Tests   the session on a real store (rules, undo, groups
 tests/ThixContacts.Tests        the real ThixContacts headless: workspace shell, Strg+N/F2/Entf/Strg+E, folders, letters, groups, import (vcf, CSV mapping),
                                 export, print, sync and sign-out, merge, snapshots, no literal colours
 tests/ThixMail.Core.Tests       the sync against SampleMailServer (CONDSTORE and polling, moves, expunges, UIDVALIDITY, queue replay, outbox, drafts,
-                                IDLE, reconnect), threading, FTS5 search, 200,000 messages, the 12 fixture mails (Fixtures/, made by make-fixtures.ps1),
+                                IDLE, reconnect), threading, FTS5 search, 200,000 messages, the 15 fixture mails (Fixtures/, made by make-fixtures.ps1),
                                 composing/replying, the sanitizer as a table of attacks, auto-configuration, accounts and passwords
 tests/ThixMail.Tests            the real ThixMail headless: add an account (test, certificate), read (pictures blocked/loaded), reply + Strg+Eingabe,
                                 send checks, delete + undo, drag onto a folder, search, conversations, offline/online, notifications, .eml, settings tabs,
@@ -372,7 +372,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - **Shell extensions used:** `OfficeApplication.CreateSettingsTabs` (Lesen, Verfassen, Signaturen, Benachrichtigungen after Allgemein;
   `SettingsPage.ShowTab(id)`/`AppTab(id)`), `CreateBackstageItems` (Konten, Drucken, Als PDF speichern), `ImportFilesAsync` (.eml → `MessageWindow`).
 - Snapshot scenes `main-conversation`, `main-newsletter`, `compose`, `backstage-add-account`, `main-attachments`, `main-offline`,
-  `backstage-settings-signatures` on `SampleMailbox`; `THIXMAIL_SCREENSHOTS=<folder> dotnet test tests/ThixMail.Tests` also draws the 12 fixture mails
+  `backstage-settings-signatures` on `SampleMailbox`; `THIXMAIL_SCREENSHOTS=<folder> dotnet test tests/ThixMail.Tests` also draws the 15 fixture mails
   into `<folder>/mails`. The integration run against a real IMAP/SMTP server: `scripts/greenmail-test.ps1` (throwaway GreenMail container, env-gated
   `RealServerTests`).
 

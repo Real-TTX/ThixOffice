@@ -10,7 +10,7 @@ using static ThixMail.Tests.TestData;
 namespace ThixMail.Tests;
 
 /// <summary>
-/// The pictures of ThixMail (the same as "ThixMail --snapshot &lt;folder&gt;") in light and dark, and the 12 fixture mails as the reading pane shows them
+/// The pictures of ThixMail (the same as "ThixMail --snapshot &lt;folder&gt;") in light and dark, and the 15 fixture mails as the reading pane shows them
 /// (&lt;folder&gt;/mails). THIXMAIL_SCREENSHOTS=&lt;folder&gt; keeps them – LOOK at them.
 /// </summary>
 public sealed class SnapshotTests
@@ -29,7 +29,7 @@ public sealed class SnapshotTests
     }
 
     [AvaloniaFact]
-    public async Task The_twelve_fixture_mails_are_drawn_as_the_reading_pane_shows_them()
+    public async Task The_fixture_mails_are_drawn_as_the_reading_pane_shows_them()
     {
         using var data = new TestData();
         var folder = Path.Combine(Folder(data), "mails");
@@ -64,7 +64,7 @@ public sealed class SnapshotTests
             }
         }
 
-        Assert.True(Directory.EnumerateFiles(folder, "*.png").Count() >= 12);
+        Assert.True(Directory.EnumerateFiles(folder, "*.png").Count() >= 15);
     }
 
     [Fact]

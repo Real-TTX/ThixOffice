@@ -58,9 +58,28 @@ public static class MailHtml
 
         var fragment = HtmlImport.Import(mail.Html, HtmlImportOptions.Mail(Resolve, width));
         var document = Build(fragment, width, fonts);
-        var links = document.Blocks.OfType<Paragraph>().SelectMany(p => p.Inlines).Select(i => i.Link?.Uri).Where(u => u is not null).Select(u => u!)
+        var links = AllInlines(document.Blocks).Select(i => i.Link?.Uri).Where(u => u is not null).Select(u => u!)
             .Distinct(StringComparer.Ordinal).ToList();
         return new MailView(document, blocked, links);
+    }
+
+    /// <summary>Every inline of the blocks, also those of tables shown inside table cells (a newsletter's columns).</summary>
+    public static IEnumerable<Inline> AllInlines(IEnumerable<Block> blocks)
+    {
+        foreach (var inline in blocks.OfType<Paragraph>().SelectMany(p => p.Inlines))
+        {
+            if (inline is OpaqueInline { Nested: { } nested })
+            {
+                foreach (var inner in AllInlines(nested.Blocks))
+                {
+                    yield return inner;
+                }
+
+                continue;
+            }
+
+            yield return inline;
+        }
     }
 
     /// <summary>The remote pictures of a mail (http/https src of img), for "Bilder laden".</summary>

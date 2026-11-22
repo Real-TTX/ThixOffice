@@ -29,6 +29,8 @@ public sealed class SafetyTests
         { "noscript", "<p>Text</p><noscript>noscripttext</noscript>", "noscripttext" },
         { "hidden preheader", "<div style=\"display:none\">Vorschautext</div><p>Text</p>", "Vorschautext" },
         { "mso hide", "<div style=\"mso-hide:all\">msotext</div><p>Text</p>", "msotext" },
+        { "hidden by a style sheet", "<style>.pre{display:none}</style><div class=\"pre\">klassentext</div><p>Text</p>", "klassentext" },
+        { "style sheet import", "<style>@import url(https://evil.example/x.css); p{color:red}</style><p>Text</p>", "evil" },
     };
 
     [Theory]
@@ -72,13 +74,13 @@ public sealed class SafetyTests
         var mail = MailReader.Read(Fixture("03-newsletter.eml"));
         var blocked = MailHtml.ToView(mail, 600, null, Fonts);
         Assert.Equal(4, blocked.BlockedImages.Count); // logo, two products, the tracking pixel (counted, never fetched)
-        Assert.DoesNotContain(blocked.Document.Blocks.OfType<Paragraph>().SelectMany(p => p.Inlines), i => i is ImageInline);
+        Assert.DoesNotContain(MailHtml.AllInlines(blocked.Document.Blocks), i => i is ImageInline);
         Assert.DoesNotContain("Die Neuheiten im November", blocked.Document.GetPlainText(), StringComparison.Ordinal); // hidden preheader
         Assert.DoesNotContain("javascript", string.Join(" ", blocked.Links), StringComparison.Ordinal);
 
         var png = MailReader.Read(Fixture("05-inline-image.eml")).InlineParts.Values.Single().Bytes;
         var loaded = MailHtml.ToView(mail, 600, blocked.BlockedImages.ToDictionary(s => s, _ => png), Fonts);
-        Assert.Equal(3, loaded.Document.Blocks.OfType<Paragraph>().SelectMany(p => p.Inlines).OfType<ImageInline>().Count()); // the 1×1 pixel never shows
+        Assert.Equal(3, MailHtml.AllInlines(loaded.Document.Blocks).OfType<ImageInline>().Count()); // the 1×1 pixel never shows
         Assert.Empty(loaded.BlockedImages);
 
         var inline = MailHtml.ToView(MailReader.Read(Fixture("05-inline-image.eml")), 600, null, Fonts);
@@ -131,5 +133,26 @@ public sealed class SafetyTests
         Assert.Equal("passwd", MailReader.Sanitize("/etc/passwd"));
         Assert.Equal("a_b_c.txt", MailReader.Sanitize("a:b*c.txt"));
         Assert.Equal("Anlage", MailReader.Sanitize("..."));
+    }
+
+    [Fact]
+    public void Newsletters_keep_their_columns_their_style_sheets_and_their_links()
+    {
+        var columns = MailHtml.ToView(MailReader.Read(Fixture("14-newsletter-columns.eml")), 600, null, Fonts);
+        var carrier = columns.Document.Blocks.OfType<Paragraph>().Select(p => p.Inlines).First(inlines => inlines is [OpaqueInline { Nested: { } nested }] && MailHtml.AllInlines(nested.Blocks).Any(i => i is ImageInline));
+        var products = TableSpan.All(new Document(((OpaqueInline)carrier[0]).Nested!.Blocks)).Single().Table;
+        Assert.Equal(3, products.Rows[0].CellCount); // three products side by side
+        Assert.Equal(3, MailHtml.AllInlines(columns.Document.Blocks).OfType<ImageInline>().Count());
+        Assert.Contains("https://news.example.org/beeren", columns.Links);
+        Assert.DoesNotContain("Drei neue Sorten für den Winter", columns.Document.GetPlainText(), StringComparison.Ordinal); // hidden preheader
+
+        var order = MailHtml.ToView(MailReader.Read(Fixture("13-order-confirmation.eml")), 600, null, Fonts);
+        Assert.DoesNotContain("nur Telefone", order.Document.GetPlainText(), StringComparison.Ordinal); // .mobile-only {display:none}, @media left out
+        var brand = MailHtml.AllInlines(order.Document.Blocks).OfType<TextRun>().First(run => run.Text.Contains("Kaffeerösterei Beispiel", StringComparison.Ordinal));
+        Assert.Equal("FFFFFF", brand.Properties.Color!.Value); // .brand td { color:#FFFFFF } from the style sheet
+
+        var outlook = MailHtml.ToView(MailReader.Read(Fixture("12-outlook-html.eml")), 600, null, Fonts);
+        var signature = TableSpan.All(outlook.Document).Single().Table;
+        Assert.True(signature.Grid.Sum() < 300, $"the signature takes {signature.Grid.Sum()} pt of 600");
     }
 }

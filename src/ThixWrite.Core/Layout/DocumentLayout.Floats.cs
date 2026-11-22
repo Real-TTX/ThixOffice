@@ -588,6 +588,74 @@ public sealed partial class DocumentLayout
         }
     }
 
+    /// <summary>
+    /// The link under a point of a page inside a table shown in a table cell (<see cref="OpaqueInline.Nested"/>: a mail's columns), or null – the
+    /// text of such a table is read-only and has no caret place of its own, so its links are found through its own layout.
+    /// </summary>
+    public Hyperlink? NestedLinkAt(int page, double x, double y)
+    {
+        Update();
+        if (page < 0 || page >= _pages.Count)
+        {
+            return null;
+        }
+
+        foreach (var placed in _pages[page].Lines)
+        {
+            if (y < placed.Top || y > placed.Top + placed.Line.Height)
+            {
+                continue;
+            }
+
+            foreach (var item in placed.Line.Items)
+            {
+                if (item is not ObjectItem { Inline: OpaqueInline { Nested: { } nested } } box)
+                {
+                    continue;
+                }
+
+                var height = box.Height > 0 ? box.Height : placed.Line.Ascent;
+                var left = placed.Left + box.X;
+                var top = placed.Top + placed.Line.Baseline - height;
+                if (x < left || x > left + box.Width || y < top || y > top + height)
+                {
+                    continue;
+                }
+
+                var inner = StoryBox(nested, box.Width);
+                return inner.NestedLinkAt(0, x - left, y - top) ?? inner.LinkAt(0, x - left, y - top);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The link of the text at a point of a page (the character the point is on), or null.</summary>
+    public Hyperlink? LinkAt(int page, double x, double y)
+    {
+        var position = HitTest(page, x, y).Place.Position;
+        if (position.Block < 0 || position.Block >= Document.Blocks.Count || Document.Blocks[position.Block] is not Paragraph paragraph)
+        {
+            return null;
+        }
+
+        Inline? before = null;
+        var start = 0;
+        foreach (var inline in paragraph.Inlines)
+        {
+            var end = start + inline.Length;
+            if (position.Offset >= start && position.Offset < end)
+            {
+                return inline.Link ?? (position.Offset == start ? before?.Link : null);
+            }
+
+            before = inline;
+            start = end;
+        }
+
+        return before?.Link;
+    }
+
     /// <summary>A layout of a story as one tall page of <paramref name="width"/> without margins (text boxes), cached per story and width.</summary>
     private DocumentLayout StoryBox(Story story, double width)
     {
