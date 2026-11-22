@@ -175,7 +175,8 @@ public sealed class MailUiTests
         await SettleAsync();
         editor.List.Focus();
 
-        await PressAsync(window, PhysicalKey.Delete);
+        // Entf; on the Mac ⌘⌫ like Outlook for Mac
+        await PressAsync(window, OperatingSystem.IsMacOS() ? PhysicalKey.Backspace : PhysicalKey.Delete, OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.None);
         var trash = editor.Document.Store.FolderByRole(SampleMailbox.Account.Id, FolderRole.Trash)!;
         Assert.Equal(trash.Id, editor.Document.Store.Header(message.Id)!.FolderId);
         Assert.Equal("1 Element wurde gelöscht.", window.MessageBar.Text);
@@ -219,7 +220,8 @@ public sealed class MailUiTests
         var editor = EditorOf(window);
         var all = editor.Rows.Count(r => r.IsMessage);
 
-        await PressAsync(window, PhysicalKey.E, CommandKey);
+        // Strg+E; on the Mac ⌥⌘F like Outlook for Mac
+        await PressAsync(window, OperatingSystem.IsMacOS() ? PhysicalKey.F : PhysicalKey.E, OperatingSystem.IsMacOS() ? RawInputModifiers.Meta | RawInputModifiers.Alt : RawInputModifiers.Control);
         Assert.True(editor.SearchBox.IsFocused);
         await TypeAsync(window, "sommerfest");
         await UntilAsync(() => editor.Rows.Count(r => r.IsMessage) == 1, "the search result");
