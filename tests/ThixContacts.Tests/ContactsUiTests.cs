@@ -281,8 +281,114 @@ public sealed class ContactsUiTests
 
         await SettleAsync();
         Assert.Equal("Abgemeldet", window.StatusBar.TextOf(ContactsEditor.SyncItem));
-        Assert.Contains("Anmeldung beendet", window.MessageBar.Text, StringComparison.Ordinal);
+        Assert.Equal(ContactsEditor.SignedOutMessage, window.MessageBar.Text);
         Assert.Equal(12, editor.Session.Count); // the contacts stay
+    }
+
+    [AvaloniaFact]
+    public async Task Signed_out_by_the_cloud_a_restart_keeps_the_accounts_contacts_and_only_Abmelden_leaves_them()
+    {
+        using var data = new TestData();
+        var window = await WindowAsync(sample: false);
+        var editor = EditorOf(window);
+        SampleContacts.Fill(editor.Session); // the local contacts go into the account at the sign-in
+        await CloudService.ConnectAsync(SampleCloud.ServerUrl, SampleCloud.UserName, SampleCloud.Password, "ANNA-PC");
+        await UntilAsync(() => editor.Document.IsSyncing && editor.Session.Count == 12);
+        await editor.Document.SyncNowAsync();
+        Assert.Equal(12, data.Cloud.SyncItems(CloudApps.Contacts, ContactsContract.Contacts).Count);
+
+        // the cloud ends the sign-in, the app restarts
+        data.Cloud.RemoveDevices();
+        await Assert.ThrowsAsync<ThixOffice.Core.Models.BusinessException>(() => editor.Document.SyncNowAsync());
+        await UntilAsync(() => !editor.Document.IsSyncing);
+        window.CloseKeepingRecovery();
+        await SettleAsync();
+        SettingsService.ResetCache();
+        CloudService.ResetForTests();
+        CloudService.HandlerForTests = () => data.Cloud;
+
+        window = await WindowAsync(sample: false);
+        editor = EditorOf(window);
+        await SettleAsync();
+        Assert.Equal(12, editor.Session.Count); // the account's contacts, not the (empty) local ones
+        Assert.Equal(CloudState.SignedOut, CloudService.Status.State);
+        Assert.Equal("Abgemeldet", window.CloudIndicator.Text);
+        Assert.Equal("Abgemeldet", window.StatusBar.TextOf(ContactsEditor.SyncItem));
+        Assert.Equal(ContactsEditor.SignedOutMessage, window.MessageBar.Text);
+
+        // "Anmelden" opens the Cloud tab
+        await ClickAsync(window, window.MessageBar.ActionButton);
+        var settings = Assert.IsType<SettingsPage>(window.Backstage.CurrentPage);
+        Assert.Equal(SettingsPage.CloudTab, settings.CurrentTab);
+        window.Backstage.Close();
+        await SettleAsync();
+
+        // offline changes wait …
+        editor.Select(editor.Shown.First(p => p.Data.GivenName == "David").Id);
+        await SettleAsync();
+        editor.List.Focus();
+        await PressAsync(window, PhysicalKey.Delete);
+        Assert.Equal(11, editor.Session.Count);
+
+        // … and go up after the next sign-in of the same account
+        await CloudService.ConnectAsync(SampleCloud.ServerUrl, SampleCloud.UserName, SampleCloud.Password, "ANNA-PC");
+        await UntilAsync(() => editor.Document.IsSyncing);
+        await editor.Document.SyncNowAsync();
+        Assert.Equal(11, data.Cloud.SyncItems(CloudApps.Contacts, ContactsContract.Contacts).Count);
+        await UntilAsync(() => !window.MessageBar.IsVisible || window.MessageBar.Text != ContactsEditor.SignedOutMessage);
+
+        // signed out by the cloud again: Abmelden in the Cloud tab leaves the account, keeping a copy on this computer
+        data.Cloud.RemoveDevices();
+        await Assert.ThrowsAsync<ThixOffice.Core.Models.BusinessException>(() => editor.Document.SyncNowAsync());
+        await UntilAsync(() => !editor.Document.IsSyncing);
+        window.ShowSettings(SettingsPage.CloudTab);
+        await SettleAsync();
+        settings = Assert.IsType<SettingsPage>(window.Backstage.CurrentPage);
+        var signingOut = settings.SignOutAsync();
+        await SettleAsync();
+        var question = Assert.Single(window.OwnedWindows.OfType<ThixOffice.Desktop.Dialogs.QuestionDialog>());
+        Assert.Contains("Kopie", question.Message, StringComparison.Ordinal);
+        question.Buttons[0].RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); // Kopie behalten
+        await signingOut;
+        await SettleAsync();
+        Assert.False(CloudService.HasAccount);
+        Assert.Equal(CloudState.Off, CloudService.Status.State);
+        Assert.Equal(11, editor.Session.Count); // the copy is the local store now
+        Assert.Equal("Nur auf diesem Computer", window.StatusBar.TextOf(ContactsEditor.SyncItem));
+        Assert.True(File.Exists(ThixOffice.Pim.Store.PimStores.LocalPath(ThixContactsApp.StoreName)));
+    }
+
+    [AvaloniaFact]
+    public async Task Abmelden_without_a_copy_shows_the_contacts_this_computer_had()
+    {
+        using var data = new TestData();
+        var window = await WindowAsync(sample: false);
+        var editor = EditorOf(window);
+        await CloudService.ConnectAsync(SampleCloud.ServerUrl, SampleCloud.UserName, SampleCloud.Password, "ANNA-PC");
+        await UntilAsync(() => editor.Document.IsSyncing);
+        SampleContacts.Fill(editor.Session); // made while signed in: only in the account
+        await editor.Document.SyncNowAsync();
+
+        window.ShowSettings(SettingsPage.CloudTab);
+        await SettleAsync();
+        var signingOut = ((SettingsPage)window.Backstage.CurrentPage!).SignOutAsync();
+        await SettleAsync();
+        Assert.Single(window.OwnedWindows.OfType<ThixOffice.Desktop.Dialogs.QuestionDialog>())
+            .Buttons[2].RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); // Ohne Kopie abmelden
+        await signingOut;
+        await SettleAsync();
+        Assert.Equal(0, editor.Session.Count);
+        Assert.False(CloudService.IsConnected);
+    }
+
+    private static async Task UntilAsync(Func<bool> condition)
+    {
+        for (var round = 0; round < 100 && !condition(); round++)
+        {
+            await SettleAsync();
+        }
+
+        Assert.True(condition());
     }
 
     [AvaloniaFact]

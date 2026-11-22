@@ -21,7 +21,16 @@ public sealed record CloudSettings
 
     public string ProtectedToken { get; init; } = "";
 
+    /// <summary>
+    /// The cloud ended the sign-in (401) and the person has not signed out on purpose: the app still works on the account's data (a workspace
+    /// app keeps showing the account's store, changes wait) until a new sign-in or an explicit "Abmelden". Survives a restart.
+    /// </summary>
+    public bool IsSignedOutByCloud { get; init; }
+
     public bool IsConnected => ServerUrl.Length > 0 && DeviceId > 0;
+
+    /// <summary>The account whose data the app works on: signed in, or signed out by the cloud (not by the person).</summary>
+    public bool HasAccount => IsConnected || (IsSignedOutByCloud && ServerUrl.Length > 0 && UserName.Length > 0);
 
     /// <summary>"Anna Beispiel (anna)", or the user name alone.</summary>
     public string AccountText => DisplayName.Length > 0 && DisplayName != UserName ? $"{DisplayName} ({UserName})" : UserName;

@@ -74,6 +74,36 @@ public partial class App : OfficeApplication
         }
     }
 
+    /// <summary>
+    /// "Abmelden" leaves the account's contacts: asks whether a copy of them stays on this computer (the local contacts become that copy) or not (the
+    /// contacts of this computer show as before the sign-in).
+    /// </summary>
+    public override async Task<bool> SignOutAsync(Window owner)
+    {
+        var choice = await QuestionDialog.AskAsync(owner, "Von der ThixCloud abmelden?",
+            $"ThixContacts zeigt danach die Kontakte dieses Computers statt der Kontakte des Kontos {CloudService.Settings.AccountText}. " +
+            "Möchten Sie eine Kopie der Kontakte des Kontos auf diesem Computer behalten?",
+            new DialogChoice("Kopie behalten", "save", "MatButton.Primary", IsDefault: true),
+            new DialogChoice("Abbrechen", "x", IsCancel: true),
+            new DialogChoice("Ohne Kopie abmelden", "logout", "MatButton.Danger", IsSeparated: true));
+        if (choice is not (0 or 2) || DocumentWindows.FirstOrDefault()?.Document is not ContactsDocument document)
+        {
+            return false;
+        }
+
+        try
+        {
+            await document.SignOutAsync(keepLocalCopy: choice == 0);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            await QuestionDialog.ShowMessageAsync(owner, "Abmelden nicht möglich", $"Die Kopie der Kontakte konnte nicht angelegt werden: {exception.Message}");
+            return false;
+        }
+
+        return true;
+    }
+
     public override IEnumerable<(string Name, Func<Task<string>> Check)> SelfTestChecks() => [("ThixContacts: contacts, store, vCard, sync", () => ContactsSelfTest.RunAsync(this))];
 
     /// <summary>The sample contacts of the snapshots (in the store of the snapshot's temporary data folder).</summary>

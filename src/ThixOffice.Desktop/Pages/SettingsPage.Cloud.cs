@@ -47,6 +47,9 @@ public partial class SettingsPage
         var connected = CloudService.IsConnected;
         CloudSignIn.IsVisible = !connected;
         CloudConnected.IsVisible = connected;
+        CloudSignedOut.IsVisible = !connected && CloudService.HasAccount;
+        CloudSignedOutText.Text = $"{definition.Name} arbeitet weiter mit den Daten des Kontos {CloudService.Settings.AccountText}. Melden Sie sich oben erneut an, " +
+                                  "damit Ihre Änderungen synchronisiert werden – oder melden Sie sich ab, um das Konto auf diesem Computer zu verlassen.";
         if (AccessPolicy.IsCloudDisabled)
         {
             CloudMessage.Show("Von Ihrer Organisation festgelegt: die Verbindung zur ThixCloud ist ausgeschaltet (Richtlinie DisableCloud).", InfoSeverity.Warning);
@@ -86,18 +89,16 @@ public partial class SettingsPage
 
     private void OnOpenCloudClick(object? sender, RoutedEventArgs e) => Ui.OpenExternal(CloudService.Settings.ServerUrl + "/Drive");
 
-    private async void OnDisconnectClick(object? sender, RoutedEventArgs e)
+    private async void OnDisconnectClick(object? sender, RoutedEventArgs e) => await SignOutAsync();
+
+    /// <summary>"Abmelden" (signed in, or the account the cloud signed out): the app asks (<see cref="OfficeApplication.SignOutAsync"/>), then the tab follows.</summary>
+    public async Task SignOutAsync()
     {
-        if (Ui.WindowOf(this) is not { } owner ||
-            !await QuestionDialog.ConfirmAsync(owner, "Von der ThixCloud abmelden?",
-                "Dieser Computer wird aus Ihrem Konto der ThixCloud entfernt. Dokumente in ThixDrive öffnen und speichern Sie erst nach einer neuen Anmeldung wieder; " +
-                "die Arbeitskopien auf diesem Computer bleiben erhalten.",
-                "Abmelden", isDestructive: true))
+        if (Ui.WindowOf(this) is not { } owner || !await OfficeApplication.Instance.SignOutAsync(owner))
         {
             return;
         }
 
-        await CloudService.DisconnectAsync();
         CloudMessage.Show("Abgemeldet.", InfoSeverity.Info);
         LoadCloud();
     }

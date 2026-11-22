@@ -54,6 +54,7 @@ public sealed class ContactsEditor : OfficeEditor
     private bool _refreshing;
     private bool _refreshQueued;
     private bool _stateQueued;
+    private bool _showsSignedOut;
 
     public ContactsEditor(OfficeWindow window, ContactsDocument document)
     {
@@ -164,7 +165,11 @@ public sealed class ContactsEditor : OfficeEditor
         ShowsFolders = SettingsService.AppValue("contacts.folders") != "false";
         ApplyLayout();
         Refresh();
+        Ui.Post(ShowSignedOutMessage);
     }
+
+    /// <summary>The words of the message bar while the cloud has ended the sign-in (the account's contacts stay, changes wait).</summary>
+    public const string SignedOutMessage = "Bei ThixCloud abgemeldet – Änderungen werden nach der Anmeldung synchronisiert";
 
     public ContactsDocument Document { get; }
 
@@ -590,19 +595,44 @@ public sealed class ContactsEditor : OfficeEditor
         UpdateStatus(_window.StatusBar);
         if (status.State == SyncState.SignedOut)
         {
-            _window.ShowMessage("Die ThixCloud hat die Anmeldung beendet. Ihre Kontakte bleiben auf diesem Computer; melden Sie sich erneut an, um sie wieder abzugleichen.",
-                InfoSeverity.Warning, isClosable: true, "Anmelden", () => _window.ShowSettings(ThixOffice.Desktop.Pages.SettingsPage.CloudTab));
+            ShowSignedOutMessage(force: true);
         }
     });
+
+    /// <summary>
+    /// The cloud ended the sign-in (now or before a restart): the account's contacts stay in the window and can be changed – the changes wait – and the
+    /// message bar offers "Anmelden" (Einstellungen › Cloud).
+    /// </summary>
+    private void ShowSignedOutMessage() => ShowSignedOutMessage(force: false);
+
+    private void ShowSignedOutMessage(bool force)
+    {
+        if (!force && CloudService.Status.State != CloudState.SignedOut)
+        {
+            return;
+        }
+
+        _showsSignedOut = true;
+        _window.ShowMessage(SignedOutMessage, InfoSeverity.Warning, isClosable: true, "Anmelden",
+            () => _window.ShowSettings(ThixOffice.Desktop.Pages.SettingsPage.CloudTab));
+        UpdateStatus(_window.StatusBar);
+    }
 
     /// <summary>Signed in or out: the store of the account (or of this computer) comes in.</summary>
     private void OnCloudStatusChanged(object? sender, CloudStatus status) => Ui.Post(() =>
     {
         if (status.State == CloudState.SignedOut)
         {
-            // the cloud ended the sign-in: the account's contacts stay in the window (offline) until the person signs in again
+            // the cloud ended the sign-in: the account's contacts stay in the window (offline) until the person signs in again or signs out
             _ = Document.StopSyncAsync();
+            ShowSignedOutMessage(force: true);
             return;
+        }
+
+        if (_showsSignedOut && status.State != CloudState.Connecting)
+        {
+            _showsSignedOut = false;
+            _window.ShowMessage(null);
         }
 
         _ = ReconnectAsync();

@@ -143,6 +143,17 @@ public sealed class CloudTests
         await Assert.ThrowsAsync<BusinessException>(() => DriveService.ListAsync(null));
         Assert.False(CloudService.IsConnected);
         Assert.Equal(CloudState.SignedOut, CloudService.Status.State);
+
+        // the account stays the app's across a restart until the person signs out
+        Assert.True(CloudService.HasAccount);
+        SettingsService.ResetCache();
+        CloudService.ResetForTests();
+        Assert.True(CloudService.HasAccount);
+        Assert.Equal(CloudState.SignedOut, CloudService.Status.State);
+        await CloudService.DisconnectAsync();
+        Assert.False(CloudService.HasAccount);
+        Assert.Equal(CloudState.Off, CloudService.Status.State);
+        Assert.Equal(SampleCloud.UserName, CloudService.Settings.UserName); // kept for the next sign-in
     }
 
     [Fact]

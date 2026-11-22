@@ -94,6 +94,16 @@
             <!-- Not signed in: the sign-in (address, device name, browser first, password second) -->
             <controls:CloudSignInPanel x:Name="CloudSignIn" IsCompact="False" />
 
+            <!-- The cloud ended the sign-in: the account's data stays until the person signs out on purpose -->
+            <StackPanel x:Name="CloudSignedOut" IsVisible="False" Spacing="12" Margin="0,20,0,0">
+              <TextBlock x:Name="CloudSignedOutText" TextWrapping="Wrap" Theme="{StaticResource MatText.Muted}" />
+              <controls:ActionBar>
+                <Button x:Name="LeaveAccountButton" Theme="{StaticResource MatButton.Danger}" Click="OnDisconnectClick">
+                  <controls:IconLabel Icon="logout" Text="Abmelden" />
+                </Button>
+              </controls:ActionBar>
+            </StackPanel>
+
             <!-- Signed in: the account, the device, the state, the space; Im Browser öffnen, and set apart Abmelden -->
             <StackPanel x:Name="CloudConnected" IsVisible="False" Spacing="16">
               <Border Theme="{StaticResource MatCard}" MaxWidth="560" HorizontalAlignment="Left">

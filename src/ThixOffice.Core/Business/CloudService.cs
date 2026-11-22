@@ -61,6 +61,12 @@ public static class CloudService
     /// <summary>True when this app is signed in at ThixCloud.</summary>
     public static bool IsConnected => AppInfo.Definition.HasCloud && Settings.IsConnected;
 
+    /// <summary>
+    /// True when the app works on the data of an account: signed in, or the cloud ended the sign-in and the person has not signed out yet
+    /// (<see cref="CloudSettings.IsSignedOutByCloud"/>; the state is <see cref="CloudState.SignedOut"/> even after a restart).
+    /// </summary>
+    public static bool HasAccount => AppInfo.Definition.HasCloud && !AccessPolicy.IsCloudDisabled && Settings.HasAccount;
+
     /// <summary>The sign-in as it is stored (address, account, device).</summary>
     public static CloudSettings Settings => SettingsService.Get().Cloud;
 
@@ -385,7 +391,12 @@ public static class CloudService
             return new CloudStatus(CloudState.Disabled, "Durch Richtlinie deaktiviert");
         }
 
-        return Settings.IsConnected ? new CloudStatus(CloudState.Online, OnlineText()) : new CloudStatus(CloudState.Off, NotConnected);
+        if (Settings.IsConnected)
+        {
+            return new CloudStatus(CloudState.Online, OnlineText());
+        }
+
+        return Settings.HasAccount ? SignedOutStatus : new CloudStatus(CloudState.Off, NotConnected);
     }
 
     private static string OnlineText() => $"Angemeldet als {Settings.AccountText}";
@@ -423,9 +434,11 @@ public static class CloudService
         }
 
         Log.Warning("ThixCloud ended the sign-in (401)");
-        Forget(cloud);
-        SetStatus(new CloudStatus(CloudState.SignedOut, "Abgemeldet – die ThixCloud hat die Anmeldung beendet. Bitte melden Sie sich erneut an."));
+        Forget(cloud, signedOutByCloud: true);
+        SetStatus(SignedOutStatus);
     }
+
+    private static CloudStatus SignedOutStatus => new(CloudState.SignedOut, "Abgemeldet – die ThixCloud hat die Anmeldung beendet. Bitte melden Sie sich erneut an.");
 
     private static async Task DisconnectIfConnectedAsync()
     {
@@ -466,15 +479,25 @@ public static class CloudService
 
     private static MatCloudClient CreateClient(string serverUrl, string? token) => new(serverUrl, token, UserAgent, HandlerForTests?.Invoke());
 
-    /// <summary>Forgets the token; the address, the user name and the device name stay for the next sign-in.</summary>
-    private static void Forget(CloudSettings cloud)
+    /// <summary>
+    /// Forgets the token; the address, the user name and the device name stay for the next sign-in. <paramref name="signedOutByCloud"/>: the cloud
+    /// ended it (the account's data stays the app's until the person signs out); otherwise the person signed out on purpose.
+    /// </summary>
+    private static void Forget(CloudSettings cloud, bool signedOutByCloud = false)
     {
         if (cloud.ServerUrl.Length > 0)
         {
             TokenStore.Delete(AccountKey(cloud));
         }
 
-        SettingsService.UpdateCloud(current => new CloudSettings { ServerUrl = current.ServerUrl, UserName = current.UserName, DeviceName = current.DeviceName });
+        SettingsService.UpdateCloud(current => new CloudSettings
+        {
+            ServerUrl = current.ServerUrl,
+            UserName = current.UserName,
+            DisplayName = signedOutByCloud ? current.DisplayName : "",
+            DeviceName = current.DeviceName,
+            IsSignedOutByCloud = signedOutByCloud,
+        });
     }
 
     private static string? ReadToken(CloudSettings cloud) => cloud.IsConnected ? TokenStore.Read(AccountKey(cloud), cloud.ProtectedToken) : null;

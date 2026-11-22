@@ -94,6 +94,23 @@ public sealed class ContactsDocument : OfficeDocument
         RaiseChanged();
     }
 
+    /// <summary>
+    /// "Abmelden" by the person (Einstellungen › Cloud): the sync stops, with <paramref name="keepLocalCopy"/> the account's contacts become the contacts
+    /// of this computer (the local store is replaced by a copy), the app signs out and the local store comes in. Without a copy the local store shows as it
+    /// was before the sign-in; the account's store stays on disk for the next sign-in of that account.
+    /// </summary>
+    public async Task SignOutAsync(bool keepLocalCopy)
+    {
+        await StopSyncAsync();
+        if (keepLocalCopy && CloudService.HasAccount)
+        {
+            PimStores.ReplaceLocalWith(ThixContactsApp.StoreName, _store);
+        }
+
+        await CloudService.DisconnectAsync();
+        await ReconnectAsync();
+    }
+
     /// <summary>Stops the sync; the contacts stay (the cloud ended the sign-in: they wait for the next one).</summary>
     public async Task StopSyncAsync()
     {
@@ -101,7 +118,14 @@ public sealed class ContactsDocument : OfficeDocument
         {
             _sync = null;
             sync.StatusChanged -= OnSyncStatusChanged;
-            await sync.DisposeAsync();
+            try
+            {
+                await sync.DisposeAsync();
+            }
+            catch (ObjectDisposedException)
+            {
+                // stopped twice (the window closed while a sign-out stopped it): nothing left to stop
+            }
             SyncStatusChanged?.Invoke(this, SyncStatus);
         }
     }

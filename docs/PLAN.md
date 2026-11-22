@@ -706,8 +706,10 @@ gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMT
   **Lücken gegenüber Outlooks Personen:** keine Visitenkarten-Ansicht als Raster (Liste + Karte), kein Verlauf/„Aktivitäten“, keine verknüpften
   Kontakte, keine Kontaktordner neben „Meine Kontakte“ (nur Gruppen und Kategorien), Kategoriefarben aus dem Namen statt frei wählbar, Bilder werden
   weder zugeschnitten noch verkleinert, CSV kennt je Art eine Spalte (eine zweite Privatadresse geht verloren), kein Seriendruck/keine Etiketten, kein
-  CardDAV/Exchange; nach einer von der Cloud beendeten Anmeldung zeigt ein Neustart bis zur neuen Anmeldung die Kontakte dieses Computers;
-  „E-Mail an Gruppe“ nutzt bis ThixMail `mailto:`.
+  CardDAV/Exchange; „E-Mail an Gruppe“ nutzt bis ThixMail `mailto:`.
+  **Nachtrag (2026-11-22):** Beendet die ThixCloud die Anmeldung (401), bleibt auch nach einem Neustart der Bestand des Kontos sichtbar und
+  bearbeitbar (Änderungen warten), mit „Abgemeldet“ in der Titelleiste und der Meldung „Bei ThixCloud abgemeldet – Änderungen werden nach der
+  Anmeldung synchronisiert“ (Anmelden). Erst „Abmelden“ in Einstellungen › Cloud verlässt das Konto und fragt, ob eine lokale Kopie bleibt.
 
 Offen: Umfang von 7d und ob ThixContacts später auch ohne ThixCloud per CardDAV synchronisiert.
 

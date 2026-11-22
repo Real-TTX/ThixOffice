@@ -12,13 +12,53 @@ namespace ThixOffice.Pim.Store;
 /// </summary>
 public static class PimStores
 {
-    /// <summary>The file of the store of <paramref name="stem"/> ("contacts") for the account the app is signed in to (or the local one).</summary>
+    /// <summary>
+    /// The file of the store of <paramref name="stem"/> ("contacts") for the account of the app (<see cref="CloudService.HasAccount"/>: signed in, or
+    /// signed out by the cloud – the account's data stays until the person signs out), or the local one.
+    /// </summary>
     public static string PathFor(string stem)
     {
         var cloud = CloudService.Settings;
-        return CloudService.IsConnected && !Core.Business.AccessPolicy.IsCloudDisabled
+        return CloudService.HasAccount
             ? Path.Combine(AppPaths.DataDirectory, $"{stem}-{AccountHash(cloud.ServerUrl, cloud.UserName)}.db")
             : LocalPath(stem);
+    }
+
+    /// <summary>
+    /// "Abmelden" with a local copy: the local store becomes a copy of <paramref name="source"/> (the account's), every item and picture as data of this
+    /// computer. Written into a new file first, then put in place (the old local store is replaced only when the copy is complete).
+    /// </summary>
+    public static void ReplaceLocalWith(string stem, PimStore source)
+    {
+        var local = LocalPath(stem);
+        var temporary = local + ".new";
+        DeleteDatabase(temporary);
+        using (var target = PimStore.Open(temporary))
+        {
+            CopyInto(source, target);
+        }
+
+        DeleteDatabase(local);
+        foreach (var suffix in new[] { "", "-wal", "-shm" })
+        {
+            if (File.Exists(temporary + suffix))
+            {
+                File.Move(temporary + suffix, local + suffix);
+            }
+        }
+
+        Log.Info($"The account's {stem} were kept as the local store");
+    }
+
+    private static void DeleteDatabase(string path)
+    {
+        foreach (var file in new[] { path, path + "-wal", path + "-shm" })
+        {
+            if (File.Exists(file))
+            {
+                File.Delete(file);
+            }
+        }
     }
 
     public static string LocalPath(string stem) => Path.Combine(AppPaths.DataDirectory, $"{stem}-local.db");

@@ -315,8 +315,12 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - **UI:** `ContactsEditor` (folder pane | list + letters | card), the commands of `ContactsCommands` (Outlook's keys), `ContactsRibbon` (Start | Ordner
   | Ansicht), dialogs in `Dialogs/`. Category colours = Mat tokens by the name's hash (`CategoryColors`). Snapshot scenes `dialog-edit`, `main-groups`,
   `dialog-merge`, `dialog-import-mapping`, `main-signed-out`, `backstage-print`; `THIXCONTACTS_SCREENSHOTS=<folder> dotnet test tests/ThixContacts.Tests`.
-- **The cloud ends the sign-in (401):** the sync stops, the account's contacts stay in the window (message bar "Anmelden"); a new sign-in of the same
-  account restarts the sync on the same store; another account opens its store. After a restart while signed out the local store shows (gap).
+- **The cloud ends the sign-in (401):** the sync stops, the account's contacts stay in the window and can be changed (the changes wait as dirty items),
+  title bar "Abgemeldet", message bar `ContactsEditor.SignedOutMessage` with "Anmelden". `CloudSettings.IsSignedOutByCloud` keeps this across a restart
+  (`CloudService.HasAccount`, the state starts as SignedOut, `PimStores.PathFor` stays on the account's store). A new sign-in of the same account
+  restarts the sync on the same store; another account opens its store. Only "Abmelden" in Einstellungen › Cloud (`OfficeApplication.SignOutAsync`,
+  also offered in the signed-out state) leaves the account: ThixContacts asks "Kopie behalten" (`PimStores.ReplaceLocalWith`: the local store becomes
+  a copy) or "Ohne Kopie abmelden" (the local store shows as before; the account's file stays for its next sign-in).
 
 ## ThixCloud and ThixDrive (shared by every app)
 

@@ -242,6 +242,24 @@ public abstract class OfficeApplication : Application
     /// </summary>
     public virtual Task ImportFilesAsync(OfficeWindow window, IReadOnlyList<string> files) => Task.CompletedTask;
 
+    /// <summary>
+    /// "Abmelden" in Einstellungen › Cloud (also while the cloud has ended the sign-in): asks, then signs out. True when it signed out. A workspace app
+    /// with data of the account overrides it (ThixContacts asks whether a copy of the account's contacts stays on this computer).
+    /// </summary>
+    public virtual async Task<bool> SignOutAsync(Window owner)
+    {
+        if (!await QuestionDialog.ConfirmAsync(owner, "Von der ThixCloud abmelden?",
+                "Dieser Computer wird aus Ihrem Konto der ThixCloud entfernt. Dokumente in ThixDrive öffnen und speichern Sie erst nach einer neuen Anmeldung wieder; " +
+                "die Arbeitskopien auf diesem Computer bleiben erhalten.",
+                "Abmelden", isDestructive: true))
+        {
+            return false;
+        }
+
+        await CloudService.DisconnectAsync();
+        return true;
+    }
+
     /// <summary>Shows <paramref name="document"/> in a new window.</summary>
     public OfficeWindow ShowWindow(OfficeDocument document)
     {
