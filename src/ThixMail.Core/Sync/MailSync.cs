@@ -20,6 +20,11 @@ public enum SyncPhase
     /// <summary>The server shows a certificate the person has not accepted: the sync waits.</summary>
     CertificateProblem,
     WorkingOffline,
+    /// <summary>
+    /// The account came from another computer through ThixCloud, or another computer changed its servers: nothing connects (no password of this computer
+    /// goes anywhere) until the connection test passes here (Konten › Bearbeiten).
+    /// </summary>
+    NeedsConfirmation,
 }
 
 /// <summary>The state of one account's sync.</summary>

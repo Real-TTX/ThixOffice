@@ -387,6 +387,7 @@ public sealed partial class MailEditor : OfficeEditor
                 SyncPhase.Offline or SyncPhase.WorkingOffline => "offline",
                 SyncPhase.SignInFailed => account.UsesOAuth ? "Anmelden?" : "Kennwort?",
                 SyncPhase.CertificateProblem => "Zertifikat?",
+                SyncPhase.NeedsConfirmation => "Prüfen?",
                 _ => null,
             };
             nodes.Add(new FolderNode(FolderNodeKind.Account, account.DisplayName, "user-circle", 0, 0, AccountId: account.Id, State: state));
@@ -1257,7 +1258,7 @@ public sealed partial class MailEditor : OfficeEditor
             return "Alle Ordner sind auf dem neuesten Stand." + suffix;
         }
 
-        var problem = states.FirstOrDefault(s => s.Status.Phase is SyncPhase.SignInFailed or SyncPhase.CertificateProblem or SyncPhase.Offline);
+        var problem = states.FirstOrDefault(s => s.Status.Phase is SyncPhase.SignInFailed or SyncPhase.CertificateProblem or SyncPhase.NeedsConfirmation or SyncPhase.Offline);
         if (problem.Account is not null)
         {
             return $"{problem.Account.DisplayName}: {problem.Status.Message}{suffix}";

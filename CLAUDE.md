@@ -377,6 +377,10 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   `mail-rules`/`mail-templates`, synced through ThixCloud – see below); passwords ONLY through `AccountService.SetPassword` → `TokenStore` (key
   `mail-<id>-imap|smtp`, the protected value in the store's local meta). Adding/editing always runs `AccountService.TestAsync` first; a certificate
   the system does not trust becomes `MailErrorKind.Certificate` with `CertificateInfo` and is accepted only by `TrustCertificate` (host|SHA-256).
+  What only this computer decided never travels: accepted certificates are the store's meta `trust:<id>` (`AccountStore.Save` writes the item without
+  them, `Accounts` puts them back), and `AccountStore.Confirm/IsConfirmed` (meta `confirmed:<id>` = the servers' fingerprint, set by AddAccount/
+  UpdateAccount after the form's test). An account from another computer – or whose servers another computer changed – gets no `MailSync`
+  (`SyncPhase.NeedsConfirmation`, "Prüfen?"), and the form never sends this computer's stored password/token to it; Bearbeiten → test → Speichern.
 - **OAuth (Gmail, Microsoft):** `MailAccount.Authentication = OAuth` + `OAuthProvider` ("google"/"microsoft", `Accounts/OAuthProviders`: endpoints,
   scopes, loopback host). `OAuthService` = PKCE code flow in the system browser with a loopback `TcpListener` (random port), refresh, revoke, German
   `OAuthException`s; tokens ONLY via `AccountService.SetOAuthTokens/OAuthTokensOf` (TokenStore, kind `oauth`); `AccountService.CredentialAsync` is what

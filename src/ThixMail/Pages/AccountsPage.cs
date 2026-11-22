@@ -592,7 +592,7 @@ public sealed class AccountForm : UserControl
         if (account.UsesOAuth)
         {
             password = _tokens?.AccessToken ?? "";
-            if (password.Length == 0 && _existing is { UsesOAuth: true })
+            if (password.Length == 0 && _existing is { UsesOAuth: true } && !_document.NeedsConfirmation(_existing))
             {
                 try
                 {
@@ -611,7 +611,7 @@ public sealed class AccountForm : UserControl
                 return false;
             }
         }
-        else if (password.Length == 0 && _existing is not null)
+        else if (password.Length == 0 && _existing is not null && !_document.NeedsConfirmation(_existing)) // never this computer's password to servers another computer named
         {
             password = AccountService.Password(_document.Accounts, _existing, AccountService.ImapSecret) ?? "";
         }

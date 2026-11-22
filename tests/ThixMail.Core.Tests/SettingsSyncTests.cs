@@ -52,7 +52,7 @@ public sealed class SettingsSyncTests
             document.SyncOf(TestData.Account.Id)!.Trigger();
             await TestData.UntilAsync(() => document.Accounts.Signatures.Count == 2, "the laptop's signature");
             // the account from the laptop starts here too – and asks for its password (passwords never travel)
-            await TestData.UntilAsync(() => document.SyncOf("privat") is { Status.Phase: SyncPhase.SignInFailed }, "the laptop's account asking for its password");
+            await TestData.UntilAsync(() => document.SyncOf("privat") is null && document.StatusOf("privat").Phase == SyncPhase.NeedsConfirmation, "the laptop's account waiting for the connection test here");
 
             // removed on the laptop: gone here with its mail
             laptop.Remove("privat");

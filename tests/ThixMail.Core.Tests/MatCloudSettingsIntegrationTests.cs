@@ -72,7 +72,7 @@ public sealed class MatCloudSettingsIntegrationTests
             laptop.Save(privat);
             await laptopSync.SyncOnceAsync();
             await TestData.UntilAsync(() => document.Accounts.Signature("sig2-" + run) is not null, "the laptop's signature");
-            await TestData.UntilAsync(() => document.SyncOf(privat.Id) is { Status.Phase: SyncPhase.SignInFailed }, "the laptop's account waiting here");
+            await TestData.UntilAsync(() => document.Accounts.Account(privat.Id) is not null && document.SyncOf(privat.Id) is null && document.StatusOf(privat.Id).Phase == SyncPhase.NeedsConfirmation, "the laptop's account waiting for the connection test here");
             Assert.Null(AccountService.Password(document.Accounts, privat, AccountService.ImapSecret));
 
             // removed on the laptop: gone here with its mail; a rule changed here reaches the laptop

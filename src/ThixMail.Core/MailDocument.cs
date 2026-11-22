@@ -111,20 +111,30 @@ public sealed class MailDocument : OfficeDocument
         var accounts = Accounts.Accounts;
         foreach (var account in accounts)
         {
-            if (!_syncs.ContainsKey(account.Id))
+            if (!_syncs.TryGetValue(account.Id, out var running))
             {
                 StartSync(account);
             }
+            else if (!Accounts.IsConfirmed(account))
+            {
+                _ = StopUnconfirmedAsync(account.Id); // another computer changed its servers: nothing goes there before the test here
+            }
+            else if (!SameSettings(running.Account, account))
+            {
+                running.Update(account); // a name, a signature, the order – from another computer, at once
+            }
         }
 
-        foreach (var gone in _syncs.Keys.Where(id => accounts.All(a => a.Id != id)).ToList())
+        // gone: a running sync, or mail kept here of an account whose sync does not run (waiting for the test, working offline)
+        var here = _syncs.Keys.Concat(Store.Folders().Select(f => f.AccountId)).Distinct(StringComparer.Ordinal);
+        foreach (var gone in here.Where(id => accounts.All(a => a.Id != id)).ToList())
         {
             _ = RemoveSyncAsync(gone);
         }
     }
 
-    /// <summary>An account removed on another computer: its sync stops, its mail and secrets on this computer go.</summary>
-    private async Task RemoveSyncAsync(string accountId)
+    /// <summary>The servers of a running account changed on another computer: its sync stops (the mail here stays) until the test passes here.</summary>
+    private async Task StopUnconfirmedAsync(string accountId)
     {
         if (!_syncs.Remove(accountId, out var sync))
         {
@@ -135,6 +145,26 @@ public sealed class MailDocument : OfficeDocument
         sync.NewMail -= OnNewMail;
         sync.Arrived -= OnArrived;
         await sync.DisposeAsync();
+        SyncStatusChanged?.Invoke(this, StatusOf(accountId));
+        RaiseChanged();
+    }
+
+    /// <summary>An account removed on another computer: its sync stops, its mail and secrets on this computer go.</summary>
+    private async Task RemoveSyncAsync(string accountId)
+    {
+        if (_syncs.Remove(accountId, out var sync))
+        {
+            sync.StatusChanged -= OnSyncStatus;
+            sync.NewMail -= OnNewMail;
+            sync.Arrived -= OnArrived;
+            await sync.DisposeAsync();
+        }
+
+        if (IsClosed)
+        {
+            return;
+        }
+
         Store.RemoveAccount(accountId);
         AccountService.ForgetPasswords(Accounts, accountId);
         RaiseChanged();
@@ -179,7 +209,17 @@ public sealed class MailDocument : OfficeDocument
     public MailSync? SyncOf(string accountId) => _syncs.GetValueOrDefault(accountId);
 
     public AccountSyncStatus StatusOf(string accountId) =>
-        IsWorkingOffline ? new AccountSyncStatus(accountId, SyncPhase.WorkingOffline, "Offline arbeiten", 0, null) : _syncs.GetValueOrDefault(accountId)?.Status ?? AccountSyncStatus.Off(accountId);
+        IsWorkingOffline ? new AccountSyncStatus(accountId, SyncPhase.WorkingOffline, "Offline arbeiten", 0, null)
+        : _syncs.GetValueOrDefault(accountId)?.Status
+          ?? (Accounts.Account(accountId) is { } account && !Accounts.IsConfirmed(account)
+              ? new AccountSyncStatus(accountId, SyncPhase.NeedsConfirmation, NeedsConfirmationMessage, 0, null)
+              : AccountSyncStatus.Off(accountId));
+
+    /// <summary>What an account from another computer (or with servers changed there) says until the connection test passed here.</summary>
+    public const string NeedsConfirmationMessage = "Von einem anderen Computer – bitte prüfen Sie die Verbindung (Konten › Bearbeiten)";
+
+    /// <summary>The account still waits for the connection test on this computer (<see cref="AccountStore.IsConfirmed"/>).</summary>
+    public bool NeedsConfirmation(MailAccount account) => !Accounts.IsConfirmed(account);
 
     public override bool CanUndo => Session.CanUndo;
 
@@ -201,6 +241,7 @@ public sealed class MailDocument : OfficeDocument
         }
 
         SaveQuietly(() => Accounts.Save(valid));
+        Accounts.Confirm(valid); // the form's connection test passed on this computer
         if (valid.UsesOAuth)
         {
             AccountService.SetOAuthTokens(Accounts, valid.Id, tokens ?? throw new BusinessException("Bitte melden Sie sich zuerst im Browser an.", "Password"));
@@ -225,6 +266,7 @@ public sealed class MailDocument : OfficeDocument
     {
         var valid = AccountService.Validate(account);
         SaveQuietly(() => Accounts.Save(valid));
+        Accounts.Confirm(valid); // saved through the form after its connection test on this computer
         if (tokens is not null)
         {
             AccountService.SetOAuthTokens(Accounts, valid.Id, tokens);
@@ -403,6 +445,12 @@ public sealed class MailDocument : OfficeDocument
             return;
         }
 
+        if (!Accounts.IsConfirmed(account))
+        {
+            SyncStatusChanged?.Invoke(this, StatusOf(account.Id)); // from another computer: waits for the connection test here
+            return;
+        }
+
         if (!_syncs.TryGetValue(account.Id, out var sync))
         {
             sync = new MailSync(Store, account, Transport, (a, kind, renew, cancellationToken) => AccountService.CredentialAsync(Accounts, a, kind, renew, cancellationToken));
@@ -415,6 +463,9 @@ public sealed class MailDocument : OfficeDocument
 
         sync.Start();
     }
+
+    private static bool SameSettings(MailAccount a, MailAccount b) =>
+        a with { TrustedCertificates = [] } == b with { TrustedCertificates = [] } && a.TrustedCertificates.SequenceEqual(b.TrustedCertificates, StringComparer.Ordinal);
 
     private void Wake(string accountId)
     {

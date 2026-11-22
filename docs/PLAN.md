@@ -885,8 +885,11 @@ gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMT
   403 (ThixMail in der Verwaltung abgeschaltet: Änderungen warten, danach gehen sie hoch); die Einbettungs- und Kontakttests liefen gegen dieselbe
   neuere MatCloud unverändert grün (ThixMail nutzt nur den allgemeinen Sync und die Kontaktbilder). **Wechsel des ThixCloud-Kontos:** die Einstellungen
   gehören diesem Computer und folgen der Anmeldung – alles hier geht in das andere Konto hoch, dessen Einstellungen kommen dazu (wie ThixContacts' lokaler
-  Bestand, der in ein neues Konto übernommen wird); nichts geht durch den Wechsel verloren. **Lücke:** Änderungen der Servereinstellungen eines laufenden
-  Kontos von einem anderen Computer wirken erst beim nächsten Start.
+  Bestand, der in ein neues Konto übernommen wird); nichts geht durch den Wechsel verloren. **Sicherheit:** was nur ein Computer entschieden hat, reist
+  nicht – akzeptierte Zertifikate bleiben auf dem Computer, der sie akzeptiert hat (auch ein Element, das welche nennt, wird nicht geglaubt), und ein
+  Konto von einem anderen Computer verbindet sich erst, wenn der Verbindungstest hier bestanden ist („Prüfen?“, Konten › Bearbeiten); ändert ein
+  anderer Computer die Server eines laufenden Kontos, hält es hier an (die Mails bleiben), und kein hier gespeichertes Kennwort geht an die neuen
+  Server. Name, Signaturen und Reihenfolge von einem anderen Computer wirken sofort.
 - **Nicht gebaut (7d, Kalender in ThixMail):** Termine mit der Maus ziehen/aufziehen, Erinnerungen in ThixMail (mit Rücksicht auf ThixCalendar),
   Drucken der Kalenderansichten – offen.
 

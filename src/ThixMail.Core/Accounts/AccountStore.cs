@@ -28,6 +28,7 @@ public sealed class AccountStore : IDisposable
     public AccountStore(PimStore store)
     {
         _store = store;
+        MoveTrustToThisComputer();
         _store.RemoteChanged += (_, _) => Changed?.Invoke(this, EventArgs.Empty); // what ThixCloud brought (another computer's settings)
     }
 
@@ -40,14 +41,34 @@ public sealed class AccountStore : IDisposable
     public static AccountStore Open(string path) => new(PimStore.Open(path));
 
     /// <summary>The accounts in the order of the folder pane.</summary>
+    /// <summary>
+    /// The accounts in the order of the folder pane – each with the certificates accepted on THIS computer (<see cref="MailAccount.TrustedCertificates"/>
+    /// is a local meta value, never part of the item: what another computer accepted is not trusted here).
+    /// </summary>
     public IReadOnlyList<MailAccount> Accounts =>
-        [.. _store.Items(AccountsCollection).Select(i => Read(i.Data, MailJson.Default.MailAccount)).Where(a => a is not null).Select(a => a!).OrderBy(a => a.Order).ThenBy(a => a.DisplayName, StringComparer.CurrentCultureIgnoreCase)];
+        [.. _store.Items(AccountsCollection).Select(i => Read(i.Data, MailJson.Default.MailAccount)).Where(a => a is not null)
+            .Select(a => Complete(a!) with { TrustedCertificates = TrustOf(a!.Id) }).Where(a => a.Id.Length > 0).OrderBy(a => a.Order).ThenBy(a => a.DisplayName, StringComparer.CurrentCultureIgnoreCase)];
 
     public MailAccount? Account(string id) => Accounts.FirstOrDefault(a => a.Id == id);
 
+    /// <summary>An item of another build (or another computer) may lack fields: they are empty, never null.</summary>
+    private static MailAccount Complete(MailAccount account) => account with
+    {
+        Id = account.Id ?? "",
+        Name = account.Name ?? "",
+        SenderName = account.SenderName ?? "",
+        Address = account.Address ?? "",
+        ImapUser = account.ImapUser ?? "",
+        SmtpUser = account.SmtpUser ?? "",
+        Imap = account.Imap ?? ServerSettings.Empty,
+        Smtp = account.Smtp ?? ServerSettings.Empty,
+    };
+
+    /// <summary>Keeps an account: the item (what travels, without accepted certificates) and the certificates accepted here (local).</summary>
     public void Save(MailAccount account)
     {
-        _store.Write([(AccountsCollection, account.Id, JsonSerializer.Serialize(account, MailJson.Default.MailAccount))]);
+        _store.SetMeta(TrustKey(account.Id), string.Join('\n', account.TrustedCertificates));
+        _store.Write([(AccountsCollection, account.Id, JsonSerializer.Serialize(account with { TrustedCertificates = [] }, MailJson.Default.MailAccount))]);
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
@@ -59,7 +80,62 @@ public sealed class AccountStore : IDisposable
             _store.SetMeta(SecretKey(accountId, kind), "");
         }
 
+        _store.SetMeta(TrustKey(accountId), "");
+        _store.SetMeta(ConfirmedKey(accountId), "");
         Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    // ---- what only this computer decided: accepted certificates, confirmed server settings ----
+
+    /// <summary>
+    /// True when the account's servers (hosts, ports, protection, user names, the way it signs in) are the ones confirmed on THIS computer by a
+    /// connection test – added or saved here. An account that came from another computer, or whose servers another computer changed, is not: its sync
+    /// does not start and no password of this computer goes to its servers until the person runs the connection test (Konten › Bearbeiten).
+    /// </summary>
+    public bool IsConfirmed(MailAccount account) => _store.GetMeta(ConfirmedKey(account.Id)) == ServerFingerprint(account);
+
+    /// <summary>The connection test passed for these servers on this computer (AddAccount / UpdateAccount after the form's test).</summary>
+    public void Confirm(MailAccount account) => _store.SetMeta(ConfirmedKey(account.Id), ServerFingerprint(account));
+
+    private static string ServerFingerprint(MailAccount account) =>
+        string.Join('|', account.Imap.Host.ToLowerInvariant(), account.Imap.Port, account.Imap.Security, account.ImapUser,
+            account.Smtp.Host.ToLowerInvariant(), account.Smtp.Port, account.Smtp.Security, account.SmtpUser, account.SmtpUsesImapPassword,
+            account.Authentication, account.OAuthProvider ?? "");
+
+    private IReadOnlyList<string> TrustOf(string accountId) =>
+        _store.GetMeta(TrustKey(accountId)) is { Length: > 0 } trust ? trust.Split('\n', StringSplitOptions.RemoveEmptyEntries) : [];
+
+    private static string TrustKey(string accountId) => $"trust:{accountId}";
+
+    private static string ConfirmedKey(string accountId) => $"confirmed:{accountId}";
+
+    /// <summary>
+    /// Once per store (builds before 7d kept accepted certificates in the item, and had no confirmation): the certificates of the accounts here move into
+    /// this computer's meta values and leave the items (they go up without them), and the accounts already here count as confirmed.
+    /// </summary>
+    private void MoveTrustToThisComputer()
+    {
+        if (_store.GetMeta("trustIsLocal") == "1")
+        {
+            return;
+        }
+
+        foreach (var item in _store.Items(AccountsCollection))
+        {
+            if (Read(item.Data, MailJson.Default.MailAccount) is not { } account)
+            {
+                continue;
+            }
+
+            Confirm(account);
+            if (account.TrustedCertificates.Count > 0)
+            {
+                _store.SetMeta(TrustKey(account.Id), string.Join('\n', account.TrustedCertificates));
+                _store.Write([(AccountsCollection, account.Id, JsonSerializer.Serialize(account with { TrustedCertificates = [] }, MailJson.Default.MailAccount))]);
+            }
+        }
+
+        _store.SetMeta("trustIsLocal", "1");
     }
 
     public IReadOnlyList<MailSignature> Signatures =>
