@@ -88,6 +88,7 @@ public sealed class EmbeddingTests
         {
             document.AddAccount(Account, Password, null);
             var mail = MailReader.Read(Fixture("07-calendar-invite.eml"));
+            await document.Pim.SyncNowAsync(); // no own calendar before the account's calendar was in step once
             var before = document.Pim.Calendar!.DefaultCalendar();
             document.Pim.Calendar.Save(new CalendarAppointment { CalendarKey = before.Key, Title = "Zahnarzt", Start = new DateTimeOffset(2026, 11, 26, 13, 30, 0, TimeSpan.Zero), End = new DateTimeOffset(2026, 11, 26, 14, 30, 0, TimeSpan.Zero) });
 
@@ -134,6 +135,7 @@ public sealed class EmbeddingTests
         try
         {
             document.AddAccount(Account, Password, null);
+            await document.Pim.SyncNowAsync();
             var book = document.Pim.Calendar!;
             var start = new DateTimeOffset(2026, 12, 1, 9, 0, 0, TimeSpan.Zero);
             Assert.Throws<BusinessException>(() => MailInvitations.SendMeeting(document, new CalendarAppointment { CalendarKey = book.DefaultCalendar().Key, Title = "Planung", Start = start, End = start.AddHours(1) }, [], Account));
@@ -157,6 +159,64 @@ public sealed class EmbeddingTests
         finally
         {
             await document.CloseAsync();
+        }
+    }
+
+    [Fact]
+    public async Task When_the_cloud_ends_the_sign_in_both_syncs_stop_and_a_new_sign_in_starts_them_again_with_the_waiting_changes()
+    {
+        using var data = new TestData();
+        var cloud = await SignInAsync();
+        var pim = new MailPim();
+        try
+        {
+            await pim.SyncNowAsync();
+            var calendar = pim.Calendar!.DefaultCalendar();
+            await pim.SyncNowAsync();
+
+            cloud.RemoveDevices(); // 401 for every request
+            var appointment = pim.Calendar.Save(new CalendarAppointment { CalendarKey = calendar.Key, Title = "Wartet", Start = DateTimeOffset.UtcNow.AddDays(1), End = DateTimeOffset.UtcNow.AddDays(1).AddHours(1) });
+            var contact = pim.People!.Save(null, new ContactData { GivenName = "Wartet", FamilyName = "Auch" });
+            await Assert.ThrowsAsync<BusinessException>(pim.SyncNowAsync);
+            Assert.Equal(CloudState.SignedOut, CloudService.Status.State);
+
+            // the second sync meets "not signed in" instead of the 401: it stops as well (it does not retry as if offline)
+            await UntilAsync(() => !pim.IsSyncing, "both syncs to stop");
+            Assert.True(pim.IsAvailable);
+            Assert.True(pim.Calendar.Store.DirtyCount > 0 && pim.People.Store.DirtyCount > 0);
+
+            await CloudService.ConnectAsync(SampleCloud.ServerUrl, SampleCloud.UserName, SampleCloud.Password, "ANNA-PC");
+            await pim.ReconnectAsync();
+            Assert.True(pim.IsSyncing);
+            await UntilAsync(() => pim.Calendar.Store.DirtyCount == 0 && pim.People.Store.DirtyCount == 0, "the waiting changes to go up");
+            Assert.NotNull(cloud.SyncItem(CloudApps.Calendar, CalendarContract.Events, appointment.Key));
+            Assert.NotNull(cloud.SyncItem(CloudApps.Contacts, ContactsContract.Contacts, contact));
+        }
+        finally
+        {
+            await pim.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task A_403_for_the_calendar_says_ThixCalendar_is_switched_off_and_leaves_ThixMail_signed_in()
+    {
+        using var data = new TestData();
+        var cloud = await SignInAsync();
+        var pim = new MailPim();
+        try
+        {
+            await pim.SyncNowAsync();
+            await pim.StopSyncsAsync();
+            cloud.SyncFailsWith = System.Net.HttpStatusCode.Forbidden;
+            await using var calendarSync = new PimSync(pim.Calendar!.Store, CloudService.CreateClient, app: CloudApps.Calendar);
+            await Assert.ThrowsAsync<CloudException>(() => calendarSync.SyncOnceAsync());
+            Assert.Equal((SyncState.Forbidden, "ThixCalendar ist in der ThixCloud abgeschaltet"), (calendarSync.Status.State, calendarSync.Status.Message));
+            Assert.NotEqual(CloudState.Forbidden, CloudService.Status.State); // not "ThixMail ist von der Verwaltung abgeschaltet"
+        }
+        finally
+        {
+            await pim.DisposeAsync();
         }
     }
 }

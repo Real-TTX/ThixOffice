@@ -27,8 +27,8 @@ public abstract class OfficeDocument
     /// <summary>"Dokument1" – the name while there is no file.</summary>
     public string UntitledName { get; }
 
-    /// <summary>What the title bar shows: the file name with its extension, or the untitled name.</summary>
-    public string Title => FilePath is null ? UntitledName : Path.GetFileName(FilePath);
+    /// <summary>What the title bar shows: the file name with its extension, or the untitled name (a workspace may name what it shows: ThixMail's view).</summary>
+    public virtual string Title => FilePath is null ? UntitledName : Path.GetFileName(FilePath);
 
     /// <summary>True while there are changes that are not in the file.</summary>
     public bool IsDirty { get; private set; }

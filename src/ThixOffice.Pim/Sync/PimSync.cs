@@ -174,9 +174,9 @@ public sealed class PimSync(PimStore store, Func<MatCloudClient> client, string?
             {
                 var status = StatusOf(exception);
                 SetStatus(status);
-                if (status.State == SyncState.SignedOut)
+                if (status.State is SyncState.SignedOut or SyncState.Off)
                 {
-                    Log.Warning("Sync stopped: the cloud ended the sign-in");
+                    Log.Warning(status.State == SyncState.Off ? "Sync stopped: the app signed out" : "Sync stopped: the cloud ended the sign-in");
                     return;
                 }
 
@@ -369,6 +369,22 @@ public sealed class PimSync(PimStore store, Func<MatCloudClient> client, string?
     private SyncStatus StatusOf(Exception exception)
     {
         var pending = store.DirtyCount;
+        if (app is not null && exception is CloudException { StatusCode: HttpStatusCode.Forbidden })
+        {
+            // A 403 for another app's data (a grant): THAT app is switched off (ThixMail stays on – MatCloud answers ThixMail's own routes); whether the
+            // device's own app is off too, its account route says (it moves the state of the connection only then).
+            _ = Task.Run(() => CloudService.RefreshAccountAsync());
+            return new SyncStatus(SyncState.Forbidden, $"{CloudApps.NameOf(app)} ist in der ThixCloud abgeschaltet", store.LastSync, pending);
+        }
+
+        if (exception is Core.Models.BusinessException && !CloudService.IsConnected)
+        {
+            // no sign-in any more: another sync of the app met the 401 first (ThixMail has two), or the person signed out – this one stops too
+            return CloudService.HasAccount
+                ? new SyncStatus(SyncState.SignedOut, "Abgemeldet – bitte erneut anmelden", store.LastSync, pending)
+                : SyncStatus.Off with { Pending = pending, LastSync = store.LastSync };
+        }
+
         _ = CloudService.Explain(exception); // the state of the connection (title bar, Einstellungen › Cloud)
         return exception switch
         {

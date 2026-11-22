@@ -26,6 +26,7 @@ public sealed class MailDocument : OfficeDocument
     internal static Action<MailSync>? ConfigureSyncForTests { get; set; }
 
     private readonly Dictionary<string, MailSync> _syncs = new(StringComparer.Ordinal);
+    private string? _viewName;
 
     public MailDocument(string untitledName)
         : base(untitledName)
@@ -47,6 +48,22 @@ public sealed class MailDocument : OfficeDocument
 
     /// <summary>The calendar and the people of the ThixCloud account (null inside while not signed in).</summary>
     public MailPim Pim { get; }
+
+    /// <summary>The name of the view the window shows – "E-Mail", "Kalender", "Personen" (set by the editor); the title bar names it, as Outlook does.</summary>
+    public string ViewName
+    {
+        get => _viewName ?? UntitledName;
+        set
+        {
+            if (value != ViewName)
+            {
+                _viewName = value;
+                RaiseChanged();
+            }
+        }
+    }
+
+    public override string Title => ViewName;
 
     /// <summary>Raised when an account's sync state changes (any thread).</summary>
     public event EventHandler<AccountSyncStatus>? SyncStatusChanged;

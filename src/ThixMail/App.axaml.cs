@@ -293,6 +293,7 @@ public partial class App : OfficeApplication
         }
 
         Task.Run(editor.Document.Pim.ReconnectAsync).GetAwaiter().GetResult();
+        Task.Run(editor.Document.Pim.SyncNowAsync).GetAwaiter().GetResult(); // an own calendar is made only after the first sync
         SampleMailbox.FillPim(editor.Document);
         Settle();
     }

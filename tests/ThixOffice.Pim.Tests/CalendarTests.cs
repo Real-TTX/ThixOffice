@@ -34,6 +34,57 @@ public sealed class CalendarTests
     }
 
     [Fact]
+    public void A_meeting_address_in_location_or_notes_becomes_the_meeting_address_and_a_wrong_one_is_refused_as_ThixCalendar_does()
+    {
+        using var data = new PimTestData();
+        using var store = PimStore.Open(data.StorePath("calendar"));
+        using var book = new CalendarBook(store);
+        var calendar = book.DefaultCalendar();
+
+        // the same rule as ThixCalendar's Normalize: otherwise ThixCalendar would write the appointment back with the address on its next save
+        var teams = book.Save(new CalendarAppointment
+        {
+            CalendarKey = calendar.Key, Title = "Abstimmung", Start = Thursday, End = Thursday.AddHours(1),
+            Description = "Beitreten: https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0. Bis gleich",
+        });
+        Assert.Equal("https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0", teams.MeetingUrl);
+        Assert.Contains("\"meetingUrl\":\"https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0\"", store.Get(CalendarContract.Events, teams.Key)!.Data, StringComparison.Ordinal);
+        Assert.Equal("https://zoom.us/j/123", book.Save(new CalendarAppointment { CalendarKey = calendar.Key, Title = "Zoom", Start = Thursday, End = Thursday, Location = "https://zoom.us/j/123" }).MeetingUrl);
+        Assert.Equal("", book.Save(new CalendarAppointment { CalendarKey = calendar.Key, Title = "Ohne", Start = Thursday, End = Thursday, Description = "https://example.com/meeting" }).MeetingUrl);
+
+        var error = Assert.Throws<BusinessException>(() => book.Save(new CalendarAppointment { CalendarKey = calendar.Key, Title = "x", Start = Thursday, End = Thursday, MeetingUrl = "javascript:alert(1)" }));
+        Assert.Equal(nameof(CalendarAppointment.MeetingUrl), error.Field);
+    }
+
+    [Fact]
+    public void A_store_that_waits_for_its_first_sync_makes_no_own_calendar_so_ThixCalendar_never_gets_a_second_Eigene_Kalender()
+    {
+        using var data = new PimTestData();
+        using var store = PimStore.Open(data.StorePath("calendar"));
+        using var book = new CalendarBook(store) { AwaitsFirstSync = () => store.LastSync is null };
+        Assert.Throws<BusinessException>(() => book.DefaultCalendar());
+        Assert.Equal(0, store.DirtyCount);
+
+        // the first sync brought ThixCalendar's own account and calendar: that one is used, nothing new is made
+        store.ApplyRemote([
+            new SyncItemDto { Collection = CalendarContract.Accounts, Key = "acc1", Data = CalendarItems.Serialize(new CalendarAccountItem(CalendarAccountKind.Local, "Eigene Kalender", "", "", true)), UpdatedAt = DateTimeOffset.UtcNow, Revision = 1 },
+            new SyncItemDto { Collection = CalendarContract.Calendars, Key = CalendarContract.CalendarKey("acc1", "r1"), Data = CalendarItems.Serialize(new CalendarCalendarItem("r1", "Kalender", "#2F6FED", true, true, null, 0)), UpdatedAt = DateTimeOffset.UtcNow, Revision = 2 },
+        ]);
+        store.LastSync = DateTimeOffset.UtcNow;
+        book.Invalidate();
+        Assert.Equal(CalendarContract.CalendarKey("acc1", "r1"), book.DefaultCalendar().Key);
+        Assert.Equal(0, store.DirtyCount);
+
+        // an account without calendars of ThixCalendar's: an own one is made now (after the first sync), its calendar without a default reminder like ThixCalendar's
+        using var empty = PimStore.Open(data.StorePath("empty"));
+        using var fresh = new CalendarBook(empty) { AwaitsFirstSync = () => empty.LastSync is null };
+        empty.LastSync = DateTimeOffset.UtcNow;
+        var made = fresh.DefaultCalendar();
+        Assert.Null(made.DefaultReminderMinutes);
+        Assert.Equal(2, empty.DirtyCount);
+    }
+
+    [Fact]
     public void The_book_makes_an_own_calendar_when_there_is_none_and_keeps_appointments_with_ThixCalendars_checks()
     {
         using var data = new PimTestData();

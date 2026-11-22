@@ -62,6 +62,7 @@ public sealed partial class MailEditor
         }
 
         ActiveView = view;
+        Document.ViewName = ViewNameOf(view); // the title bar names the view (the window refreshes on the document's change)
         for (var i = 0; i < NavigationButtons.Count; i++)
         {
             var button = NavigationButtons[i];
@@ -110,6 +111,14 @@ public sealed partial class MailEditor
         UpdateStatus(_window.StatusBar);
         Ui.Post(FocusDocument);
     }
+
+    /// <summary>The name of a view as the navigation bar and the title bar say it.</summary>
+    public static string ViewNameOf(MailArea view) => view switch
+    {
+        MailArea.Calendar => "Kalender",
+        MailArea.People => "Personen",
+        _ => "E-Mail",
+    };
 
     private Button NavButton(string icon, string name, string shortcut, MailArea view, Thickness margin)
     {
@@ -251,7 +260,7 @@ public sealed partial class MailEditor
         SyncState.Idle => "Mit der ThixCloud synchronisiert",
         SyncState.Offline => status.Pending > 0 ? $"Offline – {status.Pending} Änderungen warten" : "Offline",
         SyncState.SignedOut => "Abgemeldet",
-        SyncState.Forbidden => "In der ThixCloud abgeschaltet",
+        SyncState.Forbidden => status.Message.Length > 0 ? status.Message : "In der ThixCloud abgeschaltet",
         _ => status.Message,
     };
 
@@ -259,12 +268,14 @@ public sealed partial class MailEditor
     {
         _wasAvailable = Document.Pim.IsAvailable;
         Document.Pim.Changed += OnPimChanged;
+        Document.Pim.SyncStatusChanged += OnPimSyncStatusChanged;
         CloudService.StatusChanged += OnCloudChanged;
     }
 
     private void DetachViews()
     {
         Document.Pim.Changed -= OnPimChanged;
+        Document.Pim.SyncStatusChanged -= OnPimSyncStatusChanged;
         CloudService.StatusChanged -= OnCloudChanged;
     }
 
@@ -297,6 +308,15 @@ public sealed partial class MailEditor
             _people?.QueueRefresh();
         }
     });
+
+    /// <summary>A sync's state changed: the status bar of Kalender / Personen says so (once per round of the dispatcher).</summary>
+    private void OnPimSyncStatusChanged(object? sender, EventArgs e)
+    {
+        if (ActiveView != MailArea.Mail)
+        {
+            ScheduleViewState();
+        }
+    }
 
     /// <summary>Signed in or out: the account's calendar and people come in (or go).</summary>
     private void OnCloudChanged(object? sender, CloudStatus status) => Ui.Post(async () =>

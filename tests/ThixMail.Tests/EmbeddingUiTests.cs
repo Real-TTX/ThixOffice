@@ -29,6 +29,7 @@ public sealed class EmbeddingUiTests
         CloudService.HandlerForTests = () => cloud;
         await CloudService.ConnectAsync(SampleCloud.ServerUrl, SampleCloud.UserName, SampleCloud.Password, "ANNA-PC");
         await UntilAsync(() => window.Editor.Document.Pim.IsAvailable, "the calendar and people of the account");
+        await UntilAsync(() => window.Editor.Document.Pim.Calendar?.Store.LastSync is not null, "the first sync of the calendar");
         return cloud;
     }
 
@@ -42,18 +43,23 @@ public sealed class EmbeddingUiTests
         var editor = EditorOf(window);
         Assert.Equal(3, editor.NavigationButtons.Count(b => b.IsVisible));
 
+        Assert.Equal("E-Mail", window.DocumentNameText);
         await PressAsync(window, PhysicalKey.Digit2, CommandKey);
         Assert.Equal(MailArea.Calendar, editor.ActiveView);
         Assert.NotNull(editor.SignInPanel);
         Assert.Null(editor.CalendarView);
         Assert.Equal("Nicht bei der ThixCloud angemeldet", window.StatusBar.TextOf(MailEditor.CountItem));
+        await UntilAsync(() => window.DocumentNameText == "Kalender", "the title bar to name the calendar");
+        Assert.Equal("Kalender – ThixMail", window.Title);
 
         await ClickAsync(window, editor.NavigationButtons[2]);
         Assert.Equal(MailArea.People, editor.ActiveView);
         Assert.NotNull(editor.SignInPanel);
+        await UntilAsync(() => window.DocumentNameText == "Personen", "the title bar to name the people");
 
         await PressAsync(window, PhysicalKey.Digit1, CommandKey);
         Assert.Equal(MailArea.Mail, editor.ActiveView);
+        await UntilAsync(() => window.DocumentNameText == "E-Mail", "the title bar to name the mail again");
         Assert.True(editor.List.IsEffectivelyVisible);
         await PressAsync(window, PhysicalKey.N, CommandKey);
         await OwnedAsync<Compose.ComposeWindow>(window); // Strg+N is a new mail again

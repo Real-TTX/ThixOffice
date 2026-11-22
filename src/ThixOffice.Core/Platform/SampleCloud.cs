@@ -217,11 +217,42 @@ internal sealed class SampleCloud : HttpMessageHandler
 
         var body = request.Content is null ? [] : await request.Content.ReadAsByteArrayAsync(cancellationToken);
         var query = HttpUtility.ParseQueryString(request.RequestUri.Query);
+        if (request.Method == HttpMethod.Get && path == SyncContract.Wait)
+        {
+            await WaitForChangeAsync(query, cancellationToken);
+        }
+
         lock (_gate)
         {
             return Route(request, path, query, body);
         }
     }
+
+    /// <summary>
+    /// The long poll, kept short (at most <see cref="LongestWait"/>): it answers as soon as the app's data changed, the cloud went offline or fails, or
+    /// the devices were removed – so a sync loop idles here instead of spinning, and a test never waits long for a change of the cloud's state.
+    /// </summary>
+    private async Task WaitForChangeAsync(System.Collections.Specialized.NameValueCollection query, CancellationToken cancellationToken)
+    {
+        var app = query[SyncContract.AppParameter] ?? App;
+        var since = long.TryParse(query["since"], CultureInfo.InvariantCulture, out var s) ? s : 0;
+        var deadline = DateTime.UtcNow + LongestWait;
+        while (DateTime.UtcNow < deadline)
+        {
+            lock (_gate)
+            {
+                if (LatestOf(app) != since || IsOffline || FailWith is not null || SyncFailsWith is not null || _tokens.Count == 0)
+                {
+                    return;
+                }
+            }
+
+            await Task.Delay(25, cancellationToken);
+        }
+    }
+
+    /// <summary>How long the sample's long poll waits at most for a change.</summary>
+    public static TimeSpan LongestWait { get; } = TimeSpan.FromSeconds(2);
 
     private HttpResponseMessage Route(HttpRequestMessage request, string path, System.Collections.Specialized.NameValueCollection query, byte[] body)
     {

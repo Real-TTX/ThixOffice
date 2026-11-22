@@ -38,11 +38,14 @@ public sealed class MailPim : IAsyncDisposable
     /// <summary>True while ThixMail has an account of ThixCloud (signed in, or signed out by the cloud: the data stays until "Abmelden").</summary>
     public bool IsAvailable => People is not null && Calendar is not null;
 
-    /// <summary>True while the two syncs run.</summary>
-    public bool IsSyncing => _peopleSync is not null || _calendarSync is not null;
+    /// <summary>True while the syncs run (a sync the cloud stopped – 401 – does not count: <see cref="ReconnectAsync"/> starts it again).</summary>
+    public bool IsSyncing => _peopleSync is { IsRunning: true } || _calendarSync is { IsRunning: true };
 
     /// <summary>The people or the calendar changed (here or by the sync: then on its thread), or another account came in.</summary>
     public event EventHandler? Changed;
+
+    /// <summary>The state of one of the syncs changed (any thread): the status bar of the view.</summary>
+    public event EventHandler? SyncStatusChanged;
 
     /// <summary>The state of the calendar's sync (the status bar of the view).</summary>
     public SyncStatus CalendarSyncStatus => _calendarSync?.Status ?? SyncStatus.Off;
@@ -57,21 +60,32 @@ public sealed class MailPim : IAsyncDisposable
             throw new BusinessException("ThixMail ist nicht bei der ThixCloud angemeldet (Datei › Einstellungen › Cloud).");
         }
 
-        try
+        string? switchedOff = null;
+        foreach (var sync in new[] { _peopleSync, _calendarSync })
         {
-            if (_peopleSync is { } people)
+            if (sync is null)
             {
-                await people.SyncOnceAsync();
+                continue;
             }
 
-            if (_calendarSync is { } calendar)
+            try
             {
-                await calendar.SyncOnceAsync();
+                await sync.SyncOnceAsync();
+            }
+            catch (CloudException exception) when (exception.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                // ThixCalendar or ThixContacts switched off in the cloud: only that part stops (its sync says so); ThixMail stays signed in
+                switchedOff ??= sync.Status.Message;
+            }
+            catch (Exception exception) when (CloudService.IsCloudFailure(exception, CancellationToken.None))
+            {
+                throw CloudService.Explain(exception);
             }
         }
-        catch (Exception exception) when (CloudService.IsCloudFailure(exception, CancellationToken.None))
+
+        if (switchedOff is not null)
         {
-            throw CloudService.Explain(exception);
+            throw new BusinessException(switchedOff + ".");
         }
     }
 
@@ -83,6 +97,7 @@ public sealed class MailPim : IAsyncDisposable
         {
             if (CloudService.IsConnected && !IsSyncing)
             {
+                await StopSyncsAsync(); // a sync the cloud ended (401) is not taken up again: new ones on the same stores
                 StartSyncs();
             }
             else if (!CloudService.IsConnected && IsSyncing)
@@ -105,6 +120,7 @@ public sealed class MailPim : IAsyncDisposable
         {
             if (sync is not null)
             {
+                sync.StatusChanged -= OnSyncStatusChanged;
                 try
                 {
                     await sync.DisposeAsync();
@@ -133,7 +149,7 @@ public sealed class MailPim : IAsyncDisposable
             var people = PimStores.Open(ContactsStoreName);
             var calendar = PimStores.Open(CalendarStoreName);
             People = new ContactsSession(people);
-            Calendar = new CalendarBook(calendar);
+            Calendar = new CalendarBook(calendar) { AwaitsFirstSync = () => calendar.LastSync is null };
             People.Changed += OnChanged;
             Calendar.Changed += OnChanged;
             People.LocalChanged += (_, _) => _peopleSync?.Trigger();
@@ -153,11 +169,23 @@ public sealed class MailPim : IAsyncDisposable
             return;
         }
 
-        _peopleSync ??= new PimSync(People.Store, CloudService.CreateClient, app: CloudApps.Contacts);
-        _calendarSync ??= new PimSync(Calendar.Store, CloudService.CreateClient, app: CloudApps.Calendar);
+        if (_peopleSync is null)
+        {
+            _peopleSync = new PimSync(People.Store, CloudService.CreateClient, app: CloudApps.Contacts);
+            _peopleSync.StatusChanged += OnSyncStatusChanged;
+        }
+
+        if (_calendarSync is null)
+        {
+            _calendarSync = new PimSync(Calendar.Store, CloudService.CreateClient, app: CloudApps.Calendar);
+            _calendarSync.StatusChanged += OnSyncStatusChanged;
+        }
+
         _peopleSync.Start();
         _calendarSync.Start();
     }
+
+    private void OnSyncStatusChanged(object? sender, SyncStatus status) => SyncStatusChanged?.Invoke(this, EventArgs.Empty);
 
     private async Task CloseAsync()
     {

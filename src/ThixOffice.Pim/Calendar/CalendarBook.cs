@@ -66,12 +66,23 @@ public sealed class CalendarBook : IDisposable
     /// <summary>The calendar new appointments go into: the first own calendar (made when there is none).</summary>
     public CalendarEntry DefaultCalendar() => WritableCalendars.FirstOrDefault() ?? EnsureOwnCalendar();
 
+    /// <summary>
+    /// True while the store has not yet been in step with the cloud once (set by the app whose store syncs): no own calendar is made then – the account's
+    /// own calendars of ThixCalendar may still be on their way, and a second "Eigene Kalender" would appear in ThixCalendar on every computer.
+    /// </summary>
+    public Func<bool>? AwaitsFirstSync { get; init; }
+
     /// <summary>An own calendar: the first there is, or a new account "Eigene Kalender" with a calendar "Kalender" (both synced like ThixCalendar's).</summary>
     public CalendarEntry EnsureOwnCalendar()
     {
         if (WritableCalendars.FirstOrDefault() is { } existing)
         {
             return existing;
+        }
+
+        if (AwaitsFirstSync?.Invoke() == true)
+        {
+            throw new BusinessException("Der Kalender Ihres ThixCloud-Kontos wird noch zum ersten Mal abgeglichen. Bitte versuchen Sie es gleich noch einmal.");
         }
 
         var accounts = CalendarItems.Accounts(Store);
@@ -85,7 +96,7 @@ public sealed class CalendarBook : IDisposable
 
         var remoteId = NewKey();
         var key = CalendarContract.CalendarKey(accountId, remoteId);
-        changes.Add((CalendarContract.Calendars, key, CalendarItems.Serialize(new CalendarCalendarItem(remoteId, "Kalender", CalendarItems.Palette[0], true, true, 15, 0))));
+        changes.Add((CalendarContract.Calendars, key, CalendarItems.Serialize(new CalendarCalendarItem(remoteId, "Kalender", CalendarItems.Palette[0], true, true, null, 0))));
         Store.Write(changes);
         Invalidate(local: true);
         return Calendar(key)!;
@@ -105,7 +116,7 @@ public sealed class CalendarBook : IDisposable
         var key = CalendarContract.CalendarKey(accountId, remoteId);
         var count = WritableCalendars.Count;
         Store.Write([(CalendarContract.Calendars, key, CalendarItems.Serialize(new CalendarCalendarItem(remoteId, trimmed,
-            CalendarItems.ValidColor(color) ?? CalendarItems.Palette[count % CalendarItems.Palette.Count], true, true, 15, count)))]);
+            CalendarItems.ValidColor(color) ?? CalendarItems.Palette[count % CalendarItems.Palette.Count], true, true, null, count)))]);
         Invalidate(local: true);
         return Calendar(key)!;
     }
@@ -205,9 +216,17 @@ public sealed class CalendarBook : IDisposable
         {
             throw new BusinessException("Die Erinnerung liegt höchstens vier Wochen vor dem Termin.", nameof(CalendarAppointment.ReminderMinutes));
         }
+
+        if (appointment.MeetingUrl.Length > 0 && !MeetingLinks.IsWebAddress(appointment.MeetingUrl))
+        {
+            throw new BusinessException("Der Besprechungslink muss eine Webadresse sein (https://…).", nameof(CalendarAppointment.MeetingUrl));
+        }
     }
 
-    /// <summary>Trimmed texts, all-day dates at midnight UTC (as ThixCalendar keeps them).</summary>
+    /// <summary>
+    /// Trimmed texts, all-day dates at midnight UTC, the meeting address from location or notes when there is none (ThixCalendar's Normalize: what it
+    /// would store for the same appointment, so it never writes ThixMail's appointments back).
+    /// </summary>
     public static CalendarAppointment Normalize(CalendarAppointment appointment)
     {
         var normalized = appointment with
@@ -217,9 +236,12 @@ public sealed class CalendarBook : IDisposable
             Description = appointment.Description.TrimEnd(),
             MeetingUrl = appointment.MeetingUrl.Trim(),
         };
-        return normalized.IsAllDay
-            ? normalized with { Start = CalendarAppointment.AllDayDate(normalized.Start.UtcDateTime.Date), End = CalendarAppointment.AllDayDate(normalized.End.UtcDateTime.Date) }
-            : normalized;
+        if (normalized.IsAllDay)
+        {
+            normalized = normalized with { Start = CalendarAppointment.AllDayDate(normalized.Start.UtcDateTime.Date), End = CalendarAppointment.AllDayDate(normalized.End.UtcDateTime.Date) };
+        }
+
+        return normalized.MeetingUrl.Length > 0 ? normalized : normalized with { MeetingUrl = MeetingLinks.Find(normalized.Location, normalized.Description) };
     }
 
     /// <summary>A new key as ThixCalendar makes them (a GUID without dashes).</summary>
