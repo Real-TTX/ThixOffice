@@ -385,6 +385,25 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   Client ids ONLY from `OAuthClients` (built in empty; policy texts `OAuth<Provider>ClientId/ClientSecret` via `AccessPolicy.Text`, env
   `THIXMAIL_OAUTH_<PROVIDER>_CLIENT_ID/_SECRET`); never another product's ids. Without one the account form says so. Tests: `FakeOAuthServer`
   (tests/ThixMail.Core.Tests, linked into ThixMail.Tests), `AccountForm.BrowserForTests`. The registrations to make: docs/PLAN.md Phase 7.
+- **Settings through ThixCloud:** `MailDocument` runs a `PimSync` (own app `mail`) on `AccountStore.Store` while signed in (`ReconnectSettingsAsync`
+  follows the sign-in); collections mail-accounts/-signatures/-categories/-rules/-templates; secrets are meta values and never travel. Remote changes
+  raise `AccountStore.Changed` (`PimStore.RemoteChanged`) → `OnAccountsChanged` starts/stops account syncs (`SaveQuietly` around local account writes).
+- **Big folders:** the sync fetches 1,000 headers per round and loops on at once while a folder has older ones (`_backfill`); without CONDSTORE the flag
+  poll is the newest 300 + a moving window (2,000 in a full round), other folders than the Posteingang at most every 15 min. `scripts/greenmail-test.ps1
+  -Large 20000` measures it (`LargeMailboxTests`).
+- **Everyday:** search folders (`FolderNodeKind.SearchUnread/SearchFlagged`; a message read in an unread view stays listed until the view changes),
+  "Später senden" (`Outbox.SendAt`, migration 2; `MailSync.UntilNextSending`), templates (`MailTemplate`, collection mail-templates, `TemplateDialog`),
+  `MailSession.MoveToAccountAsync` (copy + original into Gelöschte Elemente; `MailEditor.MoveAsync` asks).
+- **Rules:** `MailRule` items in `AccountStore` (collection `mail-rules`), `MailRules` (Validate, Matches, Plan → `RuleOutcome`s: read/flag/categories add
+  up, the first move/delete ends), `MailSession.ApplyRules(outcomes, undoable)` / `ApplyRulesNow(folder)` (one step "Regeln anwenden"); on arrival
+  `MailSync.Arrived` → `MailDocument.OnArrived` (sync thread, not undoable) BEFORE `NewMail` (which then names only what stays unread in the Posteingang).
+  UI: `Pages/RulesPanel` (Einstellungen › Regeln) + `RuleDialog`, commands `mail.rules.create/manage/run`.
+- **Notifications:** `IMailNotifier.Show(MailNotice)` (title, text, link `thixmail:message?id=…` = `MailLinks`, Open). Windows: `WindowsToasts`
+  (ThixOffice.Core/Platform/Windows: WinRT through combase + vtable calls, no projection) as `OfficeAppDefinition.AppUserModelId` – only shown when the
+  Start-menu shortcut carries that AUMID (`ShellLink.Write(…, appUserModelId)`, written by the setup for apps with `ShowsNotifications`; the process sets
+  it in `OfficeApplication.Start`); a click starts the URL scheme `thixmail:` (`InstallService.RegisterUrlScheme`), `OfficeApplication.DocumentFilesIn`
+  passes the app's own links through, `App.ImportFilesAsync` → `OpenLink`. Fallback MatNotification (development builds, toasts off). macOS:
+  `MacNotifications` (NSUserNotificationCenter + a run-time delegate class; click → `MailNotifications.LinkActivated`), fallback osascript.
 - **Protocol:** everything goes through `IMailTransport` (`MailDocument.Transport`; tests/snapshots/self test: `SampleMailServer`). MailKit 5 is
   rooted for trimming (`TrimmerRootAssembly` MailKit, MimeKit.Core); code pages are registered by `MailMime`'s module initializer before MimeKit
   builds its charset table.

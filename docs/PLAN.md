@@ -838,6 +838,52 @@ gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMT
     5. Ergebnis: **Anwendungs-(Client-)ID** → `OAuthClients.BuiltIn["microsoft"]`.
   - Zum Ausprobieren vor dem Einbau: die Ids als Umgebungsvariablen (siehe oben) setzen und ThixMail mit `THIXMAIL_DATA_DIR=<Ordner>` starten.
 
+- **Stand (2026-11-22): 7d – große Postfächer gegen einen echten Server.** `scripts/greenmail-test.ps1 -Large 20000` (Wegwerf-Container; die 20.000
+  Nachrichten liest GreenMail beim Start aus erzeugten .eml-Dateien – einzeln per APPEND dauert es bei GreenMail Stunden –, dazu 60 Ordner × 50 per
+  APPEND; `LargeMailboxTests`). Ergebnis (GreenMail 2.1.14, Docker auf diesem Rechner): erste Runde 4.000 Köpfe in 66 s, vollständig 20.000 + 3.000 in
+  1.127 s – ThixMail selbst brauchte dafür nur 1,6 s bzw. 11 s CPU, die Zeit liegt bei GreenMail (ohne CONDSTORE, langsam bei großen Ordnern);
+  unveränderte Runde über 62 Ordner 16,8 s (CPU 0,1 s), Liste des Posteingangs mit 20.025 Einträgen 27 ms, Volltextsuche über alle Ordner 2 ms,
+  Speicher des Prozesses 45 → 46 MB, Datei 27 MB. **Behoben:** ältere Nachrichten eines großen Ordners kamen nur alle ~10 Minuten 1.000 weiter
+  (20.000 hätten Stunden gebraucht) – jetzt holt die Schleife das nächste Fenster sofort, ohne IDLE dazwischen; ohne CONDSTORE wurden geänderte
+  Kennzeichen alter Nachrichten nur in Fenstern von 300 je Runde gefunden (bei 20.000 erst nach ~70 Runden) – jetzt 2.000 je voller Runde, andere
+  Ordner als der Posteingang höchstens alle 15 Minuten. **Grenze von GreenMail:** auf einem 20.000er-Ordner brauchen manche Befehle länger als
+  MailKits 60 s (der normale Lauf läuft daher ohne `-Large` auf einem eigenen Container); bei echten Servern (Dovecot, Gmail) ungeprüft.
+- **Stand (2026-11-22): 7d – Benachrichtigungen (dev).** Windows: echte System-Toasts (Info-Center) ohne zusätzliches Paket – WinRT über combase und
+  die vtables (`WindowsToasts`), die App-Kennung (AUMID `info.schmoldt.thixmail`) trägt die Startmenü-Verknüpfung, die das Setup schreibt
+  (`ShellLink.Write` mit `PKEY_AppUserModel_ID`), der Prozess setzt dieselbe; ein Klick startet `thixmail:message?id=…` (URL-Schema, vom Setup
+  registriert), die laufende Instanz übernimmt es und zeigt die Nachricht – auch wenn ThixMail inzwischen beendet war. Ohne Verknüpfung
+  (Entwicklungsbuild) oder mit ausgeschalteten Benachrichtigungen bleibt MatDesktops eigene Meldung. macOS: Mitteilungszentrale über
+  NSUserNotificationCenter mit einem zur Laufzeit erzeugten Delegaten (Klick → Nachricht), nur im App-Bundle; sonst osascript wie bisher.
+  **Ungeprüft:** der Klick-Rückweg unter macOS (kein Mac hier; CI baut nur) und Toasts eines installierten ThixMail (hier nur mit einer
+  Test-Verknüpfung, `THIXOFFICE_REAL_TOAST=1`). NSUserNotificationCenter ist seit macOS 11 als veraltet markiert; der Ersatz
+  (UNUserNotificationCenter) braucht Blocks und eine Berechtigungsabfrage – später.
+- **Stand (2026-11-22): 7d – Regeln (dev).** Clientseitige Regeln wie Outlooks einfache Regeln: Bedingungen Absender / Empfänger (An, Cc) / Betreff
+  enthält, mit Anlage, Konto; Aktionen in Ordner verschieben, als gelesen markieren, kategorisieren, kennzeichnen, löschen (in „Gelöschte Elemente“ –
+  nie endgültig), „keine weiteren Regeln anwenden“; ein-/ausschaltbar, Reihenfolge. Sie laufen bei neuer Mail im Posteingang (vor der
+  Benachrichtigung: was eine Regel verschiebt oder liest, wird nicht gemeldet) und mit „Regeln jetzt anwenden“ (ein Rückgängig-Schritt). Gespeichert als
+  Sammlung `mail-rules` im Einstellungsbestand (wie die Signaturen). UI: Start › Verschieben › Regel erstellen / Regeln verwalten / Regeln jetzt
+  anwenden, Einstellungen › Regeln (Liste, Neue Regel, Bearbeiten, Nach oben/unten, Löschen), Dialog „Neue Regel“. **Lücken:** keine Ausnahmen, kein
+  „oder“, keine Regeln auf dem Server (Sieve), keine Weiterleitung/Antwort per Regel, Regeln für Ordner außer dem Posteingang nur über „jetzt anwenden“.
+
+- **Stand (2026-11-22): 7d – Alltagslücken (dev).** Suchordner „Ungelesene E-Mail“ und „Zur Nachverfolgung“ unter Favoriten (alle Konten, ohne
+  Gelöschte Elemente, Junk-E-Mail, Entwürfe); „Später senden“ im Nachrichtenfenster (Datum + Uhrzeit, die Nachricht wartet im Postausgang – Spalte
+  `SendAt`, Migration 2 –, die Schleife wacht zum Zeitpunkt auf; ThixMail muss dann laufen); Vorlagen (Sammlung `mail-templates`: Betreff + Text, „Als
+  Vorlage speichern“, Start › Neue E-Mail aus Vorlage); Verschieben in ein anderes Konto (Kopie dort, das Original in „Gelöschte Elemente“ seines Kontos,
+  nach Rückfrage, nicht rückgängig); HTML: ein Zitat im Zitat mit zwei Balken (Doppellinie; tiefere Ebenen bleiben bei zwei), Abstand zwischen zwei
+  aufeinanderfolgenden Tabellen, `line-height` (Zahl/Prozent als Vielfaches, Längen als „mindestens“ – nie kleiner als die Schrift).
+  **Nicht gebaut:** Kennzeichnung mit Fälligkeitsdatum (IMAP kennt keins; „Zur Nachverfolgung“ zeigt die gekennzeichneten), Vorlagen ohne Anlagen
+  und Empfänger, der Date-Kopf einer später gesendeten Nachricht ist der Zeitpunkt des Schreibens.
+
+- **Stand (2026-11-22): 7d – Einstellungen über ThixCloud (dev).** Vertrag 1.5.0 reicht: der allgemeine Sync nimmt jede gültige Sammlung der eigenen
+  App an, ThixMail (App `mail`) synchronisiert seinen Einstellungsbestand mit `mail-accounts` (ohne Kennwort), `mail-signatures`, `mail-categories`,
+  `mail-rules`, `mail-templates` – keine MatCloud-Änderung nötig. Kennwörter und OAuth-Tokens sind Meta-Werte des Bestands (TokenStore) und reisen nie,
+  Mail-Inhalte ebenso wenig. Ein Konto vom anderen Computer erscheint und fragt nach seinem Kennwort bzw. der Anmeldung im Browser; ein dort entferntes
+  Konto verschwindet hier mit seinen lokalen Mails. Geprüft gegen SampleCloud (zwei Computer), nicht gegen eine echte MatCloud. **Lücken:** wechselt
+  man das ThixCloud-Konto, holt ThixMail dessen Einstellungen von vorn, schickt aber die vorhandenen nicht erneut hoch; Änderungen der Servereinstellungen
+  eines laufenden Kontos von einem anderen Computer wirken erst beim nächsten Start.
+- **Nicht gebaut (7d, Kalender in ThixMail):** Termine mit der Maus ziehen/aufziehen, Erinnerungen in ThixMail (mit Rücksicht auf ThixCalendar),
+  Drucken der Kalenderansichten – offen.
+
 Offen: Umfang von 7d und ob ThixContacts später auch ohne ThixCloud per CardDAV synchronisiert.
 
 ### Später

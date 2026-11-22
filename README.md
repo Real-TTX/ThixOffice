@@ -345,8 +345,14 @@ dem Mailserver und – zum Lesen ohne Verbindung – auf diesem Computer, **nie 
   Import/Export). Ohne Anmeldung erklären beide Ansichten, dass sie die ThixCloud brauchen, und bieten die Anmeldung an – E-Mail geht auch ohne.
 - **Einladungen** in E-Mails: eine Leiste mit Zeit, Ort, Organisator und den Überschneidungen in Ihrem Kalender; **Zusagen**, **Mit Vorbehalt** oder
   **Absagen** trägt den Termin ein (oder nimmt ihn heraus) und schickt dem Organisator die Antwort. Absender werden mit einem Klick zu Kontakten.
-- **Benachrichtigung** bei neuer E-Mail (solange ThixMail nicht vorn ist), auf Wunsch Weiterlaufen im Infobereich; **Drucken** und **Als PDF
-  speichern** einer Nachricht; **.eml** öffnen (Doppelklick, „Öffnen mit“) und speichern.
+- **Benachrichtigung** bei neuer E-Mail (solange ThixMail nicht vorn ist) als Windows-Benachrichtigung im Info-Center bzw. in der Mitteilungszentrale
+  des Mac – ein Klick zeigt die Nachricht –, auf Wunsch Weiterlaufen im Infobereich; **Drucken** und **Als PDF speichern** einer Nachricht; **.eml**
+  öffnen (Doppelklick, „Öffnen mit“) und speichern.
+- **Regeln** wie in Outlook (Start › Regel erstellen, Einstellungen › Regeln): wenn Absender, Empfänger oder Betreff etwas enthalten oder eine Anlage
+  dabei ist – verschieben, als gelesen markieren, kategorisieren, kennzeichnen oder löschen; sie laufen bei neuer Mail und auf Wunsch sofort
+  („Regeln jetzt anwenden“, rückgängig zu machen).
+- **Alltag:** Suchordner „Ungelesene E-Mail“ und „Zur Nachverfolgung“ über alle Konten, **Später senden** (die Nachricht wartet im Postausgang),
+  **Vorlagen** (Als Vorlage speichern, Neue E-Mail aus Vorlage), Verschieben in ein anderes Konto.
 
 Tastenkürzel wie im deutschen Outlook: Strg+N neue E-Mail · Strg+R antworten · Strg+Umschalt+R allen antworten · Strg+F weiterleiten · Strg+E oder
 F3 suchen · Entf löschen · Rücktaste archivieren · Strg+Q gelesen · Strg+U ungelesen · Einfg zur Nachverfolgung · Strg+Umschalt+V verschieben ·
