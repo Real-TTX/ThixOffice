@@ -85,11 +85,12 @@ public sealed class MessageView : UserControl
         TrustSenderButton = new Button { Content = "Immer für diesen Absender", Padding = new Thickness(10, 3) }.Themed("MatButton.Ghost");
         LoadImagesButton.Click += (_, _) => LoadImagesRequested?.Invoke(this, false);
         TrustSenderButton.Click += (_, _) => LoadImagesRequested?.Invoke(this, true);
-        var imagesRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
-        var imagesActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Children = { LoadImagesButton, TrustSenderButton } };
+        var imagesRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), RowDefinitions = new RowDefinitions("Auto,Auto") };
+        var imagesActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 0), Children = { LoadImagesButton, TrustSenderButton } };
         var shield = new MatIcon { Icon = "shield", Size = 16, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
         Grid.SetColumn(_imagesText, 1);
-        Grid.SetColumn(imagesActions, 2);
+        Grid.SetColumn(imagesActions, 1);
+        Grid.SetRow(imagesActions, 1);
         imagesRow.Children.Add(shield);
         imagesRow.Children.Add(_imagesText);
         imagesRow.Children.Add(imagesActions);
