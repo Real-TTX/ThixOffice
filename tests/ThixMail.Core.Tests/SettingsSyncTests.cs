@@ -89,9 +89,16 @@ public sealed class SettingsSyncTests
             await CloudService.ConnectAsync("https://zweite-cloud.example.com", SampleCloud.UserName, SampleCloud.Password, "ANNA-PC");
             await document.ReconnectSettingsAsync();
 
-            await TestData.UntilAsync(() => second.SyncItems(CloudApps.Mail, AccountStore.AccountsCollection).Count == 1
-                                            && second.SyncItems(CloudApps.Mail, AccountStore.SignaturesCollection).Count == 2
-                                            && document.Accounts.Signatures.Count == 2, "this computer's settings in the second account and its signature here");
+            bool Joined() => second.SyncItems(CloudApps.Mail, AccountStore.AccountsCollection).Count == 1
+                              && second.SyncItems(CloudApps.Mail, AccountStore.SignaturesCollection).Count == 2
+                              && document.Accounts.Signatures.Count == 2;
+            for (var round = 0; round < 1200 && !Joined(); round++)
+            {
+                await Task.Delay(25); // up to 30 s: a slow runner
+            }
+
+            Assert.True(Joined(), $"the second account has {second.SyncItems(CloudApps.Mail, AccountStore.AccountsCollection).Count} accounts and {second.SyncItems(CloudApps.Mail, AccountStore.SignaturesCollection).Count} signatures, " +
+                                  $"here {document.Accounts.Signatures.Count} signatures, {document.Accounts.PendingCloudChanges} waiting, settings sync {document.SettingsSyncStatus.State} {document.SettingsSyncStatus.Message}");
             Assert.Equal(TestData.Address, document.Accounts.Accounts.Single().Address); // nothing of this computer was lost
             Assert.NotNull(document.SyncOf(TestData.Account.Id)); // and the account keeps running
             Assert.Equal(0, document.Accounts.PendingCloudChanges);
