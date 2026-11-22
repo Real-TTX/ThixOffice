@@ -92,7 +92,7 @@ public sealed class MailDocument : OfficeDocument
     // ===== accounts =====
 
     /// <summary>Adds an account (validated; the connection test ran before) with its passwords, and starts its sync.</summary>
-    public MailAccount AddAccount(MailAccount account, string imapPassword, string? smtpPassword)
+    public MailAccount AddAccount(MailAccount account, string imapPassword, string? smtpPassword, OAuthTokens? tokens = null)
     {
         var valid = AccountService.Validate(account) with { Order = Accounts.Accounts.Count };
         if (Accounts.Accounts.Any(a => a.Address.Equals(valid.Address, StringComparison.OrdinalIgnoreCase) && a.ImapUser == valid.ImapUser && a.Imap.Host == valid.Imap.Host))
@@ -101,8 +101,16 @@ public sealed class MailDocument : OfficeDocument
         }
 
         Accounts.Save(valid);
-        AccountService.SetPassword(Accounts, valid.Id, AccountService.ImapSecret, imapPassword);
-        if (!valid.SmtpUsesImapPassword && smtpPassword is not null)
+        if (valid.UsesOAuth)
+        {
+            AccountService.SetOAuthTokens(Accounts, valid.Id, tokens ?? throw new BusinessException("Bitte melden Sie sich zuerst im Browser an.", "Password"));
+        }
+        else
+        {
+            AccountService.SetPassword(Accounts, valid.Id, AccountService.ImapSecret, imapPassword);
+        }
+
+        if (!valid.UsesOAuth && !valid.SmtpUsesImapPassword && smtpPassword is not null)
         {
             AccountService.SetPassword(Accounts, valid.Id, AccountService.SmtpSecret, smtpPassword);
         }
@@ -113,10 +121,26 @@ public sealed class MailDocument : OfficeDocument
     }
 
     /// <summary>Changes an account (and its passwords when given); the sync uses the new settings at once.</summary>
-    public MailAccount UpdateAccount(MailAccount account, string? imapPassword = null, string? smtpPassword = null)
+    public MailAccount UpdateAccount(MailAccount account, string? imapPassword = null, string? smtpPassword = null, OAuthTokens? tokens = null)
     {
         var valid = AccountService.Validate(account);
         Accounts.Save(valid);
+        if (tokens is not null)
+        {
+            AccountService.SetOAuthTokens(Accounts, valid.Id, tokens);
+        }
+
+        if (valid.UsesOAuth)
+        {
+            // a password the account had before the browser sign-in is of no use any more
+            imapPassword = "";
+            smtpPassword = "";
+        }
+        else
+        {
+            AccountService.SetOAuthTokens(Accounts, valid.Id, null);
+        }
+
         if (imapPassword is not null)
         {
             AccountService.SetPassword(Accounts, valid.Id, AccountService.ImapSecret, imapPassword);
@@ -151,7 +175,15 @@ public sealed class MailDocument : OfficeDocument
         }
 
         Store.RemoveAccount(accountId);
-        AccountService.ForgetPasswords(Accounts, accountId);
+        if (Accounts.Accounts.FirstOrDefault(a => a.Id == accountId) is { } account)
+        {
+            await AccountService.ForgetAsync(Accounts, account, CancellationToken.None);
+        }
+        else
+        {
+            AccountService.ForgetPasswords(Accounts, accountId);
+        }
+
         Accounts.Remove(accountId);
         RaiseChanged();
     }
@@ -253,7 +285,7 @@ public sealed class MailDocument : OfficeDocument
 
         if (!_syncs.TryGetValue(account.Id, out var sync))
         {
-            sync = new MailSync(Store, account, Transport, (a, kind) => AccountService.Password(Accounts, a, kind));
+            sync = new MailSync(Store, account, Transport, (a, kind, renew, cancellationToken) => AccountService.CredentialAsync(Accounts, a, kind, renew, cancellationToken));
             ConfigureSyncForTests?.Invoke(sync);
             sync.StatusChanged += OnSyncStatus;
             sync.NewMail += OnNewMail;

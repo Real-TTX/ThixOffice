@@ -53,7 +53,7 @@ public sealed class MailSync : IAsyncDisposable
 
     private readonly MailStore _store;
     private readonly IMailTransport _transport;
-    private readonly Func<MailAccount, string, string?> _password;
+    private readonly CredentialSource _credentials;
     private readonly SemaphoreSlim _roundGate = new(1, 1);
     private readonly SemaphoreSlim _fetchGate = new(1, 1);
     private readonly object _gate = new();
@@ -66,12 +66,20 @@ public sealed class MailSync : IAsyncDisposable
     private bool _firstRound = true;
     private AccountSyncStatus _status;
 
+    /// <summary>What an account signs in with at a server ("imap"/"smtp"): a password or an OAuth access token (<paramref name="renew"/>: the last was refused).</summary>
+    public delegate Task<string?> CredentialSource(MailAccount account, string kind, bool renew, CancellationToken cancellationToken);
+
     public MailSync(MailStore store, MailAccount account, IMailTransport transport, Func<MailAccount, string, string?> password)
+        : this(store, account, transport, (a, kind, _, _) => Task.FromResult(password(a, kind)))
+    {
+    }
+
+    public MailSync(MailStore store, MailAccount account, IMailTransport transport, CredentialSource credentials)
     {
         _store = store;
         Account = account;
         _transport = transport;
-        _password = password;
+        _credentials = credentials;
         _status = AccountSyncStatus.Off(account.Id);
     }
 
@@ -209,9 +217,12 @@ public sealed class MailSync : IAsyncDisposable
             {
                 return;
             }
-            catch (MailConnectionException exception) when (exception.Kind is MailErrorKind.Authentication or MailErrorKind.AppPasswordRequired)
+            catch (MailConnectionException exception) when (exception.Kind is MailErrorKind.Authentication or MailErrorKind.AppPasswordRequired or MailErrorKind.SignInRequired)
             {
-                SetStatus(_status with { Phase = SyncPhase.SignInFailed, Message = "Anmeldung abgelehnt – bitte das Kennwort des Kontos prüfen.", Pending = PendingCount() });
+                var message = exception.Kind == MailErrorKind.SignInRequired ? exception.Message
+                    : Account.UsesOAuth ? "Anmeldung abgelehnt – bitte melden Sie sich in Datei › Konten erneut im Browser an."
+                    : "Anmeldung abgelehnt – bitte das Kennwort des Kontos prüfen.";
+                SetStatus(_status with { Phase = SyncPhase.SignInFailed, Message = message, Pending = PendingCount() });
                 await WaitForTriggerAsync(stop);
             }
             catch (MailConnectionException exception) when (exception.Kind == MailErrorKind.Certificate)
@@ -277,10 +288,40 @@ public sealed class MailSync : IAsyncDisposable
 
     private async Task<IImapConnection> ConnectImapAsync(CancellationToken cancellationToken)
     {
-        var password = _password(Account, Accounts.AccountService.ImapSecret)
-                       ?? throw new MailConnectionException(MailErrorKind.Authentication, "Für dieses Konto ist kein Kennwort gespeichert.");
-        return await _transport.ConnectImapAsync(Account, password, cancellationToken);
+        var account = Account;
+        var secret = await SecretAsync(account, Accounts.AccountService.ImapSecret, renew: false, cancellationToken);
+        try
+        {
+            return await _transport.ConnectImapAsync(account, secret, cancellationToken);
+        }
+        catch (MailConnectionException exception) when (exception.Kind == MailErrorKind.Authentication && account.UsesOAuth)
+        {
+            // an access token the server no longer takes (revoked, ended early): renewed once
+            secret = await SecretAsync(account, Accounts.AccountService.ImapSecret, renew: true, cancellationToken);
+            return await _transport.ConnectImapAsync(account, secret, cancellationToken);
+        }
     }
+
+    private async Task<ISmtpConnection> ConnectSmtpAsync(CancellationToken cancellationToken)
+    {
+        var account = Account;
+        var secret = await SecretAsync(account, Accounts.AccountService.SmtpSecret, renew: false, cancellationToken);
+        try
+        {
+            return await _transport.ConnectSmtpAsync(account, secret, cancellationToken);
+        }
+        catch (MailConnectionException exception) when (exception.Kind == MailErrorKind.Authentication && account.UsesOAuth)
+        {
+            secret = await SecretAsync(account, Accounts.AccountService.SmtpSecret, renew: true, cancellationToken);
+            return await _transport.ConnectSmtpAsync(account, secret, cancellationToken);
+        }
+    }
+
+    private async Task<string> SecretAsync(MailAccount account, string kind, bool renew, CancellationToken cancellationToken) =>
+        await _credentials(account, kind, renew, cancellationToken)
+        ?? throw new MailConnectionException(MailErrorKind.Authentication, kind == Accounts.AccountService.SmtpSecret
+            ? "Für den Postausgangsserver ist kein Kennwort gespeichert."
+            : "Für dieses Konto ist kein Kennwort gespeichert.");
 
     /// <summary>One complete round now on its own connection (tests, the self test; F9 uses <see cref="Trigger"/> while the loop runs).</summary>
     public async Task<SyncReport> SyncOnceAsync(CancellationToken cancellationToken = default)
@@ -497,10 +538,8 @@ public sealed class MailSync : IAsyncDisposable
             return 0;
         }
 
-        var password = _password(Account, Accounts.AccountService.SmtpSecret)
-                       ?? throw new MailConnectionException(MailErrorKind.Authentication, "Für den Postausgangsserver ist kein Kennwort gespeichert.");
         var sent = 0;
-        await using var smtp = await _transport.ConnectSmtpAsync(Account, password, cancellationToken);
+        await using var smtp = await ConnectSmtpAsync(cancellationToken);
         foreach (var item in waiting)
         {
             var raw = _store.ReadFile(item.RawPath);

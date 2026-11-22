@@ -34,6 +34,8 @@ public partial class App : OfficeApplication
     public const string ConversationScene = "main-conversation";
     public const string ComposeScene = "compose";
     public const string AccountScene = "backstage-add-account";
+    public const string BrowserSignInScene = "backstage-add-account-browser";
+    public const string NoClientScene = "backstage-add-account-microsoft";
     public const string AttachmentsScene = "main-attachments";
     public const string OfflineScene = "main-offline";
     public const string SignaturesScene = "backstage-settings-signatures";
@@ -50,7 +52,7 @@ public partial class App : OfficeApplication
 
     public override OfficeAppDefinition Definition => ThixMailApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [ConversationScene, NewsletterScene, ComposeScene, AccountScene, AttachmentsScene, OfflineScene, SignaturesScene, CalendarSignInScene, CalendarScene, CalendarMonthScene, AppointmentScene, PeopleScene, InvitationScene];
+    public override IReadOnlyList<string> SnapshotScenes => [ConversationScene, NewsletterScene, ComposeScene, AccountScene, BrowserSignInScene, NoClientScene, AttachmentsScene, OfflineScene, SignaturesScene, CalendarSignInScene, CalendarScene, CalendarMonthScene, AppointmentScene, PeopleScene, InvitationScene];
 
     public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => MailRibbon.Create(window);
 
@@ -229,6 +231,20 @@ public partial class App : OfficeApplication
                 }
 
                 return window;
+            case BrowserSignInScene or NoClientScene:
+                // the browser sign-in as it looks once ThixMail has a client id (a sample one only for the picture) – and without one (the honest note)
+                ThixMail.Core.Accounts.OAuthClients.ForTests = id => name == BrowserSignInScene ? new ThixMail.Core.Accounts.OAuthClient("snapshot", null) : null;
+                window.ShowBackstage(AccountsPage.PageId);
+                if (window.Backstage.CurrentPage is AccountsPage oauthPage)
+                {
+                    var address = name == BrowserSignInScene ? "anna.berger@gmail.com" : "anna.berger@outlook.de";
+                    oauthPage.ShowForm(null);
+                    oauthPage.Form!.SenderBox.Text = "Anna Berger";
+                    oauthPage.Form.AddressBox.Text = address;
+                    oauthPage.Form.ShowFound(ThixMail.Core.Accounts.AutoConfig.FromProvider(ThixMail.Core.Accounts.AutoConfig.ProviderOf(address)!, address));
+                }
+
+                return window;
             case OfflineScene:
                 _ = editor.Document.SetWorkingOfflineAsync(true);
                 Dispatcher.UIThread.RunJobs();
@@ -342,6 +358,10 @@ public partial class App : OfficeApplication
                 }
 
                 _ = editor.Document.SetWorkingOfflineAsync(false);
+                break;
+            case BrowserSignInScene or NoClientScene:
+                ThixMail.Core.Accounts.OAuthClients.ForTests = null;
+                window.Backstage.Close();
                 break;
             case AccountScene:
             case SignaturesScene:

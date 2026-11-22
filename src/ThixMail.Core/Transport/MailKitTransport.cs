@@ -34,9 +34,7 @@ public sealed class MailKitTransport : IMailTransport
         try
         {
             await client.ConnectAsync(account.Imap.Host, account.Imap.Port, Options(account.Imap.Security), cancellationToken);
-            client.AuthenticationMechanisms.Remove("XOAUTH2");
-            client.AuthenticationMechanisms.Remove("OAUTHBEARER");
-            await client.AuthenticateAsync(account.ImapUser, password, cancellationToken);
+            await SignInAsync(client, account, account.ImapUser, password, cancellationToken);
             return new ImapConnection(client);
         }
         catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
@@ -54,11 +52,9 @@ public sealed class MailKitTransport : IMailTransport
         try
         {
             await client.ConnectAsync(account.Smtp.Host, account.Smtp.Port, Options(account.Smtp.Security), cancellationToken);
-            client.AuthenticationMechanisms.Remove("XOAUTH2");
-            client.AuthenticationMechanisms.Remove("OAUTHBEARER");
             if (client.Capabilities.Contains(SmtpCapability.Authentication))
             {
-                await client.AuthenticateAsync(account.SmtpUser.Length > 0 ? account.SmtpUser : account.ImapUser, password, cancellationToken);
+                await SignInAsync(client, account, account.SmtpUser.Length > 0 ? account.SmtpUser : account.ImapUser, password, cancellationToken);
             }
 
             return new SmtpConnection(client);
@@ -68,6 +64,23 @@ public sealed class MailKitTransport : IMailTransport
             client.Dispose();
             throw Translate(exception, check);
         }
+    }
+
+    /// <summary>
+    /// Signs in: an OAuth account with SASL XOAUTH2 (the access token; Google and Microsoft both take it), any other with the password – and then never
+    /// through an OAuth mechanism MailKit would otherwise try first.
+    /// </summary>
+    private static async Task SignInAsync(MailService client, MailAccount account, string user, string secret, CancellationToken cancellationToken)
+    {
+        if (account.UsesOAuth)
+        {
+            await client.AuthenticateAsync(new SaslMechanismOAuth2(user, secret), cancellationToken);
+            return;
+        }
+
+        client.AuthenticationMechanisms.Remove("XOAUTH2");
+        client.AuthenticationMechanisms.Remove("OAUTHBEARER");
+        await client.AuthenticateAsync(user, secret, cancellationToken);
     }
 
     private static SecureSocketOptions Options(ConnectionSecurity security) => security switch

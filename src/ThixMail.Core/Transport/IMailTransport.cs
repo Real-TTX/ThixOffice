@@ -142,6 +142,9 @@ public enum MailErrorKind
 
     /// <summary>The server refused a recipient or the message (SMTP 5xx).</summary>
     Rejected,
+
+    /// <summary>The browser sign-in (OAuth) of the account has ended (refresh token expired or revoked): the person signs in again; the mail stays.</summary>
+    SignInRequired,
 }
 
 /// <summary>The certificate of a server as the person sees it before deciding.</summary>

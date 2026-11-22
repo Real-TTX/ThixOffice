@@ -27,6 +27,16 @@ public enum ConnectionSecurity
     None,
 }
 
+/// <summary>How an account signs in at its servers.</summary>
+public enum MailAuthentication
+{
+    /// <summary>User name and password (or the provider's app password).</summary>
+    Password,
+
+    /// <summary>OAuth 2.0: the person signs in in the browser, ThixMail keeps the tokens (SASL XOAUTH2).</summary>
+    OAuth,
+}
+
 /// <summary>Host, port and protection of one server of an account.</summary>
 public sealed record ServerSettings(string Host, int Port, ConnectionSecurity Security)
 {
@@ -84,6 +94,14 @@ public sealed record MailAccount
 
     /// <summary>The server copies what SMTP sends into Gesendete Elemente itself (Gmail, Outlook.com): no APPEND.</summary>
     public bool ServerSavesSent { get; init; }
+
+    /// <summary>How the account signs in: a password (or app password), or OAuth 2.0 in the browser (XOAUTH2; Gmail, Microsoft).</summary>
+    public MailAuthentication Authentication { get; init; }
+
+    /// <summary>The OAuth provider ("google", "microsoft") when <see cref="Authentication"/> is OAuth (<see cref="Accounts.OAuthProviders"/>).</summary>
+    public string? OAuthProvider { get; init; }
+
+    public bool UsesOAuth => Authentication == MailAuthentication.OAuth;
 
     public string DisplayName => Name.Length > 0 ? Name : Address;
 

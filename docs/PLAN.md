@@ -792,6 +792,52 @@ gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMT
   ein 403 nur für den Kalender (ThixCalendar ausgeschaltet) meldet „ThixCalendar ist in der ThixCloud abgeschaltet“ statt ThixMail abzuschalten, die
   Kontakte laufen weiter; nach einem 401 hält auch der zweite Abgleich an, eine neue Anmeldung startet beide wieder; die Titelleiste nennt die Ansicht.
 
+- **Stand (2026-11-22): 7d – OAuth 2.0 für IMAP/SMTP (dev).** Anmeldung im Browser für Gmail/Google Workspace und Outlook.com/Microsoft 365
+  (`OAuthService`: Autorisierungscode mit PKCE S256 im Systembrowser, Rückleitung an einen Loopback-Listener auf 127.0.0.1 – bei Microsoft auch ::1 –
+  mit zufälligem Port nur für diese Anmeldung, `state` geprüft, 5 Minuten Zeit; IMAP/SMTP mit SASL XOAUTH2). Tokens nur im TokenStore
+  (`AccountService.SetOAuthTokens`), erneuert 2 Minuten vor Ablauf und einmal, wenn der Server ein Token ablehnt; ein abgelaufenes oder widerrufenes
+  Aktualisierungstoken stellt das Konto auf „Anmelden?“ mit „Bitte melden Sie sich erneut an“ – die Mails bleiben, „Erneut im Browser anmelden“ auf der
+  Kontoseite setzt den Abgleich fort. Entfernen widerruft bei Google (`/revoke`); Microsoft hat für öffentliche Clients keinen Widerruf – die Tokens
+  werden lokal gelöscht. Deutsche Fehler: Zustimmung verweigert, Administratorzustimmung nötig (AADSTS90094/65001, Workspace-Richtlinie), Anmeldung
+  abgelaufen, Registrierung abgelehnt, Anbieter nicht erreichbar. Die Kontoseite erkennt die Anbieter an Adresse, Autokonfiguration und IMAP-Host
+  (auch Microsoft-365-Domänen über MX/autoconfig) und bietet „Anmeldung im Browser (empfohlen)“ oder „Kennwort oder App-Passwort“.
+  **Client-Ids:** nur an einer Stelle (`OAuthClients`), eingebaut LEER; überschreibbar durch Richtlinie (`OAuthGoogleClientId`, `OAuthGoogleClientSecret`,
+  `OAuthMicrosoftClientId`) und Umgebung (`THIXMAIL_OAUTH_GOOGLE_CLIENT_ID`, `THIXMAIL_OAUTH_GOOGLE_CLIENT_SECRET`, `THIXMAIL_OAUTH_MICROSOFT_CLIENT_ID`).
+  Ohne Id sagt die Kontoseite ehrlich, dass die Anmeldung im Browser noch nicht freigeschaltet ist (Gmail: App-Passwort; Microsoft: nur Postfächer, die
+  noch Kennwort/App-Passwort erlauben). Getestet gegen einen Schein-Anbieter (`FakeOAuthServer`: echte Loopback-Rückleitung, PKCE-Prüfung, Ausgabe,
+  Erneuerung, Widerruf) und `SampleMailServer` mit XOAUTH2; gegen Google/Microsoft selbst ungeprüft, solange die Registrierungen fehlen.
+
+  **OAuth-Registrierungen – was Matthias anlegen muss (danach fehlen nur die Ids in `OAuthClients.BuiltIn`):**
+  - **Google** (Google Cloud Console, eigenes Projekt „ThixMail“):
+    1. *Google Auth Platform › Branding*: App-Name „ThixMail“, Support-E-Mail, Logo (`branding/thixmail/png`, 120 × 120), Startseite, Datenschutzerklärung
+       und Nutzungsbedingungen auf einer eigenen, in der Search Console bestätigten Domain; diese Domain als „Autorisierte Domain“.
+    2. *Zielgruppe*: Nutzertyp **Extern**. Im Status „Testen“ nur bis zu 100 eingetragene Testnutzer, deren Aktualisierungstoken nach **7 Tagen** ablaufen –
+       ThixMail meldet das dann als „Anmeldung abgelaufen“.
+    3. *Datenzugriff*: Bereich **`https://mail.google.com/`** (ein *eingeschränkter* Bereich – IMAP/SMTP gehen nur mit ihm). Die Gmail API zu aktivieren
+       schadet nicht und macht den Bereich in der Liste wählbar.
+    4. *Clients › Client erstellen*: Anwendungstyp **Desktop-App**, Name „ThixMail“. Keine Weiterleitungs-URI eintragen: Desktop-Clients nehmen jede
+       Loopback-Adresse `http://127.0.0.1:<Port>/` an (so ruft ThixMail zurück). Ergebnis: **Client-ID und Client-Secret** – das Secret ist bei
+       Desktop-Apps nicht geheim, Google verlangt es trotzdem beim Tokentausch; beides gehört in `OAuthClients.BuiltIn["google"]`.
+    5. *Veröffentlichen* („In Produktion“): Markenprüfung (Branding) und die **Prüfung des eingeschränkten Bereichs** – Begründung, warum
+       `https://mail.google.com/` nötig ist (vollständiger IMAP/SMTP-Client), ein Video der Anmeldung und Nutzung, Datenschutzerklärung, die den Umgang
+       mit Gmail-Daten nennt (Limited-Use-Anforderungen). Die kostenpflichtige Sicherheitsprüfung (CASA) verlangt Google, wenn eingeschränkte Daten auf
+       Servern gespeichert oder über sie übertragen werden; ThixMail hält Mails nur auf dem Gerät und spricht direkt mit imap.gmail.com – das in der
+       Begründung so darlegen; die Entscheidung trifft Google. Bis zur Freigabe sehen Nutzer „Google hat diese App nicht überprüft“.
+  - **Microsoft** (Microsoft Entra Admin Center › App-Registrierungen › Neue Registrierung):
+    1. Name „ThixMail“; unterstützte Kontotypen **„Konten in einem beliebigen Organisationsverzeichnis und persönliche Microsoft-Konten“** (ThixMail
+       nutzt den Endpunkt `common`).
+    2. *Authentifizierung › Plattform hinzufügen › Mobile Anwendungen und Desktopanwendungen*: Umleitungs-URI **`http://localhost`** (Microsoft
+       ignoriert bei localhost den Port; ThixMail lauscht auf 127.0.0.1 und ::1). **„Öffentliche Clientflows zulassen“: Ja.** Kein geheimer Schlüssel
+       (öffentlicher Client mit PKCE).
+    3. *API-Berechtigungen* (delegiert): **`IMAP.AccessAsUser.All`** und **`SMTP.Send`** (unter Microsoft Graph aufgeführt; ThixMail fordert sie als
+       `https://outlook.office.com/IMAP.AccessAsUser.All` und `https://outlook.office.com/SMTP.Send` an) sowie **`offline_access`**.
+    4. *Branding*: Herausgeberdomäne und **Herausgeberüberprüfung** (Microsoft-Partner-ID / Cloud Partner Program). Ohne sie steht „nicht überprüft“
+       auf der Zustimmungsseite, und viele Organisationen erlauben Benutzern keine Zustimmung zu nicht überprüften Apps – dann braucht es die
+       Administratorzustimmung (ThixMail erklärt das: „Ihre Organisation muss ThixMail erst zulassen“). In Organisationen muss außerdem
+       „Authentifiziertes SMTP“ für das Postfach erlaubt sein.
+    5. Ergebnis: **Anwendungs-(Client-)ID** → `OAuthClients.BuiltIn["microsoft"]`.
+  - Zum Ausprobieren vor dem Einbau: die Ids als Umgebungsvariablen (siehe oben) setzen und ThixMail mit `THIXMAIL_DATA_DIR=<Ordner>` starten.
+
 Offen: Umfang von 7d und ob ThixContacts später auch ohne ThixCloud per CardDAV synchronisiert.
 
 ### Später

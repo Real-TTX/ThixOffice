@@ -159,9 +159,18 @@ public sealed class AccountForm : UserControl
     private readonly InfoBar _result = new();
     private readonly Border _certificate = new() { IsVisible = false, CornerRadius = new CornerRadius(8), Padding = new Thickness(14, 10), BorderThickness = new Thickness(1) };
     private readonly TextBlock _certificateText = new() { TextWrapping = TextWrapping.Wrap, FontSize = MatTokens.Type.FsSm };
+    private readonly StackPanel _signIn = new() { Spacing = 8, IsVisible = false };
+    private readonly MatFormField _passwordField;
+    private readonly MatFormField _choiceField;
     private CertificateInfo? _shownCertificate;
     private MailAccount? _trusting;
     private bool _busy;
+    private string? _oauthProvider;
+    private OAuthTokens? _tokens;
+    private CancellationTokenSource? _signInCancel;
+
+    /// <summary>Tests play the browser (the sign-in page of a fake provider); null = the system browser.</summary>
+    internal static Func<Uri, Task>? BrowserForTests { get; set; }
 
     public AccountForm(OfficeWindow window, MailDocument document, MailAccount? existing)
     {
@@ -187,6 +196,17 @@ public sealed class AccountForm : UserControl
         AutomationProperties.SetName(SmtpPasswordBox, "Kennwort (SMTP)");
         SmtpOwnPassword.IsCheckedChanged += (_, _) => SmtpPasswordBox.IsVisible = SmtpOwnPassword.IsChecked == true;
         NameBox = Box("Kontoname (im Ordnerbereich)", existing?.Name ?? "");
+        SignInChoice = new ComboBox { ItemsSource = new[] { "Anmeldung im Browser (empfohlen)", "Kennwort oder App-Passwort" }, SelectedIndex = existing is { UsesOAuth: false } ? 1 : 0, MinWidth = 260 };
+        AutomationProperties.SetName(SignInChoice, "Anmeldung");
+        SignInChoice.SelectionChanged += (_, _) => UpdateSignIn();
+        BrowserButton = new Button { Content = new IconLabel { Icon = "login", Text = existing is { UsesOAuth: true } ? "Erneut im Browser anmelden" : "Im Browser anmelden" } }.Themed("MatButton.Primary");
+        BrowserButton.Click += async (_, _) => await SignInInBrowserAsync();
+        SignInText = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = MatTokens.Type.FsSm };
+        SignInText.Use(TextBlock.ForegroundProperty, "Mat.TextMuted");
+        _choiceField = new MatFormField { Label = "Anmeldung", Content = SignInChoice };
+        _signIn.Children.Add(_choiceField);
+        _signIn.Children.Add(SignInText);
+        _signIn.Children.Add(new ActionBar { Children = { BrowserButton } });
 
         _details.Children.Add(new TextBlock { Text = "Server" }.Themed("MatText.SectionTitle"));
         _details.Children.Add(Pair(Field("Posteingangsserver (IMAP)", ImapHost, nameof(MailAccount.Imap)), Field("Port", ImapPort, null), Field("Verschlüsselung", ImapSecurity, null)));
@@ -212,9 +232,14 @@ public sealed class AccountForm : UserControl
         SaveButton = new Button { Content = new IconLabel { Icon = "save", Text = existing is null ? "Konto hinzufügen" : "Speichern" } }.Themed("MatButton.Primary");
         SaveButton.Click += async (_, _) => await SaveAsync();
         var cancel = new Button { Content = new IconLabel { Icon = "x", Text = "Abbrechen" } };
-        cancel.Click += (_, _) => Finished?.Invoke(this, null);
+        cancel.Click += (_, _) =>
+        {
+            _signInCancel?.Cancel();
+            Finished?.Invoke(this, null);
+        };
         CancelButton = cancel;
         var start = new ActionBar { Children = { NextButton, ManualButton, CancelButton } };
+        _passwordField = Field("Kennwort", PasswordBox, "Password");
         var save = new ActionBar { Children = { SaveButton, TestButton } };
         save.IsVisible = false;
         _details.Children.Add(save);
@@ -230,7 +255,8 @@ public sealed class AccountForm : UserControl
                 heading,
                 Field("Ihr Name", SenderBox, nameof(MailAccount.SenderName)),
                 Field("E-Mail-Adresse", AddressBox, nameof(MailAccount.Address)),
-                Field("Kennwort", PasswordBox, "Password"),
+                _passwordField,
+                _signIn,
                 start,
                 _result,
                 _certificate,
@@ -241,6 +267,9 @@ public sealed class AccountForm : UserControl
         {
             ShowDetails(null);
         }
+
+        AddressBox.TextChanged += (_, _) => DecideSignIn(null);
+        DecideSignIn(null);
     }
 
     /// <summary>Raised when the form is done: the saved account, or null when cancelled.</summary>
@@ -268,8 +297,114 @@ public sealed class AccountForm : UserControl
     public Button TrustButton { get; }
     public ActionBar StartActions { get; }
     public InfoBar Result => _result;
+    public ComboBox SignInChoice { get; }
+    public Button BrowserButton { get; }
+    public TextBlock SignInText { get; }
+
+    /// <summary>The account signs in in the browser (the provider offers it, ThixMail has a client id for it, the person chose it).</summary>
+    public bool UsesBrowserSignIn => _oauthProvider is not null && OAuthClients.IsAvailable(_oauthProvider) && SignInChoice.SelectedIndex == 0;
+
+    /// <summary>The choice of sign-in shows (the provider offers OAuth).</summary>
+    public bool ShowsSignInChoice => _signIn.IsVisible;
+
+    /// <summary>The choice "Anmeldung im Browser" / "Kennwort" shows (ThixMail has a client id for the provider).</summary>
+    public bool OffersBrowserSignIn => _signIn.IsVisible && _choiceField.IsVisible;
+
+    /// <summary>Signed in in the browser during this form (tests).</summary>
+    public bool HasBrowserSignIn => _tokens is not null;
     public bool ShowsDetails => _details.IsVisible;
     public bool ShowsCertificate => _certificate.IsVisible;
+
+    /// <summary>
+    /// Which sign-in the account uses: for a provider that signs in in the browser (Gmail, Outlook.com, Microsoft 365 – by the address, the discovered
+    /// settings or the IMAP host) the choice shows; without a client id for that provider it says honestly that an app password is needed for now.
+    /// </summary>
+    private void DecideSignIn(AutoConfigResult? found)
+    {
+        var provider = found?.OAuthProvider ?? AccountService.OAuthProviderFor(AddressBox.Text ?? "", ImapHost.Text ?? "") ?? _existing?.OAuthProvider;
+        if (provider != _oauthProvider)
+        {
+            _tokens = null;
+        }
+
+        _oauthProvider = provider;
+        UpdateSignIn();
+    }
+
+    private void UpdateSignIn()
+    {
+        var provider = OAuthProviders.Find(_oauthProvider);
+        if (provider is null)
+        {
+            _signIn.IsVisible = false;
+            _passwordField.IsVisible = true;
+            SmtpOwnPassword.IsVisible = true;
+            return;
+        }
+
+        _signIn.IsVisible = true;
+        var available = OAuthClients.IsAvailable(provider.Id);
+        _choiceField.IsVisible = available;
+        BrowserButton.IsVisible = available && SignInChoice.SelectedIndex == 0;
+        var browser = UsesBrowserSignIn;
+        _passwordField.IsVisible = !browser;
+        SmtpOwnPassword.IsVisible = !browser;
+        SmtpPasswordBox.IsVisible = !browser && SmtpOwnPassword.IsChecked == true;
+        SignInText.Text = !available
+            ? provider.Id == OAuthProviders.MicrosoftId
+                ? "Microsoft lässt IMAP und SMTP für Outlook.com und die meisten Microsoft-365-Konten nur mit der Anmeldung im Browser zu. Diese Anmeldung ist in " +
+                  "dieser Version von ThixMail noch nicht freigeschaltet – bis dahin lässt sich ein solches Konto nur einrichten, wenn Ihr Postfach ein App-Passwort " +
+                  "oder die Anmeldung mit Kennwort erlaubt."
+                : $"Die Anmeldung im Browser ist für {provider.Name} in dieser Version von ThixMail noch nicht freigeschaltet. Bis dahin brauchen Sie ein App-Passwort " +
+                  "(Google-Konto › Sicherheit › Bestätigung in zwei Schritten › App-Passwörter)."
+            : browser
+                ? _tokens is not null
+                    ? $"Sie sind bei {provider.Name} angemeldet. ThixMail bewahrt nur die Anmeldung auf, nie Ihr Kennwort."
+                    : $"Ihr Browser öffnet die Anmeldeseite von {provider.Name}. Sie geben Ihr Kennwort dort ein, nicht in ThixMail; ThixMail bekommt nur die Erlaubnis, Ihre Mails abzurufen und zu senden."
+                : $"{provider.Name} verlangt dafür ein App-Passwort statt Ihres normalen Kennworts.";
+    }
+
+    /// <summary>"Im Browser anmelden": the provider's sign-in in the system browser; the tokens are kept for the test and the save.</summary>
+    public async Task<bool> SignInInBrowserAsync()
+    {
+        if (_busy || OAuthProviders.Find(_oauthProvider) is not { } provider)
+        {
+            return false;
+        }
+
+        FormErrors.ShowError(this, null, "");
+        _busy = true;
+        _signInCancel = new CancellationTokenSource();
+        _result.Show($"Bitte melden Sie sich im Browser bei {provider.Name} an …", InfoSeverity.Info);
+        try
+        {
+            var open = BrowserForTests ?? (uri =>
+            {
+                Ui.OpenExternal(uri.AbsoluteUri);
+                return Task.CompletedTask;
+            });
+            _tokens = await OAuthService.AuthorizeAsync(provider, (AddressBox.Text ?? "").Trim(), open, _signInCancel.Token);
+            _window.Activate();
+        }
+        catch (OAuthException exception)
+        {
+            _result.Show(exception.Message, exception.Kind is OAuthErrorKind.Cancelled ? InfoSeverity.Warning : InfoSeverity.Error);
+            return false;
+        }
+        finally
+        {
+            _busy = false;
+            _signInCancel = null;
+            UpdateSignIn();
+        }
+
+        if (!ShowsDetails)
+        {
+            ShowDetails(null);
+        }
+
+        return await TestAsync();
+    }
 
     private static TextBox Box(string name, string text)
     {
@@ -316,7 +451,8 @@ public sealed class AccountForm : UserControl
     public void ShowFound(AutoConfigResult found)
     {
         ShowDetails(found);
-        if (found.Hint is { } hint)
+        DecideSignIn(found);
+        if (found.Hint is { } hint && !_signIn.IsVisible)
         {
             _result.Show(hint, found.NeedsAppPassword ? InfoSeverity.Warning : InfoSeverity.Info);
         }
@@ -362,6 +498,8 @@ public sealed class AccountForm : UserControl
             SmtpUser = SmtpUser.Text ?? "",
             SmtpUsesImapPassword = SmtpOwnPassword.IsChecked != true,
             ServerSavesSent = _existing?.ServerSavesSent ?? provider?.ServerSavesSent ?? false,
+            Authentication = UsesBrowserSignIn ? MailAuthentication.OAuth : MailAuthentication.Password,
+            OAuthProvider = UsesBrowserSignIn ? _oauthProvider : null,
         };
     }
 
@@ -383,7 +521,8 @@ public sealed class AccountForm : UserControl
             return;
         }
 
-        if ((PasswordBox.Text ?? "").Length == 0)
+        DecideSignIn(null);
+        if (!UsesBrowserSignIn && (PasswordBox.Text ?? "").Length == 0 && (_oauthProvider is null || !OAuthClients.IsAvailable(_oauthProvider)))
         {
             FormErrors.ShowError(this, "Password", "Bitte geben Sie das Kennwort des Postfachs an.");
             return;
@@ -395,14 +534,31 @@ public sealed class AccountForm : UserControl
         {
             var found = await AutoConfig.DiscoverAsync(address, CancellationToken.None);
             ShowDetails(found);
-            if (found.Hint is { } hint)
+            DecideSignIn(found);
+            if (found.Hint is { } hint && !_signIn.IsVisible)
             {
                 _result.Show(hint, found.NeedsAppPassword ? InfoSeverity.Warning : InfoSeverity.Info);
+            }
+            else
+            {
+                _result.Hide();
             }
         }
         finally
         {
             _busy = false;
+        }
+
+        if (UsesBrowserSignIn)
+        {
+            await SignInInBrowserAsync();
+            return;
+        }
+
+        if ((PasswordBox.Text ?? "").Length == 0)
+        {
+            FormErrors.ShowError(this, "Password", "Bitte geben Sie das Kennwort des Postfachs an.");
+            return;
         }
 
         await TestAsync();
@@ -433,12 +589,34 @@ public sealed class AccountForm : UserControl
         }
 
         var password = PasswordBox.Text ?? "";
-        if (password.Length == 0 && _existing is not null)
+        if (account.UsesOAuth)
+        {
+            password = _tokens?.AccessToken ?? "";
+            if (password.Length == 0 && _existing is { UsesOAuth: true })
+            {
+                try
+                {
+                    password = await AccountService.CredentialAsync(_document.Accounts, _existing, AccountService.ImapSecret, false, CancellationToken.None) ?? "";
+                }
+                catch (MailConnectionException exception)
+                {
+                    _result.Show(exception.Message, InfoSeverity.Error);
+                    return false;
+                }
+            }
+
+            if (password.Length == 0)
+            {
+                _result.Show("Bitte melden Sie sich zuerst im Browser an.", InfoSeverity.Warning);
+                return false;
+            }
+        }
+        else if (password.Length == 0 && _existing is not null)
         {
             password = AccountService.Password(_document.Accounts, _existing, AccountService.ImapSecret) ?? "";
         }
 
-        var smtpPassword = SmtpOwnPassword.IsChecked == true ? SmtpPasswordBox.Text ?? "" : password;
+        var smtpPassword = !account.UsesOAuth && SmtpOwnPassword.IsChecked == true ? SmtpPasswordBox.Text ?? "" : password;
         _busy = true;
         _result.Show("Die Verbindung wird getestet …", InfoSeverity.Info);
         _certificate.IsVisible = false;
@@ -504,11 +682,11 @@ public sealed class AccountForm : UserControl
             MailAccount saved;
             if (_existing is null)
             {
-                saved = _document.AddAccount(account, password, smtpPassword);
+                saved = _document.AddAccount(account, password, smtpPassword, _tokens);
             }
             else
             {
-                saved = _document.UpdateAccount(account, password.Length > 0 ? password : null, smtpPassword is { Length: > 0 } ? smtpPassword : null);
+                saved = _document.UpdateAccount(account, password.Length > 0 ? password : null, smtpPassword is { Length: > 0 } ? smtpPassword : null, _tokens);
             }
 
             Finished?.Invoke(this, saved);

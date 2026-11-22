@@ -31,7 +31,9 @@ public static class AccessPolicy
 
     private static Func<string, bool> _readPolicy = ReadMachinePolicy;
 
-    private static (string File, DateTime Written, Dictionary<string, bool> Values) _macPolicies = ("", DateTime.MinValue, []);
+    private static (string File, DateTime Written, Dictionary<string, bool> Values, Dictionary<string, string> Texts) _macPolicies = ("", DateTime.MinValue, [], []);
+
+    private static Func<string, string?>? _readTextForTests;
 
     /// <summary>Every policy name an administrator can set (the settings page lists them).</summary>
     public static IReadOnlyList<string> Names { get; } = [LockConfiguration, DisableUpdates, DisableCloud, DisableFileAssociations, DisablePrinting];
@@ -89,6 +91,36 @@ public static class AccessPolicy
         }
     }
 
+    /// <summary>
+    /// A text value an administrator set for the app (Windows: a REG_SZ under the policy key, macOS: a string in the profile) – e.g. the OAuth client
+    /// ids of ThixMail (<c>OAuthGoogleClientId</c>). Null when none is set.
+    /// </summary>
+    public static string? Text(string name)
+    {
+        if (_readTextForTests is { } read)
+        {
+            return read(name);
+        }
+
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                using var key = Registry.LocalMachine.OpenSubKey(AppInfo.Definition.PolicyKey);
+                return key?.GetValue(name) is string { Length: > 0 } value ? value.Trim() : null;
+            }
+
+            return OperatingSystem.IsMacOS() ? ReadMacPolicies().Texts.GetValueOrDefault(name) : null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Tests answer <see cref="Text"/> themselves (null: the machine's again).</summary>
+    internal static void UseTextReaderForTests(Func<string, string?>? reader) => _readTextForTests = reader;
+
     /// <summary>Tests replace the registry with their own answers (null: the machine's policies again).</summary>
     internal static void UsePolicyReaderForTests(Func<string, bool>? reader) => _readPolicy = reader ?? ReadMachinePolicy;
 
@@ -99,7 +131,7 @@ public static class AccessPolicy
             return ReadWindowsPolicy(name);
         }
 
-        return OperatingSystem.IsMacOS() && ReadMacPolicies().GetValueOrDefault(name);
+        return OperatingSystem.IsMacOS() && ReadMacPolicies().Values.GetValueOrDefault(name);
     }
 
     [SupportedOSPlatform("windows")]
@@ -110,16 +142,17 @@ public static class AccessPolicy
     }
 
     /// <summary>The managed preferences are a (binary) plist; plutil turns it into JSON. Read again only after a change.</summary>
-    private static Dictionary<string, bool> ReadMacPolicies()
+    private static (Dictionary<string, bool> Values, Dictionary<string, string> Texts) ReadMacPolicies()
     {
         var file = $"/Library/Managed Preferences/{AppInfo.Definition.MacBundleId}.plist";
         var written = File.Exists(file) ? File.GetLastWriteTimeUtc(file) : DateTime.MinValue;
         if (file == _macPolicies.File && written == _macPolicies.Written)
         {
-            return _macPolicies.Values;
+            return (_macPolicies.Values, _macPolicies.Texts);
         }
 
         var values = new Dictionary<string, bool>();
+        var texts = new Dictionary<string, string>();
         if (written != DateTime.MinValue)
         {
             try
@@ -138,6 +171,10 @@ public static class AccessPolicy
                 {
                     values[property.Name] = property.Value.ValueKind == JsonValueKind.True ||
                                             (property.Value.ValueKind == JsonValueKind.Number && property.Value.GetInt32() == 1);
+                    if (property.Value.ValueKind == JsonValueKind.String && property.Value.GetString() is { Length: > 0 } text)
+                    {
+                        texts[property.Name] = text.Trim();
+                    }
                 }
             }
             catch (Exception exception) when (exception is IOException or JsonException or InvalidOperationException or System.ComponentModel.Win32Exception)
@@ -146,7 +183,7 @@ public static class AccessPolicy
             }
         }
 
-        _macPolicies = (file, written, values);
-        return values;
+        _macPolicies = (file, written, values, texts);
+        return (values, texts);
     }
 }

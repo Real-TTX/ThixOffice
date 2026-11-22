@@ -74,6 +74,7 @@ public sealed class TestData : IDisposable
         UserRegistry.UseForTests(new MemoryUserRegistry());
         ThixOffice.Core.Spelling.SpellingService.UseForTests(Spelling); // never the checker (and dictionary) of this machine
         AccessPolicy.UsePolicyReaderForTests(_ => false);
+        AccessPolicy.UseTextReaderForTests(_ => null);
         TokenStore.UseMemoryForTests(true);
         PrintService.System = new SamplePrinterSystem();
         SettingsService.ResetCache();
@@ -168,6 +169,11 @@ public sealed class TestData : IDisposable
         CloudService.ResetForTests();
         TokenStore.UseMemoryForTests(false);
         AccessPolicy.UsePolicyReaderForTests(null);
+        AccessPolicy.UseTextReaderForTests(null);
+        ThixMail.Core.Accounts.OAuthProviders.FindForTests = null;
+        ThixMail.Core.Accounts.OAuthClients.ForTests = null;
+        ThixMail.Core.Accounts.OAuthService.HandlerForTests = null;
+        ThixMail.Pages.AccountForm.BrowserForTests = null;
         PrintService.System = null!;
         UserRegistry.UseForTests(null);
         ThixOffice.Core.Spelling.SpellingService.UseForTests(null);

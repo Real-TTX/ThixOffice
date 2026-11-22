@@ -321,6 +321,9 @@ dem Mailserver und – zum Lesen ohne Verbindung – auf diesem Computer, **nie 
   Speichern läuft immer ein Verbindungstest mit klaren Meldungen: falsches Kennwort, App-Passwort nötig, Server nicht erreichbar. Ein Zertifikat, dem
   das System nicht traut, wird **angezeigt** (Aussteller, Gültigkeit, SHA-256) und nur nach „Diesem Zertifikat vertrauen“ angenommen. Kennwörter
   liegen nur im Schlüsselspeicher des Systems (DPAPI bzw. Schlüsselbund).
+  **Gmail und Microsoft (Outlook.com, Microsoft 365)** melden sich **im Browser** an (OAuth 2.0): Sie geben Ihr Kennwort auf der Seite des Anbieters
+  ein, ThixMail bewahrt nur die Anmeldung auf und erneuert sie selbst; endet sie, bittet das Konto um eine neue Anmeldung, ohne Mails zu verlieren.
+  Solange ThixMail bei einem Anbieter noch nicht registriert ist, sagt die Kontoseite das ehrlich (Gmail geht bis dahin mit App-Passwort).
 - **Hauptfenster** wie im deutschen Outlook: Ordnerbereich (Favoriten mit „Alle Posteingänge“, je Konto Posteingang, Entwürfe, Gesendete Elemente,
   Gelöschte Elemente, Junk-E-Mail, Archiv und eigene Ordner mit ungelesenen Zahlen), Nachrichtenliste mit Suche (aktueller Ordner oder alle),
   Filter (Ungelesen, Gekennzeichnet, Mit Anlagen), Sortierung, Datumsgruppen (Heute, Gestern, Letzte Woche …), Unterhaltungen (aufklappbar),
@@ -450,6 +453,8 @@ Richtlinien je App (Wert 1 = an): Windows `HKLM\SOFTWARE\Policies\ThixWrite` (DW
 `info.schmoldt.thixwrite` – `LockConfiguration` (Einstellungen gesperrt), `DisableUpdates`, `DisableCloud` (keine Anmeldung
 an der ThixCloud, kein ThixDrive), `DisableFileAssociations`, `DisablePrinting`. In der ThixCloud selbst lässt sich ThixDrive (oder
 die App) für alle abschalten; ThixWrite zeigt dann „von der Verwaltung abgeschaltet“.
+ThixMail liest außerdem Textwerte (REG_SZ bzw. Zeichenkette im Profil) für eine eigene OAuth-Registrierung der Organisation:
+`OAuthGoogleClientId`, `OAuthGoogleClientSecret`, `OAuthMicrosoftClientId`.
 
 ## Entwickeln
 

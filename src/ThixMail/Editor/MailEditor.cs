@@ -382,7 +382,7 @@ public sealed partial class MailEditor : OfficeEditor
             var state = status.Phase switch
             {
                 SyncPhase.Offline or SyncPhase.WorkingOffline => "offline",
-                SyncPhase.SignInFailed => "Kennwort?",
+                SyncPhase.SignInFailed => account.UsesOAuth ? "Anmelden?" : "Kennwort?",
                 SyncPhase.CertificateProblem => "Zertifikat?",
                 _ => null,
             };

@@ -78,6 +78,27 @@ public sealed class SampleMailServer : IMailTransport
         }
     }
 
+    /// <summary>The mailbox accepts <paramref name=accessToken/> through XOAUTH2 (what a provider's token endpoint issued).</summary>
+    public void AcceptAccessToken(string address, string accessToken)
+    {
+        lock (_gate)
+        {
+            _mailboxes[address].AccessTokens.Add(accessToken);
+        }
+    }
+
+    /// <summary>Every access token of the mailbox stops working (revoked, expired at the provider).</summary>
+    public void RevokeAccessTokens(string address)
+    {
+        lock (_gate)
+        {
+            _mailboxes[address].AccessTokens.Clear();
+        }
+    }
+
+    /// <summary>How many sign-ins went through XOAUTH2 (tests).</summary>
+    public int XOAuth2SignIns { get; private set; }
+
     /// <summary>Adds a folder (no role) to a mailbox.</summary>
     public void AddFolder(string address, string path)
     {
@@ -231,6 +252,18 @@ public sealed class SampleMailServer : IMailTransport
 
         lock (_gate)
         {
+            if (account.UsesOAuth)
+            {
+                // SASL XOAUTH2: the access token must be one the (fake) provider issued for this mailbox
+                if (!_mailboxes.TryGetValue(user, out var byToken) || !byToken.AccessTokens.Contains(password))
+                {
+                    throw new MailConnectionException(MailErrorKind.Authentication, "Die Anmeldung (XOAUTH2) wurde abgelehnt.");
+                }
+
+                XOAuth2SignIns++;
+                return byToken;
+            }
+
             if (!_mailboxes.TryGetValue(user, out var mailbox) || mailbox.Password != password)
             {
                 throw new MailConnectionException(MailErrorKind.Authentication, "Benutzername oder Kennwort stimmen nicht.");
@@ -287,6 +320,8 @@ public sealed class SampleMailServer : IMailTransport
     private sealed class Mailbox(string password)
     {
         public string Password { get; } = password;
+
+        public HashSet<string> AccessTokens { get; } = new(StringComparer.Ordinal);
 
         public Dictionary<string, Folder> Folders { get; } = new(StringComparer.Ordinal);
 

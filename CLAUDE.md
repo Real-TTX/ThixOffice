@@ -377,6 +377,14 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   prepared for ThixCloud's general sync, nothing sends them yet); passwords ONLY through `AccountService.SetPassword` → `TokenStore` (key
   `mail-<id>-imap|smtp`, the protected value in the store's local meta). Adding/editing always runs `AccountService.TestAsync` first; a certificate
   the system does not trust becomes `MailErrorKind.Certificate` with `CertificateInfo` and is accepted only by `TrustCertificate` (host|SHA-256).
+- **OAuth (Gmail, Microsoft):** `MailAccount.Authentication = OAuth` + `OAuthProvider` ("google"/"microsoft", `Accounts/OAuthProviders`: endpoints,
+  scopes, loopback host). `OAuthService` = PKCE code flow in the system browser with a loopback `TcpListener` (random port), refresh, revoke, German
+  `OAuthException`s; tokens ONLY via `AccountService.SetOAuthTokens/OAuthTokensOf` (TokenStore, kind `oauth`); `AccountService.CredentialAsync` is what
+  `MailSync` signs in with (refresh 2 min before the end and once after a refused token; an ended refresh token = `MailErrorKind.SignInRequired` →
+  `SyncPhase.SignInFailed`, mail kept). MailKit uses SASL XOAUTH2 only for OAuth accounts; `SampleMailServer.AcceptAccessToken` takes tokens.
+  Client ids ONLY from `OAuthClients` (built in empty; policy texts `OAuth<Provider>ClientId/ClientSecret` via `AccessPolicy.Text`, env
+  `THIXMAIL_OAUTH_<PROVIDER>_CLIENT_ID/_SECRET`); never another product's ids. Without one the account form says so. Tests: `FakeOAuthServer`
+  (tests/ThixMail.Core.Tests, linked into ThixMail.Tests), `AccountForm.BrowserForTests`. The registrations to make: docs/PLAN.md Phase 7.
 - **Protocol:** everything goes through `IMailTransport` (`MailDocument.Transport`; tests/snapshots/self test: `SampleMailServer`). MailKit 5 is
   rooted for trimming (`TrimmerRootAssembly` MailKit, MimeKit.Core); code pages are registered by `MailMime`'s module initializer before MimeKit
   builds its charset table.
@@ -398,7 +406,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   `HtmlExport.Export` (pictures as cid:) + plain text through `MailSession.Send` (validation, outbox).
 - **Shell extensions used:** `OfficeApplication.CreateSettingsTabs` (Lesen, Verfassen, Signaturen, Benachrichtigungen after Allgemein;
   `SettingsPage.ShowTab(id)`/`AppTab(id)`), `CreateBackstageItems` (Konten, Drucken, Als PDF speichern), `ImportFilesAsync` (.eml → `MessageWindow`).
-- Snapshot scenes `main-conversation`, `main-newsletter`, `compose`, `backstage-add-account`, `main-attachments`, `main-offline`,
+- Snapshot scenes `main-conversation`, `main-newsletter`, `compose`, `backstage-add-account` (+ `-browser`, `-microsoft`), `main-attachments`, `main-offline`,
   `backstage-settings-signatures`, `main-calendar-signin`, `main-calendar`, `main-calendar-month`, `dialog-appointment`, `main-people`,
   `main-invitation` on `SampleMailbox` (+ `SampleMailbox.FillPim` after a sign-in at the snapshots' cloud in memory); `THIXMAIL_SCREENSHOTS=<folder> dotnet test tests/ThixMail.Tests` also draws the 15 fixture mails
   into `<folder>/mails`. The integration run against a real IMAP/SMTP server: `scripts/greenmail-test.ps1` (throwaway GreenMail container, env-gated

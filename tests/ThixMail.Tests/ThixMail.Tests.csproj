@@ -26,6 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\ThixMail.Core.Tests\FakeOAuthServer.cs" Link="FakeOAuthServer.cs" />
     <None Include="..\ThixMail.Core.Tests\Fixtures\*.eml" Link="Fixtures\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

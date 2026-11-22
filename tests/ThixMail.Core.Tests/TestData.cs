@@ -27,6 +27,7 @@ internal sealed class TestData : IDisposable
         AppPaths.UseDirectoryForTests(Path.Combine(Folder, "data"));
         UserRegistry.UseForTests(new MemoryUserRegistry());
         AccessPolicy.UsePolicyReaderForTests(_ => false);
+        AccessPolicy.UseTextReaderForTests(_ => null);
         TokenStore.UseMemoryForTests(true);
         SettingsService.ResetCache();
         CloudService.ResetForTests();
@@ -95,9 +96,14 @@ internal sealed class TestData : IDisposable
     {
         MailDocument.Transport = MailKitTransport.Instance;
         MailDocument.ConfigureSyncForTests = null;
+        FakeOAuthServer.Unplug();
         CloudService.ResetForTests();
         TokenStore.UseMemoryForTests(false);
         AccessPolicy.UsePolicyReaderForTests(null);
+        AccessPolicy.UseTextReaderForTests(null);
+        ThixMail.Core.Accounts.OAuthProviders.FindForTests = null;
+        ThixMail.Core.Accounts.OAuthClients.ForTests = null;
+        ThixMail.Core.Accounts.OAuthService.HandlerForTests = null;
         UserRegistry.UseForTests(null);
         SettingsService.ResetCache();
         AppPaths.UseDirectoryForTests(null);

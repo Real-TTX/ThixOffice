@@ -19,11 +19,11 @@ public enum ConfigSource
 
 /// <summary>What the auto-configuration found for an address: the servers, the user names, and a hint for the person (an app password, OAuth).</summary>
 public sealed record AutoConfigResult(ServerSettings Imap, string ImapUser, ServerSettings Smtp, string SmtpUser, ConfigSource Source, string? ProviderName = null,
-    string? Hint = null, bool NeedsAppPassword = false, bool ServerSavesSent = false);
+    string? Hint = null, bool NeedsAppPassword = false, bool ServerSavesSent = false, string? OAuthProvider = null);
 
 /// <summary>A provider ThixMail knows by heart (the common German and international ones).</summary>
 public sealed record MailProvider(string Name, IReadOnlyList<string> Domains, ServerSettings Imap, ServerSettings Smtp, bool NeedsAppPassword = false,
-    bool ServerSavesSent = false, string? Hint = null);
+    bool ServerSavesSent = false, string? Hint = null, string? OAuthProvider = null);
 
 /// <summary>
 /// The auto-configuration of an account from its address, in the order Thunderbird asks (and quietly, without sending the password anywhere): the
@@ -36,10 +36,12 @@ public static class AutoConfig
     public static IReadOnlyList<MailProvider> Providers { get; } =
     [
         new("Gmail", ["gmail.com", "googlemail.com"], new("imap.gmail.com", 993, ConnectionSecurity.SslOnConnect), new("smtp.gmail.com", 465, ConnectionSecurity.SslOnConnect),
-            NeedsAppPassword: true, ServerSavesSent: true, Hint: "Google verlangt ein App-Passwort (Google-Konto › Sicherheit › Bestätigung in zwei Schritten › App-Passwörter)."),
+            NeedsAppPassword: true, ServerSavesSent: true, Hint: "Google verlangt ein App-Passwort (Google-Konto › Sicherheit › Bestätigung in zwei Schritten › App-Passwörter).",
+            OAuthProvider: OAuthProviders.GoogleId),
         new("Outlook.com", ["outlook.com", "outlook.de", "hotmail.com", "hotmail.de", "live.com", "live.de", "msn.com"],
             new("outlook.office365.com", 993, ConnectionSecurity.SslOnConnect), new("smtp-mail.outlook.com", 587, ConnectionSecurity.StartTls), ServerSavesSent: true,
-            Hint: "Microsoft lässt viele Konten nur noch mit der Anmeldung über OAuth zu – die folgt in einer späteren Version. Ein App-Passwort kann helfen."),
+            Hint: "Microsoft lässt IMAP und SMTP für Outlook.com und die meisten Microsoft-365-Konten nur mit der Anmeldung im Browser zu.",
+            OAuthProvider: OAuthProviders.MicrosoftId),
         new("Yahoo", ["yahoo.com", "yahoo.de", "ymail.com"], new("imap.mail.yahoo.com", 993, ConnectionSecurity.SslOnConnect), new("smtp.mail.yahoo.com", 465, ConnectionSecurity.SslOnConnect),
             NeedsAppPassword: true, Hint: "Yahoo verlangt ein App-Passwort (Kontosicherheit › App-Passwort erstellen)."),
         new("AOL", ["aol.com", "aol.de"], new("imap.aol.com", 993, ConnectionSecurity.SslOnConnect), new("smtp.aol.com", 465, ConnectionSecurity.SslOnConnect),
@@ -125,7 +127,8 @@ public static class AutoConfig
 
     /// <summary>The settings of a known provider for an address.</summary>
     public static AutoConfigResult FromProvider(MailProvider provider, string address) =>
-        new(provider.Imap, address, provider.Smtp, address, ConfigSource.Provider, provider.Name, provider.Hint, provider.NeedsAppPassword, provider.ServerSavesSent);
+        new(provider.Imap, address, provider.Smtp, address, ConfigSource.Provider, provider.Name, provider.Hint, provider.NeedsAppPassword, provider.ServerSavesSent,
+            provider.OAuthProvider);
 
     /// <summary>The provider of an address, when ThixMail knows it.</summary>
     public static MailProvider? ProviderOf(string address)
@@ -173,7 +176,8 @@ public static class AutoConfig
 
         var oauthOnly = incoming.Elements("authentication").All(a => a.Value.Trim().Equals("OAuth2", StringComparison.OrdinalIgnoreCase));
         return new AutoConfigResult(imap, imapUser, smtp, smtpUser, source, (string?)provider.Element("displayName") ?? (string?)provider.Element("displayShortName"),
-            oauthOnly ? "Dieser Anbieter lässt die Anmeldung nur über OAuth zu – die folgt in einer späteren Version von ThixMail." : null);
+            oauthOnly ? "Dieser Anbieter lässt die Anmeldung nur im Browser (OAuth) zu." : null,
+            OAuthProvider: AccountService.OAuthProviderFor(address, imap.Host));
     }
 
     private static (ServerSettings Server, string User) ReadServer(XElement element, string address, int defaultPort)
