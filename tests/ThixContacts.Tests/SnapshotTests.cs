@@ -25,14 +25,16 @@ public sealed class SnapshotTests
     public void ThixContacts_writes_no_colour_of_its_own()
     {
         // DESK-02: colours only from MatDesktop's theme; the one literal is the accent (ThixContactsApp.Accent). The one exemption: the paper colours of the
-        // printed contacts in PrintPalette.cs. ThixOffice.Pim.Desktop has none at all.
+        // printed contacts in PrintPalette.cs, and in ThixOffice.Pim.Desktop the calendars' own colours (user data) in CalendarPalette.cs.
         var literal = new Regex(@"#[0-9A-Fa-f]{6}\b|#[0-9A-Fa-f]{8}\b|Color\.(Parse|FromRgb|FromArgb)|(?<![A-Za-z])Colors\.\w+|SKColors\.\w+|Brushes\.\w+|FromHex\(""|new RgbColor\(|RgbColor\(0x");
         var root = FindRoot();
         var palette = Path.Combine(root, "src", "ThixContacts", "Pages", "PrintPalette.cs");
         Assert.True(File.Exists(palette));
+        var calendarPalette = Path.Combine(root, "src", "ThixOffice.Pim.Desktop", "Calendar", "CalendarPalette.cs");
+        Assert.True(File.Exists(calendarPalette));
         var findings = new[] { Path.Combine(root, "src", "ThixContacts"), Path.Combine(root, "src", "ThixOffice.Pim.Desktop") }
             .SelectMany(folder => Directory.EnumerateFiles(folder, "*.*", SearchOption.AllDirectories))
-            .Where(file => file != palette)
+            .Where(file => file != palette && file != calendarPalette)
             .Where(file => (file.EndsWith(".cs", StringComparison.Ordinal) || file.EndsWith(".axaml", StringComparison.Ordinal))
                            && !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                            && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))

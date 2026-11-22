@@ -13,6 +13,7 @@ using ThixOffice.Core.Business;
 using ThixOffice.Core.Documents;
 using ThixOffice.Core.Infrastructure;
 using ThixOffice.Core.Models;
+using ThixOffice.Core.Platform;
 using ThixOffice.Desktop;
 using ThixOffice.Desktop.Controls;
 using ThixOffice.Desktop.Dialogs;
@@ -37,13 +38,19 @@ public partial class App : OfficeApplication
     public const string OfflineScene = "main-offline";
     public const string SignaturesScene = "backstage-settings-signatures";
     public const string NewsletterScene = "main-newsletter";
+    public const string CalendarScene = "main-calendar";
+    public const string CalendarMonthScene = "main-calendar-month";
+    public const string PeopleScene = "main-people";
+    public const string InvitationScene = "main-invitation";
+    public const string CalendarSignInScene = "main-calendar-signin";
+    public const string AppointmentScene = "dialog-appointment";
 
     private MatTray? _tray;
     private bool _quitting;
 
     public override OfficeAppDefinition Definition => ThixMailApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [ConversationScene, NewsletterScene, ComposeScene, AccountScene, AttachmentsScene, OfflineScene, SignaturesScene];
+    public override IReadOnlyList<string> SnapshotScenes => [ConversationScene, NewsletterScene, ComposeScene, AccountScene, AttachmentsScene, OfflineScene, SignaturesScene, CalendarSignInScene, CalendarScene, CalendarMonthScene, AppointmentScene, PeopleScene, InvitationScene];
 
     public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => MailRibbon.Create(window);
 
@@ -79,7 +86,11 @@ public partial class App : OfficeApplication
         return editor;
     }
 
-    public override void AddCommands(OfficeWindow window) => MailCommands.Add(window);
+    public override void AddCommands(OfficeWindow window)
+    {
+        MailCommands.Add(window);
+        CalendarCommands.Add(window);
+    }
 
     public override IEnumerable<BackstageItem> CreateBackstageItems(OfficeWindow window) =>
         [AccountsPage.Item(window), MailPrintPage.Item(window), MailPdfPage.Item(window)];
@@ -228,9 +239,71 @@ public partial class App : OfficeApplication
             case SignaturesScene:
                 window.ShowSettings(MailSettings.SignaturesTab);
                 return window;
+            case CalendarSignInScene:
+                editor.ShowView(MailArea.Calendar);
+                Settle();
+                return window;
+            case CalendarScene or CalendarMonthScene or PeopleScene or InvitationScene or AppointmentScene:
+                SignInForSample(editor);
+                if (name == InvitationScene)
+                {
+                    SelectSubject(editor, "Einladung: Workshop");
+                    return window;
+                }
+
+                editor.ShowView(name == PeopleScene ? MailArea.People : MailArea.Calendar);
+                Settle();
+                if (name == CalendarMonthScene)
+                {
+                    editor.CalendarView!.SetMode(ThixOffice.Pim.Desktop.Calendar.CalendarMode.Month);
+                }
+                else if (name is CalendarScene or AppointmentScene)
+                {
+                    editor.CalendarView!.SetMode(ThixOffice.Pim.Desktop.Calendar.CalendarMode.WorkWeek);
+                    editor.CalendarView.Select(editor.CalendarView.Shown.FirstOrDefault(a => a.Title.StartsWith("Projektbesprechung", StringComparison.Ordinal)));
+                }
+                else
+                {
+                    editor.PeopleView!.Select(editor.Document.Pim.People!.People.FirstOrDefault(p => p.Name == "Lena Koch")?.Id);
+                }
+
+                Settle();
+                if (name == AppointmentScene && editor.Document.Pim.Calendar is { } book && editor.CalendarView!.Selected is { } selected)
+                {
+                    var dialog = new ThixOffice.Pim.Desktop.Calendar.AppointmentDialog(book, selected, (value, _) => value, _ => [], asMeeting: true);
+                    dialog.Attendees.Box.Text = "Jonas Weber <jonas.weber@beispiel.de>; Lena Koch <lena.koch@beispiel.de>";
+                    dialog.Show(window);
+                    Settle();
+                    return dialog;
+                }
+
+                return window;
         }
 
         return window;
+    }
+
+    /// <summary>The sample's account of ThixCloud (the cloud in memory of the snapshots): the views Kalender and Personen with the sample's data.</summary>
+    private static void SignInForSample(MailEditor editor)
+    {
+        if (!CloudService.IsConnected)
+        {
+            SettingsService.UpdateCloud(_ => new CloudSettings { ServerUrl = SampleCloud.ServerUrl, UserName = SampleCloud.UserName, DeviceName = "ANNA-PC" });
+            Task.Run(() => CloudService.ConnectAsync(SampleCloud.ServerUrl, SampleCloud.UserName, SampleCloud.Password, "ANNA-PC")).GetAwaiter().GetResult();
+        }
+
+        Task.Run(editor.Document.Pim.ReconnectAsync).GetAwaiter().GetResult();
+        SampleMailbox.FillPim(editor.Document);
+        Settle();
+    }
+
+    private static void Settle()
+    {
+        for (var round = 0; round < 20; round++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(20);
+        }
     }
 
     private static void SelectSubject(MailEditor editor, string subject)
@@ -272,6 +345,14 @@ public partial class App : OfficeApplication
             case AccountScene:
             case SignaturesScene:
                 window.Backstage.Close();
+                break;
+            case CalendarScene or CalendarMonthScene or PeopleScene or InvitationScene or AppointmentScene or CalendarSignInScene:
+                if (shown is Window dialog && shown != window)
+                {
+                    dialog.Close();
+                }
+
+                editor.ShowView(MailArea.Mail);
                 break;
         }
 

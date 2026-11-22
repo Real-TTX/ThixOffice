@@ -29,7 +29,7 @@ public sealed class MailUiTests
         Assert.Same(window, TestData.App.NewDocumentWindow());
         Assert.Null(window.Commands.Find(CommonCommandIds.Save));
         Assert.Equal([AccountsPage.PageId, MailPrintPage.PageId, OfficeExportPage.PageId], window.Backstage.PageIds);
-        Assert.Equal([true, false, false], editor.NavigationButtons.Select(b => b.IsVisible)); // Kalender and Personen come with 7c
+        Assert.Equal([true, true, true], editor.NavigationButtons.Select(b => b.IsVisible)); // E-Mail, Kalender, Personen
         Assert.Empty(editor.Rows);
         Assert.Equal("Kein Konto eingerichtet", window.StatusBar.TextOf(MailEditor.SyncItem));
         Assert.False(window.Commands[MailCommandIds.NewMail].IsEnabled);

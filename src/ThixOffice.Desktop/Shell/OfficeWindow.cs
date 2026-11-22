@@ -907,27 +907,26 @@ public sealed class OfficeWindow : MatWindow
         // A text field (Schriftgrad in the ribbon, the find bar) undoes, copies and selects its own text; the other shortcuts
         // (Strg+S) still apply there.
         var inTextField = FocusManager?.GetFocusedElement() is TextBox or ITextField { IsEditingText: true };
-        foreach (var (gesture, command) in _shortcuts)
+        // Several commands may share a key when only one of them applies at a time (ThixMail's Strg+N: a new mail, appointment or contact by the
+        // view): the first enabled one runs, else the first.
+        var matches = _shortcuts.Where(shortcut => shortcut.Gesture.Matches(e)).Select(shortcut => shortcut.Command).ToList();
+        if (matches.Count > 0)
         {
-            if (gesture.Matches(e))
+            var command = matches.Count == 1 ? matches[0] : matches.FirstOrDefault(candidate => candidate.IsEnabled) ?? matches[0];
+            if (inTextField && (command.YieldsToTextField || !command.IsEnabled))
             {
-                if (inTextField && command.YieldsToTextField)
-                {
-                    return;
-                }
+                return; // a text field keeps the keys a command cannot use now (⌥← moves by words where Zurück of the calendar does not apply)
+            }
 
-                e.Handled = true;
-                _runningShortcut = true;
-                try
-                {
-                    await RunCommandAsync(this, command);
-                }
-                finally
-                {
-                    _runningShortcut = false;
-                }
-
-                return;
+            e.Handled = true;
+            _runningShortcut = true;
+            try
+            {
+                await RunCommandAsync(this, command);
+            }
+            finally
+            {
+                _runningShortcut = false;
             }
         }
     }

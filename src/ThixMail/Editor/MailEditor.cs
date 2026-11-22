@@ -39,7 +39,7 @@ public enum ReadingPanePosition
 /// <see cref="MailSession"/> (undoable, queued for the server); the views follow the store's events. The status bar counts and tells how the
 /// accounts stand.
 /// </summary>
-public sealed class MailEditor : OfficeEditor
+public sealed partial class MailEditor : OfficeEditor
 {
     public const string CountItem = "mail.count";
     public const string SyncItem = "mail.sync";
@@ -82,15 +82,10 @@ public sealed class MailEditor : OfficeEditor
         Document = document;
         _window.StatusBar.View.ShowZoom = false;
 
-        // the navigation bar: Mail now; Kalender and Personen when they exist (7c)
-        MailNavButton = new Button { Content = new MatIcon { Icon = "mail", Size = 20 }, Padding = new Thickness(10), Margin = new Thickness(4, 8, 4, 2) }.Themed("MatButton.Ghost");
-        AutomationProperties.SetName(MailNavButton, "E-Mail");
-        ToolTip.SetTip(MailNavButton, "E-Mail");
-        MailNavButton.Use(Button.BackgroundProperty, "Mat.AccentSoft");
-        var calendar = new Button { Content = new MatIcon { Icon = "calendar", Size = 20 }, Padding = new Thickness(10), Margin = new Thickness(4, 2), IsVisible = false }.Themed("MatButton.Ghost");
-        var people = new Button { Content = new MatIcon { Icon = "users", Size = 20 }, Padding = new Thickness(10), Margin = new Thickness(4, 2), IsVisible = false }.Themed("MatButton.Ghost");
-        AutomationProperties.SetName(calendar, "Kalender");
-        AutomationProperties.SetName(people, "Personen");
+        // the navigation bar: E-Mail, Kalender, Personen (Strg+1/2/3 like Outlook)
+        MailNavButton = NavButton("mail", "E-Mail", "Ctrl+1", MailArea.Mail, new Thickness(4, 8, 4, 2));
+        var calendar = NavButton("calendar", "Kalender", "Ctrl+2", MailArea.Calendar, new Thickness(4, 2));
+        var people = NavButton("users", "Personen", "Ctrl+3", MailArea.People, new Thickness(4, 2));
         NavigationButtons = [MailNavButton, calendar, people];
         _rail.Child = new StackPanel { Children = { MailNavButton, calendar, people } };
         _rail.Use(Border.BackgroundProperty, "Mat.NavBg");
@@ -190,6 +185,8 @@ public sealed class MailEditor : OfficeEditor
         Reader.LinkRequested += async (_, address) => await OpenLinkAsync(address);
         Reader.AttachmentRequested += async (_, request) => await AttachmentAsync(request.Attachment, request.Open);
         Reader.SaveAllRequested += async (_, _) => await SaveAllAsync();
+        Reader.InvitationAnswered += (_, answer) => AnswerInvitation(answer);
+        Reader.InvitationRemoveRequested += (_, _) => RemoveCancelledInvitation();
         Reader.Use(UserControl.BackgroundProperty, "Mat.Bg");
 
         _root.ColumnDefinitions = new ColumnDefinitions("Auto,240,*");
@@ -198,6 +195,9 @@ public sealed class MailEditor : OfficeEditor
         _root.Children.Add(_rail);
         _root.Children.Add(_folderPane);
         _root.Children.Add(_mainArea);
+        Grid.SetColumn(_viewHost, 1);
+        Grid.SetColumnSpan(_viewHost, 2);
+        _root.Children.Add(_viewHost);
         _root.AddHandler(InputElement.PointerMovedEvent, OnDragMoved, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         _root.AddHandler(InputElement.PointerReleasedEvent, OnDragReleased, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         View = _root;
@@ -217,6 +217,7 @@ public sealed class MailEditor : OfficeEditor
         RefreshFolders();
         SelectFirstInbox();
         Refresh();
+        AttachViews();
     }
 
     public MailDocument Document { get; }
@@ -241,7 +242,7 @@ public sealed class MailEditor : OfficeEditor
 
     public Button MailNavButton { get; }
 
-    /// <summary>Mail, Kalender, Personen (the last two hidden until ThixMail has them).</summary>
+    /// <summary>E-Mail, Kalender, Personen.</summary>
     public IReadOnlyList<Button> NavigationButtons { get; }
 
     /// <summary>The rows of the list now.</summary>
@@ -355,7 +356,7 @@ public sealed class MailEditor : OfficeEditor
     {
         ShowsFolderPane = show;
         SettingsService.RememberAppValue(MailDocument.Settings.FolderPane, show ? null : "false");
-        _folderPane.IsVisible = show;
+        _folderPane.IsVisible = show && ActiveView == MailArea.Mail;
         _root.ColumnDefinitions[1].Width = show ? new GridLength(240) : new GridLength(0);
         _window.Commands.Invalidate();
     }
@@ -690,6 +691,7 @@ public sealed class MailEditor : OfficeEditor
         var mail = MailReader.Read(raw);
         var remote = _loadedImages.GetValueOrDefault(header.Id);
         Reader.Show(mail, header, remote);
+        ShowInvitationOf(mail, header);
         if (remote is null && Reader.View is { HasBlockedImages: true } view && Document.Store.IsTrustedSender(header.From.Address))
         {
             await FetchImagesAsync(header.Id, view.BlockedImages);
@@ -743,6 +745,10 @@ public sealed class MailEditor : OfficeEditor
         if (_shownId == id && Reader.Mail is { } mail)
         {
             Reader.Show(mail, Reader.Header, _loadedImages[id]);
+            if (Reader.Header is { } shown)
+            {
+                ShowInvitationOf(mail, shown);
+            }
         }
     }
 
@@ -982,6 +988,12 @@ public sealed class MailEditor : OfficeEditor
 
     public override void FocusDocument()
     {
+        if (ActiveView != MailArea.Mail)
+        {
+            FocusView();
+            return;
+        }
+
         if (List.SelectedItem is null && _rows.FirstOrDefault(r => r.IsMessage) is { } first && Current is null)
         {
             List.SelectedItem = first;
@@ -1101,6 +1113,12 @@ public sealed class MailEditor : OfficeEditor
             return;
         }
 
+        if (ActiveView != MailArea.Mail)
+        {
+            UpdateViewStatus(statusBar);
+            return;
+        }
+
         var total = _entries.Count;
         var unread = _currentNode?.Unread ?? 0;
         var text = total == 1 ? "1 Element" : $"{total.ToString("N0", German)} Elemente";
@@ -1162,5 +1180,6 @@ public sealed class MailEditor : OfficeEditor
         Document.Changed -= OnDocumentChanged;
         _markRead.Stop();
         _searchDelay.Stop();
+        DetachViews();
     }
 }

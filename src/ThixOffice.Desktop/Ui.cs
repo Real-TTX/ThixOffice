@@ -68,6 +68,9 @@ public static class Ui
             {
                 "Enter" => "↩",
                 "Space" => "Leertaste",
+                "Left" => "←",
+                "Right" => "→",
+                { Length: 2 } digit when digit[0] == 'D' && char.IsAsciiDigit(digit[1]) => digit[1..], // the digit keys are D0–D9
                 _ => part,
             })));
         }
@@ -78,6 +81,9 @@ public static class Ui
             "Shift" => "Umschalt",
             "Enter" => "Eingabe",
             "Space" => "Leertaste",
+            "Left" => "Nach-links",
+            "Right" => "Nach-rechts",
+            { Length: 2 } digit when digit[0] == 'D' && char.IsAsciiDigit(digit[1]) => digit[1..], // the digit keys are D0–D9
             _ => part,
         }));
     }

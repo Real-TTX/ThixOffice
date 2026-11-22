@@ -31,7 +31,7 @@ public static class MailCommands
         bool HasAccount() => Open() && window.Editor is MailEditor editor && editor.Document.Accounts.Accounts.Count > 0;
         bool HasFolder() => Open() && window.Editor is MailEditor { CurrentFolder: not null };
         bool HasOwnFolder() => Open() && window.Editor is MailEditor { CurrentFolder.Role: FolderRole.None };
-        var commands = window.Commands;
+        var commands = new OfficeCommandRegistry(); // gathered here, then registered on the window for the view "E-Mail" (see the end)
 
         commands.Add(new OfficeCommand(MailCommandIds.NewMail, "Neue E-Mail", () => NewMailAsync(window))
         {
@@ -319,6 +319,44 @@ public static class MailCommands
             Description = "Richtet ein E-Mail-Konto ein (IMAP und SMTP; die Einstellungen werden meist selbst gefunden).",
             Keywords = ["konto", "einrichten", "imap", "smtp", "hinzufügen", "postfach"],
         });
+
+        // The mail commands act while the view "E-Mail" is shown (Kalender and Personen have their own Strg+N, Entf, Strg+E …); accounts and offline
+        // work everywhere.
+        var everywhere = new HashSet<string>(StringComparer.Ordinal) { MailCommandIds.AddAccount, MailCommandIds.WorkOffline };
+        bool InMail() => window.Editor is MailEditor { ActiveView: MailArea.Mail };
+        foreach (var command in commands.All)
+        {
+            var always = everywhere.Contains(command.Id);
+            window.Commands.Add(new OfficeCommand(command.Id, command.Label, () => command.ExecuteAsync())
+            {
+                Icon = command.Icon,
+                Shortcut = command.Shortcut,
+                MacShortcut = command.MacShortcut,
+                Description = command.Description,
+                Keywords = command.Keywords,
+                CanExecute = () => (always || InMail()) && command.IsEnabled,
+                IsChecked = command.IsChecked,
+                IsSearchable = command.IsSearchable,
+                SearchPenalty = command.SearchPenalty,
+                YieldsToTextField = command.YieldsToTextField,
+            });
+        }
+    }
+
+    /// <summary>A new message to <paramref name="addresses"/> (Personen › E-Mail senden), from the first account.</summary>
+    public static Task ComposeToAddressesAsync(OfficeWindow window, IReadOnlyList<string> addresses)
+    {
+        var editor = (MailEditor)window.Editor;
+        var account = editor.Document.Accounts.Accounts.FirstOrDefault();
+        if (account is null)
+        {
+            window.ShowBackstage(AccountsPage.PageId);
+            return Task.CompletedTask;
+        }
+
+        var to = addresses.Select(address => new MailAddress("", address)).ToList();
+        OpenComposer(window, WithSignature(editor.Document, new Draft { AccountId = account.Id, From = account.Sender, To = to }, account, reply: false));
+        return Task.CompletedTask;
     }
 
     // ===== composing =====

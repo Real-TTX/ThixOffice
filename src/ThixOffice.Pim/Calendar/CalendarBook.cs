@@ -91,6 +91,25 @@ public sealed class CalendarBook : IDisposable
         return Calendar(key)!;
     }
 
+    /// <summary>Another own calendar ("Privat", "Sport" …) in the own account (made when there is none), its colour the next of ThixCalendar's palette.</summary>
+    public CalendarEntry AddOwnCalendar(string name, string? color = null)
+    {
+        var trimmed = name.Trim();
+        if (trimmed.Length == 0)
+        {
+            throw new BusinessException("Bitte geben Sie dem Kalender einen Namen.", nameof(CalendarEntry.Name));
+        }
+
+        var accountId = EnsureOwnCalendar().AccountSyncId;
+        var remoteId = NewKey();
+        var key = CalendarContract.CalendarKey(accountId, remoteId);
+        var count = WritableCalendars.Count;
+        Store.Write([(CalendarContract.Calendars, key, CalendarItems.Serialize(new CalendarCalendarItem(remoteId, trimmed,
+            CalendarItems.ValidColor(color) ?? CalendarItems.Palette[count % CalendarItems.Palette.Count], true, true, 15, count)))]);
+        Invalidate(local: true);
+        return Calendar(key)!;
+    }
+
     /// <summary>
     /// Saves an appointment of an own calendar (a new one gets a key: <paramref name="appointment"/>'s Key empty) after ThixCalendar's checks; all-day
     /// dates are kept at midnight UTC. Answers the saved appointment.

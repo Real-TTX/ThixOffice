@@ -7,7 +7,7 @@ namespace ThixMail.Editor;
 
 /// <summary>
 /// ThixMail's ribbon like the German Outlook's: Datei | Start (Neu, Löschen, Antworten, Verschieben, Kategorien/Kennzeichnung, Suchen) |
-/// Senden/Empfangen | Ordner | Ansicht (Lesebereich, Unterhaltungen, Dichte, Layout). Every item's id is a command id (<see cref="MailCommandIds"/>).
+/// Senden/Empfangen | Ordner | Ansicht (Lesebereich, Unterhaltungen, Dichte, Layout, Navigation) – and the contextual tabs of the views Kalender and Personen. Every item's id is a command id (<see cref="MailCommandIds"/>).
 /// </summary>
 public static class MailRibbon
 {
@@ -15,6 +15,7 @@ public static class MailRibbon
     {
         var definition = new MatRibbonDefinition { FileLabel = "Datei" };
         definition.Add(HomeTab(), SendReceiveTab(), FolderTab(), ViewTab());
+        definition.Add([.. CalendarCommands.Tabs(), .. ThixOffice.Pim.Desktop.People.PeopleRibbon.Tabs(MailEditor.PeopleContext)]); // contextual: while Kalender / Personen is shown
         return definition;
     }
 
@@ -73,5 +74,9 @@ public static class MailRibbon
                 Toggle(MailCommandIds.DensityCompact, "density")),
             new MatRibbonGroup("layout", "Layout") { Icon = "sidebar" }.Add(
                 Toggle(MailCommandIds.FolderPane, size: MatRibbonSize.Large),
-                Toggle(CommonCommandIds.ToggleRibbon)));
+                Toggle(CommonCommandIds.ToggleRibbon)),
+            new MatRibbonGroup("navigation", "Navigation") { Icon = "compass" }.Add(
+                Toggle(CalendarCommandIds.ShowMail, "navigation"),
+                Toggle(CalendarCommandIds.ShowCalendar, "navigation"),
+                Toggle(CalendarCommandIds.ShowPeople, "navigation")));
 }

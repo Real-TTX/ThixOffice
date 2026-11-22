@@ -4,6 +4,8 @@ using ThixMail.Core;
 using ThixMail.Core.Mime;
 using ThixMail.Core.Model;
 using ThixMail.Core.Transport;
+using MatCloud.Contract.Contacts;
+using ThixOffice.Pim.Calendar;
 
 namespace ThixMail;
 
@@ -56,8 +58,109 @@ public static class SampleMailbox
         server.Deliver(Address, "INBOX", new MailAddress("Tanja Roth", "tanja.roth@kunde.example"), "Angebot 2026-118", "Sehr geehrte Frau Berger,\n\nvielen Dank für das Angebot. Wir melden uns bis Ende der Woche.\n\nTanja Roth", now.AddDays(-9), MessageFlags.Seen);
         server.Deliver(Address, "Sent", new MailAddress("Anna Berger", Address), "Angebot 2026-118", "Sehr geehrte Frau Roth,\n\nanbei unser Angebot.\n\nAnna Berger", now.AddDays(-10), MessageFlags.Seen);
         server.Deliver(Address, "Projekte/Nordlicht", jonas, "Protokoll Auftakt", "Das Protokoll des Auftakts liegt im Projektordner.", now.AddDays(-14), MessageFlags.Seen);
+        var workshop = WorkshopStart();
+        var invitation = new Invitation
+        {
+            Method = InvitationMethod.Request,
+            Uid = "workshop-nordlicht@beispiel.de",
+            Summary = "Workshop Nordlicht",
+            Start = workshop,
+            End = workshop.AddHours(2),
+            Location = "Raum 2.14",
+            Description = "Wir planen die nächsten Schritte im Projekt.",
+            Organizer = new InvitationAttendee(jonas.Address, jonas.Name),
+            Attendees = [new InvitationAttendee(Address, "Anna Berger"), new InvitationAttendee(lena.Address, lena.Name)],
+        };
+        server.Deliver(Address, "INBOX", MailComposer.ToBytes(new Draft
+        {
+            From = jonas,
+            To = [new MailAddress("Anna Berger", Address), lena],
+            Subject = "Einladung: Workshop Nordlicht",
+            Text = "Hallo Anna, hallo Lena,\n\nich lade euch zum Workshop ein.\n\nJonas",
+            Html = "<p>Hallo Anna, hallo Lena,</p><p>ich lade euch zum <b>Workshop Nordlicht</b> ein.</p><p>Jonas</p>",
+            MessageId = "<workshop@beispiel.de>",
+            Calendar = new CalendarPart("REQUEST", Invitations.Request(invitation)),
+        }), MessageFlags.None);
         server.Deliver(Address, "Drafts", new MailAddress("Anna Berger", Address), "Urlaubsvertretung", "Liebe Lena, kannst du mich vom 2. bis 6. vertreten?", now.AddHours(-20), MessageFlags.Seen | MessageFlags.Draft);
         return server;
+    }
+
+    /// <summary>The coming Thursday at 14:00 (the workshop of the sample invitation; a week later when it is Thursday today).</summary>
+    public static DateTimeOffset WorkshopStart()
+    {
+        var today = DateTime.Today;
+        var thursday = today.AddDays((((int)DayOfWeek.Thursday - (int)today.DayOfWeek) + 7) % 7);
+        if (thursday == today)
+        {
+            thursday = thursday.AddDays(7);
+        }
+
+        return CalendarAppointment.FromLocal(thursday.AddHours(14));
+    }
+
+    /// <summary>
+    /// The calendar and the people of the sample (the views Kalender and Personen of the snapshots): a calendar "Kalender" with a week of appointments
+    /// around today (one overlapping the workshop of the invitation), a calendar "Privat", and Anna's colleagues and customers as contacts.
+    /// </summary>
+    public static void FillPim(MailDocument document)
+    {
+        if (document.Pim.Calendar is not { } book || document.Pim.People is not { } people)
+        {
+            return;
+        }
+
+        if (book.Appointments.Count == 0)
+        {
+            var work = book.DefaultCalendar();
+            var monday = DateTime.Today.AddDays(-(((int)DateTime.Today.DayOfWeek + 6) % 7));
+            var workshopDay = WorkshopStart().ToLocalTime().Date;
+            void Add(string calendar, string title, DateTime start, double hours, string location = "", bool allDay = false, int days = 1) => book.Save(new CalendarAppointment
+            {
+                CalendarKey = calendar,
+                Title = title,
+                Start = allDay ? CalendarAppointment.AllDayDate(start.Date) : CalendarAppointment.FromLocal(start),
+                End = allDay ? CalendarAppointment.AllDayDate(start.Date.AddDays(days)) : CalendarAppointment.FromLocal(start.AddHours(hours)),
+                IsAllDay = allDay,
+                Location = location,
+                ReminderMinutes = allDay ? null : 15,
+            });
+            Add(work.Key, "Jour fixe", monday.AddHours(9), 0.5, "Teams");
+            Add(work.Key, "Projektbesprechung Nordlicht", monday.AddDays(1).AddHours(14), 1.5, "Raum 2.14");
+            Add(work.Key, "Messe Köln", monday.AddDays(2), 0, "Koelnmesse, Halle 7", allDay: true, days: 2);
+            Add(work.Key, "Mittagessen mit Lena", monday.AddDays(3).AddHours(12), 1, "Kantine");
+            Add(work.Key, "Telefonat Kunde", monday.AddDays(3).AddHours(12.5), 0.5);
+            Add(work.Key, "Angebot fertigstellen", workshopDay.AddHours(14.5), 1);
+            Add(work.Key, "Zahnarzt", monday.AddDays(4).AddHours(10), 1, "Praxis Dr. Lang");
+            var privateKey = book.AddOwnCalendar("Privat", "#16A34A").Key;
+            Add(privateKey, "Sport", monday.AddDays(1).AddHours(18), 1.5, "Turnhalle");
+            Add(privateKey, "Geburtstag Mama", monday.AddDays(5), 0, allDay: true);
+        }
+
+        if (people.Count == 0)
+        {
+            foreach (var (given, family, company, email, phone, favorite) in new[]
+                     {
+                         ("Jonas", "Weber", "Beispiel GmbH", "jonas.weber@beispiel.de", "+49 221 555 0101", true),
+                         ("Lena", "Koch", "Beispiel GmbH", "lena.koch@beispiel.de", "+49 221 555 0102", true),
+                         ("Maria", "Schulz", "Kunde AG", "maria.schulz@kunde.example", "+49 30 987654", false),
+                         ("Tanja", "Roth", "Kunde AG", "tanja.roth@kunde.example", "+49 30 987655", false),
+                         ("Tobias", "Krüger", "Beispiel GmbH", "tobias.krueger@beispiel.de", "+49 221 555 0142", false),
+                         ("Yuki", "Tanaka", "Partner KK", "yuki@partner.example", "", false),
+                         ("Jürgen", "Müller", "", "juergen@example.at", "+43 1 234567", false),
+                     })
+            {
+                people.Save(null, new ContactData
+                {
+                    GivenName = given,
+                    FamilyName = family,
+                    Company = company,
+                    Emails = [new ContactValue("work", email)],
+                    Phones = phone.Length > 0 ? [new ContactValue("work", phone)] : [],
+                    IsFavorite = favorite,
+                    Categories = company == "Kunde AG" ? ["Kunde"] : [],
+                });
+            }
+        }
     }
 
     private static byte[] SampleMailServerRaw(MimeMessage message) => MailMime.ToBytes(message);

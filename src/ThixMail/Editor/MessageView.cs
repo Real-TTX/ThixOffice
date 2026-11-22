@@ -6,11 +6,13 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using MatDesktop;
+using ThixMail.Core;
 using ThixMail.Core.Mime;
 using ThixMail.Core.Model;
 using ThixMail.Core.Security;
 using ThixOffice.Desktop;
 using ThixOffice.Desktop.Controls;
+using ThixOffice.Pim.Calendar;
 using ThixOffice.Pim.Desktop;
 using ThixWrite.Core.Editing;
 using ThixWrite.Core.Layout;
@@ -21,7 +23,7 @@ namespace ThixMail.Editor;
 /// <summary>
 /// One message shown (the reading pane, a message window of its own, the preview of printing): the header – subject, the sender with avatar, the date,
 /// the recipients (collapsible) –, the bar "Bilder laden" while remote pictures are blocked, the attachments (open with a warning for programs, save,
-/// save all), a note for a calendar invitation, and the body: the mail's HTML made safe and laid out with ThixWrite's engine as a read-only story
+/// save all), the bar of an invitation (Zusagen | Mit Vorbehalt | Absagen, the time and the overlaps with the calendar), and the body: the mail's HTML made safe and laid out with ThixWrite's engine as a read-only story
 /// (<see cref="DocumentSurface"/> with <c>IsReadOnly</c>) on white paper, as wide as the pane. Links open only after their real target is shown
 /// (the host decides). Colours from Mat tokens; the paper is ThixWrite's document colour.
 /// </summary>
@@ -39,6 +41,8 @@ public sealed class MessageView : UserControl
     private readonly Border _imagesBar = new() { IsVisible = false, CornerRadius = new CornerRadius(8), Padding = new Thickness(12, 8), Margin = new Thickness(0, 10, 0, 0), BorderThickness = new Thickness(1) };
     private readonly TextBlock _imagesText = new() { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, FontSize = MatTokens.Type.FsSm };
     private readonly InfoBar _note = new() { Margin = new Thickness(0, 10, 0, 0) };
+    private readonly Border _invitationBar = new() { IsVisible = false, CornerRadius = new CornerRadius(8), Padding = new Thickness(14, 10), Margin = new Thickness(0, 10, 0, 0), BorderThickness = new Thickness(1) };
+    private readonly StackPanel _invitationContent = new() { Spacing = 4 };
     private readonly WrapPanel _attachments = new() { Margin = new Thickness(0, 10, 0, 0) };
     private readonly Border _paper = new() { Padding = new Thickness(20, 16), Margin = new Thickness(0, 12, 0, 0) };
     private readonly ScrollViewer _scroller;
@@ -105,6 +109,11 @@ public sealed class MessageView : UserControl
         _content.Children.Add(senderRow);
         _content.Children.Add(recipientsRow);
         _content.Children.Add(_imagesBar);
+        _invitationBar.Use(Border.BackgroundProperty, "Mat.AccentSoft");
+        _invitationBar.Use(Border.BorderBrushProperty, "Mat.Border");
+        _invitationBar.Child = _invitationContent;
+        AutomationProperties.SetName(_invitationBar, "Einladung");
+        _content.Children.Add(_invitationBar);
         _content.Children.Add(_note);
         _content.Children.Add(_attachments);
         _content.Children.Add(_paper);
@@ -138,6 +147,129 @@ public sealed class MessageView : UserControl
 
     /// <summary>"Alle speichern".</summary>
     public event EventHandler? SaveAllRequested;
+
+    /// <summary>Zusagen, Mit Vorbehalt or Absagen was clicked in the bar of an invitation.</summary>
+    public event EventHandler<InvitationAnswer>? InvitationAnswered;
+
+    /// <summary>"Aus Kalender entfernen" of a cancelled meeting.</summary>
+    public event EventHandler? InvitationRemoveRequested;
+
+    /// <summary>The invitation the bar shows, or null.</summary>
+    public InvitationView? Invitation { get; private set; }
+
+    /// <summary>The buttons of the invitation's bar (Zusagen, Mit Vorbehalt, Absagen – or Aus Kalender entfernen), empty when there are none.</summary>
+    public IReadOnlyList<Button> InvitationButtons => [.. _invitationContent.Children.OfType<StackPanel>().SelectMany(row => row.Children.OfType<Button>())];
+
+    /// <summary>The texts of the invitation's bar (tests).</summary>
+    public string InvitationText => string.Join("\n", _invitationContent.Children.OfType<TextBlock>().Select(text => text.Text));
+
+    /// <summary>
+    /// The bar of an invitation (<see cref="MailInvitations.View"/>): the meeting, when and where, who invites, the overlaps with the calendar of the ThixCloud
+    /// account, what the calendar says already, and the answers – or, for a cancellation, "Aus Kalender entfernen"; null hides it.
+    /// </summary>
+    public void ShowInvitation(InvitationView? view)
+    {
+        Invitation = view;
+        _invitationContent.Children.Clear();
+        _invitationBar.IsVisible = view is not null;
+        if (view is null)
+        {
+            return;
+        }
+
+        if (_mail?.Calendar is not null)
+        {
+            _note.Hide(); // the bar says it
+        }
+
+        var meeting = view.Invitation;
+        var head = view.IsCancelled ? "Abgesagt: " : view.IsReply ? "Antwort auf Ihre Einladung: " : "Einladung: ";
+        var title = new TextBlock { Text = head + (meeting.Summary.Length > 0 ? meeting.Summary : "Besprechung"), FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
+        var icon = new MatIcon { Icon = "calendar", Size = 18, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
+        icon.Use(MatIcon.ForegroundProperty, "Mat.Accent");
+        _invitationContent.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Children = { icon, title } });
+        var details = MailInvitations.When(meeting) + (meeting.Location.Length > 0 ? " · " + meeting.Location : "");
+        if (meeting.Organizer.Email.Length > 0 && !view.IsReply)
+        {
+            details += " · von " + (meeting.Organizer.Name.Length > 0 ? meeting.Organizer.Name : meeting.Organizer.Email);
+        }
+
+        _invitationContent.Children.Add(Line(details, "Mat.Text"));
+        if (view.IsReply)
+        {
+            foreach (var attendee in meeting.Attendees)
+            {
+                _invitationContent.Children.Add(Line($"{(attendee.Name.Length > 0 ? attendee.Name : attendee.Email)}: {Invitations.StatusText(attendee.Status)}", "Mat.Text"));
+            }
+
+            return;
+        }
+
+        if (meeting.IsRecurring && !view.IsCancelled)
+        {
+            _invitationContent.Children.Add(Line("Serientermin – in den Kalender kommt nur der erste Termin (die eigenen Kalender kennen keine Serien).", "Mat.TextMuted"));
+        }
+
+        if (!view.HasCalendar)
+        {
+            _invitationContent.Children.Add(Line("Der Kalender ist nicht verbunden: melden Sie sich bei der ThixCloud an, damit Antworten den Termin eintragen.", "Mat.TextMuted"));
+        }
+        else if (view.Entered is { } entered)
+        {
+            _invitationContent.Children.Add(Line(view.IsCancelled ? "Der Termin steht noch in Ihrem Kalender." : entered.Status == MatCloud.Contract.Calendar.CalendarEventStatus.Tentative
+                ? "Im Kalender: mit Vorbehalt angenommen." : "Im Kalender: zugesagt.", "Mat.SuccessText"));
+        }
+        else if (!view.IsCancelled)
+        {
+            _invitationContent.Children.Add(view.Conflicts.Count == 0
+                ? Line("Keine Überschneidung in Ihrem Kalender.", "Mat.TextMuted")
+                : Line("Überschneidet sich mit: " + string.Join(", ", view.Conflicts.Take(3).Select(c => $"{c.Title} ({(c.IsAllDay ? "ganztägig" : $"{c.StartLocal:HH:mm}–{c.EndLocal:HH:mm}")})"))
+                       + (view.Conflicts.Count > 3 ? $" und {view.Conflicts.Count - 3} weitere" : ""), "Mat.WarningText"));
+        }
+
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 6, 0, 0) };
+        if (view.IsCancelled)
+        {
+            if (view.Entered is not null)
+            {
+                var remove = new Button { Content = new IconLabel { Icon = "trash", Text = "Aus Kalender entfernen" } };
+                remove.Click += (_, _) => InvitationRemoveRequested?.Invoke(this, EventArgs.Empty);
+                actions.Children.Add(remove);
+            }
+        }
+        else if (view.CanAnswer)
+        {
+            foreach (var (answer, label, iconName, theme) in new[]
+                     {
+                         (InvitationAnswer.Accept, "Zusagen", "check", "MatButton.Primary"),
+                         (InvitationAnswer.Tentative, "Mit Vorbehalt", "help-circle", (string?)null),
+                         (InvitationAnswer.Decline, "Absagen", "x", null),
+                     })
+            {
+                var button = new Button { Content = new IconLabel { Icon = iconName, Text = label } };
+                if (theme is not null)
+                {
+                    button.Themed(theme);
+                }
+
+                AutomationProperties.SetName(button, label);
+                button.Click += (_, _) => InvitationAnswered?.Invoke(this, answer);
+                actions.Children.Add(button);
+            }
+        }
+
+        if (actions.Children.Count > 0)
+        {
+            _invitationContent.Children.Add(actions);
+        }
+
+        static TextBlock Line(string text, string token)
+        {
+            var line = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = MatTokens.Type.FsSm };
+            line.Use(TextBlock.ForegroundProperty, token);
+            return line;
+        }
+    }
 
     public Button LoadImagesButton { get; }
 
@@ -184,6 +316,7 @@ public sealed class MessageView : UserControl
         _empty.IsVisible = false;
         FillHeader(header.Subject, header.From, header.To, header.Cc, header.Date);
         _imagesBar.IsVisible = false;
+        ShowInvitation(null);
         _attachments.Children.Clear();
         _note.Show(state, InfoSeverity.Info);
         SetBody(null);
@@ -202,9 +335,10 @@ public sealed class MessageView : UserControl
         _moreRecipients.Content = "Mehr";
         FillHeader(mail.Subject, mail.From, mail.To, mail.Cc, mail.Date == DateTimeOffset.MinValue ? header?.Date ?? DateTimeOffset.Now : mail.Date);
         FillAttachments(mail);
-        if (mail.Calendar is { } calendar)
+        ShowInvitation(null);
+        if (mail.Calendar is not null)
         {
-            _note.Show($"Diese Nachricht enthält eine Kalendereinladung ({(calendar.Method.Length > 0 ? calendar.Method : "Termin")}). Zusagen und Absagen folgen mit dem Kalender von ThixMail; bis dahin können Sie die Datei „.ics“ öffnen.", InfoSeverity.Info);
+            _note.Show("Diese Nachricht enthält eine Kalendereinladung.", InfoSeverity.Info);
         }
         else if (mail.Problems.Count > 0)
         {
