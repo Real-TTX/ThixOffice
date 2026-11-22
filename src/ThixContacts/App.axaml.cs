@@ -3,9 +3,9 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using MatDesktop;
 using ThixContacts.Core;
-using ThixContacts.Dialogs;
 using ThixContacts.Editor;
 using ThixContacts.Pages;
+using ThixOffice.Pim.Desktop.People;
 using ThixOffice.Core.Business;
 using ThixOffice.Core.Documents;
 using ThixOffice.Core.Models;
@@ -36,7 +36,7 @@ public partial class App : OfficeApplication
 
     public override IReadOnlyList<string> SnapshotScenes => [EditScene, GroupsScene, DuplicatesScene, MappingScene, SignedOutScene, PrintScene];
 
-    public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => ContactsRibbon.Create(window);
+    public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => PeopleRibbon.Create(window);
 
     public override void Initialize()
     {

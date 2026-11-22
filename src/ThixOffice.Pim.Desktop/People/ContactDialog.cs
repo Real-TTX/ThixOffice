@@ -9,11 +9,10 @@ using ThixOffice.Core.Models;
 using ThixOffice.Desktop;
 using ThixOffice.Desktop.Controls;
 using ThixOffice.Desktop.Dialogs;
-using ThixOffice.Pim.Desktop;
 using ThixOffice.Pim.Model;
 using ThixOffice.Pim.Rules;
 
-namespace ThixContacts.Dialogs;
+namespace ThixOffice.Pim.Desktop.People;
 
 /// <summary>
 /// "Kontakt" (new or to change), like Outlook's contact form in tabs: Allgemein (picture, name, work, e-mail addresses, phone numbers, favourite),

@@ -8,6 +8,7 @@ on:
     paths:
       - 'src/ThixMail/**'
       - 'src/ThixMail.Core/**'
+      - 'src/ThixContacts.Core/**'
       - 'src/ThixWrite.Core/**'
       - 'src/ThixWrite.Desktop/**'
       - 'src/ThixOffice.Charts/**'
@@ -34,6 +35,7 @@ on:
     paths:
       - 'src/ThixMail/**'
       - 'src/ThixMail.Core/**'
+      - 'src/ThixContacts.Core/**'
       - 'src/ThixWrite.Core/**'
       - 'src/ThixWrite.Desktop/**'
       - 'src/ThixOffice.Charts/**'

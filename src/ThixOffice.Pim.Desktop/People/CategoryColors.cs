@@ -1,4 +1,4 @@
-namespace ThixContacts.Editor;
+namespace ThixOffice.Pim.Desktop.People;
 
 /// <summary>
 /// The colours of categories (Outlook gives each category a colour): from MatDesktop's tokens only, chosen by the name (the same category has the same

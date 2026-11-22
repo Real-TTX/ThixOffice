@@ -3,31 +3,40 @@ using ThixOffice.Core.Commands;
 using ThixOffice.Desktop.Shell;
 using static ThixOffice.Desktop.Shell.OfficeRibbonItems;
 
-namespace ThixContacts.Editor;
+namespace ThixOffice.Pim.Desktop.People;
 
 /// <summary>
-/// ThixContacts' ribbon like the German Outlook's "Personen": Datei | Start (Neu, Löschen, Kommunizieren, Kategorien, Suchen, Synchronisieren) |
-/// Ordner (Kontaktgruppen, Mitglieder, Aufräumen, Importieren/Exportieren) | Ansicht (Anzeigen, Sortieren, Layout). Every item's id is a command id
-/// (<see cref="ContactsCommandIds"/>); labels, icons, shortcuts and tooltips come from the commands.
+/// The ribbon of Outlook's "Personen": Start (Neu, Löschen, Kommunizieren, Kategorien, Suchen, Synchronisieren) | Ordner (Kontaktgruppen, Mitglieder,
+/// Aufräumen, Importieren/Exportieren) | Ansicht (Anzeigen, Sortieren, Layout). ThixContacts' whole ribbon (<see cref="Create"/>), and ThixMail's
+/// contextual tabs while its view "Personen" is active (<see cref="Tabs"/>). Every item's id is a command id (<see cref="ContactsCommandIds"/>); labels,
+/// icons, shortcuts and tooltips come from the commands; items whose command the window lacks (Drucken, Synchronisieren) are left out by the binding.
 /// </summary>
-public static class ContactsRibbon
+public static class PeopleRibbon
 {
     public static MatRibbonDefinition Create(OfficeWindow window)
     {
         var definition = new MatRibbonDefinition { FileLabel = "Datei" };
-        definition.Add(HomeTab(), FolderTab(), ViewTab());
+        definition.Add([.. Tabs()]);
         return definition;
     }
 
-    private static MatRibbonTab HomeTab() =>
-        new MatRibbonTab("home", "Start").Add(
+    /// <summary>
+    /// The three tabs. <paramref name="context"/>: contextual tabs (ThixMail), their ids prefixed with it and labelled "Personen", "Kontaktgruppen",
+    /// "Personenansicht", without the items the host's own tabs have already (Rückgängig, Menüband).
+    /// </summary>
+    public static IReadOnlyList<MatRibbonTab> Tabs(string? context = null)
+    {
+        var hosted = context is not null;
+        var home = new MatRibbonTab(Id("home"), hosted ? "Personen" : "Start") { Context = context }.Add(
             new MatRibbonGroup("new", "Neu") { Icon = "plus" }.Add(
                 Button(ContactsCommandIds.New, MatRibbonSize.Large),
                 Button(ContactsCommandIds.NewGroup, MatRibbonSize.Large)),
-            new MatRibbonGroup("delete", "Löschen") { Icon = "trash", ShrinkOrder = 3 }.Add(
-                Button(ContactsCommandIds.Delete, MatRibbonSize.Large),
-                Button(CommonCommandIds.Undo, MatRibbonSize.Small),
-                Button(CommonCommandIds.Redo, MatRibbonSize.Small)),
+            hosted
+                ? new MatRibbonGroup("delete", "Löschen") { Icon = "trash", ShrinkOrder = 3 }.Add(Button(ContactsCommandIds.Delete, MatRibbonSize.Large))
+                : new MatRibbonGroup("delete", "Löschen") { Icon = "trash", ShrinkOrder = 3 }.Add(
+                    Button(ContactsCommandIds.Delete, MatRibbonSize.Large),
+                    Button(CommonCommandIds.Undo, MatRibbonSize.Small),
+                    Button(CommonCommandIds.Redo, MatRibbonSize.Small)),
             new MatRibbonGroup("communicate", "Kommunizieren") { Icon = "mail", ShrinkOrder = 2 }.Add(
                 Button(ContactsCommandIds.Email, MatRibbonSize.Large),
                 Button(ContactsCommandIds.Edit),
@@ -41,8 +50,7 @@ public static class ContactsRibbon
             new MatRibbonGroup("sync", "ThixCloud") { Icon = "refresh", ShrinkOrder = 5 }.Add(
                 Button(ContactsCommandIds.Sync, MatRibbonSize.Large)));
 
-    private static MatRibbonTab FolderTab() =>
-        new MatRibbonTab("folder", "Ordner").Add(
+        var folder = new MatRibbonTab(Id("folder"), hosted ? "Kontaktgruppen" : "Ordner") { Context = context }.Add(
             new MatRibbonGroup("groups", "Kontaktgruppen") { Icon = "users" }.Add(
                 Button(ContactsCommandIds.RenameGroup, MatRibbonSize.Large),
                 Button(ContactsCommandIds.DeleteGroup)),
@@ -57,8 +65,11 @@ public static class ContactsRibbon
                 Button(ContactsCommandIds.Export, MatRibbonSize.Large),
                 Button(ContactsCommandIds.Print)));
 
-    private static MatRibbonTab ViewTab() =>
-        new MatRibbonTab("view", "Ansicht").Add(
+        var layout = new MatRibbonGroup("layout", "Layout") { Icon = "sidebar" }.Add(
+            Toggle(ContactsCommandIds.ShowFolders, size: MatRibbonSize.Large),
+            Toggle(ContactsCommandIds.ShowCard, size: MatRibbonSize.Large),
+            Toggle(ContactsCommandIds.ShowIndex, size: MatRibbonSize.Large));
+        var view = new MatRibbonTab(Id("view"), hosted ? "Personenansicht" : "Ansicht") { Context = context }.Add(
             new MatRibbonGroup("show", "Anzeigen") { Icon = "users" }.Add(
                 Toggle(ContactsCommandIds.ShowAll, "show", MatRibbonSize.Large),
                 Toggle(ContactsCommandIds.ShowFavorites, "show", MatRibbonSize.Large)),
@@ -66,10 +77,14 @@ public static class ContactsRibbon
                 Toggle(ContactsCommandIds.SortGiven, "sort"),
                 Toggle(ContactsCommandIds.SortFamily, "sort"),
                 Toggle(ContactsCommandIds.SortCompany, "sort")),
-            new MatRibbonGroup("layout", "Layout") { Icon = "sidebar" }.Add(
-                Toggle(ContactsCommandIds.ShowFolders, size: MatRibbonSize.Large),
-                Toggle(ContactsCommandIds.ShowCard, size: MatRibbonSize.Large),
-                Toggle(ContactsCommandIds.ShowIndex, size: MatRibbonSize.Large)),
-            new MatRibbonGroup("ribbon", "Menüband") { Icon = "chevron-up" }.Add(
-                Toggle(CommonCommandIds.ToggleRibbon)));
+            layout);
+        if (!hosted)
+        {
+            view.Add(new MatRibbonGroup("ribbon", "Menüband") { Icon = "chevron-up" }.Add(Toggle(CommonCommandIds.ToggleRibbon)));
+        }
+
+        return [home, folder, view];
+
+        string Id(string id) => context is null ? id : $"{context}.{id}";
+    }
 }

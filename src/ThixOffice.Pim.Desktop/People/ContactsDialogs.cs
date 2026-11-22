@@ -6,7 +6,6 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using MatDesktop;
 using ThixContacts.Core;
-using ThixContacts.Editor;
 using ThixOffice.Core.Models;
 using ThixOffice.Desktop;
 using ThixOffice.Desktop.Controls;
@@ -14,7 +13,7 @@ using ThixOffice.Desktop.Dialogs;
 using ThixOffice.Pim.Model;
 using ThixOffice.Pim.Rules;
 
-namespace ThixContacts.Dialogs;
+namespace ThixOffice.Pim.Desktop.People;
 
 /// <summary>"Kategorisieren": a category to give or take away – one of those there are (with its colour) or a new one.</summary>
 public sealed class CategoryDialog : OfficeDialog

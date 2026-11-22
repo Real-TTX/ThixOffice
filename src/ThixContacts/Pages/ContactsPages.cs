@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using MatDesktop;
 using ThixContacts.Editor;
+using ThixOffice.Pim.Desktop.People;
 using ThixOffice.Desktop.Controls;
 using ThixOffice.Desktop.Pages;
 using ThixOffice.Desktop.Rendering;

@@ -1,4 +1,4 @@
-namespace ThixContacts.Editor;
+namespace ThixOffice.Pim.Desktop.People;
 
 /// <summary>The ids of ThixContacts' commands (ribbon items, search, keys, context menus): <c>contacts.&lt;name&gt;</c>.</summary>
 public static class ContactsCommandIds
