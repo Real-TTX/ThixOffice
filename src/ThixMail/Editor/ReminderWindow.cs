@@ -114,6 +114,7 @@ public sealed class MailReminders : IDisposable
     private readonly MailDocument _document;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(30) };
     private ReminderWindow? _shown;
+    private bool _sample;
 
     public MailReminders(OfficeWindow window, MailDocument document)
     {
@@ -140,6 +141,11 @@ public sealed class MailReminders : IDisposable
     /// <summary>Looks for due reminders now and shows, updates or closes the window.</summary>
     public void Check()
     {
+        if (_sample)
+        {
+            return; // the snapshot's window stays as it was made (the timer and calendar changes must not close it before it is drawn)
+        }
+
         if (_document.IsClosed || _document.Pim.Calendar is not { } book
             || ThixOffice.Core.Business.SettingsService.AppValue(MailDocument.Settings.Notifications) == "false" || CalendarRuns())
         {
@@ -172,8 +178,13 @@ public sealed class MailReminders : IDisposable
     internal ReminderWindow ShowForSample(IReadOnlyList<DueReminder> due, DateTimeOffset now)
     {
         Close();
+        _sample = true;
         _shown = new ReminderWindow(this);
-        _shown.Closed += (_, _) => _shown = null;
+        _shown.Closed += (_, _) =>
+        {
+            _shown = null;
+            _sample = false;
+        };
         _shown.Show(due, now);
         _shown.Show();
         return _shown;
