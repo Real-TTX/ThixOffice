@@ -336,6 +336,8 @@ public sealed partial class MailEditor
             {
                 await Document.Pim.ReconnectAsync();
             }
+
+            await Document.ReconnectSettingsAsync();
         }
         catch (Exception exception) when (exception is ThixOffice.Core.Models.BusinessException or IOException or Microsoft.Data.Sqlite.SqliteException)
         {

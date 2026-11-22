@@ -374,6 +374,9 @@ public sealed partial class MailEditor : OfficeEditor
             nodes.Add(new FolderNode(FolderNodeKind.FavoritesHeading, "Favoriten", "star", 0, 0));
             var inboxes = accounts.Select(a => store.FolderByRole(a.Id, FolderRole.Inbox)).Where(f => f is not null).Select(f => f!).ToList();
             nodes.Add(new FolderNode(FolderNodeKind.Unified, accounts.Count > 1 ? "Alle Posteingänge" : "Posteingang", "download", inboxes.Sum(f => f.Unread), 1));
+            var searched = SearchFolders(store);
+            nodes.Add(new FolderNode(FolderNodeKind.SearchUnread, "Ungelesene E-Mail", "mail", store.Folders().Where(f => searched.Contains(f.Id)).Sum(f => f.Unread), 1));
+            nodes.Add(new FolderNode(FolderNodeKind.SearchFlagged, "Zur Nachverfolgung", "pin", store.List(new MessageQuery([.. searched], ListFilter.Flagged)).Count, 1));
         }
 
         foreach (var account in accounts)
@@ -493,6 +496,60 @@ public sealed partial class MailEditor : OfficeEditor
         }
     }
 
+    private readonly HashSet<long> _shownUnread = [];
+    private string? _unreadView;
+
+    /// <summary>
+    /// In an unread view (the search folder, the filter Ungelesen) a message read there stays in the list until the view changes, as in Outlook – else
+    /// reading the first would take it away and the next would be read at once.
+    /// </summary>
+    private void KeepReadInUnreadView(MessageQuery query)
+    {
+        var view = query.Filter == ListFilter.Unread ? $"{_currentNode?.Kind}|{_currentNode?.FolderId}|{query.Search}|{query.Sort}" : null;
+        if (view != _unreadView)
+        {
+            _unreadView = view;
+            _shownUnread.Clear();
+        }
+
+        if (view is null)
+        {
+            return;
+        }
+
+        if (_shownUnread.Count > 0)
+        {
+            var listed = _entries.Select(e => e.Id).ToHashSet();
+            if (_shownUnread.Any(id => !listed.Contains(id)))
+            {
+                _entries = [.. Document.Store.List(query with { Filter = ListFilter.All }).Where(e => listed.Contains(e.Id) || _shownUnread.Contains(e.Id))];
+            }
+        }
+
+        _shownUnread.UnionWith(_entries.Select(e => e.Id));
+    }
+
+    /// <summary>The folders the search folders look into: every folder of every account but Gelöschte Elemente, Junk-E-Mail and Entwürfe (as Outlook's).</summary>
+    private static HashSet<long> SearchFolders(MailStore store) =>
+        [.. store.Folders().Where(f => f.IsSelectable && f.Role is not (FolderRole.Trash or FolderRole.Junk or FolderRole.Drafts)).Select(f => f.Id)];
+
+    /// <summary>The filter of the list: the search folder's own, else the one chosen above the list.</summary>
+    private ListFilter ListedFilter => _currentNode?.Kind switch
+    {
+        FolderNodeKind.SearchUnread => ListFilter.Unread,
+        FolderNodeKind.SearchFlagged => ListFilter.Flagged,
+        _ => (ListFilter)Math.Max(0, FilterChoice.SelectedIndex),
+    };
+
+    /// <summary>Shows a search folder (tests).</summary>
+    public void SelectSearchFolder(FolderNodeKind kind)
+    {
+        if ((Folders.ItemsSource as IEnumerable<FolderNode> ?? []).FirstOrDefault(n => n.Kind == kind) is { } node)
+        {
+            Folders.SelectedItem = node;
+        }
+    }
+
     public bool IsSentFolder(long folderId) => _sentFolders.ContainsKey(folderId);
 
     /// <summary>The folders the list shows: the chosen one, every inbox, or – searching in all folders – every folder.</summary>
@@ -506,6 +563,7 @@ public sealed partial class MailEditor : OfficeEditor
 
         return _currentNode switch
         {
+            { Kind: FolderNodeKind.SearchUnread or FolderNodeKind.SearchFlagged } => [.. SearchFolders(store)],
             { Kind: FolderNodeKind.Unified } => [.. Document.Accounts.Accounts.Select(a => store.FolderByRole(a.Id, FolderRole.Inbox)).Where(f => f is not null).Select(f => f!.Id)],
             { FolderId: { } id } => [id],
             _ => [],
@@ -573,8 +631,9 @@ public sealed partial class MailEditor : OfficeEditor
             var selected = List.SelectedItems?.OfType<ListRow>().Where(r => r.IsMessage).Select(r => r.Id).ToHashSet() ?? [];
             _headers.Clear();
             var sort = (ListSort)Math.Max(0, SortChoice.SelectedIndex);
-            var query = new MessageQuery(ListedFolders(), (ListFilter)Math.Max(0, FilterChoice.SelectedIndex), (SearchBox.Text ?? "").Trim(), sort, sort is ListSort.Date or ListSort.Size);
+            var query = new MessageQuery(ListedFolders(), ListedFilter, (SearchBox.Text ?? "").Trim(), sort, sort is ListSort.Date or ListSort.Size);
             _entries = Document.Store.List(query);
+            KeepReadInUnreadView(query);
             var rows = MessageList.Build(_entries, ShowsConversations, sort == ListSort.Date, _expanded, DateTimeOffset.Now);
             if (force || !rows.SequenceEqual(_rows))
             {
@@ -922,7 +981,45 @@ public sealed partial class MailEditor : OfficeEditor
         if (target?.FolderId is { } folderId)
         {
             e.Handled = true;
+            _ = MoveAsync(ids, folderId);
+        }
+    }
+
+    /// <summary>
+    /// Moves messages (drag and drop, Verschieben): within their account as one undoable step; into another account's folder as a copy there and the
+    /// originals into Gelöschte Elemente (after asking: that cannot be undone with Strg+Z).
+    /// </summary>
+    public async Task MoveAsync(IReadOnlyList<long> ids, long folderId)
+    {
+        var target = Document.Store.Folder(folderId);
+        var across = target is not null && Document.Store.Headers(ids).Any(h => h.AccountId != target.AccountId);
+        if (!across)
+        {
             Run(() => Session.Move(ids, folderId));
+            return;
+        }
+
+        var account = Document.Accounts.Account(target!.AccountId)?.DisplayName ?? "";
+        if (!await ThixOffice.Desktop.Dialogs.QuestionDialog.ConfirmAsync(_window, "In ein anderes Konto verschieben?",
+                $"Die Nachrichten werden nach „{target.DisplayName}“ in „{account}“ kopiert; die Originale kommen in „Gelöschte Elemente“ ihres Kontos. Das lässt sich nicht mit „Rückgängig“ zurücknehmen.",
+                "Verschieben"))
+        {
+            return;
+        }
+
+        try
+        {
+            var moved = await Session.MoveToAccountAsync(ids, folderId, (id, token) => Document.BodyAsync(id, token), CancellationToken.None);
+            _window.ShowMessage(moved == 1 ? $"Eine Nachricht wurde nach „{target.DisplayName}“ ({account}) verschoben." : $"{moved} Nachrichten wurden nach „{target.DisplayName}“ ({account}) verschoben.",
+                InfoSeverity.Success, isClosable: true);
+        }
+        catch (BusinessException exception)
+        {
+            _window.ShowMessage(exception.Message, InfoSeverity.Error, isClosable: true);
+        }
+        catch (ThixMail.Core.Transport.MailConnectionException exception)
+        {
+            _window.ShowMessage(exception.Message, InfoSeverity.Error, isClosable: true);
         }
     }
 

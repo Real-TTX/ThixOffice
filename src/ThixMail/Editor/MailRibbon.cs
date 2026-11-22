@@ -21,8 +21,9 @@ public static class MailRibbon
 
     private static MatRibbonTab HomeTab() =>
         new MatRibbonTab("home", "Start").Add(
-            new MatRibbonGroup("new", "Neu") { Icon = "mail" }.Add(
-                Button(MailCommandIds.NewMail, MatRibbonSize.Large)),
+            new MatRibbonGroup("new", "Neu") { Icon = "mail", ShrinkOrder = 8 }.Add(
+                Button(MailCommandIds.NewMail, MatRibbonSize.Large),
+                Button(MailCommandIds.NewFromTemplate)),
             new MatRibbonGroup("delete", "Löschen") { Icon = "trash", ShrinkOrder = 4 }.Add(
                 Button(MailCommandIds.Delete, MatRibbonSize.Large),
                 Button(MailCommandIds.Archive, MatRibbonSize.Large),
@@ -33,6 +34,10 @@ public static class MailRibbon
                 Button(MailCommandIds.Forward, MatRibbonSize.Large)),
             new MatRibbonGroup("move", "Verschieben") { Icon = "folder", ShrinkOrder = 2 }.Add(
                 Button(MailCommandIds.Move, MatRibbonSize.Large)),
+            new MatRibbonGroup("rules", "Regeln") { Icon = "filter", ShrinkOrder = 0 }.Add(
+                Button(MailCommandIds.CreateRule),
+                Button(MailCommandIds.ManageRules),
+                Button(MailCommandIds.RunRules)),
             new MatRibbonGroup("tags", "Kategorien") { Icon = "tag", ShrinkOrder = 1 }.Add(
                 Button(MailCommandIds.MarkRead),
                 Button(MailCommandIds.MarkUnread),

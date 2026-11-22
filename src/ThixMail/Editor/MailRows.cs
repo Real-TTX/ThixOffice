@@ -21,6 +21,12 @@ public enum FolderNodeKind
 {
     FavoritesHeading,
     Unified,
+
+    /// <summary>The search folder "Ungelesene E-Mail": unread mail of every folder of every account (not Gelöschte Elemente, Junk-E-Mail, Entwürfe).</summary>
+    SearchUnread,
+
+    /// <summary>The search folder "Zur Nachverfolgung": flagged mail of every folder.</summary>
+    SearchFlagged,
     Account,
     Folder,
 }

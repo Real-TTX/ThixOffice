@@ -27,12 +27,14 @@ public static class MailSettings
     public const string ComposeTab = "mail.compose";
     public const string SignaturesTab = "mail.signatures";
     public const string NotificationsTab = "mail.notifications";
+    public const string RulesTab = "mail.rules";
 
     public static IEnumerable<SettingsTab> Tabs(OfficeWindow window) =>
     [
         new(ReadingTab, "Lesen", () => Reading(window)),
         new(ComposeTab, "Verfassen", Compose),
         new(SignaturesTab, "Signaturen", () => new SignaturesPanel(((MailEditor)window.Editor).Document)),
+        new(RulesTab, "Regeln", () => new RulesPanel(window, ((MailEditor)window.Editor).Document)),
         new(NotificationsTab, "Benachrichtigungen", Notifications),
     ];
 

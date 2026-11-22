@@ -3,6 +3,11 @@ namespace ThixMail.Editor;
 /// <summary>The ids of ThixMail's commands (<c>mail.&lt;name&gt;</c>): ribbon items, keys, context menus and the search use them.</summary>
 public static class MailCommandIds
 {
+    public const string NewFromTemplate = "mail.newFromTemplate";
+    public const string CreateRule = "mail.rules.create";
+    public const string ManageRules = "mail.rules.manage";
+    public const string RunRules = "mail.rules.run";
+
     // Start
     public const string NewMail = "mail.new";
     public const string Delete = "mail.delete";

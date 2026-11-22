@@ -457,7 +457,48 @@ public sealed class ComposeWindow : MatWindow
     }
 
     /// <summary>Senden: checked by the business layer (an error at its field), into the Postausgang, the window closes.</summary>
-    public async Task<bool> SendAsync()
+    public Task<bool> SendAsync() => SendAsync(null);
+
+    /// <summary>"Später senden" (Übermittlung verzögern): the time in a small dialog, then the message waits in the Postausgang until then.</summary>
+    public async Task<bool> SendLaterAsync()
+    {
+        var dialog = new SendLaterDialog();
+        LastSendLaterDialog = dialog;
+        return await dialog.ShowAsync(this) && dialog.Time is { } at && await SendAsync(at);
+    }
+
+    /// <summary>"Als Vorlage speichern": the name asked, subject and body kept (recipients and attachments are not part of a template).</summary>
+    public async Task SaveTemplateAsync()
+    {
+        var draft = CurrentDraft();
+        var name = await TextInputDialog.AskAsync(this, "Als Vorlage speichern", "Name der Vorlage", draft.Subject.Length > 0 ? draft.Subject : "Vorlage", "Speichern");
+        SaveTemplate(name);
+    }
+
+    /// <summary>Keeps the current subject and body as the template <paramref name="name"/> (tests call it directly).</summary>
+    public void SaveTemplate(string? name)
+    {
+        if (name is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var draft = CurrentDraft();
+            var template = _document.Accounts.SaveTemplate(name, draft.Subject, draft.Html, draft.Text);
+            _message.Show($"Als Vorlage „{template.Name}“ gespeichert.", InfoSeverity.Success, isClosable: true);
+        }
+        catch (BusinessException exception)
+        {
+            _message.Show(exception.Message, InfoSeverity.Error, isClosable: true);
+        }
+    }
+
+    /// <summary>The dialog of the last "Später senden" (tests).</summary>
+    internal SendLaterDialog? LastSendLaterDialog { get; private set; }
+
+    private async Task<bool> SendAsync(DateTimeOffset? sendAt)
     {
         var draft = CurrentDraft();
         try
@@ -479,7 +520,7 @@ public sealed class ComposeWindow : MatWindow
 
         try
         {
-            _document.Session.Send(draft);
+            _document.Session.Send(draft, sendAt);
         }
         catch (BusinessException exception)
         {
@@ -593,6 +634,18 @@ public sealed class ComposeWindow : MatWindow
             Description = "Sendet die Nachricht (ohne Verbindung wartet sie im Postausgang).",
             Keywords = ["senden", "abschicken", "verschicken"],
         });
+        Commands.Add(new OfficeCommand(ComposeCommandIds.SendLater, "Später senden", SendLaterAsync)
+        {
+            Icon = "clock",
+            Description = "Die Nachricht wartet im Postausgang bis zu dem Zeitpunkt, den Sie wählen (ThixMail muss dann laufen).",
+            Keywords = ["später", "senden", "verzögern", "zeitpunkt", "übermittlung"],
+        });
+        Commands.Add(new OfficeCommand(ComposeCommandIds.SaveTemplate, "Als Vorlage speichern", SaveTemplateAsync)
+        {
+            Icon = "template",
+            Description = "Speichert Betreff und Text als Vorlage für neue Nachrichten (Start › Neue E-Mail aus Vorlage).",
+            Keywords = ["vorlage", "speichern", "muster", "template"],
+        });
         Add(ComposeCommandIds.SaveDraft, "Speichern", "save", () => SaveDraft(), "Ctrl+S", description: "Speichert die Nachricht als Entwurf in „Entwürfe“.");
         Commands.Add(new OfficeCommand(ComposeCommandIds.Attach, "Datei anfügen", AttachAsync) { Icon = "paperclip", Description = "Fügt der Nachricht Dateien als Anlagen hinzu (auch per Ziehen und Ablegen)." });
         Commands.Add(new OfficeCommand(ComposeCommandIds.Picture, "Bilder", PictureAsync) { Icon = "image", Description = "Fügt ein Bild in den Text ein." });
@@ -654,7 +707,7 @@ public sealed class ComposeWindow : MatWindow
         var definition = new MatRibbonDefinition { FileLabel = "Datei" };
         definition.Add(
             new MatRibbonTab("message", "Nachricht").Add(
-                new MatRibbonGroup("send", "Senden") { Icon = "arrow-right" }.Add(Button(ComposeCommandIds.Send, MatRibbonSize.Large), Button(ComposeCommandIds.SaveDraft)),
+                new MatRibbonGroup("send", "Senden") { Icon = "arrow-right" }.Add(Button(ComposeCommandIds.Send, MatRibbonSize.Large), Button(ComposeCommandIds.SendLater), Button(ComposeCommandIds.SaveDraft), Button(ComposeCommandIds.SaveTemplate)),
                 new MatRibbonGroup("clipboard", "Zwischenablage") { Icon = "paste" }.Add(Button(ComposeCommandIds.Paste, MatRibbonSize.Large), Button(ComposeCommandIds.Cut), Button(ComposeCommandIds.Copy)),
                 new MatRibbonGroup("text", "Text") { Icon = "type" }.Add(
                     Toggle(ComposeCommandIds.Bold), Toggle(ComposeCommandIds.Italic), Toggle(ComposeCommandIds.Underline),
@@ -830,10 +883,68 @@ public sealed class ComposeWindow : MatWindow
     }
 }
 
+/// <summary>Später senden: the day and the time (tomorrow 08:00 to start with); refused in the past.</summary>
+public sealed class SendLaterDialog : OfficeDialog
+{
+    private static readonly CultureInfo German = CultureInfo.GetCultureInfo("de-DE");
+    private readonly MatFormField _dateField;
+    private readonly MatFormField _timeField;
+
+    public SendLaterDialog()
+        : base("Später senden", 360)
+    {
+        var tomorrow = DateTime.Today.AddDays(1).AddHours(8);
+        DateBox = new TextBox { Text = tomorrow.ToString("dd.MM.yyyy", German) };
+        TimeBox = new TextBox { Text = tomorrow.ToString("HH:mm", German) };
+        AutomationProperties.SetName(DateBox, "Datum");
+        AutomationProperties.SetName(TimeBox, "Uhrzeit");
+        _dateField = Field("Datum", DateBox);
+        _timeField = Field("Uhrzeit", TimeBox);
+        var hint = new TextBlock { Text = "Die Nachricht wartet bis dahin im Postausgang. ThixMail muss zu diesem Zeitpunkt laufen (auch im Infobereich).", TextWrapping = TextWrapping.Wrap, FontSize = MatTokens.Type.FsSm };
+        hint.Use(TextBlock.ForegroundProperty, "Mat.TextMuted");
+        SetBody(new StackPanel { Spacing = 12, Children = { _dateField, _timeField, hint } });
+    }
+
+    public TextBox DateBox { get; }
+
+    public TextBox TimeBox { get; }
+
+    /// <summary>The chosen time (after OK).</summary>
+    public DateTimeOffset? Time { get; private set; }
+
+    protected override bool Apply()
+    {
+        _dateField.Error = _timeField.Error = null;
+        if (!DateTime.TryParseExact((DateBox.Text ?? "").Trim(), ["d.M.yyyy", "d.M.yy"], German, DateTimeStyles.None, out var date))
+        {
+            _dateField.Error = "Bitte ein Datum wie 24.11.2026 angeben.";
+            return false;
+        }
+
+        if (!TimeSpan.TryParseExact((TimeBox.Text ?? "").Trim(), [@"h\:mm", @"hh\:mm"], German, out var time) || time >= TimeSpan.FromDays(1))
+        {
+            _timeField.Error = "Bitte eine Uhrzeit wie 08:00 angeben.";
+            return false;
+        }
+
+        var at = new DateTimeOffset(date.Add(time), TimeZoneInfo.Local.GetUtcOffset(date.Add(time)));
+        if (at <= DateTimeOffset.Now.AddMinutes(1))
+        {
+            _timeField.Error = "Dieser Zeitpunkt liegt nicht in der Zukunft.";
+            return false;
+        }
+
+        Time = at;
+        return true;
+    }
+}
+
 /// <summary>The ids of the compose window's commands.</summary>
 public static class ComposeCommandIds
 {
     public const string Send = "compose.send";
+    public const string SendLater = "compose.sendLater";
+    public const string SaveTemplate = "compose.saveTemplate";
     public const string SaveDraft = "compose.save";
     public const string Attach = "compose.attach";
     public const string Picture = "compose.picture";

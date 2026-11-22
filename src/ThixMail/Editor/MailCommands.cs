@@ -320,6 +320,42 @@ public static class MailCommands
             Keywords = ["kontakt", "absender", "adressbuch", "person", "speichern"],
             CanExecute = () => HasOne() && Editor().Document.Pim.IsAvailable,
         });
+        commands.Add(new OfficeCommand(MailCommandIds.NewFromTemplate, "Neue E-Mail aus Vorlage", () => NewFromTemplateAsync(window, Editor()))
+        {
+            Icon = "template",
+            Description = "Beginnt eine neue Nachricht mit Betreff und Text einer Vorlage (Vorlagen speichern Sie im Nachrichtenfenster).",
+            Keywords = ["vorlage", "neu", "muster", "template"],
+            CanExecute = () => HasAccount() && Editor().Document.Accounts.Templates.Count > 0,
+        });
+        commands.Add(new OfficeCommand(MailCommandIds.CreateRule, "Regel erstellen", () => CreateRuleAsync(window, Editor()))
+        {
+            Icon = "filter",
+            Description = "Legt eine Regel nach dem Absender und dem Betreff der ausgewählten Nachricht an.",
+            Keywords = ["regel", "erstellen", "filter", "automatisch", "sortieren"],
+            CanExecute = HasOne,
+        });
+        commands.Add(new OfficeCommand(MailCommandIds.ManageRules, "Regeln verwalten", () => window.ShowSettings(MailSettings.RulesTab))
+        {
+            Icon = "list-checks",
+            Description = "Zeigt die Regeln: anlegen, ändern, ordnen, ein- und ausschalten.",
+            Keywords = ["regeln", "verwalten", "filter", "benachrichtigungen", "automatisch"],
+            CanExecute = Open,
+        });
+        commands.Add(new OfficeCommand(MailCommandIds.RunRules, "Regeln jetzt anwenden", () => Editor().Run(() =>
+        {
+            // the chosen folder, or – in Alle Posteingänge / a search folder – every Posteingang
+            var folders = Editor().CurrentFolder is { } current ? [current.Id]
+                : Editor().Document.Accounts.Accounts.Select(a => Editor().Document.Store.FolderByRole(a.Id, FolderRole.Inbox)?.Id).OfType<long>().ToList();
+            var changed = folders.Sum(id => Editor().Session.ApplyRulesNow(id));
+            window.ShowMessage(changed == 0 ? "Keine Nachricht in diesem Ordner passt zu einer Regel." : changed == 1 ? "Eine Nachricht wurde nach den Regeln geändert."
+                : $"{changed} Nachrichten wurden nach den Regeln geändert.", InfoSeverity.Success, isClosable: true);
+        }))
+        {
+            Icon = "play",
+            Description = "Wendet die eingeschalteten Regeln auf alle Nachrichten des aktuellen Ordners an (rückgängig zu machen).",
+            Keywords = ["regeln", "anwenden", "ausführen", "jetzt"],
+            CanExecute = () => HasAccount() && Editor().Document.Accounts.Rules.Any(r => r.IsEnabled),
+        });
         commands.Add(new OfficeCommand(MailCommandIds.AddAccount, "Konto hinzufügen", () => window.ShowBackstage(AccountsPage.PageId))
         {
             Icon = "user",
@@ -523,11 +559,51 @@ public static class MailCommands
             return;
         }
 
-        var folders = editor.Document.Store.Folders(header.AccountId).Where(f => f.IsSelectable && f.Id != header.FolderId).OrderBy(f => f.RoleOrder).ThenBy(f => f.Path, StringComparer.CurrentCultureIgnoreCase).ToList();
-        var dialog = new MoveDialog(folders);
+        // the account's own folders first, then those of the other accounts (a move there copies and deletes)
+        var accounts = editor.Document.Accounts.Accounts.OrderBy(a => a.Id == header.AccountId ? 0 : 1).ThenBy(a => a.Order).ToList();
+        var folders = accounts.SelectMany(a => editor.Document.Store.Folders(a.Id).Where(f => f.IsSelectable && f.Id != header.FolderId)
+            .OrderBy(f => f.RoleOrder).ThenBy(f => f.Path, StringComparer.CurrentCultureIgnoreCase)).ToList();
+        var dialog = new MoveDialog(folders, accounts.Count > 1 ? accounts.ToDictionary(a => a.Id, a => a.DisplayName) : null);
         if (await dialog.ShowAsync(window) && dialog.Chosen is { } target)
         {
-            editor.Run(() => editor.Session.Move(ids, target.Id));
+            await editor.MoveAsync(ids, target.Id);
+        }
+    }
+
+    private static async Task NewFromTemplateAsync(OfficeWindow window, MailEditor editor)
+    {
+        var dialog = new TemplateDialog(editor.Document);
+        if (!await dialog.ShowAsync(window) || dialog.Chosen is not { } template)
+        {
+            return;
+        }
+
+        var account = editor.CurrentFolder is { } folder ? editor.Document.Accounts.Account(folder.AccountId) : null;
+        account ??= editor.Document.Accounts.Accounts[0];
+        OpenComposer(window, new Draft { AccountId = account.Id, From = account.Sender, Subject = template.Subject, Html = template.Html, Text = template.Text });
+    }
+
+    /// <summary>"Regel erstellen": the rule dialog with the sender and the subject of the message (Outlook's "Regel erstellen …").</summary>
+    private static async Task CreateRuleAsync(OfficeWindow window, MailEditor editor)
+    {
+        if (editor.Current is not { } message)
+        {
+            return;
+        }
+
+        var rules = editor.Document.Accounts.Rules;
+        var template = new MailRule
+        {
+            Name = $"Von {message.From.Display}",
+            AccountId = message.AccountId,
+            FromContains = message.From.Address,
+            Order = rules.Count == 0 ? 0 : rules.Max(r => r.Order) + 1,
+        };
+        var dialog = new RuleDialog(editor.Document, template, isNew: true);
+        if (await dialog.ShowAsync(window) && dialog.Saved is { } saved)
+        {
+            window.ShowMessage($"Die Regel „{saved.Name}“ gilt ab jetzt für neue Nachrichten.", InfoSeverity.Success, isClosable: true, "Jetzt anwenden",
+                () => _ = window.Commands.ExecuteAsync(MailCommandIds.RunRules));
         }
     }
 
@@ -679,11 +755,13 @@ public sealed class MoveDialog : OfficeDialog
     private readonly IReadOnlyList<MailFolder> _folders;
     private readonly Avalonia.Controls.ListBox _list;
 
-    public MoveDialog(IReadOnlyList<MailFolder> folders)
-        : base("Elemente verschieben", 380)
+    public MoveDialog(IReadOnlyList<MailFolder> folders, IReadOnlyDictionary<string, string>? accountNames = null)
+        : base("Elemente verschieben", 420)
     {
         _folders = folders;
-        _list = new Avalonia.Controls.ListBox { ItemsSource = folders.Select(f => f.Path.Count(c => c == f.Delimiter) > 0 ? $"  {f.DisplayName}  ({f.Path})" : f.DisplayName).ToList(), MaxHeight = 320, SelectedIndex = folders.Count > 0 ? 0 : -1 };
+        string Label(MailFolder f) => (f.Path.Count(c => c == f.Delimiter) > 0 ? $"  {f.DisplayName}  ({f.Path})" : f.DisplayName)
+                                      + (accountNames?.GetValueOrDefault(f.AccountId) is { } account ? $" – {account}" : "");
+        _list = new Avalonia.Controls.ListBox { ItemsSource = folders.Select(Label).ToList(), MaxHeight = 320, SelectedIndex = folders.Count > 0 ? 0 : -1 };
         Avalonia.Automation.AutomationProperties.SetName(_list, "Zielordner");
         _list.DoubleTapped += (_, _) => Confirm();
         SetBody(Field("In den Ordner", _list));
