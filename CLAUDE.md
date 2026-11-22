@@ -360,8 +360,9 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   `ThixOffice.Pim.Rules` (identical results to MatCloud's module: the shared fixtures; change both and both fixture copies together).
 - **Grants (contract 1.5.0):** ThixMail (`mail`) reads and writes the contacts and the calendar of its account (`?app=contacts` / `?app=calendar` on the
   general sync; `MatCloudClient.GetChangesAsync(app, …)`), ThixCalendar reads the contacts. ThixMail uses `new PimSync(store, client, app: CloudApps.Contacts)`.
-- **UI:** `ContactsEditor` (folder pane | list + letters | card), the commands of `ContactsCommands` (Outlook's keys), `ContactsRibbon` (Start | Ordner
-  | Ansicht), dialogs in `Dialogs/`. Category colours = Mat tokens by the name's hash (`CategoryColors`). Snapshot scenes `dialog-edit`, `main-groups`,
+- **UI:** `ContactsEditor` hosts ThixOffice.Pim.Desktop's `PeopleView` (folder pane | list + letters | card – ThixMail's view "Personen" is the same),
+  the commands are `PeopleCommands` (Outlook's keys) through `ContactsCommands` (+ Drucken, Sync), the ribbon `PeopleRibbon.Create` (Start | Ordner
+  | Ansicht), the dialogs in ThixOffice.Pim.Desktop/People (change them there: both apps follow). Category colours = Mat tokens by the name's hash (`CategoryColors`). Snapshot scenes `dialog-edit`, `main-groups`,
   `dialog-merge`, `dialog-import-mapping`, `main-signed-out`, `backstage-print`; `THIXCONTACTS_SCREENSHOTS=<folder> dotnet test tests/ThixContacts.Tests`.
 - **The cloud ends the sign-in (401):** the sync stops, the account's contacts stay in the window and can be changed (the changes wait as dirty items),
   title bar "Abgemeldet", message bar `ContactsEditor.SignedOutMessage` with "Anmelden". `CloudSettings.IsSignedOutByCloud` keeps this across a restart
