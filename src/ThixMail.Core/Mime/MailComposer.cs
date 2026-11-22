@@ -61,6 +61,9 @@ public sealed record Draft
     /// <summary>The store id of the draft's own copy in Entwürfe (replaced on the next save, removed after sending).</summary>
     public long? SavedDraft { get; init; }
 
+    /// <summary>An invitation or an answer to one (iMIP, RFC 6047): sent as a text/calendar part with its method beside the text and the HTML, and as invite.ics.</summary>
+    public CalendarPart? Calendar { get; init; }
+
     public IEnumerable<MailAddress> Recipients => To.Concat(Cc).Concat(Bcc);
 
     public long AttachmentSize => Attachments.Sum(attachment => attachment.Size);
@@ -118,8 +121,50 @@ public static class MailComposer
             builder.Attachments.Add(attachment.FileName, attachment.Content, ContentType.Parse(attachment.ContentType));
         }
 
-        message.Body = builder.ToMessageBody();
+        message.Body = draft.Calendar is { } calendar ? WithCalendar(builder, draft, calendar) : builder.ToMessageBody();
         return message;
+    }
+
+    /// <summary>
+    /// The body of an invitation as Outlook and Gmail send it: multipart/mixed of a multipart/alternative (text, HTML, text/calendar with its method) and
+    /// the same calendar as invite.ics (application/ics) for programs that only look at attachments.
+    /// </summary>
+    private static MimeEntity WithCalendar(BodyBuilder builder, Draft draft, CalendarPart calendar)
+    {
+        var alternative = new MultipartAlternative();
+        var plain = new TextPart("plain");
+        plain.SetText("utf-8", builder.TextBody ?? "");
+        alternative.Add(plain);
+        if (draft.Html.Length > 0)
+        {
+            var html = new TextPart("html");
+            html.SetText("utf-8", draft.Html);
+            alternative.Add(html);
+        }
+
+        var invitation = new TextPart("calendar") { ContentTransferEncoding = ContentEncoding.Base64 };
+        invitation.SetText("utf-8", calendar.Text);
+        invitation.ContentType.Parameters.Add("method", calendar.Method);
+        alternative.Add(invitation);
+
+        var file = new MimePart("application", "ics")
+        {
+            Content = new MimeContent(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(calendar.Text))),
+            ContentDisposition = new ContentDisposition(ContentDisposition.Attachment) { FileName = "invite.ics" },
+            ContentTransferEncoding = ContentEncoding.Base64,
+        };
+        var mixed = new Multipart("mixed") { alternative, file };
+        foreach (var attachment in draft.Attachments)
+        {
+            mixed.Add(new MimePart(ContentType.Parse(attachment.ContentType))
+            {
+                Content = new MimeContent(new MemoryStream(attachment.Content)),
+                ContentDisposition = new ContentDisposition(ContentDisposition.Attachment) { FileName = attachment.FileName },
+                ContentTransferEncoding = ContentEncoding.Base64,
+            });
+        }
+
+        return mixed;
     }
 
     /// <summary>The draft as bytes (for SMTP, the outbox and APPEND).</summary>

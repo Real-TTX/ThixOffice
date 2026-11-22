@@ -26,8 +26,6 @@ public sealed class MailDocument : OfficeDocument
     internal static Action<MailSync>? ConfigureSyncForTests { get; set; }
 
     private readonly Dictionary<string, MailSync> _syncs = new(StringComparer.Ordinal);
-    private PimStore? _contacts;
-    private PimSync? _contactsSync;
 
     public MailDocument(string untitledName)
         : base(untitledName)
@@ -38,7 +36,7 @@ public sealed class MailDocument : OfficeDocument
         Session.Changed += (_, _) => RaiseChanged();
         IsWorkingOffline = SettingsService.AppValue(Settings.WorkOffline) == "true";
         StartSyncs();
-        OpenContacts();
+        Pim = new MailPim();
     }
 
     public MailStore Store { get; }
@@ -46,6 +44,9 @@ public sealed class MailDocument : OfficeDocument
     public AccountStore Accounts { get; }
 
     public MailSession Session { get; }
+
+    /// <summary>The calendar and the people of the ThixCloud account (null inside while not signed in).</summary>
+    public MailPim Pim { get; }
 
     /// <summary>Raised when an account's sync state changes (any thread).</summary>
     public event EventHandler<AccountSyncStatus>? SyncStatusChanged;
@@ -263,9 +264,9 @@ public sealed class MailDocument : OfficeDocument
     public IReadOnlyList<MailAddress> SuggestAddresses(string text, int limit = 8)
     {
         var result = Store.SuggestRecipients(text, limit).ToList();
-        if (_contacts is not null && result.Count < limit)
+        if (Pim.People?.Store is { } contacts && result.Count < limit)
         {
-            foreach (var (person, email) in PersonItems.Suggest(_contacts, text, limit))
+            foreach (var (person, email) in PersonItems.Suggest(contacts, text, limit))
             {
                 var address = new MailAddress(person.Name, email);
                 if (address.Address.Length > 0 && !result.Any(r => r.Address.Equals(address.Address, StringComparison.OrdinalIgnoreCase)))
@@ -276,43 +277,6 @@ public sealed class MailDocument : OfficeDocument
         }
 
         return [.. result.Take(limit)];
-    }
-
-    /// <summary>The contacts of the account (ThixCloud, grant mail → contacts) in a store of this app; nothing without a sign-in.</summary>
-    private void OpenContacts()
-    {
-        try
-        {
-            if (!CloudService.HasAccount)
-            {
-                return;
-            }
-
-            _contacts = PimStores.Open("mailcontacts");
-            if (CloudService.IsConnected)
-            {
-                _contactsSync = new PimSync(_contacts, CloudService.CreateClient, app: MatCloud.Contract.CloudApps.Contacts);
-                _contactsSync.Start();
-            }
-        }
-        catch (Exception exception) when (exception is BusinessException or IOException or Microsoft.Data.Sqlite.SqliteException)
-        {
-            Log.Warning($"The contacts of the account could not be opened: {exception.GetType().Name}");
-        }
-    }
-
-    /// <summary>The sign-in changed: the contacts of the new account (or none).</summary>
-    public async Task ReconnectContactsAsync()
-    {
-        if (_contactsSync is { } sync)
-        {
-            _contactsSync = null;
-            await sync.DisposeAsync();
-        }
-
-        _contacts?.Dispose();
-        _contacts = null;
-        OpenContacts();
     }
 
     // ===== closing =====
@@ -336,12 +300,7 @@ public sealed class MailDocument : OfficeDocument
         }
 
         _syncs.Clear();
-        if (_contactsSync is { } contacts)
-        {
-            await contacts.DisposeAsync();
-        }
-
-        _contacts?.Dispose();
+        await Pim.DisposeAsync();
         Store.Dispose();
         Accounts.Dispose();
     }

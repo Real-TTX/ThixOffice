@@ -22,6 +22,8 @@
     <ProjectReference Include="..\ThixOffice.Core\ThixOffice.Core.csproj" />
     <ProjectReference Include="..\ThixOffice.Pim\ThixOffice.Pim.csproj" />
     <ProjectReference Include="..\ThixWrite.Core\ThixWrite.Core.csproj" />
+    <!-- ThixContacts' session of contacts (UI-free): the view "Personen" works on the account's contacts with the same rules and undo. -->
+    <ProjectReference Include="..\ThixContacts.Core\ThixContacts.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
