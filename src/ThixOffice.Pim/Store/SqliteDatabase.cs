@@ -31,6 +31,9 @@ public abstract class SqliteDatabase : IDisposable
     /// <summary>The file of the store (":memory:" for tests).</summary>
     public string Path { get; }
 
+    /// <summary>True after <see cref="Dispose"/> (the connection is closed).</summary>
+    public bool IsDisposed => _disposed;
+
     /// <summary>The schema version of the store (the number of migrations applied).</summary>
     public int SchemaVersion => (int)Scalar<long>("PRAGMA user_version");
 

@@ -446,6 +446,11 @@ public sealed class MailDocument : OfficeDocument
     /// <summary>Suggestions for an address field: recent recipients first, then contacts of the ThixCloud account (when signed in).</summary>
     public IReadOnlyList<MailAddress> SuggestAddresses(string text, int limit = 8)
     {
+        if (IsClosed)
+        {
+            return []; // a text change of a compose window posted before the main window closed runs after the store is gone
+        }
+
         var result = Store.SuggestRecipients(text, limit).ToList();
         if (Pim.People?.Store is { } contacts && result.Count < limit)
         {
@@ -467,6 +472,12 @@ public sealed class MailDocument : OfficeDocument
     /// <summary>True after <see cref="CloseAsync"/> (posted callbacks of the views do nothing then).</summary>
     public bool IsClosed { get; private set; }
 
+    /// <summary>
+    /// Raised on the closing thread before anything closes (the stores are still open): windows that use the document – compose windows – keep what they
+    /// hold and let go of it. After it, <see cref="IsClosed"/> is true and every view's posted callback must do nothing.
+    /// </summary>
+    public event EventHandler? Closing;
+
     public async Task CloseAsync()
     {
         if (IsClosed)
@@ -474,7 +485,15 @@ public sealed class MailDocument : OfficeDocument
             return;
         }
 
-        IsClosed = true;
+        try
+        {
+            Closing?.Invoke(this, EventArgs.Empty);
+        }
+        finally
+        {
+            IsClosed = true;
+        }
+
         Accounts.Changed -= OnAccountsChanged;
         if (_settingsSync is { } settingsSync)
         {

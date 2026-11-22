@@ -191,6 +191,37 @@ public sealed class MailUiTests
         Assert.Contains(EditorOf(window).Document.SuggestAddresses("lena"), a => a.Address == "lena.koch@beispiel.de");
     }
 
+    /// <summary>
+    /// The race behind a flaky run: a text change of an address field is raised by Avalonia in a posted job; when it ran after the main window had closed
+    /// the document, the suggestions queried the closed store ("ExecuteReader can only be called when the connection is open"). Here the order is forced:
+    /// the store is closed first, then the field's text changes and the posted jobs run.
+    /// </summary>
+    [AvaloniaFact]
+    public async Task A_compose_window_keeps_its_draft_and_never_touches_the_store_after_the_main_window_closed()
+    {
+        using var data = new TestData();
+        var window = await data.WindowAsync();
+        var document = EditorOf(window).Document;
+        await PressAsync(window, PhysicalKey.N, CommandKey);
+        var compose = await OwnedAsync<ComposeWindow>(window);
+        compose.SubjectBox.Text = "Noch nicht fertig";
+        await SettleAsync();
+
+        // the document closes (the end of the process) with the compose window open: the draft is kept and the window lets go of the store
+        await document.CloseAsync();
+        Assert.True(document.Store.IsDisposed);
+        Assert.False(compose.IsVisible); // closed with the document, without a question
+        using (var reopened = MailStore.Open(document.Store.Path))
+        {
+            var drafts = reopened.FolderByRole(SampleMailbox.Account.Id, FolderRole.Drafts)!;
+            Assert.Contains(reopened.Headers([.. reopened.List(new MessageQuery([drafts.Id])).Select(e => e.Id)]), h => h.Subject == "Noch nicht fertig"); // kept in "Entwürfe"
+        }
+
+        compose.To.Box.Text = "len"; // a late text change (posted by Avalonia) after the store closed
+        Settle();
+        Assert.Empty(document.SuggestAddresses("len"));
+    }
+
     [AvaloniaFact]
     public async Task Delete_moves_into_Geloeschte_Elemente_and_Rueckgaengig_brings_it_back()
     {

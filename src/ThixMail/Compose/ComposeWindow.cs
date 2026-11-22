@@ -181,9 +181,11 @@ public sealed class ComposeWindow : MatWindow
         Opened += (_, _) => Dispatcher.UIThread.Post(() => (To.Box.Text?.Length > 0 ? (Control)Surface : To.Box).Focus(), DispatcherPriority.Input);
         _autosave.Tick += (_, _) => AutoSave();
         _autosave.Start();
+        document.Closing += OnDocumentClosing;
         Closed += (_, _) =>
         {
             _closed = true;
+            _document.Closing -= OnDocumentClosing;
             _autosave.Stop();
             Spelling.Dispose();
         };
@@ -191,7 +193,7 @@ public sealed class ComposeWindow : MatWindow
         Surface.Session.ContentChanged += (_, _) => _dirty = true;
         Surface.Session.StateChanged += (_, _) => Dispatcher.UIThread.Post(() =>
         {
-            if (!_closed)
+            if (!Gone)
             {
                 Commands.Invalidate(); // not after the window closed (the account store may be gone with the main window)
             }
@@ -241,7 +243,7 @@ public sealed class ComposeWindow : MatWindow
 
     private AddressField Address(string name, IReadOnlyList<MailAddress> addresses)
     {
-        var field = new AddressField { EntrySuggestions = text => [.. _document.SuggestAddresses(text).Select(a => a.Full)] };
+        var field = new AddressField { EntrySuggestions = text => Gone ? [] : [.. _document.SuggestAddresses(text).Select(a => a.Full)] };
         field.Box.Text = string.Join("; ", addresses.Select(a => a.Full));
         field.Box.Watermark = "";
         AutomationProperties.SetName(field.Box, name);
@@ -551,8 +553,39 @@ public sealed class ComposeWindow : MatWindow
         }
     }
 
+    /// <summary>
+    /// True once the window closed or the main window's document closed: callbacks posted before (a text change's suggestions, the ribbon state, the
+    /// autosave timer) must not reach the stores, which close with the document.
+    /// </summary>
+    private bool Gone => _closed || _document.IsClosed;
+
+    /// <summary>
+    /// The main window's document closes (ThixMail quits, or the main window closes with this window still open): the draft is kept in "Entwürfe" while the
+    /// store is still open, then the window closes without asking – nothing typed is lost and nothing touches the closed store afterwards.
+    /// </summary>
+    private void OnDocumentClosing(object? sender, EventArgs e)
+    {
+        if (_closed)
+        {
+            return;
+        }
+
+        _autosave.Stop();
+        if (_dirty && (Parse(To).Count > 0 || SubjectText.Length > 0 || Surface.Session.Document.Version != _savedVersion))
+        {
+            SaveDraft();
+        }
+
+        CloseDiscarding();
+    }
+
     private void AutoSave()
     {
+        if (Gone)
+        {
+            return;
+        }
+
         if (_dirty && (Parse(To).Count > 0 || SubjectText.Length > 0 || Surface.Session.Document.Version != _savedVersion))
         {
             SaveDraft();

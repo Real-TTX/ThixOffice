@@ -774,7 +774,7 @@ public sealed partial class MailEditor : OfficeEditor
     private void MarkShownRead()
     {
         _markRead.Stop();
-        if (_shownId is { } id && Document.Store.Header(id) is { IsRead: false })
+        if (!Gone && _shownId is { } id && Document.Store.Header(id) is { IsRead: false })
         {
             Session.SetRead([id], true);
         }
