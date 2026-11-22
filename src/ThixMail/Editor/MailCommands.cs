@@ -580,7 +580,11 @@ public static class MailCommands
 
         var account = editor.CurrentFolder is { } folder ? editor.Document.Accounts.Account(folder.AccountId) : null;
         account ??= editor.Document.Accounts.Accounts[0];
-        OpenComposer(window, new Draft { AccountId = account.Id, From = account.Sender, Subject = template.Subject, Html = template.Html, Text = template.Text });
+        OpenComposer(window, new Draft
+        {
+            AccountId = account.Id, From = account.Sender, Subject = template.Subject, Html = template.Html, Text = template.Text, To = template.To ?? [], Cc = template.Cc ?? [],
+            Attachments = editor.Document.Accounts.TemplateAttachments(template.Id),
+        });
     }
 
     /// <summary>"Regel erstellen": the rule dialog with the sender and the subject of the message (Outlook's "Regel erstellen …").</summary>

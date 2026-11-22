@@ -601,6 +601,11 @@ public sealed class MailSync : IAsyncDisposable
                 continue;
             }
 
+            if (item.SendAt is not null)
+            {
+                raw = MailMime.WithDate(raw, DateTimeOffset.Now); // sent later: dated when it goes out, like Outlook's "Übermittlung verzögern"
+            }
+
             var recipients = JsonSerializer.Deserialize(item.Recipients, MailJson.Default.ListMailAddress) ?? [];
             _store.SetOutboxState(item.Id, OutboxState.Sending);
             try

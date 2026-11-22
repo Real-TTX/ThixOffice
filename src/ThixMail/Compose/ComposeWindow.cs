@@ -488,7 +488,7 @@ public sealed class ComposeWindow : MatWindow
         try
         {
             var draft = CurrentDraft();
-            var template = _document.Accounts.SaveTemplate(name, draft.Subject, draft.Html, draft.Text);
+            var template = _document.Accounts.SaveTemplate(name, draft.Subject, draft.Html, draft.Text, draft.To, draft.Cc, draft.Attachments);
             _message.Show($"Als Vorlage „{template.Name}“ gespeichert.", InfoSeverity.Success, isClosable: true);
         }
         catch (BusinessException exception)

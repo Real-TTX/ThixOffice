@@ -247,7 +247,8 @@ public sealed record MessageHeader
 public sealed record MailSignature(string Id, string Name, string Html, string Text);
 
 /// <summary>A template (Outlook's "Vorlage"): a name, the subject and the body a new message starts with (no recipients, no attachments).</summary>
-public sealed record MailTemplate(string Id, string Name, string Subject, string Html, string Text);
+/// <summary>A template: subject, text and the recipients it was saved with (attachments are kept on the computer that saved it: <see cref="Accounts.AccountStore.TemplateAttachments"/>).</summary>
+public sealed record MailTemplate(string Id, string Name, string Subject, string Html, string Text, IReadOnlyList<MailAddress>? To = null, IReadOnlyList<MailAddress>? Cc = null);
 
 /// <summary>A category (an IMAP keyword) with its colour slot (the UI maps the slot to a Mat token).</summary>
 public sealed record MailCategory(string Name, int ColorSlot);

@@ -878,8 +878,9 @@ gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMT
   Vorlage speichern“, Start › Neue E-Mail aus Vorlage); Verschieben in ein anderes Konto (Kopie dort, das Original in „Gelöschte Elemente“ seines Kontos,
   nach Rückfrage, nicht rückgängig); HTML: ein Zitat im Zitat mit zwei Balken (Doppellinie; tiefere Ebenen bleiben bei zwei), Abstand zwischen zwei
   aufeinanderfolgenden Tabellen, `line-height` (Zahl/Prozent als Vielfaches, Längen als „mindestens“ – nie kleiner als die Schrift).
-  **Nicht gebaut:** Kennzeichnung mit Fälligkeitsdatum (IMAP kennt keins; „Zur Nachverfolgung“ zeigt die gekennzeichneten), Vorlagen ohne Anlagen
-  und Empfänger, der Date-Kopf einer später gesendeten Nachricht ist der Zeitpunkt des Schreibens.
+  **Nachtrag:** Vorlagen behalten An/Cc (reisen mit der Vorlage) und die Anlagen (bleiben auf dem Computer, der die Vorlage gespeichert hat – Meta-Werte
+  des Einstellungsbestands, nie in der ThixCloud); eine später gesendete Nachricht bekommt ihren Date-Kopf beim Senden. **Nicht gebaut:** Kennzeichnung
+  mit Fälligkeitsdatum (IMAP kennt keins; „Zur Nachverfolgung“ zeigt die gekennzeichneten ohne Datum).
 
 - **Stand (2026-11-22): 7d – Einstellungen über ThixCloud (dev).** Vertrag 1.5.0 reicht: der allgemeine Sync nimmt jede gültige Sammlung der eigenen
   App an, ThixMail (App `mail`) synchronisiert seinen Einstellungsbestand mit `mail-accounts` (ohne Kennwort), `mail-signatures`, `mail-categories`,

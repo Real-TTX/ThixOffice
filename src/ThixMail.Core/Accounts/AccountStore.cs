@@ -175,7 +175,8 @@ public sealed class AccountStore : IDisposable
         [.. _store.Items(TemplatesCollection).Select(i => Read(i.Data, MailJson.Default.MailTemplate)).Where(t => t is not null).Select(t => t!).OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase)];
 
     /// <summary>Keeps a template (a name given twice replaces the older one: Outlook's "Speichern unter" a template's name).</summary>
-    public MailTemplate SaveTemplate(string name, string subject, string html, string text)
+    public MailTemplate SaveTemplate(string name, string subject, string html, string text, IReadOnlyList<MailAddress>? to = null, IReadOnlyList<MailAddress>? cc = null,
+        IReadOnlyList<Mime.DraftAttachment>? attachments = null)
     {
         var clean = name.Trim();
         if (clean.Length == 0)
@@ -184,15 +185,39 @@ public sealed class AccountStore : IDisposable
         }
 
         var id = Templates.FirstOrDefault(t => t.Name.Equals(clean, StringComparison.CurrentCultureIgnoreCase))?.Id ?? Guid.NewGuid().ToString("N");
-        var template = new MailTemplate(id, clean, subject, html, text);
+        var template = new MailTemplate(id, clean, subject, html, text, to is { Count: > 0 } ? to : null, cc is { Count: > 0 } ? cc : null);
         _store.Write([(TemplatesCollection, id, JsonSerializer.Serialize(template, MailJson.Default.MailTemplate))]);
+        // the attachments stay on this computer (meta values never travel): files can be large and private
+        var kept = (attachments ?? []).Where(a => a.ContentId is null).Select(a => new TemplateAttachment(a.FileName, a.ContentType, Convert.ToBase64String(a.Content))).ToList();
+        _store.SetMeta(TemplateAttachmentsKey(id), kept.Count == 0 ? "" : JsonSerializer.Serialize(kept, MailJson.Default.ListTemplateAttachment));
         Changed?.Invoke(this, EventArgs.Empty);
         return template;
     }
 
+    /// <summary>The attachments a template was saved with on THIS computer (none on another computer, which gets the template through ThixCloud).</summary>
+    public IReadOnlyList<Mime.DraftAttachment> TemplateAttachments(string id)
+    {
+        if (_store.GetMeta(TemplateAttachmentsKey(id)) is not { Length: > 0 } json)
+        {
+            return [];
+        }
+
+        try
+        {
+            return [.. (JsonSerializer.Deserialize(json, MailJson.Default.ListTemplateAttachment) ?? []).Select(a => new Mime.DraftAttachment(a.FileName, a.ContentType, Convert.FromBase64String(a.Content)))];
+        }
+        catch (Exception exception) when (exception is JsonException or FormatException)
+        {
+            return [];
+        }
+    }
+
+    private static string TemplateAttachmentsKey(string id) => "template-attachments:" + id;
+
     public void RemoveTemplate(string id)
     {
         _store.Write([(TemplatesCollection, id, null)]);
+        _store.SetMeta(TemplateAttachmentsKey(id), "");
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
@@ -243,3 +268,6 @@ public sealed class AccountStore : IDisposable
 
     public void Dispose() => _store.Dispose();
 }
+
+/// <summary>An attachment of a template as kept in the local meta values (base64).</summary>
+public sealed record TemplateAttachment(string FileName, string ContentType, string Content);

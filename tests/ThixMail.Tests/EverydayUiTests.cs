@@ -48,6 +48,7 @@ public sealed class EverydayUiTests
         compose.Surface.Focus();
         await SettleAsync();
         await TypeAsync(compose, "Hier der Bericht der Woche.");
+        await compose.AttachFilesAsync([data.File("Bericht.pdf", new byte[1500])]);
 
         // Als Vorlage speichern
         compose.SaveTemplate("Wochenbericht");
@@ -78,7 +79,9 @@ public sealed class EverydayUiTests
         var fromTemplate = await OwnedAsync<ComposeWindow>(window);
         Assert.Equal("Wochenbericht", fromTemplate.SubjectBox.Text);
         Assert.Contains("Bericht der Woche", fromTemplate.Surface.Session.Document.GetPlainText(), StringComparison.Ordinal);
-        Assert.Equal("", fromTemplate.To.Box.Text ?? "");
+        Assert.Equal("lena.koch@beispiel.de", fromTemplate.To.Box.Text); // the recipients and the attachment come along (Outlook's .oft)
+        Assert.Equal("Bericht.pdf", Assert.Single(fromTemplate.Attachments).FileName);
+        Assert.DoesNotContain("Bericht.pdf", editor.Document.Accounts.Templates.Single().ToString(), StringComparison.Ordinal); // the file stays on this computer
         fromTemplate.CloseDiscarding();
     }
 }

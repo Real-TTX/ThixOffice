@@ -37,6 +37,14 @@ public static class MailMime
         }
     }
 
+    /// <summary>The message with its Date header set to <paramref name="date"/> ("Später senden": the moment it goes out, not when it was written).</summary>
+    public static byte[] WithDate(byte[] raw, DateTimeOffset date)
+    {
+        var message = Parse(raw);
+        message.Date = date;
+        return ToBytes(message);
+    }
+
     /// <summary>The message as RFC 5322 bytes (CRLF).</summary>
     public static byte[] ToBytes(MimeMessage message)
     {

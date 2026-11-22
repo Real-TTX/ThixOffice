@@ -36,6 +36,25 @@ public sealed class EverydayTests
         await sync.SyncOnceAsync();
         Assert.Single(data.Server.Sent);
         Assert.Equal(id, Assert.Single(store.Outbox()).Id);
+
+        // its time came (set back in the file – the clock cannot jump): it goes out dated now, not when it was written
+        var written = ThixMail.Core.Mime.MailReader.Read(store.ReadFile(store.Outbox().Single().RawPath)!).Date;
+        using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={store.Path};Pooling=False"))
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE Outbox SET SendAt = 1";
+            command.ExecuteNonQuery();
+        }
+
+        await Task.Delay(1100);
+        var before = DateTimeOffset.Now.AddSeconds(-1);
+        await sync.SyncOnceAsync();
+        Assert.Equal(2, data.Server.Sent.Count);
+        var later = ThixMail.Core.Mime.MailReader.Read(data.Server.Sent[1].Raw);
+        Assert.Equal("Morgen früh", later.Subject);
+        Assert.True(later.Date >= before && later.Date > written, $"dated {later.Date:O}, written {written:O}");
+        Assert.Contains("Guten Morgen", later.Text, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -14,6 +14,7 @@ namespace ThixMail.Core.Store;
 [JsonSerializable(typeof(OperationData))]
 [JsonSerializable(typeof(List<MailAddress>))]
 [JsonSerializable(typeof(List<string>))]
+[JsonSerializable(typeof(List<ThixMail.Core.Accounts.TemplateAttachment>))]
 internal sealed partial class MailJson : JsonSerializerContext
 {
 }
