@@ -373,8 +373,8 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 
 ## ThixMail
 
-- **Accounts:** `MailAccount` items in `AccountStore` (`mailsettings-local.db`, collections `mail-accounts`/`mail-signatures`/`mail-categories` –
-  prepared for ThixCloud's general sync, nothing sends them yet); passwords ONLY through `AccountService.SetPassword` → `TokenStore` (key
+- **Accounts:** `MailAccount` items in `AccountStore` (`mailsettings-local.db`, collections `mail-accounts`/`mail-signatures`/`mail-categories`/
+  `mail-rules`/`mail-templates`, synced through ThixCloud – see below); passwords ONLY through `AccountService.SetPassword` → `TokenStore` (key
   `mail-<id>-imap|smtp`, the protected value in the store's local meta). Adding/editing always runs `AccountService.TestAsync` first; a certificate
   the system does not trust becomes `MailErrorKind.Certificate` with `CertificateInfo` and is accepted only by `TrustCertificate` (host|SHA-256).
 - **OAuth (Gmail, Microsoft):** `MailAccount.Authentication = OAuth` + `OAuthProvider` ("google"/"microsoft", `Accounts/OAuthProviders`: endpoints,
@@ -388,6 +388,10 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - **Settings through ThixCloud:** `MailDocument` runs a `PimSync` (own app `mail`) on `AccountStore.Store` while signed in (`ReconnectSettingsAsync`
   follows the sign-in); collections mail-accounts/-signatures/-categories/-rules/-templates; secrets are meta values and never travel. Remote changes
   raise `AccountStore.Changed` (`PimStore.RemoteChanged`) → `OnAccountsChanged` starts/stops account syncs (`SaveQuietly` around local account writes).
+  Another ThixCloud account than the store's meta `cloudAccount`: `MarkAllDirty` – this computer's settings go up into it and its settings join them
+  (nothing is lost by switching). A loop ended by a 401 is started again by the next `ReconnectSettingsAsync`. Real MatCloud: `MatCloudSettingsIntegrationTests`
+  (env-gated like the embedding tests). `MailDocument.Closing` (stores still open; compose windows keep their draft and close), then `IsClosed`: posted
+  callbacks of every view must check it (`Gone`).
 - **Big folders:** the sync fetches 1,000 headers per round and loops on at once while a folder has older ones (`_backfill`); without CONDSTORE the flag
   poll is the newest 300 + a moving window (2,000 in a full round), other folders than the Posteingang at most every 15 min. `scripts/greenmail-test.ps1
   -Large 20000` measures it (`LargeMailboxTests`).

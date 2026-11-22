@@ -64,4 +64,41 @@ public sealed class SettingsSyncTests
             await document.CloseAsync();
         }
     }
+
+    [Fact]
+    public async Task Switching_the_ThixCloud_account_takes_this_computers_settings_into_the_other_account_and_joins_its_own()
+    {
+        using var data = new TestData();
+        var first = new SampleCloud { App = CloudApps.Mail };
+        CloudService.HandlerForTests = () => first;
+        await CloudService.ConnectAsync(SampleCloud.ServerUrl, SampleCloud.UserName, SampleCloud.Password, "ANNA-PC");
+        var document = new MailDocument("E-Mail");
+        try
+        {
+            document.AddAccount(TestData.Account, TestData.Password, null);
+            document.Accounts.Save(new MailSignature("s1", "Arbeit", "<p>Viele Grüße</p>", "Viele Grüße"));
+            await TestData.UntilAsync(() => first.SyncItems(CloudApps.Mail, AccountStore.AccountsCollection).Count == 1
+                                            && first.SyncItems(CloudApps.Mail, AccountStore.SignaturesCollection).Count == 1, "the settings in the first account");
+
+            // another ThixCloud account (another server) that has a signature of its own
+            var second = new SampleCloud { App = CloudApps.Mail };
+            second.PushElsewhere(CloudApps.Mail, AccountStore.SignaturesCollection, "s9", """{"id":"s9","name":"Verein","html":"<p>Sportliche Grüße</p>","text":"Sportliche Grüße"}""", DateTimeOffset.UtcNow);
+            await CloudService.DisconnectAsync();
+            await document.ReconnectSettingsAsync();
+            CloudService.HandlerForTests = () => second;
+            await CloudService.ConnectAsync("https://zweite-cloud.example.com", SampleCloud.UserName, SampleCloud.Password, "ANNA-PC");
+            await document.ReconnectSettingsAsync();
+
+            await TestData.UntilAsync(() => second.SyncItems(CloudApps.Mail, AccountStore.AccountsCollection).Count == 1
+                                            && second.SyncItems(CloudApps.Mail, AccountStore.SignaturesCollection).Count == 2
+                                            && document.Accounts.Signatures.Count == 2, "this computer's settings in the second account and its signature here");
+            Assert.Equal(TestData.Address, document.Accounts.Accounts.Single().Address); // nothing of this computer was lost
+            Assert.NotNull(document.SyncOf(TestData.Account.Id)); // and the account keeps running
+            Assert.Equal(0, document.Accounts.PendingCloudChanges);
+        }
+        finally
+        {
+            await document.CloseAsync();
+        }
+    }
 }

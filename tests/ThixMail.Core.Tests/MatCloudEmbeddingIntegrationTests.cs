@@ -20,13 +20,13 @@ namespace ThixMail.Core.Tests;
 /// </summary>
 public sealed class MatCloudEmbeddingIntegrationTests
 {
-    private static string? Url => Environment.GetEnvironmentVariable("THIXOFFICE_MATCLOUD_URL");
+    internal static string? Url => Environment.GetEnvironmentVariable("THIXOFFICE_MATCLOUD_URL");
 
-    private static string? User => Environment.GetEnvironmentVariable("THIXOFFICE_MATCLOUD_USER");
+    internal static string? User => Environment.GetEnvironmentVariable("THIXOFFICE_MATCLOUD_USER");
 
-    private static string? Password => Environment.GetEnvironmentVariable("THIXOFFICE_MATCLOUD_PASSWORD");
+    internal static string? Password => Environment.GetEnvironmentVariable("THIXOFFICE_MATCLOUD_PASSWORD");
 
-    private static bool Configured => Url is not null && User is not null && Password is not null;
+    internal static bool Configured => Url is not null && User is not null && Password is not null;
 
     [Fact]
     public async Task ThixMail_and_ThixContacts_share_the_contacts_of_the_account_both_ways()
@@ -336,7 +336,7 @@ public sealed class MatCloudEmbeddingIntegrationTests
     // ===== helpers =====
 
     /// <summary>Switches an app on or off as MatCloud's administration does (Verwaltung › Apps; THIXOFFICE_MATCLOUD_USER is the administrator of the throwaway instance).</summary>
-    private static async Task SetAppEnabledAsync(string app, bool enabled)
+    internal static async Task SetAppEnabledAsync(string app, bool enabled)
     {
         var cookies = new CookieContainer();
         using var http = new HttpClient(new HttpClientHandler { CookieContainer = cookies, AllowAutoRedirect = false }) { BaseAddress = new Uri(Url!) };
@@ -377,14 +377,14 @@ public sealed class MatCloudEmbeddingIntegrationTests
 
     private static readonly Dictionary<(string Device, string App), string> Tokens = [];
 
-    private static async Task SignInAsMailAsync(string device)
+    internal static async Task SignInAsMailAsync(string device)
     {
         CloudService.HandlerForTests = null;
         await RetryWhenThrottledAsync(() => CloudService.ConnectAsync(Url!, User!, Password!, device));
     }
 
     /// <summary>A device token (one sign-in per device and app for the whole run: MatCloud lets ten sign-ins a minute through).</summary>
-    private static async Task<string> LoginAsync(string device, string app)
+    internal static async Task<string> LoginAsync(string device, string app)
     {
         if (Tokens.TryGetValue((device, app), out var known))
         {
@@ -419,9 +419,9 @@ public sealed class MatCloudEmbeddingIntegrationTests
         exception is CloudException { StatusCode: HttpStatusCode.TooManyRequests }
         || (exception is ThixOffice.Core.Models.BusinessException business && business.Message.Contains("Anmeldeversuche", StringComparison.Ordinal));
 
-    private static MatCloudClient Client(string token) => new(Url!, token, "ThixOfficeIntegration/1.0.0 (windows)");
+    internal static MatCloudClient Client(string token) => new(Url!, token, "ThixOfficeIntegration/1.0.0 (windows)");
 
-    private static async Task<List<SyncItemDto>> AllChangesAsync(MatCloudClient client, string? app)
+    internal static async Task<List<SyncItemDto>> AllChangesAsync(MatCloudClient client, string? app)
     {
         var result = new List<SyncItemDto>();
         long since = 0;

@@ -51,7 +51,8 @@ public sealed class MailDocument : OfficeDocument
     /// <summary>The sign-in of ThixCloud changed: the settings' sync follows (started, stopped, or – another ThixCloud account – started afresh).</summary>
     public async Task ReconnectSettingsAsync()
     {
-        if (_settingsSync is { } running && (!CloudService.IsConnected || Accounts.Store.GetMeta(CloudAccountMeta) != CloudIdentity()))
+        // signed out, another account – or a loop that ended (ThixCloud ended the sign-in: 401) and must run again after the new sign-in
+        if (_settingsSync is { } running && (!CloudService.IsConnected || Accounts.Store.GetMeta(CloudAccountMeta) != CloudIdentity() || !running.IsRunning))
         {
             await running.DisposeAsync();
             _settingsSync = null;
@@ -83,7 +84,9 @@ public sealed class MailDocument : OfficeDocument
         var identity = CloudIdentity();
         if (Accounts.Store.GetMeta(CloudAccountMeta) != identity)
         {
-            Accounts.Store.Cursor = 0;
+            // the settings are this computer's and follow the sign-in: everything here goes up into the (other) account, its settings come down and join
+            // them (like ThixContacts' local store taken into a new account) – nothing of this computer is lost by switching ThixCloud accounts
+            Accounts.Store.MarkAllDirty();
             Accounts.Store.SetMeta(CloudAccountMeta, identity);
         }
 

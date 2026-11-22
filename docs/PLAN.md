@@ -878,9 +878,15 @@ gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMT
   App an, ThixMail (App `mail`) synchronisiert seinen Einstellungsbestand mit `mail-accounts` (ohne Kennwort), `mail-signatures`, `mail-categories`,
   `mail-rules`, `mail-templates` – keine MatCloud-Änderung nötig. Kennwörter und OAuth-Tokens sind Meta-Werte des Bestands (TokenStore) und reisen nie,
   Mail-Inhalte ebenso wenig. Ein Konto vom anderen Computer erscheint und fragt nach seinem Kennwort bzw. der Anmeldung im Browser; ein dort entferntes
-  Konto verschwindet hier mit seinen lokalen Mails. Geprüft gegen SampleCloud (zwei Computer), nicht gegen eine echte MatCloud. **Lücken:** wechselt
-  man das ThixCloud-Konto, holt ThixMail dessen Einstellungen von vorn, schickt aber die vorhandenen nicht erneut hoch; Änderungen der Servereinstellungen
-  eines laufenden Kontos von einem anderen Computer wirken erst beim nächsten Start.
+  Konto verschwindet hier mit seinen lokalen Mails. **Gegen eine echte MatCloud geprüft** (Wegwerf-Instanz, MatCloud main a7e9a31 – Gast-Apps nur
+  noch im allgemeinen Sync und bei den Kontaktbildern –; `MatCloudSettingsIntegrationTests`): zwei Computer (Konto ohne Kennwort kommt an und wartet auf
+  sein Kennwort, Signaturen/Regeln/Vorlagen/Kategorien beide Richtungen, Entfernen), was MatCloud hält enthält nie ein Kennwort, 401 (Einstellungen
+  bleiben, Änderungen warten, nach neuer Anmeldung gehen sie hoch – dabei behoben: der Abgleich lief nach einem 401 und neuer Anmeldung nicht wieder an),
+  403 (ThixMail in der Verwaltung abgeschaltet: Änderungen warten, danach gehen sie hoch); die Einbettungs- und Kontakttests liefen gegen dieselbe
+  neuere MatCloud unverändert grün (ThixMail nutzt nur den allgemeinen Sync und die Kontaktbilder). **Wechsel des ThixCloud-Kontos:** die Einstellungen
+  gehören diesem Computer und folgen der Anmeldung – alles hier geht in das andere Konto hoch, dessen Einstellungen kommen dazu (wie ThixContacts' lokaler
+  Bestand, der in ein neues Konto übernommen wird); nichts geht durch den Wechsel verloren. **Lücke:** Änderungen der Servereinstellungen eines laufenden
+  Kontos von einem anderen Computer wirken erst beim nächsten Start.
 - **Nicht gebaut (7d, Kalender in ThixMail):** Termine mit der Maus ziehen/aufziehen, Erinnerungen in ThixMail (mit Rücksicht auf ThixCalendar),
   Drucken der Kalenderansichten – offen.
 
