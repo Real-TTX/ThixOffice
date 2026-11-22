@@ -384,6 +384,7 @@ public static class HtmlImport
         private readonly List<(ListKind Kind, int Instance)> _lists = [];
         private readonly HashSet<string> _styles = new(StringComparer.Ordinal);
         private int _quoteDepth;
+        private string? _fill;
 
         public void Block(Node node, Style style, ParagraphContext context)
         {
@@ -437,7 +438,7 @@ public static class HtmlImport
                     return;
                 case "table":
                     Flush();
-                    AddTable(node, style);
+                    AddTable(node, style, context);
                     return;
                 case "ul" or "ol":
                     Flush();
@@ -445,6 +446,11 @@ public static class HtmlImport
                     Block(node, style, context);
                     _lists.RemoveAt(_lists.Count - 1);
                     Flush();
+                    if (options.ParagraphSpacing && _lists.Count == 0 && _blocks.Count > 0 && _blocks[^1] is Paragraph { Properties.Numbering: not null } lastItem)
+                    {
+                        // a list ends with the space a browser gives it before the next paragraph
+                        _blocks[^1] = lastItem.WithProperties(lastItem.Properties with { SpacingAfter = 11 });
+                    }
                     return;
             }
 
@@ -470,7 +476,8 @@ public static class HtmlImport
                 "h3" or "h4" or "h5" or "h6" => Styled(BuiltInStyles.Heading3),
                 "blockquote" => Styled(BuiltInStyles.Quote),
                 "li" => ListItem(),
-                "p" when options.ParagraphSpacing => new ParagraphProperties { SpacingAfter = 11 },
+                // Word/Outlook's MsoNormal paragraphs have no margins (their style sheet says so; it is dropped with the head)
+                "p" when options.ParagraphSpacing && !(node["class"] ?? "").StartsWith("Mso", StringComparison.OrdinalIgnoreCase) => new ParagraphProperties { SpacingAfter = 11 },
                 _ => ParagraphProperties.Empty,
             };
             var align = (node["align"] ?? StyleValue(node, "text-align"))?.Trim().ToLowerInvariant();
@@ -593,11 +600,30 @@ public static class HtmlImport
             }
         }
 
-        private void AddTable(Node table, Style style)
+        private void AddTable(Node table, Style style, ParagraphContext context)
         {
             var rows = Descendants(table, "tr").ToList();
             if (rows.Count == 0)
             {
+                return;
+            }
+
+            // A mail's layout table of one cell (a centring wrapper, a button) and a table inside a cell (ThixWrite has no nested tables) give their
+            // content as paragraphs – a cell's background goes along as the paragraphs' shading, so light text keeps its dark background.
+            var cellCount = rows.Sum(row => row.Children.Count(child => child.Tag is "td" or "th"));
+            if (options.BorderlessTables && (cellCount == 1 || context == ParagraphContext.Cell))
+            {
+                Flush();
+                var outer = ShadingOf(table);
+                foreach (var cell in rows.SelectMany(row => row.Children.Where(child => child.Tag is "td" or "th")))
+                {
+                    var saved = _fill;
+                    _fill = ShadingOf(cell) ?? ShadingOf(cell.Parent ?? cell) ?? outer ?? _fill;
+                    Block(cell, Inherit(cell, cell.Tag == "th" ? style with { Characters = style.Characters with { Bold = true } } : style), context);
+                    Flush();
+                    _fill = saved;
+                }
+
                 return;
             }
 
@@ -730,6 +756,11 @@ public static class HtmlImport
             }
 
             var paragraph = _paragraph;
+            if (_fill is not null && paragraph.Shading is null)
+            {
+                paragraph = paragraph with { Shading = new Shading(_fill) };
+            }
+
             if (_quoteDepth > 0)
             {
                 // A quoted part of a reply: indented with a bar at the left, one step per level (as mail programs show it)

@@ -1,0 +1,99 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ThixMail, the mail of ThixOffice (Avalonia, Windows and macOS) – a workspace app. The shell, the backstage, the setup and the updates come
+    from ThixOffice.Desktop; accounts, store, sync, MIME and safety from ThixMail.Core; the reading pane and the composer use ThixWrite's text surface
+    (ThixWrite.Desktop); this project adds the main window (folder pane, message list, reading pane), the composer window, the commands, the ribbon,
+    the account pages, the settings tabs, notifications and its assets.
+    Windows: published self-contained single-file for win-x64; that ThixMail.exe is its own setup (InstallService).
+    macOS:   published self-contained for osx-arm64 / osx-x64 and packed into ThixMail.app (scripts/package-macos.sh).
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>ThixMail</AssemblyName>
+    <RootNamespace>ThixMail</RootNamespace>
+    <ApplicationIcon>Assets\thixmail.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyTitle>ThixMail</AssemblyTitle>
+    <AvaloniaVersion>11.3.22</AvaloniaVersion>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <SupportedOSPlatformVersion Condition="'$(OS)' == 'Windows_NT'">10.0.17763.0</SupportedOSPlatformVersion>
+    <TieredPGO>true</TieredPGO>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <DebugType>none</DebugType>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
+    <PublishReadyToRun>true</PublishReadyToRun>
+  </PropertyGroup>
+
+  <!--
+    Windows: one file, which is also the setup. Trimmed in "partial" mode like ThixWrite: only libraries that declare
+    themselves trimmable lose what ThixMail never calls; the own assemblies stay whole. The self test proves it.
+  -->
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('win-'))">
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <!-- macOS: the files go into ThixMail.app/Contents/MacOS (scripts/package-macos.sh). -->
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('osx-'))">
+    <UseAppHost>true</UseAppHost>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixMail.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Skia" Version="$(AvaloniaVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThixOffice.Core\ThixOffice.Core.csproj" />
+    <ProjectReference Include="..\ThixOffice.Desktop\ThixOffice.Desktop.csproj" />
+    <ProjectReference Include="..\ThixMail.Core\ThixMail.Core.csproj" />
+    <ProjectReference Include="..\ThixWrite.Core\ThixWrite.Core.csproj" />
+    <ProjectReference Include="..\ThixWrite.Desktop\ThixWrite.Desktop.csproj" />
+    <ProjectReference Include="..\ThixOffice.Pim\ThixOffice.Pim.csproj" />
+    <ProjectReference Include="..\ThixOffice.Pim.Desktop\ThixOffice.Pim.Desktop.csproj" />
+    <ProjectReference Include="..\ThixOffice.Text\ThixOffice.Text.csproj" />
+    <ProjectReference Include="..\ThixOffice.Text.Skia\ThixOffice.Text.Skia.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <TrimmerRootAssembly Include="ThixOffice.Core" />
+    <TrimmerRootAssembly Include="ThixOffice.Desktop" />
+    <TrimmerRootAssembly Include="ThixMail.Core" />
+    <TrimmerRootAssembly Include="ThixWrite.Core" />
+    <TrimmerRootAssembly Include="ThixWrite.Desktop" />
+    <!-- MailKit and MimeKit (MIT): kept whole – MimeKit makes its parts by type name at run time; trimming would cut what it reaches that way. -->
+    <TrimmerRootAssembly Include="MailKit" />
+    <TrimmerRootAssembly Include="MimeKit.Core" />
+    <TrimmerRootAssembly Include="ThixOffice.Text" />
+    <TrimmerRootAssembly Include="ThixOffice.Pim" />
+    <TrimmerRootAssembly Include="ThixOffice.Pim.Desktop" />
+    <TrimmerRootAssembly Include="ThixOffice.Text.Skia" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\thixmail.ico" />
+    <AvaloniaResource Include="Assets\logo-256.png" />
+    <AvaloniaResource Include="Assets\logo-64.png" />
+    <!-- The icon of the document types (InstallService writes it next to the program; the file types point to it). -->
+    <EmbeddedResource Include="Assets\thixmail-document.ico" LogicalName="thixmail-document.ico" />
+    <!-- What the setup offers (SETUP-08): read by InstallerOptions, published in the update manifest as "installer" by CI. -->
+    <EmbeddedResource Include="installer.json" LogicalName="installer.json" />
+  </ItemGroup>
+
+</Project>

@@ -37,6 +37,22 @@ public sealed class PersonAvatar : Border
     /// <summary>True while a picture shows.</summary>
     public bool ShowsPhoto => _image.Source is not null;
 
+    /// <summary>Shows the initials of a name or an address ("Anna Berger" → AB, "jonas@x.de" → J) – a mail sender who is no contact.</summary>
+    public void ShowName(string name)
+    {
+        var words = name.Split([' ', '.', '_', '-', '@'], StringSplitOptions.RemoveEmptyEntries).Where(w => char.IsLetterOrDigit(w[0])).ToList();
+        if (name.Contains('@', StringComparison.Ordinal) && !name.Contains(' ', StringComparison.Ordinal))
+        {
+            words = words.Take(1).ToList();
+        }
+
+        _initials.Text = string.Concat(words.Take(2).Select(w => char.ToUpperInvariant(w[0])));
+        var old = _image.Source as IDisposable;
+        _image.Source = null;
+        old?.Dispose();
+        _initials.IsVisible = true;
+    }
+
     /// <summary>Shows <paramref name="person"/> (null: nobody, empty).</summary>
     public void Show(Person? person)
     {

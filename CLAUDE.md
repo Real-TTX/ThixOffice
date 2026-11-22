@@ -7,7 +7,7 @@ The binding plan is `docs/PLAN.md` (German): architecture (section 4), phases (s
 
 An office suite of **separate native desktop apps** for **Windows and macOS** in one repository: **ThixWrite** (Word's place,
 accent `#185ABD`), **ThixCalc** (Excel, `#107C41`), **ThixShow** (PowerPoint, `#C43E1C`) and **ThixContacts** (Outlook's people, `#8764B8`; a
-workspace app, see "The workspace mode"; ThixMail `#0F6CBD` follows). Windows users find everything
+workspace app, see "The workspace mode") and **ThixMail** (Outlook's mail, `#0F6CBD`; a workspace app, section "ThixMail"). Windows users find everything
 where Word/Excel/PowerPoint have it (ribbon, "Datei" = backstage, quick access, "Was möchten Sie tun?"), and the apps look like
 the other Thix apps (MatDesktop, "Apple-like"). Office formats are the default (docx/xlsx/pptx), ODF follows per app. Each
 document is a window of its own, all in one process per app (like Word). UI language German (the Office apps say **"Sie"**,
@@ -22,7 +22,8 @@ tab stops, the dialogs Schriftart/Absatz, format painter, symbols, HTML paste (s
 **Phase 3, first release of ThixCalc (done):** the grid, cell and formula editing, sheet tabs, the German Excel ribbon and dialogs,
 find/replace, clipboard, page setup, printing and PDF, CSV/xlsx/xlsm flows (section "ThixCalc's editor"; gaps in docs/PLAN.md).
 **ThixCalc charts (done):** the shared `ThixOffice.Charts` (section "Charts"). **Phase 7a, ThixContacts (done, first version):** the
-workspace mode of the shell, `ThixOffice.Pim` (+ `.Desktop`), ThixContacts on MatCloud's general sync (contract 1.5.0; section "ThixContacts"). **Phase 4, first version of ThixShow (done):** the
+workspace mode of the shell, `ThixOffice.Pim` (+ `.Desktop`), ThixContacts on MatCloud's general sync (contract 1.5.0; section "ThixContacts"). **Phase 7b, ThixMail foundation (done, first version):**
+IMAP/SMTP accounts with auto-configuration, offline store and sync, reading pane, composer, Outlook's ribbon and keys (section "ThixMail"). **Phase 4, first version of ThixShow (done):** the
 slide editor, thumbnails, sorter, show and presenter view, the German PowerPoint ribbon, printing/PDF (section "ThixShow's editor";
 gaps in docs/PLAN.md). **ThixWrite 1c (done):** footnotes/endnotes, table of contents, comments, spelling (shared seam), Referenzen/Überprüfen, odt. **ODF for ThixCalc (done):** .ods read and write (section "OpenDocument Spreadsheet"). Next the
 launcher entry and ThixWrite 1d (gaps in docs/PLAN.md). Do not build ribbon controls of
@@ -162,6 +163,27 @@ src/ThixContacts           App (workspace: CreateDocument = the store, ImportFil
                            SampleContacts), Dialogs/ (ContactDialog: tabs Allgemein | Details | Notizen with value rows; Category, Members, Duplicates,
                            Merge, CsvMapping, Export), Pages/ (ContactsPrintPage: Liste | Karten through OfficePrintPage, ContactsTransferPage, ContactsPdfPage;
                            PrintPalette = the one file with literal colours), ContactsSelfTest
+src/ThixMail.Core          (no UI) ThixMailApp.Definition (Kind Workspace, .eml, cloud id mail); Model/MailModel (MailAccount without passwords,
+                           ServerSettings, MailFolder + FolderRole, MessageHeader, MessageFlags, MailSignature, MailCategory); Accounts/ (AccountStore:
+                           accounts/signatures/categories as items of a PimStore – collections ready for the general sync, protected passwords only in its
+                           local meta; AccountService: validation, passwords in the TokenStore, TestAsync, TrustCertificate; AutoConfig: providers,
+                           autoconfig/.well-known/ISPDB/MX/SRV/guess; DnsLookup: SRV and MX over UDP); Transport/ (IMailTransport + IImapConnection/
+                           ISmtpConnection = THE protocol seam, MailKitTransport (MailKit 5 / MimeKit.Core), SampleMailServer (in memory: folders,
+                           flags, MODSEQ, MOVE, IDLE wake-ups, faults, latency, an untrusted certificate), MailConnectionException + MailErrorKind +
+                           CertificateInfo); Store/MailStore (SqliteDatabase of ThixOffice.Pim: folders, headers, threads by References/In-Reply-To +
+                           subject, bodies as files, FTS5, operations queue, outbox, recipients, trusted senders, size budget); Sync/MailSync (one per
+                           account: replay → folders → outbox → folders by UIDVALIDITY/UIDNEXT/CONDSTORE or flag polling → IDLE; back-off; bodies on a
+                           second connection); Mime/ (MailMime: parse/bytes/summary, code pages registered by a module initializer; MailReader → ReadMail;
+                           MailComposer: Draft → MIME, Reply/Forward like Outlook); Security/MailHtml (the view: HtmlImport in mail mode, remote pictures
+                           only after consent, DescribeLink; RemotePictures; AttachmentSafety); MailSession (every action undoable and queued),
+                           MessageList (rows: date groups, conversations), MailDocument (the workspace document), EmlFiles
+src/ThixMail               App (workspace), Editor/ (MailEditor: navigation rail | folder pane | list | MessageView; MailRows: FolderRow, MessageRow,
+                           CategoryTokens; MessageView: header, "Bilder laden", attachments, body = read-only DocumentSurface; MessageWindow; MailCommands +
+                           MailCommandIds (Outlook's keys), MailRibbon, MoveDialog), Compose/ComposeWindow (own commands + ribbon, AddressField, DocumentSurface
+                           editor, HtmlExport on send), Pages/ (AccountsPage + AccountForm, MailSettings: the four settings tabs + SignaturesPanel,
+                           MailPages: printing/PDF of a message), MailNotifier (IMailNotifier seam), SampleMailbox, MailSelfTest
+src/ThixWrite.Desktop      ThixWrite's text surface shared with ThixMail: DocumentSurface (+ CaretLayer, WriteInputClient; IsStory, IsReadOnly), PagePictures +
+                           FormattingMarks, WriteFonts, DocumentPalette (the exempted colour file of ThixWrite and ThixMail)
 src/ThixCalc.Core          (no UI) ThixCalcApp.Definition (.xlsx default, .xlsm, .csv, .ods; cloud id calc); Model/ (Workbook, Worksheet,
                            sparse CellStore, styles, rows/columns, merges, names, validation, conditional formats, PageSetup), Calculation/
                            + Formulas/ (parser, dependency graph, spills; FormulaTokens: the editor's scanner – colours, point mode, F4,
@@ -240,6 +262,12 @@ tests/ThixOffice.Pim.Tests      the shared vCard/CSV fixtures, the store (migrat
 tests/ThixContacts.Core.Tests   the session on a real store (rules, undo, groups, merge, import/export, 50,000 contacts), the document's sync
 tests/ThixContacts.Tests        the real ThixContacts headless: workspace shell, Strg+N/F2/Entf/Strg+E, folders, letters, groups, import (vcf, CSV mapping),
                                 export, print, sync and sign-out, merge, snapshots, no literal colours
+tests/ThixMail.Core.Tests       the sync against SampleMailServer (CONDSTORE and polling, moves, expunges, UIDVALIDITY, queue replay, outbox, drafts,
+                                IDLE, reconnect), threading, FTS5 search, 200,000 messages, the 12 fixture mails (Fixtures/, made by make-fixtures.ps1),
+                                composing/replying, the sanitizer as a table of attacks, auto-configuration, accounts and passwords
+tests/ThixMail.Tests            the real ThixMail headless: add an account (test, certificate), read (pictures blocked/loaded), reply + Strg+Eingabe,
+                                send checks, delete + undo, drag onto a folder, search, conversations, offline/online, notifications, .eml, settings tabs,
+                                200,000 rows, the fixture mails as pictures (<folder>/mails), snapshots, no literal colours
 tests/ThixShow.Core.Tests       colours against documented Office values, preset formulas against known paths, inheritance, rendering
                                 (fixed-width measurer, Skia pixels, PDF), pptx round trips + validator + preservation fixtures, editing
                                 (random undo/redo), show engine timelines and frames, 200-slide performance
@@ -292,7 +320,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   `OfficeEditor.Zoom` (10–500 %, `OnZoomChanged`, `ZoomChanged`) follow each other; commands `view.zoomIn/zoomOut/zoom100`.
 - The ribbon's collapsed state is remembered (`AppSettings.IsRibbonCollapsed`, `MatRibbon.CollapsedChanged`).
 
-## The workspace mode of the shell (ThixContacts, later ThixMail)
+## The workspace mode of the shell (ThixContacts, ThixMail)
 
 - `OfficeAppDefinition.Kind = OfficeAppKind.Workspace` (`IsWorkspace`): ONE main window over the app's own data. `OfficeApplication.NewDocumentWindow`
   brings it to the front (made once); a second start / Finder activation does the same and hands files to `ImportFilesAsync(window, files)` (the
@@ -321,6 +349,32 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   restarts the sync on the same store; another account opens its store. Only "Abmelden" in Einstellungen › Cloud (`OfficeApplication.SignOutAsync`,
   also offered in the signed-out state) leaves the account: ThixContacts asks "Kopie behalten" (`PimStores.ReplaceLocalWith`: the local store becomes
   a copy) or "Ohne Kopie abmelden" (the local store shows as before; the account's file stays for its next sign-in).
+
+## ThixMail
+
+- **Accounts:** `MailAccount` items in `AccountStore` (`mailsettings-local.db`, collections `mail-accounts`/`mail-signatures`/`mail-categories` –
+  prepared for ThixCloud's general sync, nothing sends them yet); passwords ONLY through `AccountService.SetPassword` → `TokenStore` (key
+  `mail-<id>-imap|smtp`, the protected value in the store's local meta). Adding/editing always runs `AccountService.TestAsync` first; a certificate
+  the system does not trust becomes `MailErrorKind.Certificate` with `CertificateInfo` and is accepted only by `TrustCertificate` (host|SHA-256).
+- **Protocol:** everything goes through `IMailTransport` (`MailDocument.Transport`; tests/snapshots/self test: `SampleMailServer`). MailKit 5 is
+  rooted for trimming (`TrimmerRootAssembly` MailKit, MimeKit.Core); code pages are registered by `MailMime`'s module initializer before MimeKit
+  builds its charset table.
+- **Store and sync:** `MailStore` (`mail.db` + `mail.db-files/`) on `ThixOffice.Pim.Store.SqliteDatabase`. Local actions change the store at once and
+  queue an `OperationData` (folder path + UIDs at the time); `MailSync` replays the queue first, then lists folders, sends the outbox (copy into
+  Sent unless `ServerSavesSent`), then syncs folders; placeholders (negative UIDs) adopt the server's UID by Message-ID, so no duplicates. Undo of
+  a move takes the waiting operation back, else queues the reverse.
+- **Showing mail:** `MailHtml.ToView` = `HtmlImport.Import(html, HtmlImportOptions.Mail(resolver, width))` → `MailHtml.Build` (one page as wide as the
+  pane, mail styles) → `MessageView` puts it into a read-only story `DocumentSurface`. Remote pictures go through the resolver only after
+  "Bilder laden" (`RemotePictures`, limits); links through `MailHtml.DescribeLink` + `LinkService`. In mail mode `HtmlImport` drops hidden parts,
+  unwraps one-cell and nested tables (cell backgrounds become paragraph shading), draws layout tables without lines, quotes as bars.
+- **Composing:** `ComposeWindow` (a `MatWindow` with its own `OfficeCommandRegistry` + ribbon bound by `OfficeRibbonBinding`), the body is an editable
+  story surface; sending exports `HtmlExport.Export` (pictures as cid:) + plain text through `MailSession.Send` (validation, outbox).
+- **Shell extensions used:** `OfficeApplication.CreateSettingsTabs` (Lesen, Verfassen, Signaturen, Benachrichtigungen after Allgemein;
+  `SettingsPage.ShowTab(id)`/`AppTab(id)`), `CreateBackstageItems` (Konten, Drucken, Als PDF speichern), `ImportFilesAsync` (.eml → `MessageWindow`).
+- Snapshot scenes `main-conversation`, `main-newsletter`, `compose`, `backstage-add-account`, `main-attachments`, `main-offline`,
+  `backstage-settings-signatures` on `SampleMailbox`; `THIXMAIL_SCREENSHOTS=<folder> dotnet test tests/ThixMail.Tests` also draws the 12 fixture mails
+  into `<folder>/mails`. The integration run against a real IMAP/SMTP server: `scripts/greenmail-test.ps1` (throwaway GreenMail container, env-gated
+  `RealServerTests`).
 
 ## ThixCloud and ThixDrive (shared by every app)
 

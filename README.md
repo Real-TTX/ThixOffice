@@ -12,6 +12,7 @@ und die aussieht wie die übrigen Thix-Apps.
 | **ThixCalc** | Excel | xlsx, xlsm, ods, csv | erstes Release (Phase 3), Arbeitsmappen in ThixDrive |
 | **ThixShow** | PowerPoint | pptx, pptm, später odp | erste Version (Phase 4), Präsentationen in ThixDrive |
 | **ThixContacts** | Outlook › Personen | vCard (Import/Export), CSV | erste Version (Phase 7a), Kontakte über die ThixCloud abgeglichen |
+| **ThixMail** | Outlook › E-Mail | IMAP/SMTP, eml | Grundgerüst (Phase 7b) |
 
 Der Plan steht in [docs/PLAN.md](docs/PLAN.md).
 
@@ -306,6 +307,48 @@ Strg+A alle · F9 jetzt synchronisieren · Strg+P drucken · Strg+Z / Strg+Y rü
 | --- | --- |
 | ![Kontakt bearbeiten](docs/images/thixcontacts-dialog-edit-light.png) | ![Kontaktgruppe](docs/images/thixcontacts-main-groups-dark.png) |
 | ![Zusammenführen](docs/images/thixcontacts-dialog-merge-light.png) | ![CSV-Spalten zuordnen](docs/images/thixcontacts-dialog-import-mapping-light.png) |
+
+Beendet die ThixCloud die Anmeldung, bleiben die Kontakte des Kontos sichtbar und bearbeitbar – auch nach einem Neustart; Änderungen warten bis
+zur nächsten Anmeldung. Erst „Abmelden“ unter *Datei › Einstellungen › Cloud* verlässt das Konto (auf Wunsch mit einer Kopie auf diesem Computer).
+
+## ThixMail – Grundgerüst (Phase 7b)
+
+ThixMail ist das E-Mail-Programm der Suite – Outlooks Platz. Wie ThixContacts hat es **ein Hauptfenster** über Ihren Konten; Nachrichten liegen auf
+dem Mailserver und – zum Lesen ohne Verbindung – auf diesem Computer, **nie in der ThixCloud**.
+
+- **Konten** über IMAP und SMTP: Name, Adresse und Kennwort genügen meist – ThixMail kennt die gängigen Anbieter (GMX, WEB.DE, Telekom, Posteo,
+  mailbox.org, Gmail, iCloud, Yahoo …) und fragt sonst die Autokonfiguration des Anbieters, Mozillas ISPDB, den MX- und die SRV-Einträge. Vor dem
+  Speichern läuft immer ein Verbindungstest mit klaren Meldungen: falsches Kennwort, App-Passwort nötig, Server nicht erreichbar. Ein Zertifikat, dem
+  das System nicht traut, wird **angezeigt** (Aussteller, Gültigkeit, SHA-256) und nur nach „Diesem Zertifikat vertrauen“ angenommen. Kennwörter
+  liegen nur im Schlüsselspeicher des Systems (DPAPI bzw. Schlüsselbund).
+- **Hauptfenster** wie im deutschen Outlook: Ordnerbereich (Favoriten mit „Alle Posteingänge“, je Konto Posteingang, Entwürfe, Gesendete Elemente,
+  Gelöschte Elemente, Junk-E-Mail, Archiv und eigene Ordner mit ungelesenen Zahlen), Nachrichtenliste mit Suche (aktueller Ordner oder alle),
+  Filter (Ungelesen, Gekennzeichnet, Mit Anlagen), Sortierung, Datumsgruppen (Heute, Gestern, Letzte Woche …), Unterhaltungen (aufklappbar),
+  Kategorien, Schnellaktionen beim Darüberfahren – flüssig auch mit 200.000 Nachrichten –, Lesebereich rechts, unten oder aus.
+- **Lesen ohne WebView:** HTML-Mails werden mit ThixWrites Layout gezeigt; Skripte, Formulare, Frames und Ähnliches kommen gar nicht erst an.
+  **Bilder aus dem Internet werden blockiert**, bis Sie „Bilder laden“ wählen (oder „Immer für diesen Absender“) – so erfährt kein Absender, ob und
+  wann Sie lesen. Links zeigen vor dem Öffnen ihr echtes Ziel; Anlagen, die ein Programm starten können, öffnen sich nur nach einer Warnung.
+- **Verfassen** in einem eigenen Fenster: An/Cc/Bcc mit Vorschlägen (zuletzt verwendete Empfänger, nach der Anmeldung die Kontakte des Kontos),
+  Betreff, Anlagen (auch per Ziehen), Text mit Fett, Kursiv, Unterstrichen, Listen, Links, Bildern, Farben und Schriften, Signaturen je Konto,
+  Antworten/Allen antworten/Weiterleiten mit Zitat wie Outlook, Entwürfe werden jede Minute in „Entwürfe“ gesichert. Gesendet wird als HTML mit
+  Textfassung; ohne Verbindung wartet die Nachricht im **Postausgang**.
+- **Offline:** alles Gelesene bleibt lesbar; Löschen, Verschieben, Kennzeichnen und Senden warten in einer Warteschlange und werden in derselben
+  Reihenfolge nachgeholt. *Senden/Empfangen › Offline arbeiten* trennt bewusst.
+- **Benachrichtigung** bei neuer E-Mail (solange ThixMail nicht vorn ist), auf Wunsch Weiterlaufen im Infobereich; **Drucken** und **Als PDF
+  speichern** einer Nachricht; **.eml** öffnen (Doppelklick, „Öffnen mit“) und speichern.
+
+Tastenkürzel wie im deutschen Outlook: Strg+N neue E-Mail · Strg+R antworten · Strg+Umschalt+R allen antworten · Strg+F weiterleiten · Strg+E oder
+F3 suchen · Entf löschen · Rücktaste archivieren · Strg+Q gelesen · Strg+U ungelesen · Einfg zur Nachverfolgung · Strg+Umschalt+V verschieben ·
+F9 senden/empfangen · Strg+P drucken · F12 speichern unter · im Nachrichtenfenster Strg+Eingabe senden, Strg+S speichern. Auf dem Mac ⌘ statt Strg
+und die Tasten von Outlook für Mac, wo sie abweichen (⌘J weiterleiten, ⌘T/⇧⌘T gelesen/ungelesen, ⇧⌘M verschieben, ⌘K senden/empfangen).
+
+![ThixMail hell](docs/images/thixmail-main-newsletter-light.png)
+
+| | |
+| --- | --- |
+| ![Nachricht verfassen](docs/images/thixmail-compose-light.png) | ![Unterhaltung](docs/images/thixmail-main-conversation-dark.png) |
+| ![Konto hinzufügen](docs/images/thixmail-backstage-add-account-light.png) | ![Offline](docs/images/thixmail-main-offline-dark.png) |
+
 ## ThixCloud und ThixDrive
 
 ThixWrite, ThixCalc und ThixShow öffnen und speichern Dokumente direkt in **ThixDrive**, der Ablage Ihrer **ThixCloud** (MatCloud) – auf
@@ -364,7 +407,7 @@ Wie im deutschen Word, wo sie nicht kollidieren (unter macOS ⌘ statt Strg, ⌥
 
 ## Installieren
 
-- **Windows:** `ThixWriteSetup.exe`, `ThixCalcSetup.exe`, `ThixShowSetup.exe` bzw. `ThixContactsSetup.exe` aus dem Release-Kanal herunterladen und starten. Das Programm installiert sich selbst für
+- **Windows:** `ThixWriteSetup.exe`, `ThixCalcSetup.exe`, `ThixShowSetup.exe`, `ThixContactsSetup.exe` bzw. `ThixMailSetup.exe` aus dem Release-Kanal herunterladen und starten. Das Programm installiert sich selbst für
   das eigene Benutzerkonto (ohne Administratorrechte) nach `%LocalAppData%\Programs\ThixWrite`, trägt sich im Startmenü, unter
   „Installierte Apps“ und unter „Öffnen mit“ für alle Dateitypen ein, die es öffnet (ThixWrite: .docx, .odt, .txt). Das Setup
   fragt, ob eine Desktop-Verknüpfung entstehen soll, ob Updates automatisch installiert werden und welche Dateitypen die App
@@ -406,6 +449,7 @@ dotnet run --project src/ThixWrite                      # mit THIXWRITE_DATA_DIR
 dotnet run --project src/ThixWrite -- --snapshot shots  # alle Fenster hell und dunkel als PNG
 dotnet run --project src/ThixCalc                       # ThixCalc (THIXCALC_DATA_DIR=<Ordner>, --snapshot <Ordner> ebenso)
 dotnet run --project src/ThixContacts                   # ThixContacts (THIXCONTACTS_DATA_DIR=<Ordner>, --snapshot <Ordner> ebenso)
+dotnet run --project src/ThixMail                       # ThixMail (THIXMAIL_DATA_DIR=<Ordner>, --snapshot <Ordner> ebenso)
 dotnet run --project src/ThixShow                       # ThixShow (THIXSHOW_DATA_DIR=<Ordner>, --snapshot <Ordner> ebenso)
 cd tools && npm install && node render-icons.js         # Logos rendern
 ```

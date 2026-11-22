@@ -243,6 +243,12 @@ public abstract class OfficeApplication : Application
     public virtual Task ImportFilesAsync(OfficeWindow window, IReadOnlyList<string> files) => Task.CompletedTask;
 
     /// <summary>
+    /// The app's own tabs of Einstellungen, shown after "Allgemein" (ThixMail: Lesen, Verfassen, Signaturen, Benachrichtigungen). Made anew with the
+    /// page; each control saves at once through the business layer like the shared tabs.
+    /// </summary>
+    public virtual IEnumerable<Pages.SettingsTab> CreateSettingsTabs(OfficeWindow window) => [];
+
+    /// <summary>
     /// "Abmelden" in Einstellungen › Cloud (also while the cloud has ended the sign-in): asks, then signs out. True when it signed out. A workspace app
     /// with data of the account overrides it (ThixContacts asks whether a copy of the account's contacts stays on this computer).
     /// </summary>

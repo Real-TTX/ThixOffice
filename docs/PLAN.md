@@ -598,6 +598,14 @@ fehlen (Name → wo, Platzhalter heute):
 | `contact-card`, `address-book` | ThixContacts: Neuer Kontakt, Ordner „Alle Kontakte“ | `plus`, `users` |
 | `group-add` | ThixContacts: Neue Kontaktgruppe, Mitglieder hinzufügen | `users`, `plus` |
 | `sync` | ThixContacts: Jetzt synchronisieren (`contacts.sync`) | `refresh` |
+| `reply`, `reply-all`, `forward` | ThixMail: Antworten, Allen antworten, Weiterleiten (`mail.reply*`, `mail.forward`) | `back`, `users`, `arrow-right` |
+| `send` | ThixMail: Senden im Nachrichtenfenster (`compose.send`) | `arrow-right` |
+| `inbox`, `sent`, `drafts`, `junk` | ThixMail: Ordner Posteingang, Gesendete Elemente, Entwürfe, Junk-E-Mail | `download`, `upload`, `edit`, `shield` |
+| `flag` | ThixMail: Zur Nachverfolgung (`mail.flag`), Kennzeichnung in der Liste | `pin` |
+| `mail-open`, `mail-unread` | ThixMail: Als gelesen / ungelesen markieren | `check`, `mail` |
+| `offline` | ThixMail: Offline arbeiten (`mail.workOffline`) | `power` |
+| `reading-pane-right`, `reading-pane-bottom` | ThixMail: Ansicht › Lesebereich | `columns`, `layers` |
+| `signature` | ThixMail: Signatur einfügen (`compose.signature`) | `edit` |
 
 ### Phase 4 – ThixShow
 Folienmodell, Layouts/Designs, Formen/Text/Bilder/Tabellen, Folienübersicht, Übergänge/Animationen,
@@ -710,6 +718,31 @@ gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMT
   **Nachtrag (2026-11-22):** Beendet die ThixCloud die Anmeldung (401), bleibt auch nach einem Neustart der Bestand des Kontos sichtbar und
   bearbeitbar (Änderungen warten), mit „Abgemeldet“ in der Titelleiste und der Meldung „Bei ThixCloud abgemeldet – Änderungen werden nach der
   Anmeldung synchronisiert“ (Anmelden). Erst „Abmelden“ in Einstellungen › Cloud verlässt das Konto und fragt, ob eine lokale Kopie bleibt.
+
+- **Stand (2026-11-22): 7b – erste Version von ThixMail (dev).** `ThixMail.Core` (UI-frei): Konten ohne Kennwort in den Einstellungen (Sammlungen
+  `mail-accounts`/`mail-signatures`/`mail-categories` in einem PimStore – für den allgemeinen Sync vorbereitet, noch nicht angeschlossen; Kennwörter
+  nur im TokenStore), Autokonfiguration (Anbietertabelle, autoconfig, /.well-known, ISPDB, MX → ISPDB, SRV nach RFC 6186, Schätzung) mit
+  Verbindungstest und deutschen Fehlern (Kennwort, App-Passwort, Netz, Zertifikat – angezeigt, nur ausdrücklich vertraut), die Protokollnaht
+  `IMailTransport` mit MailKit 5 und `SampleMailServer`, der Offline-Bestand in SQLite über `SqliteDatabase` von ThixOffice.Pim (Ordner mit Rollen,
+  Köpfe, Unterhaltungen nach References/In-Reply-To und Betreff, Texte als Dateien bei Bedarf, FTS5-Volltextsuche, Größenbudget), der Sync
+  (UIDVALIDITY/UIDNEXT, CONDSTORE, sonst Flag-Abfrage in Fenstern, IDLE, Back-off, Warteschlange in Reihenfolge, Postausgang, Entwürfe), MIME lesen und
+  schreiben (HTML + Text, eingebettete Bilder, Anlagen, RFC 2047/2231, Antworten/Weiterleiten wie Outlook, alte Zeichensätze) und die Sicherheit
+  angezeigter Mails (HtmlImport im Mail-Modus, Bilder aus dem Netz erst nach Zustimmung, Linkziele, ausführbare Anlagen nur mit Warnung).
+  `ThixWrite.Desktop` (neu) trägt die Textfläche von ThixWrite für ThixMail: Lesebereich (nur lesend) und Nachrichtenfenster. `ThixMail`:
+  Navigationsleiste (Mail; Kalender/Personen erscheinen mit 7c), Ordnerbereich, Liste (200.000 Nachrichten), Lesebereich rechts/unten/aus,
+  Nachrichtenfenster, Menüband Start | Senden/Empfangen | Ordner | Ansicht, Tasten wie das deutsche Outlook, Konten-Seite, Einstellungen Lesen |
+  Verfassen | Signaturen | Benachrichtigungen, Benachrichtigungen, Infobereich, Drucken/PDF, .eml. Tests: Kern gegen SampleMailServer, UI mit
+  echten Eingaben, 12 Beispielmails als Bilder, und ein Lauf gegen einen echten Server (GreenMail im Wegwerf-Container, `scripts/greenmail-test.ps1`).
+  **Lücken gegenüber Outlook:** keine OAuth-Anmeldung (Gmail/Microsoft 365 nur mit App-Passwort; viele Microsoft-Konten gehen so nicht), keine
+  Regeln, keine Abwesenheitsnotiz, kein S/MIME/PGP, keine geteilten Postfächer, keine Suchordner, keine Quick Steps, keine Kennzeichnung mit
+  Fälligkeit, Kategorien ohne frei wählbare Farben (Farbe aus dem Namen), kein Verschieben zwischen Konten, kein „Später senden“, kein
+  „Rückruf“, keine Lesebestätigung, keine Vorlagen; HTML: verschachtelte Tabellen werden untereinander statt nebeneinander gezeigt (Spalten eines
+  Newsletters stehen untereinander), Hintergrundbilder und CSS aus `<style>` werden nicht ausgewertet, Spaltenbreiten werden gleichmäßig
+  verteilt (Signaturtabellen zu breit), keine Rechtschreibprüfung im Nachrichtenfenster (die Textfläche zeichnet sie nur im Seitenmodus),
+  Zwischenablage im Nachrichtenfenster nur Text und eigene Formatierung (kein HTML von außen), Antworten in Unterhaltungen über Konten hinweg
+  werden nicht zusammengefasst, Benachrichtigung unter Windows als Thix-Fenster statt System-Toast (kein AUMID), unter macOS über osascript (ohne
+  Klick zur Nachricht); Einstellungen und Signaturen noch nicht über die ThixCloud synchronisiert; Einladungen werden erkannt, aber erst mit 7c
+  beantwortet; Ordnerbereich ohne Ziehen von Ordnern, ohne Favoriten-Auswahl.
 
 Offen: Umfang von 7d und ob ThixContacts später auch ohne ThixCloud per CardDAV synchronisiert.
 

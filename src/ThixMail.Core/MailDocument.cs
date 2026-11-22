@@ -317,8 +317,17 @@ public sealed class MailDocument : OfficeDocument
 
     // ===== closing =====
 
+    /// <summary>True after <see cref="CloseAsync"/> (posted callbacks of the views do nothing then).</summary>
+    public bool IsClosed { get; private set; }
+
     public async Task CloseAsync()
     {
+        if (IsClosed)
+        {
+            return;
+        }
+
+        IsClosed = true;
         foreach (var sync in _syncs.Values)
         {
             sync.StatusChanged -= OnSyncStatus;

@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Tests of ThixMail: the real app rendered headless (Avalonia + Skia), driven by real key, text and pointer events against a mail server in memory:
+    the workspace shell, adding an account with the connection test, reading (pictures blocked and loaded), reply and send, delete with undo, move by
+    drag and drop, search, conversations, offline and online, the settings tabs, an .eml, notifications, the 200,000-message list, the 12 fixture
+    mails drawn as pictures and the snapshots (THIXMAIL_SCREENSHOTS=<folder> keeps them – look at them).
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <SupportedOSPlatformVersion Condition="'$(OS)' == 'Windows_NT'">10.0.17763.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="GitHubActionsTestLogger" Version="2.4.1" />
+    <PackageReference Include="Avalonia.Headless.XUnit" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Skia" Version="11.3.22" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\ThixMail.Core.Tests\Fixtures\*.eml" Link="Fixtures\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ThixOffice.Core\ThixOffice.Core.csproj" />
+    <ProjectReference Include="..\..\src\ThixOffice.Desktop\ThixOffice.Desktop.csproj" />
+    <ProjectReference Include="..\..\src\ThixOffice.Pim\ThixOffice.Pim.csproj" />
+    <ProjectReference Include="..\..\src\ThixOffice.Pim.Desktop\ThixOffice.Pim.Desktop.csproj" />
+    <ProjectReference Include="..\..\src\ThixWrite.Core\ThixWrite.Core.csproj" />
+    <ProjectReference Include="..\..\src\ThixWrite.Desktop\ThixWrite.Desktop.csproj" />
+    <ProjectReference Include="..\..\src\ThixMail.Core\ThixMail.Core.csproj" />
+    <ProjectReference Include="..\..\src\ThixMail\ThixMail.csproj" />
+  </ItemGroup>
+
+</Project>

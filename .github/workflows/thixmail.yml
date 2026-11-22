@@ -1,0 +1,76 @@
+name: thixmail
+# Builds, tests and packages ThixMail (the reusable _desktop.yml does the work). Its run number is ThixMail' build
+# number, so ThixMail counts on its own. A cancelled macOS job (no runner) is repeated by a new run. Manually: Actions › thixmail › Run workflow.
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'src/ThixMail/**'
+      - 'src/ThixMail.Core/**'
+      - 'src/ThixWrite.Core/**'
+      - 'src/ThixWrite.Desktop/**'
+      - 'src/ThixOffice.Charts/**'
+      - 'src/ThixOffice.Pim/**'
+      - 'src/ThixOffice.Pim.Desktop/**'
+      - 'src/ThixOffice.Core/**'
+      - 'src/ThixOffice.Desktop/**'
+      - 'src/ThixOffice.Text/**'
+      - 'src/ThixOffice.Text.Skia/**'
+      - 'tests/ThixOffice.Core.Tests/**'
+      - 'tests/ThixOffice.Desktop.Tests/**'
+      - 'tests/ThixOffice.Pim.Tests/**'
+      - 'tests/ThixMail.Core.Tests/**'
+      - 'tests/ThixMail.Tests/**'
+      - 'branding/thixmail/**'
+      - 'scripts/package-macos.sh'
+      - 'scripts/macos-document-types/thixmail.plist'
+      - 'Directory.Build.props'
+      - 'global.json'
+      - '.github/workflows/_desktop.yml'
+      - '.github/workflows/thixmail.yml'
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'src/ThixMail/**'
+      - 'src/ThixMail.Core/**'
+      - 'src/ThixWrite.Core/**'
+      - 'src/ThixWrite.Desktop/**'
+      - 'src/ThixOffice.Charts/**'
+      - 'src/ThixOffice.Pim/**'
+      - 'src/ThixOffice.Pim.Desktop/**'
+      - 'src/ThixOffice.Core/**'
+      - 'src/ThixOffice.Desktop/**'
+      - 'src/ThixOffice.Text/**'
+      - 'src/ThixOffice.Text.Skia/**'
+      - 'tests/ThixOffice.Core.Tests/**'
+      - 'tests/ThixOffice.Desktop.Tests/**'
+      - 'tests/ThixOffice.Pim.Tests/**'
+      - 'tests/ThixMail.Core.Tests/**'
+      - 'tests/ThixMail.Tests/**'
+      - 'branding/thixmail/**'
+      - 'scripts/package-macos.sh'
+      - 'scripts/macos-document-types/thixmail.plist'
+      - 'Directory.Build.props'
+      - 'global.json'
+      - '.github/workflows/_desktop.yml'
+      - '.github/workflows/thixmail.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One run per branch at a time: two quick pushes must not publish ThixMail to the same channel at once (queued, not cancelled).
+concurrency:
+  group: thixmail-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  desktop:
+    uses: ./.github/workflows/_desktop.yml
+    with:
+      app-name: ThixMail
+      app-id: thixmail
+      project: src/ThixMail/ThixMail.csproj
+      tests: tests/ThixOffice.Core.Tests/ThixOffice.Core.Tests.csproj tests/ThixOffice.Desktop.Tests/ThixOffice.Desktop.Tests.csproj tests/ThixOffice.Pim.Tests/ThixOffice.Pim.Tests.csproj tests/ThixMail.Core.Tests/ThixMail.Core.Tests.csproj tests/ThixMail.Tests/ThixMail.Tests.csproj
+      build-number: ${{ github.run_number }}

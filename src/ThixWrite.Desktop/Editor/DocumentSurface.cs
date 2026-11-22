@@ -135,6 +135,12 @@ internal sealed class DocumentSurface : Control
     /// </summary>
     public bool IsStory { get; init; }
 
+    /// <summary>
+    /// A document that is only shown (ThixMail's reading pane): selecting, moving and copying work, nothing changes the text (no typing, no deleting,
+    /// no dropping, no sizing of pictures or columns), there is no caret, and a plain click on a link opens it (the host checks the target).
+    /// </summary>
+    public bool IsReadOnly { get; init; }
+
     /// <summary>The least height of a story surface (points): the header or footer area it covers.</summary>
     public double MinimumHeight { get; set; }
 
@@ -615,7 +621,7 @@ internal sealed class DocumentSurface : Control
     private void UpdateCaret()
     {
         _caretLayer.CaretRect = CaretRect();
-        _caretLayer.ShowsCaret = Session.Selection.IsCollapsed && IsFocused;
+        _caretLayer.ShowsCaret = Session.Selection.IsCollapsed && IsFocused && !IsReadOnly;
         RestartBlink();
     }
 
@@ -706,6 +712,11 @@ internal sealed class DocumentSurface : Control
             return true;
         }
 
+        if (IsReadOnly)
+        {
+            return false;
+        }
+
         switch (key)
         {
             case Key.Back:
@@ -734,7 +745,7 @@ internal sealed class DocumentSurface : Control
     protected override void OnTextInput(TextInputEventArgs e)
     {
         base.OnTextInput(e);
-        if (e.Handled || string.IsNullOrEmpty(e.Text))
+        if (e.Handled || string.IsNullOrEmpty(e.Text) || IsReadOnly)
         {
             return;
         }
@@ -822,7 +833,14 @@ internal sealed class DocumentSurface : Control
             }
         }
 
-        if (SelectedImageRect() is { } selected && HandleAt(selected, point.Position) is { } handle)
+        if (IsReadOnly && e.ClickCount == 1 && !e.KeyModifiers.HasFlag(KeyModifiers.Shift) && LinkUnder(point.Position) is { } shownLink)
+        {
+            e.Handled = true;
+            LinkClicked?.Invoke(this, shownLink);
+            return;
+        }
+
+        if (!IsReadOnly && SelectedImageRect() is { } selected && HandleAt(selected, point.Position) is { } handle)
         {
             // A handle of the selected picture: dragging sizes it (corners keep its proportions unless Umschalt is held).
             _imageDrag = new ImageDrag(handle, point.Position, point.Position, selected);
@@ -861,7 +879,7 @@ internal sealed class DocumentSurface : Control
             return;
         }
 
-        if (ColumnBorderAt(point.Position) is { } border)
+        if (!IsReadOnly && ColumnBorderAt(point.Position) is { } border)
         {
             // A column border of a table: dragging it changes the widths of the columns beside it.
             _columnDrag = border;
@@ -1176,7 +1194,7 @@ internal sealed class DocumentSurface : Control
     /// <summary>Picture files dropped on the page go in where they were dropped (one after the other).</summary>
     private async void OnDrop(object? sender, DragEventArgs e)
     {
-        if (DropPicture is null || e.DataTransfer.TryGetFiles() is not { Length: > 0 } files)
+        if (IsReadOnly || DropPicture is null || e.DataTransfer.TryGetFiles() is not { Length: > 0 } files)
         {
             return;
         }

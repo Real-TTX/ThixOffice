@@ -1,0 +1,10 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ThixMail.App"
+             Name="ThixMail"
+             RequestedThemeVariant="Default">
+  <!--
+    The look is MatDesktop's (ThixOffice.Desktop/MatDesktop, copied from MatDesign): OfficeApplication.Initialize installs its theme with
+    ThixMail' accent (ThixMailApp.Accent); the window takes the app's icon from it.
+  -->
+</Application>

@@ -42,6 +42,13 @@ public sealed class MailSession
 
     public string? UndoLabel => _undo.Count > 0 ? _undo.Peek().Label : null;
 
+    /// <summary>The sample data of snapshots and the self test starts without history.</summary>
+    internal void ClearUndoForSamples()
+    {
+        _undo.Clear();
+        _redo.Clear();
+    }
+
     public void Undo() => Step(_undo, _redo, step => step.Undo());
 
     public void Redo() => Step(_redo, _undo, step => step.Redo());

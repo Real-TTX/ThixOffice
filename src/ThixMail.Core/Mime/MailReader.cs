@@ -125,6 +125,20 @@ public static partial class MailReader
         }
 
         var isHtml = !string.IsNullOrWhiteSpace(html);
+        if (!isHtml)
+        {
+            // several inline text parts (a mailing list footer, a second language): every one is part of the message
+            var parts = message.BodyParts.OfType<TextPart>()
+                .Where(p => !p.IsAttachment && p.ContentType.IsMimeType("text", "plain"))
+                .Select(SafeText)
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .ToList();
+            if (parts.Count > 1)
+            {
+                text = string.Join("\n\n", parts);
+            }
+        }
+
         return new ReadMail
         {
             Subject = message.Subject ?? "",

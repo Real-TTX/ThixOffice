@@ -58,12 +58,31 @@ public partial class SettingsPage : UserControl
         UpdateCoordinator.Changed += OnUpdateChanged;
         DetachedFromVisualTree += (_, _) => UpdateCoordinator.Changed -= OnUpdateChanged;
         AttachCloud();
+        AddAppTabs(window);
         Load();
     }
 
-    /// <summary>Shows a tab (<see cref="GeneralTab"/> …).</summary>
+    private readonly Dictionary<string, TabItem> _appTabs = new(StringComparer.Ordinal);
+
+    /// <summary>The app's own tabs (ThixMail: Lesen, Verfassen, Signaturen, Benachrichtigungen) after Allgemein; made when the page is made.</summary>
+    private void AddAppTabs(OfficeWindow window)
+    {
+        var index = Tabs.Items.IndexOf(GeneralTabItem) + 1;
+        foreach (var tab in OfficeApplication.Instance?.CreateSettingsTabs(window) ?? [])
+        {
+            var item = new TabItem { Header = tab.Header, Content = new ScrollViewer { VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto, Content = tab.Create() } };
+            _appTabs[tab.Id] = item;
+            Tabs.Items.Insert(index++, item);
+        }
+    }
+
+    /// <summary>The content of an app tab (tests), or null.</summary>
+    public Control? AppTab(string id) => _appTabs.TryGetValue(id, out var item) ? (item.Content as ScrollViewer)?.Content as Control : null;
+
+    /// <summary>Shows a tab (<see cref="GeneralTab"/> …, or an app tab's id).</summary>
     public void ShowTab(string tab) => Tabs.SelectedItem = tab switch
     {
+        _ when _appTabs.TryGetValue(tab, out var app) => app,
         SaveTab when SaveTabItem.IsVisible => SaveTabItem,
         CloudTab when CloudTabItem.IsVisible => CloudTabItem,
         UpdatesTab => UpdatesTabItem,
@@ -72,7 +91,8 @@ public partial class SettingsPage : UserControl
     };
 
     /// <summary>The tab shown (tests).</summary>
-    public string CurrentTab => Tabs.SelectedItem == SaveTabItem ? SaveTab : Tabs.SelectedItem == CloudTabItem ? CloudTab : Tabs.SelectedItem == UpdatesTabItem ? UpdatesTab : Tabs.SelectedItem == AdvancedTabItem ? AdvancedTab : GeneralTab;
+    public string CurrentTab => _appTabs.FirstOrDefault(pair => pair.Value == Tabs.SelectedItem).Key
+                                ?? (Tabs.SelectedItem == SaveTabItem ? SaveTab : Tabs.SelectedItem == CloudTabItem ? CloudTab : Tabs.SelectedItem == UpdatesTabItem ? UpdatesTab : Tabs.SelectedItem == AdvancedTabItem ? AdvancedTab : GeneralTab);
 
     private void Load()
     {

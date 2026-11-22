@@ -1,0 +1,7 @@
+﻿{
+  "desktopShortcut": { "default": false },
+  "automaticUpdates": { "default": true },
+  "fileTypes": [
+    { "extension": ".eml", "name": "E-Mail-Nachricht (mit ThixMail öffnen)", "default": false }
+  ]
+}

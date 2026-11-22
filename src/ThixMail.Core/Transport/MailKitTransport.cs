@@ -374,8 +374,13 @@ public sealed class MailKitTransport : IMailTransport
             var folder = await client.GetFolderAsync(path, cancellationToken);
             if (_open is not null && _open.FullName == folder.FullName)
             {
-                await _open.CloseAsync(false, cancellationToken);
-                _open = null;
+                // select another folder first (some servers drop the connection when the selected folder is deleted or closed and deleted)
+                await SelectAsync(client.Inbox.FullName, cancellationToken, reopen: true);
+            }
+
+            if (folder.IsSubscribed)
+            {
+                await folder.UnsubscribeAsync(cancellationToken);
             }
 
             await folder.DeleteAsync(cancellationToken);
