@@ -36,9 +36,11 @@ public static class MailNotifications
                 && ThixOffice.Core.Platform.Windows.WindowsToasts.Show(ThixMail.Core.ThixMailApp.Definition.AppUserModelId,
                     ThixOffice.Core.Platform.Windows.WindowsToasts.ToastXml(notice.Title, notice.Text, notice.Link)))
             {
+                Log.Info("New mail: system notification shown");
                 return;
             }
 
+            Log.Info("New mail: the app's own notification (no installed program with its Start-menu shortcut, or toasts unavailable)");
             MatNotification.Show(notice.Title, notice.Text, isWarning: false, notice.Open);
         }
     }

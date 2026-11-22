@@ -349,6 +349,33 @@ public sealed class MailUiTests
         Assert.Equal("Kurze Frage", editor.Current?.Subject);
     }
 
+    /// <summary>Found with the published ThixMail on Windows: a minimized window stays "active" until another window takes the focus – it must notify.</summary>
+    [AvaloniaFact]
+    public async Task New_mail_while_the_window_is_minimized_shows_a_notification_although_it_is_still_active()
+    {
+        using var data = new TestData();
+        var window = await data.WindowAsync();
+        var sync = EditorOf(window).Document.SyncOf(SampleMailbox.Account.Id)!;
+        await UntilAsync(() => sync.Status.Phase == ThixMail.Core.Sync.SyncPhase.Idle, "the loop idling");
+        window.Activate();
+        window.WindowState = WindowState.Minimized;
+        await SettleAsync();
+        data.Server.Deliver(SampleMailbox.Address, "INBOX", new MailAddress("Jonas Weber", "jonas.weber@beispiel.de"), "Noch eine Frage", "Kurz?");
+        await UntilAsync(() => data.Notifier.Shown.Count == 1, "the notification of the minimized window");
+        window.WindowState = WindowState.Normal;
+
+        // in front (active, shown, not minimized): no notification
+        window.Activate();
+        await SettleAsync();
+        if (window.IsActive)
+        {
+            data.Server.Deliver(SampleMailbox.Address, "INBOX", new MailAddress("Jonas Weber", "jonas.weber@beispiel.de"), "Und noch eine", "Kurz?");
+            await sync.SyncOnceAsync();
+            await SettleAsync();
+            Assert.Single(data.Notifier.Shown);
+        }
+    }
+
     [AvaloniaFact]
     public async Task A_click_on_a_system_notification_comes_back_as_a_link_and_opens_the_message()
     {

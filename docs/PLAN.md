@@ -854,8 +854,15 @@ gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMT
   registriert), die laufende Instanz übernimmt es und zeigt die Nachricht – auch wenn ThixMail inzwischen beendet war. Ohne Verknüpfung
   (Entwicklungsbuild) oder mit ausgeschalteten Benachrichtigungen bleibt MatDesktops eigene Meldung. macOS: Mitteilungszentrale über
   NSUserNotificationCenter mit einem zur Laufzeit erzeugten Delegaten (Klick → Nachricht), nur im App-Bundle; sonst osascript wie bisher.
-  **Ungeprüft:** der Klick-Rückweg unter macOS (kein Mac hier; CI baut nur) und Toasts eines installierten ThixMail (hier nur mit einer
-  Test-Verknüpfung, `THIXOFFICE_REAL_TOAST=1`). NSUserNotificationCenter ist seit macOS 11 als veraltet markiert; der Ersatz
+  **Unter Windows Ende-zu-Ende geprüft (2026-11-22):** das veröffentlichte (getrimmte) ThixMail.exe vorübergehend am Installationsort, die
+  Startmenü-Verknüpfung mit der AUMID und das URL-Schema genau wie das Setup sie schreibt (kein Eintrag unter „Installierte Apps“), ein Konto auf einem
+  Wegwerf-GreenMail; neue Mail bei minimiertem Fenster → Toast im Info-Center (`ToastNotificationManager.History.GetHistory("info.schmoldt.thixmail")`
+  enthielt ihn mit `launch="thixmail:message?id=4"`); `thixmail:message?id=4` über die Shell (wie ein Klick) → der zweite Start übergab den Link der
+  laufenden Instanz, das Fenster kam aus der Minimierung und zeigte die Nachricht (gelesen); nach dem Beenden startete derselbe Link ThixMail und öffnete
+  die Nachricht. Danach alles entfernt. **Dabei behoben:** ein minimiertes Fenster gilt unter Windows weiter als aktiv – ThixMail meldete dann nichts.
+  Nicht geprüft: der Klick auf das Banner selbst (nur dieselbe Shell-Aktivierung), das Fenster kommt nach vorn, bekommt aber nicht immer den Fokus
+  (Windows' Vordergrundsperre).
+  **Ungeprüft:** der Klick-Rückweg unter macOS (kein Mac hier; CI baut nur). NSUserNotificationCenter ist seit macOS 11 als veraltet markiert; der Ersatz
   (UNUserNotificationCenter) braucht Blocks und eine Berechtigungsabfrage – später.
 - **Stand (2026-11-22): 7d – Regeln (dev).** Clientseitige Regeln wie Outlooks einfache Regeln: Bedingungen Absender / Empfänger (An, Cc) / Betreff
   enthält, mit Anlage, Konto; Aktionen in Ordner verschieben, als gelesen markieren, kategorisieren, kennzeichnen, löschen (in „Gelöschte Elemente“ –

@@ -128,8 +128,11 @@ public partial class App : OfficeApplication
     /// <summary>A notification for new unread mail – unless switched off or the window is in front.</summary>
     private static void Notify(OfficeWindow window, MailEditor editor, NewMailEventArgs e)
     {
-        if (SettingsService.AppValue(MailDocument.Settings.Notifications) == "false" || (window.IsActive && window.IsVisible) || e.Messages.Count == 0)
+        // in front = active, shown and not minimized (Windows keeps a minimized window "active" until another one takes the focus)
+        var inFront = window.IsActive && window.IsVisible && window.WindowState != WindowState.Minimized;
+        if (SettingsService.AppValue(MailDocument.Settings.Notifications) == "false" || inFront || e.Messages.Count == 0)
         {
+            Log.Info($"New mail ({e.Messages.Count}): no notification (window in front: {inFront})");
             return;
         }
 
