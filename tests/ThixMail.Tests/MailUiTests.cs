@@ -140,6 +140,33 @@ public sealed class MailUiTests
     }
 
     [AvaloniaFact]
+    public async Task The_composer_marks_unknown_words_while_typing_and_pastes_HTML_of_other_programs()
+    {
+        using var data = new TestData();
+        var window = await data.WindowAsync();
+        await PressAsync(window, PhysicalKey.N, CommandKey);
+        var compose = await OwnedAsync<ComposeWindow>(window);
+        compose.Surface.Focus();
+        await SettleAsync();
+        await TypeAsync(compose, "Ein Fehlr hier ");
+        await UntilAsync(() => compose.Surface.UnderlinedWords.Count == 1, "the wavy line under the unknown word");
+
+        var suggestion = compose.Spelling.MenuItems(compose.Surface.UnderlinedWords[0].Start).OfType<MenuItem>().First(item => (string?)item.Header == "Fehler");
+        suggestion.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+        Assert.StartsWith("Ein Fehler hier", compose.Surface.Session.Document.GetPlainText(), StringComparison.Ordinal);
+        await UntilAsync(() => compose.Surface.UnderlinedWords.Count == 0, "no wavy line after the suggestion");
+
+        Assert.True(compose.PasteHtml("Version:0.9\r\nStartHTML:-1\r\nEndHTML:-1\r\n<html><body><!--StartFragment--><p>Von <b>außen</b><script>alert(1)</script> <a href=\"javascript:alert(1)\">böse</a></p><!--EndFragment--></body></html>"));
+        var text = compose.Surface.Session.Document.GetPlainText();
+        Assert.Contains("Von außen", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("alert", text, StringComparison.Ordinal);
+        Assert.Contains(compose.Surface.Session.Document.Blocks.OfType<ThixWrite.Core.Model.Paragraph>().SelectMany(p => p.Inlines),
+            inline => inline is ThixWrite.Core.Model.TextRun { Text: "außen", Properties.Bold: true });
+        Assert.DoesNotContain(compose.Surface.Session.Document.Blocks.OfType<ThixWrite.Core.Model.Paragraph>().SelectMany(p => p.Inlines), inline => inline.Link is not null);
+        Assert.Contains("<b>au", compose.CurrentDraft().Html, StringComparison.Ordinal);
+    }
+
+    [AvaloniaFact]
     public async Task A_new_message_is_checked_before_sending_and_attachments_are_listed()
     {
         using var data = new TestData();

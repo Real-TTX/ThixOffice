@@ -84,7 +84,7 @@ public sealed class WriteEditor : OfficeEditor
             Children = { Navigation, RulerView, _scroller, FindBar, CommentsView, StylesView },
         };
         _surface.Shading = CommentShading;
-        Spelling = new SpellingSupport(this, _surface.InvalidateVisual);
+        Spelling = new SpellingSupport(() => Document.Session, () => Layout, _surface.InvalidateVisual);
         _surface.Misspelled = pages => Spelling.Misspelled(pages);
         _surface.ContextMenu = BuildContextMenu();
         _surface.HeaderFooterRequested += (_, area) => EditHeaderFooter(area.Page, area.Footer);
@@ -188,40 +188,7 @@ public sealed class WriteEditor : OfficeEditor
     /// The spelling entries of the context menu for the unknown word at <paramref name="position"/>: its suggestions (a click puts it
     /// in), Alle ignorieren, Zum Wörterbuch hinzufügen; empty when the word is known.
     /// </summary>
-    internal IReadOnlyList<Control> SpellingMenuItems(DocumentPosition position)
-    {
-        if (Spelling.ErrorAt(position) is not { } error || Spelling.Checker is not { } checker)
-        {
-            return [];
-        }
-
-        var items = new List<Control>();
-        var suggestions = checker.Suggest(error.Word).Take(5).ToList();
-        foreach (var suggestion in suggestions)
-        {
-            var item = new MenuItem { Header = suggestion, FontWeight = Avalonia.Media.FontWeight.SemiBold };
-            item.Click += (_, _) =>
-            {
-                Document.Session.ReplaceWord(error.Range, suggestion);
-                FocusDocument();
-            };
-            items.Add(item);
-        }
-
-        if (suggestions.Count == 0)
-        {
-            items.Add(new MenuItem { Header = "(Keine Vorschläge)", IsEnabled = false });
-        }
-
-        var ignore = new MenuItem { Header = "Alle ignorieren", Icon = new MatDesktop.MatIcon { Icon = "eye-off", Size = 16 } };
-        ignore.Click += (_, _) => ThixOffice.Core.Spelling.SpellingService.Ignore(error.Word);
-        var add = new MenuItem { Header = "Zum Wörterbuch hinzufügen", Icon = new MatDesktop.MatIcon { Icon = "book", Size = 16 } };
-        add.Click += (_, _) => ThixOffice.Core.Spelling.SpellingService.AddToDictionary(checker, error.Word);
-        items.Add(ignore);
-        items.Add(add);
-        items.Add(new Separator());
-        return items;
-    }
+    internal IReadOnlyList<Control> SpellingMenuItems(DocumentPosition position) => Spelling.MenuItems(position, FocusDocument);
 
     /// <summary>Überprüfen › Kommentare anzeigen: the comments at the right (shown at first when the document has comments).</summary>
     internal CommentsPane CommentsView { get; }
@@ -992,18 +959,7 @@ public sealed class WriteEditor : OfficeEditor
     }
 
     /// <summary>The HTML on the clipboard (Windows "HTML Format", macOS public.html), or null.</summary>
-    private static async Task<string?> TryGetHtmlAsync(IClipboard clipboard)
-    {
-        var format = DataFormat.CreateBytesPlatformFormat(OperatingSystem.IsMacOS() ? "public.html" : "HTML Format");
-        try
-        {
-            return await clipboard.TryGetValueAsync(format) is { Length: > 0 } bytes ? System.Text.Encoding.UTF8.GetString(bytes).TrimEnd(' ') : null;
-        }
-        catch (Exception exception) when (exception is InvalidOperationException or NotSupportedException or System.Runtime.InteropServices.COMException)
-        {
-            return null;
-        }
-    }
+    private static Task<string?> TryGetHtmlAsync(IClipboard clipboard) => ClipboardHtml.TryGetAsync(clipboard);
 
     // ===== Pictures =====
 

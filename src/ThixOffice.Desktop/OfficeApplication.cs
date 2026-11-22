@@ -180,7 +180,17 @@ public abstract class OfficeApplication : Application
         // The apps speak German, the texts of MatDesktop (title bar, setup) too.
         MatText.Language = "de";
         MatTheme.Install(this, new MatThemeOptions(Definition.Accent) { Icon = AppIcon });
+        Styles.Add(RibbonLabelRoom());
     }
+
+    /// <summary>
+    /// Room below the label of a large ribbon button (two lines of 15 px in MatDesktop 0.3.1): the descenders of "Einfügen", "Signatur" or a second
+    /// line ("Nachverfolgung") were cut at the label's bounds. A style from outside the MatDesktop copy (a wish for MatDesign is in docs/PLAN.md).
+    /// </summary>
+    internal static Avalonia.Styling.Style RibbonLabelRoom() => new(selector => Avalonia.Styling.Selectors.PropertyEquals(Avalonia.Styling.Selectors.OfType<Avalonia.Controls.TextBlock>(Avalonia.Styling.Selectors.Descendant(Avalonia.Styling.Selectors.OfType<MatRibbon>(selector))), Avalonia.Controls.TextBlock.MaxLinesProperty, 2))
+    {
+        Setters = { new Avalonia.Styling.Setter(Avalonia.Controls.TextBlock.PaddingProperty, new Avalonia.Thickness(0, 0, 0, 4)) },
+    };
 
     public override void OnFrameworkInitializationCompleted()
     {

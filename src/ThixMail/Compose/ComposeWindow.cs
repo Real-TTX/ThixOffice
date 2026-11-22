@@ -55,6 +55,7 @@ public sealed class ComposeWindow : MatWindow
     private Draft _draft;
     private bool _dirty;
     private bool _closeConfirmed;
+    private bool _closed;
     private long _savedVersion;
 
     public ComposeWindow(MailDocument document, Draft draft, IImage? logo, Action<Draft>? sent = null)
@@ -71,6 +72,8 @@ public sealed class ComposeWindow : MatWindow
         UseOwnTitleBar();
 
         Surface = CreateSurface(draft);
+        Spelling = new SpellingSupport(() => Surface.Session, () => Surface.Layout, Surface.InvalidateVisual);
+        Surface.Misspelled = pages => Spelling.Misspelled(pages);
         Commands = new OfficeCommandRegistry();
         AddCommands();
         foreach (var command in Commands.All)
@@ -178,9 +181,21 @@ public sealed class ComposeWindow : MatWindow
         Opened += (_, _) => Dispatcher.UIThread.Post(() => (To.Box.Text?.Length > 0 ? (Control)Surface : To.Box).Focus(), DispatcherPriority.Input);
         _autosave.Tick += (_, _) => AutoSave();
         _autosave.Start();
-        Closed += (_, _) => _autosave.Stop();
+        Closed += (_, _) =>
+        {
+            _closed = true;
+            _autosave.Stop();
+            Spelling.Dispose();
+        };
+        Surface.ContextMenu = BuildContextMenu();
         Surface.Session.ContentChanged += (_, _) => _dirty = true;
-        Surface.Session.StateChanged += (_, _) => Dispatcher.UIThread.Post(Commands.Invalidate, DispatcherPriority.Background);
+        Surface.Session.StateChanged += (_, _) => Dispatcher.UIThread.Post(() =>
+        {
+            if (!_closed)
+            {
+                Commands.Invalidate(); // not after the window closed (the account store may be gone with the main window)
+            }
+        }, DispatcherPriority.Background);
         _savedVersion = Surface.Session.Document.Version;
         _dirty = false;
     }
@@ -210,6 +225,9 @@ public sealed class ComposeWindow : MatWindow
     public TextBox SubjectBox { get; }
 
     internal DocumentSurface Surface { get; }
+
+    /// <summary>Spelling as you type (the system's checker through the shared seam): red wavy lines, suggestions in the context menu.</summary>
+    internal SpellingSupport Spelling { get; }
 
     public InfoBar MessageBar => _message;
 
@@ -720,17 +738,95 @@ public sealed class ComposeWindow : MatWindow
         await Clipboard.SetTextAsync(_clipboardText);
     }
 
+    /// <summary>
+    /// Einfügen in ThixWrite's order: what this composer copied (with its formatting), HTML of another program (a browser, Word, a mail – sanitized by
+    /// HtmlImport: no scripts, nothing fetched, pictures only when embedded), text, a picture (a screenshot).
+    /// </summary>
     private async Task PasteAsync()
     {
-        var text = Clipboard is null ? null : await Clipboard.TryGetTextAsync();
+        if (Clipboard is not { } clipboard)
+        {
+            return;
+        }
+
+        var text = await clipboard.TryGetTextAsync();
         if (_clipboardFragment is not null && text == _clipboardText)
         {
             Session.Paste(_clipboardFragment);
+            return;
         }
-        else if (!string.IsNullOrEmpty(text))
+
+        if (await ClipboardHtml.TryGetAsync(clipboard) is { } html && PasteHtml(html))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(text))
         {
             Session.PasteText(text);
+            return;
         }
+
+        if (await clipboard.TryGetBitmapAsync() is { } bitmap)
+        {
+            using var png = new MemoryStream();
+            bitmap.Save(png);
+            if (ImageData.FromBytes(png.ToArray()) is { } image)
+            {
+                Session.InsertImage(image);
+            }
+        }
+    }
+
+    /// <summary>Pastes HTML of another program into the body (false when it holds nothing to paste).</summary>
+    internal bool PasteHtml(string html)
+    {
+        if (HtmlImport.Import(HtmlImport.FromClipboardFormat(html)) is not { } fragment)
+        {
+            return false;
+        }
+
+        Session.Paste(fragment);
+        return true;
+    }
+
+    /// <summary>The body's context menu: the spelling suggestions for an unknown word at the caret, then the clipboard and Link.</summary>
+    private ContextMenu BuildContextMenu()
+    {
+        var menu = new ContextMenu();
+        menu.Opening += (_, _) =>
+        {
+            menu.Items.Clear();
+            foreach (var item in Spelling.MenuItems(Session.Selection.Start, () => Surface.Focus()))
+            {
+                menu.Items.Add(item);
+            }
+
+            foreach (var id in new[] { ComposeCommandIds.Cut, ComposeCommandIds.Copy, ComposeCommandIds.Paste, null, ComposeCommandIds.Link })
+            {
+                if (id is null)
+                {
+                    menu.Items.Add(new Separator());
+                    continue;
+                }
+
+                var command = Commands[id];
+                var item = new MenuItem
+                {
+                    Header = command.Label,
+                    Icon = command.Icon is null ? null : new MatIcon { Icon = command.Icon, Size = 16 },
+                    InputGesture = Ui.Gesture(command.CurrentShortcut),
+                    IsEnabled = command.IsEnabled,
+                };
+                item.Click += async (_, _) =>
+                {
+                    await OfficeWindow.RunCommandAsync(this, command);
+                    Surface.Focus();
+                };
+                menu.Items.Add(item);
+            }
+        };
+        return menu;
     }
 }
 

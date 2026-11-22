@@ -409,10 +409,7 @@ internal sealed class DocumentSurface : Control
         }
 
         DrawShading(context, visible);
-        if (!IsStory)
-        {
-            DrawMisspelled(context, visible, drawn);
-        }
+        DrawMisspelled(context, visible, drawn); // also on a story (ThixMail's composer): only where Misspelled is set
 
         DrawSelection(context, visible);
         if (_drawFrom is { } from && _drawTo is { } to)

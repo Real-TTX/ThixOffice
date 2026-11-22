@@ -1,3 +1,4 @@
+using Avalonia.Controls;
 using Avalonia.Threading;
 using ThixOffice.Core.Business;
 using ThixOffice.Core.Spelling;
@@ -8,7 +9,7 @@ using ThixWrite.Core.Model;
 namespace ThixWrite.Editor;
 
 /// <summary>
-/// The spelling check of one editor: the system's checker for the document's language (<see cref="SpellingService"/>), a
+/// The spelling check of one text surface (ThixWrite's editor, ThixMail's composer): the system's checker for the document's language (<see cref="SpellingService"/>), a
 /// <see cref="SpellingQueue"/> that checks the paragraphs of the visible pages in the background (each paragraph once – they are
 /// immutable, a typed one is new), the ranges of unknown words for the red wavy lines (a layer: no page is drawn again), the word
 /// under the caret for the context menu and the next unknown word for Rechtschreibung (F7). Off when the setting is off or the system
@@ -16,15 +17,18 @@ namespace ThixWrite.Editor;
 /// </summary>
 internal sealed class SpellingSupport : IDisposable
 {
-    private readonly WriteEditor _editor;
+    private readonly Func<EditingSession> _session;
+    private readonly Func<DocumentLayout> _layout;
     private readonly Action _redraw;
     private SpellingQueue? _queue;
     private string? _language;
     private bool _redrawPending;
 
-    public SpellingSupport(WriteEditor editor, Action redraw)
+    /// <summary>The check of the text of <paramref name=session/> laid out by <paramref name=layout/>; <paramref name=redraw/> draws the lines again.</summary>
+    public SpellingSupport(Func<EditingSession> session, Func<DocumentLayout> layout, Action redraw)
     {
-        _editor = editor;
+        _session = session;
+        _layout = layout;
         _redraw = redraw;
         SpellingService.WordsChanged += OnWordsChanged;
         SettingsService.Changed += OnSettingsChanged;
@@ -44,8 +48,8 @@ internal sealed class SpellingSupport : IDisposable
             return [];
         }
 
-        var document = _editor.Document.Content;
-        var layout = _editor.Layout;
+        var document = _session().Document;
+        var layout = _layout();
         var blocks = new SortedSet<int>();
         foreach (var page in pages)
         {
@@ -58,7 +62,7 @@ internal sealed class SpellingSupport : IDisposable
             }
         }
 
-        var selection = _editor.Document.Session.Selection;
+        var selection = _session().Selection;
         var caret = selection.IsCollapsed ? selection.Active : new DocumentPosition(-1, -1);
         var ranges = new List<DocumentRange>();
         foreach (var block in blocks)
@@ -92,7 +96,7 @@ internal sealed class SpellingSupport : IDisposable
     /// <summary>The unknown word at <paramref name="position"/> (its range and text), or null.</summary>
     public (DocumentRange Range, string Word)? ErrorAt(DocumentPosition position)
     {
-        if (!IsOn || _editor.Document.Content.ParagraphAt(position.Block) is not { Length: > 0 } paragraph)
+        if (!IsOn || _session().Document.ParagraphAt(position.Block) is not { Length: > 0 } paragraph)
         {
             return null;
         }
@@ -110,7 +114,7 @@ internal sealed class SpellingSupport : IDisposable
             return null;
         }
 
-        var document = _editor.Document.Content;
+        var document = _session().Document;
         for (var block = from.Block; block < document.Blocks.Count; block++)
         {
             if (document.ParagraphAt(block) is not { Length: > 0 } paragraph)
@@ -138,16 +142,55 @@ internal sealed class SpellingSupport : IDisposable
             return;
         }
 
-        foreach (var page in pages.Where(page => page < _editor.Layout.PageCount))
+        foreach (var page in pages.Where(page => page < _layout().PageCount))
         {
-            foreach (var block in _editor.Layout.Pages[page].Lines.Select(line => line.Block).Distinct())
+            foreach (var block in _layout().Pages[page].Lines.Select(line => line.Block).Distinct())
             {
-                if (_editor.Document.Content.ParagraphAt(block) is { Length: > 0 } paragraph)
+                if (_session().Document.ParagraphAt(block) is { Length: > 0 } paragraph)
                 {
                     queue.CheckNow(paragraph, SpellingText.Of(paragraph).Text);
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// The spelling entries of a context menu for the unknown word at <paramref name=position/>: its suggestions (a click puts it in, then
+    /// <paramref name=replaced/>), Alle ignorieren, Zum Wörterbuch hinzufügen, a separator; empty when the word is known.
+    /// </summary>
+    public IReadOnlyList<Control> MenuItems(DocumentPosition position, Action? replaced = null)
+    {
+        if (ErrorAt(position) is not { } error || Checker is not { } checker)
+        {
+            return [];
+        }
+
+        var items = new List<Control>();
+        var suggestions = checker.Suggest(error.Word).Take(5).ToList();
+        foreach (var suggestion in suggestions)
+        {
+            var item = new MenuItem { Header = suggestion, FontWeight = Avalonia.Media.FontWeight.SemiBold };
+            item.Click += (_, _) =>
+            {
+                _session().ReplaceWord(error.Range, suggestion);
+                replaced?.Invoke();
+            };
+            items.Add(item);
+        }
+
+        if (suggestions.Count == 0)
+        {
+            items.Add(new MenuItem { Header = "(Keine Vorschläge)", IsEnabled = false });
+        }
+
+        var ignore = new MenuItem { Header = "Alle ignorieren", Icon = new MatDesktop.MatIcon { Icon = "eye-off", Size = 16 } };
+        ignore.Click += (_, _) => SpellingService.Ignore(error.Word);
+        var add = new MenuItem { Header = "Zum Wörterbuch hinzufügen", Icon = new MatDesktop.MatIcon { Icon = "book", Size = 16 } };
+        add.Click += (_, _) => SpellingService.AddToDictionary(checker, error.Word);
+        items.Add(ignore);
+        items.Add(add);
+        items.Add(new Separator());
+        return items;
     }
 
     public void Dispose()
@@ -178,7 +221,7 @@ internal sealed class SpellingSupport : IDisposable
     /// <summary>The queue of the document's language (made anew when the language changed).</summary>
     private SpellingQueue? EnsureQueue()
     {
-        var language = _editor.Document.Session.Language;
+        var language = _session().Language;
         if (_queue is not null && language == _language)
         {
             return _queue;

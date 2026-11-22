@@ -607,6 +607,14 @@ fehlen (Name → wo, Platzhalter heute):
 | `reading-pane-right`, `reading-pane-bottom` | ThixMail: Ansicht › Lesebereich | `columns`, `layers` |
 | `signature` | ThixMail: Signatur einfügen (`compose.signature`) | `edit` |
 
+**Weitere Wünsche an MatDesktop (nicht nur Symbole):**
+
+- Beschriftung großer Menübandschaltflächen (`RibbonFace`, MatDesktop 0.3.1): `LineHeight = 15` mit `MaxLines = 2` schneidet die Unterlängen ab
+  („Einfügen“, „Signatur“, die zweite Zeile von „Zur Nachverfolgung“, „Datei anfügen“) – in allen Apps. ThixOffice gleicht es bis zur nächsten
+  Kopie mit einem Stil von außen aus (`OfficeApplication.RibbonLabelRoom`: 4 px Innenabstand unter zweizeilig möglichen Beschriftungen); in MatDesign
+  gehört der Platz für Unterlängen in die Fläche selbst, dann fällt der Stil weg.
+- Kalenderansichten (Tag/Woche/Monat) als gemeinsames Steuerelement – ThixMail baut sie für 7c selbst in `ThixOffice.Pim.Desktop`.
+
 ### Phase 4 – ThixShow
 Folienmodell, Layouts/Designs, Formen/Text/Bilder/Tabellen, Folienübersicht, Übergänge/Animationen,
 Präsentations- und Referentenansicht, pptx, danach odp.
@@ -736,13 +744,19 @@ gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMT
   **Lücken gegenüber Outlook:** keine OAuth-Anmeldung (Gmail/Microsoft 365 nur mit App-Passwort; viele Microsoft-Konten gehen so nicht), keine
   Regeln, keine Abwesenheitsnotiz, kein S/MIME/PGP, keine geteilten Postfächer, keine Suchordner, keine Quick Steps, keine Kennzeichnung mit
   Fälligkeit, Kategorien ohne frei wählbare Farben (Farbe aus dem Namen), kein Verschieben zwischen Konten, kein „Später senden“, kein
-  „Rückruf“, keine Lesebestätigung, keine Vorlagen; HTML: verschachtelte Tabellen werden untereinander statt nebeneinander gezeigt (Spalten eines
-  Newsletters stehen untereinander), Hintergrundbilder und CSS aus `<style>` werden nicht ausgewertet, Spaltenbreiten werden gleichmäßig
-  verteilt (Signaturtabellen zu breit), keine Rechtschreibprüfung im Nachrichtenfenster (die Textfläche zeichnet sie nur im Seitenmodus),
-  Zwischenablage im Nachrichtenfenster nur Text und eigene Formatierung (kein HTML von außen), Antworten in Unterhaltungen über Konten hinweg
+  „Rückruf“, keine Lesebestätigung, keine Vorlagen; HTML: keine Hintergrundbilder, kein `line-height`, keine Abstände zwischen Tabellen
+  (`margin` an Tabellen, `cellspacing`), verschachtelte Zitate zeigen nur einen Balken, Tabellen in Zellen sind nur lesbar (Text darin lässt sich nicht
+  markieren oder kopieren, Links darin funktionieren), Selektoren nur einfach (Tag, Klasse, Id, Nachfahren – keine Pseudoklassen, Attribute, `>`),
+  Antworten in Unterhaltungen über Konten hinweg
   werden nicht zusammengefasst, Benachrichtigung unter Windows als Thix-Fenster statt System-Toast (kein AUMID), unter macOS über osascript (ohne
   Klick zur Nachricht); Einstellungen und Signaturen noch nicht über die ThixCloud synchronisiert; Einladungen werden erkannt, aber erst mit 7c
   beantwortet; Ordnerbereich ohne Ziehen von Ordnern, ohne Favoriten-Auswahl.
+  **Nachtrag (2026-11-22, Reparaturen):** HTML-Mails wie gestaltet: `<style>`-Blöcke (einfache Selektoren; `@media` bleibt draußen, nichts wird
+  geladen), mehrspaltige Tabellen in Zellen bleiben nebeneinander (nur lesend, als Tabelle im Absatz; ihre Links findet die Fläche), Spaltenbreiten aus
+  `width`/CSS und dem Inhalt (Signaturen so breit wie nötig), Innenabstände, Rahmen und Farben der Zellen (keine weißen Lücken), keine Leerzeilen durch ein
+  letztes `<br>` oder Words `<o:p>`; drei weitere Beispielmails (Bestellbestätigung, Newsletter mit drei Spalten, Antwort mit Signaturtabelle).
+  Nachrichtenfenster: Rechtschreibprüfung beim Tippen (gemeinsame Naht, Vorschläge im Kontextmenü) und Einfügen von HTML anderer Programme
+  (Reihenfolge wie ThixWrite: eigene Formatierung, HTML, Text, Bild). Abgeschnittene Unterlängen im Menüband durch einen Stil von außen behoben.
 
 Offen: Umfang von 7d und ob ThixContacts später auch ohne ThixCloud per CardDAV synchronisiert.
 

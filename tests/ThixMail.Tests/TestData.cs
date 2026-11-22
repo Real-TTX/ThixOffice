@@ -72,6 +72,7 @@ public sealed class TestData : IDisposable
         Directory.CreateDirectory(Folder);
         AppPaths.UseDirectoryForTests(Path.Combine(Folder, "data"));
         UserRegistry.UseForTests(new MemoryUserRegistry());
+        ThixOffice.Core.Spelling.SpellingService.UseForTests(Spelling); // never the checker (and dictionary) of this machine
         AccessPolicy.UsePolicyReaderForTests(_ => false);
         TokenStore.UseMemoryForTests(true);
         PrintService.System = new SamplePrinterSystem();
@@ -92,6 +93,11 @@ public sealed class TestData : IDisposable
         MailNotifications.Notifier = Notifier;
         Ui.OpenExternalForTests = address => Opened.Add(address);
     }
+
+    /// <summary>The spelling check of the tests: German knows every word but "Fehlr" and "Tipfehler"; English knows every word.</summary>
+    public static ThixOffice.Core.Spelling.MemorySpellingProvider Spelling => new(
+        new ThixOffice.Core.Spelling.MemorySpellChecker("de-DE", unknown: new Dictionary<string, string[]> { ["Fehlr"] = ["Fehler", "Fehl"], ["Tipfehler"] = ["Tippfehler"] }),
+        new ThixOffice.Core.Spelling.MemorySpellChecker("en-US"));
 
     /// <summary>A small PNG (the remote pictures of the tests).</summary>
     public static byte[] Png { get; } = MakePng();
@@ -164,6 +170,7 @@ public sealed class TestData : IDisposable
         AccessPolicy.UsePolicyReaderForTests(null);
         PrintService.System = null!;
         UserRegistry.UseForTests(null);
+        ThixOffice.Core.Spelling.SpellingService.UseForTests(null);
         SettingsService.ResetCache();
         AppPaths.UseDirectoryForTests(null);
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();

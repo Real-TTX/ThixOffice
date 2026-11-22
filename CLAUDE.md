@@ -183,7 +183,8 @@ src/ThixMail               App (workspace), Editor/ (MailEditor: navigation rail
                            editor, HtmlExport on send), Pages/ (AccountsPage + AccountForm, MailSettings: the four settings tabs + SignaturesPanel,
                            MailPages: printing/PDF of a message), MailNotifier (IMailNotifier seam), SampleMailbox, MailSelfTest
 src/ThixWrite.Desktop      ThixWrite's text surface shared with ThixMail: DocumentSurface (+ CaretLayer, WriteInputClient; IsStory, IsReadOnly), PagePictures +
-                           FormattingMarks, WriteFonts, DocumentPalette (the exempted colour file of ThixWrite and ThixMail)
+                           FormattingMarks, WriteFonts, DocumentPalette (the exempted colour file of ThixWrite and ThixMail), SpellingSupport
+                           (spelling as you type for any surface: queue, wavy lines, context menu entries), ClipboardHtml (HTML of other programs)
 src/ThixCalc.Core          (no UI) ThixCalcApp.Definition (.xlsx default, .xlsm, .csv, .ods; cloud id calc); Model/ (Workbook, Worksheet,
                            sparse CellStore, styles, rows/columns, merges, names, validation, conditional formats, PageSetup), Calculation/
                            + Formulas/ (parser, dependency graph, spills; FormulaTokens: the editor's scanner – colours, point mode, F4,
@@ -365,10 +366,16 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   a move takes the waiting operation back, else queues the reverse.
 - **Showing mail:** `MailHtml.ToView` = `HtmlImport.Import(html, HtmlImportOptions.Mail(resolver, width))` → `MailHtml.Build` (one page as wide as the
   pane, mail styles) → `MessageView` puts it into a read-only story `DocumentSurface`. Remote pictures go through the resolver only after
-  "Bilder laden" (`RemotePictures`, limits); links through `MailHtml.DescribeLink` + `LinkService`. In mail mode `HtmlImport` drops hidden parts,
-  unwraps one-cell and nested tables (cell backgrounds become paragraph shading), draws layout tables without lines, quotes as bars.
+  "Bilder laden" (`RemotePictures`, limits); links through `MailHtml.DescribeLink` + `LinkService`. In mail mode `HtmlImport` reads `<style>` blocks
+  (`HtmlImport.Css.cs`: tag/.class/#id/descendant selectors, @media and url() left out; matched declarations go in front of the style attribute), drops
+  hidden parts, unwraps only stacking wrappers (one content cell per row without colour, or cells holding only tables), keeps every other table as a table
+  (widths from width/CSS and the content's natural width, cellpadding/padding as cell margins, CSS borders and backgrounds on the cells) – a table inside a
+  cell becomes a carrier paragraph with an `OpaqueInline { Nested = Story }` (read-only, side by side; `DocumentLayout.NestedLinkAt` finds its links,
+  `MailHtml.AllInlines` walks into it, `HtmlExport` writes it back as a table), draws tables without lines, quotes as bars, drops a last `<br>`.
 - **Composing:** `ComposeWindow` (a `MatWindow` with its own `OfficeCommandRegistry` + ribbon bound by `OfficeRibbonBinding`), the body is an editable
-  story surface; sending exports `HtmlExport.Export` (pictures as cid:) + plain text through `MailSession.Send` (validation, outbox).
+  story surface with spelling as you type (`SpellingSupport` of ThixWrite.Desktop, `DocumentSurface.Misspelled`, suggestions in its context menu) and
+  ThixWrite's paste order (own fragment, HTML of other programs through `ClipboardHtml` + `HtmlImport`, text, bitmap); sending exports
+  `HtmlExport.Export` (pictures as cid:) + plain text through `MailSession.Send` (validation, outbox).
 - **Shell extensions used:** `OfficeApplication.CreateSettingsTabs` (Lesen, Verfassen, Signaturen, Benachrichtigungen after Allgemein;
   `SettingsPage.ShowTab(id)`/`AppTab(id)`), `CreateBackstageItems` (Konten, Drucken, Als PDF speichern), `ImportFilesAsync` (.eml → `MessageWindow`).
 - Snapshot scenes `main-conversation`, `main-newsletter`, `compose`, `backstage-add-account`, `main-attachments`, `main-offline`,
