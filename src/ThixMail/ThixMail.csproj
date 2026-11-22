@@ -75,6 +75,7 @@
     <TrimmerRootAssembly Include="ThixOffice.Core" />
     <TrimmerRootAssembly Include="ThixOffice.Desktop" />
     <TrimmerRootAssembly Include="ThixMail.Core" />
+    <TrimmerRootAssembly Include="ThixContacts.Core" />
     <TrimmerRootAssembly Include="ThixWrite.Core" />
     <TrimmerRootAssembly Include="ThixWrite.Desktop" />
     <!-- MailKit and MimeKit (MIT): kept whole – MimeKit makes its parts by type name at run time; trimming would cut what it reaches that way. -->

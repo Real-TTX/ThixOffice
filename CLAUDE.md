@@ -23,7 +23,9 @@ tab stops, the dialogs Schriftart/Absatz, format painter, symbols, HTML paste (s
 find/replace, clipboard, page setup, printing and PDF, CSV/xlsx/xlsm flows (section "ThixCalc's editor"; gaps in docs/PLAN.md).
 **ThixCalc charts (done):** the shared `ThixOffice.Charts` (section "Charts"). **Phase 7a, ThixContacts (done, first version):** the
 workspace mode of the shell, `ThixOffice.Pim` (+ `.Desktop`), ThixContacts on MatCloud's general sync (contract 1.5.0; section "ThixContacts"). **Phase 7b, ThixMail foundation (done, first version):**
-IMAP/SMTP accounts with auto-configuration, offline store and sync, reading pane, composer, Outlook's ribbon and keys (section "ThixMail"). **Phase 4, first version of ThixShow (done):** the
+IMAP/SMTP accounts with auto-configuration, offline store and sync, reading pane, composer, Outlook's ribbon and keys (section "ThixMail"). **Phase 7c,
+ThixMail's Mail | Kalender | Personen (done, first version):** the calendar and the people of the ThixCloud account inside ThixMail, invitations (section
+"ThixMail", "Calendar and people in ThixMail"). **Phase 4, first version of ThixShow (done):** the
 slide editor, thumbnails, sorter, show and presenter view, the German PowerPoint ribbon, printing/PDF (section "ThixShow's editor";
 gaps in docs/PLAN.md). **ThixWrite 1c (done):** footnotes/endnotes, table of contents, comments, spelling (shared seam), Referenzen/Überprüfen, odt. **ODF for ThixCalc (done):** .ods read and write (section "OpenDocument Spreadsheet"). Next the
 launcher entry and ThixWrite 1d (gaps in docs/PLAN.md). Do not build ribbon controls of
@@ -152,16 +154,26 @@ src/ThixOffice.Pim         (no UI) what ThixContacts and ThixMail share: Model/P
                            SQLite via Microsoft.Data.Sqlite, migrations by PRAGMA user_version, items of the general sync with IsDirty/Revision, pictures,
                            cursor; PimStores: one file per app and account, the local one copied into a new account's; PersonItems: persons/groups <-> items,
                            Suggest for address fields), Sync/PimSync (push dirty, pull above the cursor, last writer wins, tombstones, pictures up/down,
-                           the loop with long polls, retry 5 s to 5 min, 401 stops, 403 waits; ?app= for a granted app)
-src/ThixOffice.Pim.Desktop shared views: PersonAvatar (picture or initials), PersonCard (the read-only card), AddressField (suggestions, for ThixMail)
+                           the loop with long polls, retry 5 s to 5 min, 401 stops, 403 waits; ?app= for a granted app), Calendar/ (ThixCalendar's items of
+                           the general sync: CalendarModel – CalendarAccountEntry, CalendarEntry, CalendarAppointment –, CalendarItems: read/serialize with
+                           the contract's records and CloudContract.Json, BYTE FOR BYTE what ThixCalendar writes (it compares hashes), own calendars writable,
+                           cloud-* read-only; CalendarBook: calendars + appointments of a store, Between/Conflicts, EnsureOwnCalendar/AddOwnCalendar, Save/
+                           Delete with ThixCalendar's checks, KeyOfInvitation, meetings sent from here remembered in the store's meta; ICalendar: RFC 5545
+                           reader/writer, folding, TZID by Windows/IANA name or VTIMEZONE; Invitations: iTIP REQUEST/REPLY/CANCEL, AppointmentOf an answer)
+src/ThixOffice.Pim.Desktop shared views: PersonAvatar (picture or initials), PersonCard (the read-only card), AddressField (suggestions, for ThixMail);
+                           People/ = Outlook's "Personen" ONCE for ThixContacts and ThixMail: PeopleView (folders | list + search + letters | card, on a
+                           Func<ContactsSession>, remembered choices under a prefix), PeopleCommands (+ PeopleCommandOptions: e-mail, sync, print, keys;
+                           every command acts only while its view is given), PeopleRibbon (Create = ThixContacts' ribbon, Tabs(context) = ThixMail's
+                           contextual tabs), ContactsCommandIds, CategoryColors, ContactDialog + ContactsDialogs; Calendar/ = CalendarView (toolbar, the
+                           calendars, Tag/Arbeitswoche/Woche/Monat as canvases of blocks, OpenRequested/NewRequested), AppointmentDialog (the host's save:
+                           the book or a meeting), CalendarPalette (the ONE file turning the calendars' own colours – user data – into brushes; exempted)
 src/ThixContacts.Core      (no UI) ThixContactsApp.Definition (Kind Workspace, .vcf as import type, cloud id contacts), ContactsSession (persons and
                            groups in memory, Query: search/filter/sort, every change one undoable step, groups, categories, duplicates, merge, import with
                            pictures, export), ContactsDocument (the workspace document: the session of the account's store, PimSync while signed in,
                            ReconnectAsync on sign-in/out, StopSyncAsync when the cloud ends it), ContactFiles (read an import file, write an export atomically)
-src/ThixContacts           App (workspace: CreateDocument = the store, ImportFilesAsync for handed-over .vcf), Editor/ (ContactsEditor: folder pane, list
-                           with search + letters, PersonCard; ContactsCommands + ContactsCommandIds, ContactsRibbon, CategoryColors (Mat tokens by name),
-                           SampleContacts), Dialogs/ (ContactDialog: tabs Allgemein | Details | Notizen with value rows; Category, Members, Duplicates,
-                           Merge, CsvMapping, Export), Pages/ (ContactsPrintPage: Liste | Karten through OfficePrintPage, ContactsTransferPage, ContactsPdfPage;
+src/ThixContacts           App (workspace: CreateDocument = the store, ImportFilesAsync for handed-over .vcf), Editor/ (ContactsEditor: hosts the shared
+                           PeopleView + status bar, sign-in changes, the signed-out message; ContactsCommands = PeopleCommands with Drucken and Sync;
+                           SampleContacts), Pages/ (ContactsPrintPage: Liste | Karten through OfficePrintPage, ContactsTransferPage, ContactsPdfPage;
                            PrintPalette = the one file with literal colours), ContactsSelfTest
 src/ThixMail.Core          (no UI) ThixMailApp.Definition (Kind Workspace, .eml, cloud id mail); Model/MailModel (MailAccount without passwords,
                            ServerSettings, MailFolder + FolderRole, MessageHeader, MessageFlags, MailSignature, MailCategory); Accounts/ (AccountStore:
@@ -176,10 +188,16 @@ src/ThixMail.Core          (no UI) ThixMailApp.Definition (Kind Workspace, .eml,
                            second connection); Mime/ (MailMime: parse/bytes/summary, code pages registered by a module initializer; MailReader → ReadMail;
                            MailComposer: Draft → MIME, Reply/Forward like Outlook); Security/MailHtml (the view: HtmlImport in mail mode, remote pictures
                            only after consent, DescribeLink; RemotePictures; AttachmentSafety); MailSession (every action undoable and queued),
-                           MessageList (rows: date groups, conversations), MailDocument (the workspace document), EmlFiles
-src/ThixMail               App (workspace), Editor/ (MailEditor: navigation rail | folder pane | list | MessageView; MailRows: FolderRow, MessageRow,
-                           CategoryTokens; MessageView: header, "Bilder laden", attachments, body = read-only DocumentSurface; MessageWindow; MailCommands +
-                           MailCommandIds (Outlook's keys), MailRibbon, MoveDialog), Compose/ComposeWindow (own commands + ribbon, AddressField, DocumentSurface
+                           MessageList (rows: date groups, conversations), MailDocument (the workspace document; Pim), EmlFiles, MailPim (the account's
+                           contacts – ThixContacts' ContactsSession – and calendar – CalendarBook – in stores of this app, PimSync with ?app=contacts and
+                           ?app=calendar while signed in, ReconnectAsync), MailInvitations (View of a text/calendar part with conflicts, Answer: calendar +
+                           REPLY through the outbox, RemoveCancelled, SendMeeting/DeleteAppointment: REQUEST/CANCEL); Draft.Calendar → text/calendar part
+src/ThixMail               App (workspace), Editor/ (MailEditor: navigation rail | folder pane | list | MessageView, MailEditor.Views: MailArea Mail/Calendar/
+                           People, ShowView, the shared CalendarView/PeopleView or the sign-in, contextual ribbon contexts "calendar"/"people", the invitation
+                           bar's answers; MailRows: FolderRow, MessageRow, CategoryTokens; MessageView: header, "Bilder laden", the invitation bar,
+                           attachments, body = read-only DocumentSurface; MessageWindow; MailCommands + MailCommandIds (Outlook's keys; act only in the view
+                           E-Mail), CalendarCommands (+ CalendarCommandIds: Strg+1/2/3, the calendar's commands and tabs, the people commands), MailRibbon,
+                           MoveDialog), Compose/ComposeWindow (own commands + ribbon, AddressField, DocumentSurface
                            editor, HtmlExport on send), Pages/ (AccountsPage + AccountForm, MailSettings: the four settings tabs + SignaturesPanel,
                            MailPages: printing/PDF of a message), MailNotifier (IMailNotifier seam), SampleMailbox, MailSelfTest
 src/ThixWrite.Desktop      ThixWrite's text surface shared with ThixMail: DocumentSurface (+ CaretLayer, WriteInputClient; IsStory, IsReadOnly), PagePictures +
@@ -263,10 +281,11 @@ tests/ThixOffice.Pim.Tests      the shared vCard/CSV fixtures, the store (migrat
 tests/ThixContacts.Core.Tests   the session on a real store (rules, undo, groups, merge, import/export, 50,000 contacts), the document's sync
 tests/ThixContacts.Tests        the real ThixContacts headless: workspace shell, Strg+N/F2/Entf/Strg+E, folders, letters, groups, import (vcf, CSV mapping),
                                 export, print, sync and sign-out, merge, snapshots, no literal colours
-tests/ThixMail.Core.Tests       the sync against SampleMailServer (CONDSTORE and polling, moves, expunges, UIDVALIDITY, queue replay, outbox, drafts,
+tests/ThixMail.Core.Tests       EmbeddingTests (7c against SampleCloud + SampleMailServer: two computers, a contact in ThixContacts' model,
+                                the invitation round trip, meetings), the sync against SampleMailServer (CONDSTORE and polling, moves, expunges, UIDVALIDITY, queue replay, outbox, drafts,
                                 IDLE, reconnect), threading, FTS5 search, 200,000 messages, the 15 fixture mails (Fixtures/, made by make-fixtures.ps1),
                                 composing/replying, the sanitizer as a table of attacks, auto-configuration, accounts and passwords
-tests/ThixMail.Tests            the real ThixMail headless: add an account (test, certificate), read (pictures blocked/loaded), reply + Strg+Eingabe,
+tests/ThixMail.Tests            EmbeddingUiTests (Strg+1/2/3, the sign-in, appointments, contacts, the invitation bar), the real ThixMail headless: add an account (test, certificate), read (pictures blocked/loaded), reply + Strg+Eingabe,
                                 send checks, delete + undo, drag onto a folder, search, conversations, offline/online, notifications, .eml, settings tabs,
                                 200,000 rows, the fixture mails as pictures (<folder>/mails), snapshots, no literal colours
 tests/ThixShow.Core.Tests       colours against documented Office values, preset formulas against known paths, inheritance, rendering
@@ -379,9 +398,29 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 - **Shell extensions used:** `OfficeApplication.CreateSettingsTabs` (Lesen, Verfassen, Signaturen, Benachrichtigungen after Allgemein;
   `SettingsPage.ShowTab(id)`/`AppTab(id)`), `CreateBackstageItems` (Konten, Drucken, Als PDF speichern), `ImportFilesAsync` (.eml → `MessageWindow`).
 - Snapshot scenes `main-conversation`, `main-newsletter`, `compose`, `backstage-add-account`, `main-attachments`, `main-offline`,
-  `backstage-settings-signatures` on `SampleMailbox`; `THIXMAIL_SCREENSHOTS=<folder> dotnet test tests/ThixMail.Tests` also draws the 15 fixture mails
+  `backstage-settings-signatures`, `main-calendar-signin`, `main-calendar`, `main-calendar-month`, `dialog-appointment`, `main-people`,
+  `main-invitation` on `SampleMailbox` (+ `SampleMailbox.FillPim` after a sign-in at the snapshots' cloud in memory); `THIXMAIL_SCREENSHOTS=<folder> dotnet test tests/ThixMail.Tests` also draws the 15 fixture mails
   into `<folder>/mails`. The integration run against a real IMAP/SMTP server: `scripts/greenmail-test.ps1` (throwaway GreenMail container, env-gated
   `RealServerTests`).
+
+### Calendar and people in ThixMail (7c)
+
+- **Views:** `MailEditor.ShowView(MailArea)` (the navigation bar, Strg+1/2/3, Ansicht › Navigation). Kalender = `CalendarView`, Personen = `PeopleView`
+  (the same as ThixContacts'), both on `MailDocument.Pim` (`MailPim`: stores `mailcontacts` and `mailcalendar` of the account, `PimSync` with
+  `?app=contacts` / `?app=calendar` – the grants of contract 1.5.0). Without a ThixCloud account the views show why and the `CloudSignInPanel`; mail
+  works without. Sign-in changes reach `MailPim.ReconnectAsync` through the editor (`CloudService.StatusChanged`); 401 stops the syncs, data stays.
+- **Commands and keys:** every mail command acts only in the view E-Mail (`MailCommands` wraps them), the calendar's only in Kalender, the people
+  commands only in Personen – so Strg+N, Entf, Strg+E, F9 belong to the active view: `OfficeWindow` runs the FIRST ENABLED command of a key (a text field
+  keeps a key no command can use now). Ribbon: the contextual tabs of the contexts `calendar` (Kalender) and `people` (Personen, Kontaktgruppen,
+  Personenansicht) are shown by `ShowView`; the mail tabs stay (their commands disabled).
+- **Calendar data:** ThixCalendar's items (`CalendarItems`): own calendars (account kind Local, "Eigene Kalender") are written – events, and an
+  account + calendar "Kalender" when the account has none –, calendars MatCloud keeps in step (cloud-*) are shown read-only; online accounts each computer
+  syncs itself are not in the cloud and do not show. The contract has no series, participants or organizer for own events: invitations enter their first
+  meeting; the participants of meetings sent from ThixMail are kept in the store's meta (not synced). Reminders are ThixCalendar's (ThixMail fires none).
+- **Invitations:** `MailReader` keeps a text/calendar part (`ReadMail.Calendar`), `MailInvitations.View` reads it (`Invitations.Read`) with the
+  overlaps; `MessageView.ShowInvitation` draws the bar (Zusagen | Mit Vorbehalt | Absagen, "Aus Kalender entfernen" for a CANCEL); answers write the
+  appointment (key `CalendarBook.KeyOfInvitation(uid)`, the same on every computer) and send the REPLY. Sent invitations: multipart/alternative with
+  text/calendar;method=… plus invite.ics (`MailComposer.WithCalendar`).
 
 ## ThixCloud and ThixDrive (shared by every app)
 

@@ -39,7 +39,9 @@ public static class MailRibbon
                 Button(MailCommandIds.Categorize),
                 Toggle(MailCommandIds.Flag, size: MatRibbonSize.Large)),
             new MatRibbonGroup("find", "Suchen") { Icon = "search", ShrinkOrder = 5 }.Add(
-                Button(MailCommandIds.Search, MatRibbonSize.Large)));
+                Button(MailCommandIds.Search, MatRibbonSize.Large)),
+            new MatRibbonGroup("people", "Personen") { Icon = "users", ShrinkOrder = 6 }.Add(
+                Button(MailCommandIds.AddSenderToContacts, MatRibbonSize.Large)));
 
     private static MatRibbonTab SendReceiveTab() =>
         new MatRibbonTab("sendreceive", "Senden/Empfangen").Add(

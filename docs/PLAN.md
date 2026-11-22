@@ -606,6 +606,8 @@ fehlen (Name → wo, Platzhalter heute):
 | `offline` | ThixMail: Offline arbeiten (`mail.workOffline`) | `power` |
 | `reading-pane-right`, `reading-pane-bottom` | ThixMail: Ansicht › Lesebereich | `columns`, `layers` |
 | `signature` | ThixMail: Signatur einfügen (`compose.signature`) | `edit` |
+| `user-plus` | ThixMail: Zu Kontakten hinzufügen (`mail.addSenderToContacts`) | `user` |
+| `calendar-plus`, `calendar-week`, `calendar-month`, `calendar-day` | ThixMail: Neuer Termin, Arbeitswoche/Woche/Monat/Tag (`calendar.*`) | `plus`, `columns`, `grid` |
 
 **Weitere Wünsche an MatDesktop (nicht nur Symbole):**
 
@@ -737,7 +739,7 @@ gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMT
   schreiben (HTML + Text, eingebettete Bilder, Anlagen, RFC 2047/2231, Antworten/Weiterleiten wie Outlook, alte Zeichensätze) und die Sicherheit
   angezeigter Mails (HtmlImport im Mail-Modus, Bilder aus dem Netz erst nach Zustimmung, Linkziele, ausführbare Anlagen nur mit Warnung).
   `ThixWrite.Desktop` (neu) trägt die Textfläche von ThixWrite für ThixMail: Lesebereich (nur lesend) und Nachrichtenfenster. `ThixMail`:
-  Navigationsleiste (Mail; Kalender/Personen erscheinen mit 7c), Ordnerbereich, Liste (200.000 Nachrichten), Lesebereich rechts/unten/aus,
+  Navigationsleiste, Ordnerbereich, Liste (200.000 Nachrichten), Lesebereich rechts/unten/aus,
   Nachrichtenfenster, Menüband Start | Senden/Empfangen | Ordner | Ansicht, Tasten wie das deutsche Outlook, Konten-Seite, Einstellungen Lesen |
   Verfassen | Signaturen | Benachrichtigungen, Benachrichtigungen, Infobereich, Drucken/PDF, .eml. Tests: Kern gegen SampleMailServer, UI mit
   echten Eingaben, 12 Beispielmails als Bilder, und ein Lauf gegen einen echten Server (GreenMail im Wegwerf-Container, `scripts/greenmail-test.ps1`).
@@ -757,6 +759,26 @@ gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMT
   letztes `<br>` oder Words `<o:p>`; drei weitere Beispielmails (Bestellbestätigung, Newsletter mit drei Spalten, Antwort mit Signaturtabelle).
   Nachrichtenfenster: Rechtschreibprüfung beim Tippen (gemeinsame Naht, Vorschläge im Kontextmenü) und Einfügen von HTML anderer Programme
   (Reihenfolge wie ThixWrite: eigene Formatierung, HTML, Text, Bild). Abgeschnittene Unterlängen im Menüband durch einen Stil von außen behoben.
+
+- **Stand (2026-11-22): 7c – erste Version (dev).** Navigationsleiste E-Mail | Kalender | Personen (Strg+1/2/3, Ansicht › Navigation). Beide Ansichten
+  arbeiten auf den Daten des ThixCloud-Kontos über den allgemeinen Sync mit den Freigaben von Vertrag 1.5.0 (`?app=contacts`, `?app=calendar`; je ein
+  eigener Bestand in ThixMail, `MailPim`); ohne Anmeldung erklären sie das und zeigen die Anmeldung, E-Mail geht ohne. **Personen** ist dieselbe Ansicht
+  wie ThixContacts (Ansicht, Befehle, Menüband, Dialoge nach `ThixOffice.Pim.Desktop/People` verschoben – eine Codebasis), „E-Mail senden“ öffnet das
+  Nachrichtenfenster; neu „Zu Kontakten hinzufügen“ für den Absender. **Kalender:** ThixCalendars Elemente byte-genau gelesen und geschrieben
+  (`ThixOffice.Pim/Calendar`), Tag/Arbeitswoche/Woche/Monat, die Kalender links (auf diesem Computer ein-/ausblendbar), Termin-Dialog (Titel, Ort,
+  Beginn/Ende, ganztägig, Kalender, Erinnerung, mit Vorbehalt, Teilnehmer, Notizen), Besprechungen mit Einladung (iTIP REQUEST, beim Löschen CANCEL),
+  fehlt ein eigener Kalender, legt der erste Termin „Eigene Kalender › Kalender“ an. **Einladungen:** Leiste mit Zeit, Ort, Organisator und den
+  Überschneidungen; Zusagen/Mit Vorbehalt/Absagen trägt ein bzw. nimmt heraus und schickt das REPLY; Absagen des Organisators: „Aus Kalender entfernen“.
+  Adressfelder schlagen Kontakte des Kontos vor (schon seit 7b, jetzt aus demselben Bestand). Die Menübänder sind kontextabhängige Registerkarten
+  (Kalender; Personen, Kontaktgruppen, Personenansicht); Tasten gehören der aktiven Ansicht (der erste aktive Befehl einer Taste läuft – Hülle).
+  **Nicht gebaut / Lücken:** keine Serien (ThixCalendars eigene Kalender kennen keine; eine Serieneinladung trägt nur den ersten Termin ein, Termine aus
+  von MatCloud abgeglichenen Konten zeigen ihre Serien nur als einzelne Vorkommen), keine Teilnehmer/Organisator in den Terminen selbst (der Vertrag trägt
+  sie nicht: die Teilnehmer von Besprechungen aus ThixMail bleiben auf diesem Computer), Termine aus MatCloud-Konten (Microsoft/Google/ICS „über MatCloud“)
+  nur lesend (ändern über `/api/v1/calendar/events` ist nicht angebunden), Konten, die jeder Computer selbst abgleicht, erscheinen gar nicht (ihre Termine
+  liegen nicht in der Cloud), keine Erinnerungen in ThixMail (die zeigt ThixCalendar), kein Ziehen von Terminen mit der Maus, keine Frei/Gebucht-Abfrage
+  der Teilnehmer, keine Antworten der Teilnehmer gesammelt (ein REPLY wird als Leiste gezeigt, nicht verbucht), keine Kalenderfarben wählbar, kein
+  Drucken des Kalenders, keine Zeitzonen-Auswahl im Dialog, kein Kalender ohne ThixCloud (bewusst: Entscheidung „über den Sync“). Personen: kein Drucken
+  in ThixMail (ThixContacts druckt).
 
 Offen: Umfang von 7d und ob ThixContacts später auch ohne ThixCloud per CardDAV synchronisiert.
 

@@ -192,4 +192,27 @@ public sealed class EmbeddingUiTests
         await SettleAsync();
         Assert.Contains(editor.CalendarView.Shown, a => a.Title == "Workshop Nordlicht");
     }
+
+    [AvaloniaFact]
+    public async Task Zu_Kontakten_hinzufuegen_makes_the_sender_a_contact_with_name_and_address()
+    {
+        using var data = new TestData();
+        var window = await data.WindowAsync();
+        var editor = EditorOf(window);
+        var command = window.Commands[MailCommandIds.AddSenderToContacts];
+        editor.Select(Header(editor, "Präsentation für Donnerstag").Id);
+        await SettleAsync();
+        Assert.False(command.IsEnabled); // no ThixCloud: no contacts
+
+        await SignInAsync(new OfficeWindowLike(editor));
+        editor.Select(Header(editor, "Präsentation für Donnerstag").Id);
+        await SettleAsync();
+        Assert.True(command.IsEnabled);
+        var running = ThixOffice.Desktop.Shell.OfficeWindow.RunCommandAsync(window, command);
+        var dialog = await OwnedAsync<ContactDialog>(window);
+        Assert.Equal(("Maria", "Schulz", "maria.schulz@kunde.example"), (dialog.GivenName.Text, dialog.FamilyName.Text, dialog.Emails.Rows[0].Box.Text));
+        await ClickAsync(dialog, dialog.OkButton);
+        await running;
+        Assert.Contains(editor.Document.Pim.People!.People, p => p.Name == "Maria Schulz" && p.Email == "maria.schulz@kunde.example");
+    }
 }

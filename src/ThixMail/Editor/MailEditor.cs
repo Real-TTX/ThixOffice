@@ -156,7 +156,7 @@ public sealed partial class MailEditor : OfficeEditor
         List.ContextMenu = OfficeCommandMenu.Create(window,
         [
             MailCommandIds.Reply, MailCommandIds.ReplyAll, MailCommandIds.Forward, null, MailCommandIds.ToggleRead, MailCommandIds.Categorize, MailCommandIds.Flag,
-            null, MailCommandIds.Move, MailCommandIds.Archive, MailCommandIds.Delete, null, MailCommandIds.SaveAs, MailCommandIds.Print,
+            null, MailCommandIds.Move, MailCommandIds.Archive, MailCommandIds.Delete, null, MailCommandIds.AddSenderToContacts, MailCommandIds.SaveAs, MailCommandIds.Print,
         ]);
 
         _emptyAction = new Button { Content = new IconLabel { Icon = "plus", Text = "Konto hinzufügen" } }.Themed("MatButton.Primary");

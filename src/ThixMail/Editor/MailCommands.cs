@@ -313,6 +313,13 @@ public static class MailCommands
             Keywords = ["bilder", "laden", "blockiert", "extern"],
             CanExecute = () => window.Editor is MailEditor { Reader.ShowsImagesBar: true },
         });
+        commands.Add(new OfficeCommand(MailCommandIds.AddSenderToContacts, "Zu Kontakten hinzufügen", () => AddSenderAsync(window, Editor()))
+        {
+            Icon = "user",
+            Description = "Legt den Absender der ausgewählten Nachricht als Kontakt an (Personen in der ThixCloud).",
+            Keywords = ["kontakt", "absender", "adressbuch", "person", "speichern"],
+            CanExecute = () => HasOne() && Editor().Document.Pim.IsAvailable,
+        });
         commands.Add(new OfficeCommand(MailCommandIds.AddAccount, "Konto hinzufügen", () => window.ShowBackstage(AccountsPage.PageId))
         {
             Icon = "user",
@@ -340,6 +347,33 @@ public static class MailCommands
                 SearchPenalty = command.SearchPenalty,
                 YieldsToTextField = command.YieldsToTextField,
             });
+        }
+    }
+
+    /// <summary>"Zu Kontakten hinzufügen": the contact dialog with the sender's name and address (an existing contact of that address opens instead).</summary>
+    private static async Task AddSenderAsync(OfficeWindow window, MailEditor editor)
+    {
+        if (editor.Current is not { } header || editor.Document.Pim.People is not { } people)
+        {
+            return;
+        }
+
+        var address = header.From.Address;
+        var existing = people.People.FirstOrDefault(p => p.Data.Emails.Any(e => e.Value.Equals(address, StringComparison.OrdinalIgnoreCase)));
+        var dialog = new ThixOffice.Pim.Desktop.People.ContactDialog(people, existing);
+        if (existing is null)
+        {
+            var name = header.From.Name.Trim();
+            var comma = name.IndexOf(',');
+            var space = name.LastIndexOf(' ');
+            (dialog.GivenName.Text, dialog.FamilyName.Text) = comma > 0 ? (name[(comma + 1)..].Trim(), name[..comma].Trim()) // "Schulz, Maria"
+                : space > 0 ? (name[..space], name[(space + 1)..]) : (name, "");
+            dialog.Emails.Rows[0].Box.Text = address;
+        }
+
+        if (await dialog.ShowAsync(window))
+        {
+            window.ShowMessage(existing is null ? $"„{header.From.Display}“ ist jetzt in Ihren Kontakten." : "Der Kontakt wurde gespeichert.", InfoSeverity.Success, isClosable: true);
         }
     }
 

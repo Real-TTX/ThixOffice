@@ -47,4 +47,5 @@ public static class MailCommandIds
     // the reading pane
     public const string LoadImages = "mail.loadImages";
     public const string AddAccount = "mail.addAccount";
+    public const string AddSenderToContacts = "mail.addSenderToContacts";
 }

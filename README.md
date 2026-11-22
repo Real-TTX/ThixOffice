@@ -12,7 +12,7 @@ und die aussieht wie die übrigen Thix-Apps.
 | **ThixCalc** | Excel | xlsx, xlsm, ods, csv | erstes Release (Phase 3), Arbeitsmappen in ThixDrive |
 | **ThixShow** | PowerPoint | pptx, pptm, später odp | erste Version (Phase 4), Präsentationen in ThixDrive |
 | **ThixContacts** | Outlook › Personen | vCard (Import/Export), CSV | erste Version (Phase 7a), Kontakte über die ThixCloud abgeglichen |
-| **ThixMail** | Outlook › E-Mail | IMAP/SMTP, eml | Grundgerüst (Phase 7b) |
+| **ThixMail** | Outlook › E-Mail, Kalender, Personen | IMAP/SMTP, eml, iCalendar-Einladungen | erste Version (Phase 7b/7c), Kalender und Personen über die ThixCloud |
 
 Der Plan steht in [docs/PLAN.md](docs/PLAN.md).
 
@@ -311,7 +311,7 @@ Strg+A alle · F9 jetzt synchronisieren · Strg+P drucken · Strg+Z / Strg+Y rü
 Beendet die ThixCloud die Anmeldung, bleiben die Kontakte des Kontos sichtbar und bearbeitbar – auch nach einem Neustart; Änderungen warten bis
 zur nächsten Anmeldung. Erst „Abmelden“ unter *Datei › Einstellungen › Cloud* verlässt das Konto (auf Wunsch mit einer Kopie auf diesem Computer).
 
-## ThixMail – Grundgerüst (Phase 7b)
+## ThixMail – E-Mail, Kalender, Personen (Phase 7b/7c)
 
 ThixMail ist das E-Mail-Programm der Suite – Outlooks Platz. Wie ThixContacts hat es **ein Hauptfenster** über Ihren Konten; Nachrichten liegen auf
 dem Mailserver und – zum Lesen ohne Verbindung – auf diesem Computer, **nie in der ThixCloud**.
@@ -325,21 +325,30 @@ dem Mailserver und – zum Lesen ohne Verbindung – auf diesem Computer, **nie 
   Gelöschte Elemente, Junk-E-Mail, Archiv und eigene Ordner mit ungelesenen Zahlen), Nachrichtenliste mit Suche (aktueller Ordner oder alle),
   Filter (Ungelesen, Gekennzeichnet, Mit Anlagen), Sortierung, Datumsgruppen (Heute, Gestern, Letzte Woche …), Unterhaltungen (aufklappbar),
   Kategorien, Schnellaktionen beim Darüberfahren – flüssig auch mit 200.000 Nachrichten –, Lesebereich rechts, unten oder aus.
-- **Lesen ohne WebView:** HTML-Mails werden mit ThixWrites Layout gezeigt; Skripte, Formulare, Frames und Ähnliches kommen gar nicht erst an.
+- **Lesen ohne WebView:** HTML-Mails werden mit ThixWrites Layout gezeigt – mit ihren Stilvorlagen, Spalten nebeneinander, Breiten, Abständen und
+  Farben wie gestaltet; Skripte, Formulare, Frames und Ähnliches kommen gar nicht erst an.
   **Bilder aus dem Internet werden blockiert**, bis Sie „Bilder laden“ wählen (oder „Immer für diesen Absender“) – so erfährt kein Absender, ob und
   wann Sie lesen. Links zeigen vor dem Öffnen ihr echtes Ziel; Anlagen, die ein Programm starten können, öffnen sich nur nach einer Warnung.
 - **Verfassen** in einem eigenen Fenster: An/Cc/Bcc mit Vorschlägen (zuletzt verwendete Empfänger, nach der Anmeldung die Kontakte des Kontos),
   Betreff, Anlagen (auch per Ziehen), Text mit Fett, Kursiv, Unterstrichen, Listen, Links, Bildern, Farben und Schriften, Signaturen je Konto,
+  Rechtschreibprüfung beim Tippen, Einfügen aus anderen Programmen mit Formatierung,
   Antworten/Allen antworten/Weiterleiten mit Zitat wie Outlook, Entwürfe werden jede Minute in „Entwürfe“ gesichert. Gesendet wird als HTML mit
   Textfassung; ohne Verbindung wartet die Nachricht im **Postausgang**.
 - **Offline:** alles Gelesene bleibt lesbar; Löschen, Verschieben, Kennzeichnen und Senden warten in einer Warteschlange und werden in derselben
   Reihenfolge nachgeholt. *Senden/Empfangen › Offline arbeiten* trennt bewusst.
+- **Kalender und Personen** in demselben Fenster (Navigationsleiste links, Strg+1/2/3): der Kalender Ihres ThixCloud-Kontos – dieselben Termine wie
+  ThixCalendar – als Tag, Arbeitswoche, Woche oder Monat, Termine anlegen, ändern und löschen, **Besprechungen** mit Einladungen per E-Mail; die
+  Kontakte Ihres Kontos mit derselben Ansicht wie ThixContacts (Ordner, Liste mit Suche und Alphabet, Karte, Gruppen, Kategorien, Dubletten,
+  Import/Export). Ohne Anmeldung erklären beide Ansichten, dass sie die ThixCloud brauchen, und bieten die Anmeldung an – E-Mail geht auch ohne.
+- **Einladungen** in E-Mails: eine Leiste mit Zeit, Ort, Organisator und den Überschneidungen in Ihrem Kalender; **Zusagen**, **Mit Vorbehalt** oder
+  **Absagen** trägt den Termin ein (oder nimmt ihn heraus) und schickt dem Organisator die Antwort. Absender werden mit einem Klick zu Kontakten.
 - **Benachrichtigung** bei neuer E-Mail (solange ThixMail nicht vorn ist), auf Wunsch Weiterlaufen im Infobereich; **Drucken** und **Als PDF
   speichern** einer Nachricht; **.eml** öffnen (Doppelklick, „Öffnen mit“) und speichern.
 
 Tastenkürzel wie im deutschen Outlook: Strg+N neue E-Mail · Strg+R antworten · Strg+Umschalt+R allen antworten · Strg+F weiterleiten · Strg+E oder
 F3 suchen · Entf löschen · Rücktaste archivieren · Strg+Q gelesen · Strg+U ungelesen · Einfg zur Nachverfolgung · Strg+Umschalt+V verschieben ·
-F9 senden/empfangen · Strg+P drucken · F12 speichern unter · im Nachrichtenfenster Strg+Eingabe senden, Strg+S speichern. Auf dem Mac ⌘ statt Strg
+F9 senden/empfangen · Strg+P drucken · F12 speichern unter · im Nachrichtenfenster Strg+Eingabe senden, Strg+S speichern · Strg+1/2/3 E-Mail,
+Kalender, Personen · im Kalender Strg+N neuer Termin, Strg+Umschalt+Q neue Besprechung, Strg+Alt+1–4 Tag/Arbeitswoche/Woche/Monat, Alt+←/→ zurück/weiter. Auf dem Mac ⌘ statt Strg
 und die Tasten von Outlook für Mac, wo sie abweichen (⌘J weiterleiten, ⌘T/⇧⌘T gelesen/ungelesen, ⇧⌘M verschieben, ⌘K senden/empfangen).
 
 ![ThixMail hell](docs/images/thixmail-main-newsletter-light.png)
@@ -348,6 +357,8 @@ und die Tasten von Outlook für Mac, wo sie abweichen (⌘J weiterleiten, ⌘T/�
 | --- | --- |
 | ![Nachricht verfassen](docs/images/thixmail-compose-light.png) | ![Unterhaltung](docs/images/thixmail-main-conversation-dark.png) |
 | ![Konto hinzufügen](docs/images/thixmail-backstage-add-account-light.png) | ![Offline](docs/images/thixmail-main-offline-dark.png) |
+| ![Kalender](docs/images/thixmail-main-calendar-light.png) | ![Einladung](docs/images/thixmail-main-invitation-light.png) |
+| ![Personen](docs/images/thixmail-main-people-dark.png) | ![Termin](docs/images/thixmail-dialog-appointment-light.png) |
 
 ## ThixCloud und ThixDrive
 

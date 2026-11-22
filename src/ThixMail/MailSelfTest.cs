@@ -87,6 +87,24 @@ public static class MailSelfTest
             PdfExport.Export(pages, pdf, null, ThixWrite.Editor.WriteFonts.Measurer);
             Ensure(pdf.Length > 1000, "the PDF of a message is empty");
 
+            // 7c: invitations (iCalendar both ways) and ThixCalendar's items (the contract's JSON, trimmed publish included)
+            var invitation = ThixOffice.Pim.Calendar.Invitations.Read(ThixOffice.Pim.Calendar.Invitations.Request(new ThixOffice.Pim.Calendar.Invitation
+            {
+                Uid = "selbsttest@thixmail",
+                Summary = "Selbsttest",
+                Start = DateTimeOffset.UtcNow,
+                End = DateTimeOffset.UtcNow.AddHours(1),
+                Organizer = new ThixOffice.Pim.Calendar.InvitationAttendee("a@example.de", "A"),
+                Attendees = [new ThixOffice.Pim.Calendar.InvitationAttendee("b@example.de", "B")],
+            }));
+            Ensure(invitation is { Summary: "Selbsttest", Attendees.Count: 1 }, "an invitation does not survive iCalendar");
+            var item = ThixOffice.Pim.Calendar.CalendarItems.Serialize(new ThixOffice.Pim.Calendar.CalendarAppointment { CalendarKey = "a/b", Title = "x", Start = DateTimeOffset.UnixEpoch, End = DateTimeOffset.UnixEpoch });
+            Ensure(item.StartsWith("{\"calendar\":\"a/b\",\"title\":\"x\",", StringComparison.Ordinal) && item.Contains("\"status\":\"Confirmed\"", StringComparison.Ordinal), "the calendar's items are not ThixCalendar's");
+            editor.ShowView(Editor.MailArea.Calendar);
+            await Settle();
+            Ensure(editor.SignInPanel is not null || editor.CalendarView is not null, "the view Kalender does not show");
+            editor.ShowView(Editor.MailArea.Mail);
+
             return $"{count} messages synced, {server.Sent.Count} sent, PDF {pdf.Length / 1024} KB, {document.Store.CachedBytes / 1024} KB cached";
         }
         finally
