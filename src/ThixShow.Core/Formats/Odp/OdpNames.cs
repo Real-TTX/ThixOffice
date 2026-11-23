@@ -277,6 +277,25 @@ internal static partial class OdpNames
 
     public static string Seconds(int milliseconds) => (milliseconds / 1000.0).ToString("0.###", CultureInfo.InvariantCulture) + "s";
 
+    /// <summary>The preset-sub-type of a fly effect: the side it comes from (in) or goes to (out), as LibreOffice names it ("from-bottom" …).</summary>
+    public static string FlySubtype(AnimationDirection direction) => direction switch
+    {
+        AnimationDirection.Left => "from-left",
+        AnimationDirection.Right => "from-right",
+        AnimationDirection.Top => "from-top",
+        _ => "from-bottom",
+    };
+
+    /// <summary>The side of a fly effect's preset-sub-type ("from-left", also "to-left" or "left"); bottom when it names none.</summary>
+    public static AnimationDirection FlyDirection(string? subtype) => subtype switch
+    {
+        _ when subtype is null => AnimationDirection.Bottom,
+        _ when subtype.EndsWith("left", StringComparison.Ordinal) => AnimationDirection.Left,
+        _ when subtype.EndsWith("right", StringComparison.Ordinal) => AnimationDirection.Right,
+        _ when subtype.EndsWith("top", StringComparison.Ordinal) => AnimationDirection.Top,
+        _ => AnimationDirection.Bottom,
+    };
+
     /// <summary>"0.5s", "500ms", "PT0.5S", "indefinite" in milliseconds, or null.</summary>
     public static int? Milliseconds(string? value)
     {

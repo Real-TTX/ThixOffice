@@ -233,6 +233,9 @@ public sealed class OdpTests
             AnimationPresets.Create(AnimationPreset.Fade, 2, durationMs: 700),
             AnimationPresets.Create(AnimationPreset.Appear, 3, AnimationTrigger.AfterPrevious, delayMs: 500),
             AnimationPresets.Create(AnimationPreset.FadeOut, 2, AnimationTrigger.WithPrevious),
+            AnimationPresets.Create(AnimationPreset.FlyIn, 3, durationMs: 800, direction: AnimationDirection.Left),
+            AnimationPresets.Create(AnimationPreset.FlyIn, 2, AnimationTrigger.AfterPrevious),
+            AnimationPresets.Create(AnimationPreset.FlyOut, 3, AnimationTrigger.WithPrevious, direction: AnimationDirection.Top),
         ]);
         var presentation = Blank(box, shape);
         var slide = presentation.Slides[0] with
@@ -361,7 +364,7 @@ public sealed class OdpTests
         var diagram = new GraphicFrame { Id = 3, Name = "SmartArt 2", Kind = GraphicKind.Diagram, Transform = new Transform2D(0, 0, 914400, 914400) };
         var glowing = TestDecks.Rectangle(4, 0, 0, 914400, 914400) with { Effects = new ShapeEffects(null, new XmlFragment("<a:effectLst xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><a:glow rad=\"1\"/></a:effectLst>")) };
         var presentation = Blank(chart, diagram, glowing) with { IsMacroEnabled = true };
-        var slide = presentation.Slides[0] with { Timing = new SlideTiming([AnimationPresets.Create(AnimationPreset.FlyIn, 4)]) };
+        var slide = presentation.Slides[0] with { Timing = new SlideTiming([AnimationPresets.Create(AnimationPreset.Wipe, 4)]) };
         presentation = presentation with { Slides = [slide] };
 
         var losses = OdpWriter.Losses(presentation).ToDictionary(loss => loss.Kind, loss => loss.Count);

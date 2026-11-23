@@ -228,7 +228,7 @@ src/ThixWrite.Core         (no UI) ThixWriteApp.Definition (.docx Supported + de
                            selection geometry, display lists), Formats/ (docx with the Open XML SDK + DocxNotes/DocxComments/DocxToc, Odt/, plain text),
                            Documents/WordDocument (OfficeDocument: Content + Session; LoadedFormat / SaveFormat), BlankDocument +
                            DocumentFonts (new documents: Aptos → Calibri → Helvetica Neue → Arial, whatever the machine has)
-src/ThixShow.Core          (no UI) ThixShowApp.Definition (.pptx default, .pptm, .odp planned; cloud id show); Model/ (immutable Presentation:
+src/ThixShow.Core          (no UI) ThixShowApp.Definition (.pptx default, .pptm, .odp supported – Formats/Odp on ThixOffice.Core/Formats/Odf, OdpWriter.Losses for the save question, the reader's UnsupportedContent for the opening warning; cloud id show); Model/ (immutable Presentation:
                            masters → layouts → slides, themes, shape tree – AutoShape, ConnectorShape, PictureShape, GroupShape, GraphicFrame
                            with Table / chart seam / kept SmartArt+OLE, PreservedElement –, fills, outlines, effects, text bodies, notes,
                            sections, transitions, animation timing; ValueList = equality by content; XmlFragment = kept XML with PartReferences;

@@ -182,8 +182,18 @@ public sealed class OdpFixtureTests
                     </anim:par>
                     <anim:par smil:begin="next">
                       <anim:par smil:begin="0s">
-                        <anim:par smil:begin="0s" smil:fill="hold" presentation:node-type="on-click" presentation:preset-class="entrance" presentation:preset-id="ooo-entrance-fly-in">
+                        <anim:par smil:begin="0s" smil:fill="hold" presentation:node-type="on-click" presentation:preset-class="entrance" presentation:preset-id="ooo-entrance-fly-in" presentation:preset-sub-type="from-left">
                           <anim:set smil:begin="0s" smil:dur="0.001s" smil:fill="hold" smil:targetElement="id1" smil:attributeName="visibility" smil:to="visible"/>
+                          <anim:animate smil:dur="0.5s" smil:fill="hold" smil:targetElement="id1" smil:attributeName="x" smil:values="0-width/2;x" smil:keyTimes="0;1" presentation:additive="base"/>
+                          <anim:animate smil:dur="0.5s" smil:fill="hold" smil:targetElement="id1" smil:attributeName="y" smil:values="y;y" smil:keyTimes="0;1" presentation:additive="base"/>
+                        </anim:par>
+                      </anim:par>
+                    </anim:par>
+                    <anim:par smil:begin="next">
+                      <anim:par smil:begin="0s">
+                        <anim:par smil:begin="0s" smil:fill="hold" presentation:node-type="on-click" presentation:preset-class="entrance" presentation:preset-id="ooo-entrance-wipe" presentation:preset-sub-type="from-left">
+                          <anim:set smil:begin="0s" smil:dur="0.001s" smil:fill="hold" smil:targetElement="id1" smil:attributeName="visibility" smil:to="visible"/>
+                          <anim:transitionFilter smil:dur="0.5s" smil:targetElement="id1" smil:type="barWipe" smil:subtype="leftToRight"/>
                         </anim:par>
                       </anim:par>
                     </anim:par>
@@ -309,11 +319,17 @@ public sealed class OdpFixtureTests
         Assert.Equal(1, kinds["chart"]);
         Assert.Equal(1, kinds["3d"]);
         Assert.Equal(1, kinds["element"]); // the measure
-        Assert.Equal(1, kinds["animation"]); // fly-in
-        var effect = Assert.Single(slide.Timing!.MainSequence);
+        Assert.Equal(1, kinds["animation"]); // the wipe
+        Assert.Equal(2, slide.Timing!.MainSequence.Count);
+        var effect = slide.Timing.MainSequence[0];
         Assert.Equal(AnimationPreset.Fade, AnimationPresets.PresetOf(effect));
         Assert.Equal(rounded.Id, effect.ShapeId);
         Assert.Equal(1000, effect.DurationMs);
+        var fly = slide.Timing.MainSequence[1];
+        Assert.Equal(AnimationPreset.FlyIn, AnimationPresets.PresetOf(fly));
+        Assert.Equal(AnimationDirection.Left, AnimationPresets.DirectionOf(fly.PresetSubtype));
+        Assert.Equal(500, fly.DurationMs);
+        Assert.Equal(AnimationTrigger.OnClick, fly.Trigger);
         Assert.Equal("Hier spricht der Vortragende.", slide.NotesText);
         Assert.Contains(shapes, shape => shape.Placeholder?.Type == PlaceholderType.SlideNumber);
 

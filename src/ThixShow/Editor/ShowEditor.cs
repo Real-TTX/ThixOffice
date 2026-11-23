@@ -292,35 +292,40 @@ public sealed class ShowEditor : OfficeEditor
         Reading.Stop();
     }
 
-    private bool _odpConfirmed;
+    /// <summary>What the user agreed to leave out of an .odp file (asked again when more would be lost, like ThixCalc's .ods).</summary>
+    private IReadOnlyList<string> _odpConfirmed = [];
 
     /// <summary>
     /// Before a save: the notes being typed go in; a presentation with macros saved as .pptx is warned that the macros stay behind;
-    /// saving as .odp names what the OpenDocument format cannot take (charts, SmartArt, effects …) and asks once.
+    /// saving as .odp names what the OpenDocument format cannot take (charts, SmartArt, effects …) and asks – again only when
+    /// something new would be lost (a chart added to a presentation opened from .odp, say).
     /// </summary>
     public override async Task<bool> ConfirmSaveAsync(string path)
     {
         Notes.Commit();
         if (Path.GetExtension(path).Equals(".odp", StringComparison.OrdinalIgnoreCase))
         {
-            if (_odpConfirmed || Document.LoadedFormat == ShowFileFormat.Odp)
+            // What an opened .odp already lacked (comments, fonts … – named by the opening warning) is no news when it is saved again.
+            var losses = OdpWriter.Losses(Session.Presentation)
+                .Where(loss => Document.LoadedFormat != ShowFileFormat.Odp || Session.Presentation.UnsupportedContent.All(content => content.Kind != loss.Kind))
+                .Select(loss => loss.PlainMessage).Distinct().ToList();
+            if (!losses.Except(_odpConfirmed).Any())
             {
                 return true;
             }
 
-            var losses = OdpWriter.Losses(Session.Presentation);
-            if (losses.Count == 0)
-            {
-                return true;
-            }
-
-            var list = string.Join(Environment.NewLine, losses.Select(loss => "• " + loss.PlainMessage));
+            var list = string.Join(Environment.NewLine, losses.Select(loss => "• " + loss));
             var answer = await QuestionDialog.AskAsync(_window, "Als OpenDocument speichern",
                 $"Diese Präsentation enthält Inhalte, die das OpenDocument-Format in ThixShow nicht aufnehmen kann. Sie sind in der .odp-Datei nicht enthalten:{Environment.NewLine}{list}{Environment.NewLine}Möchten Sie trotzdem als OpenDocument speichern?",
                 new DialogChoice("Als OpenDocument speichern", "save", "MatButton.Primary", IsDefault: true),
                 new DialogChoice("Abbrechen", "x", IsCancel: true));
-            _odpConfirmed = answer == 0;
-            return _odpConfirmed;
+            if (answer != 0)
+            {
+                return false;
+            }
+
+            _odpConfirmed = losses;
+            return true;
         }
 
         if (Path.GetExtension(path).Equals(".pptx", StringComparison.OrdinalIgnoreCase) && Document.HasMacros)

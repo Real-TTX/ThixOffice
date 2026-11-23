@@ -294,7 +294,7 @@ public static partial class OdpReader
             return new SlideTransition(kind.Value, direction, duration, speed, AdvanceAfterMs: after, ThroughBlack: throughBlack);
         }
 
-        /// <summary>The main sequence's appear and fade effects of a page (others are counted as not shown).</summary>
+        /// <summary>The main sequence's appear, fade and fly effects of a page (others are counted as not shown).</summary>
         private SlideTiming? ReadTiming(XElement page, ReadScope scope)
         {
             var root = page.Elements(AnimNs + "par").FirstOrDefault(element => (string?)element.Attribute(PresentationNs + "node-type") == "timing-root");
@@ -324,8 +324,10 @@ public static partial class OdpReader
                 {
                     ("entrance", "ooo-entrance-appear") => AnimationPreset.Appear,
                     ("entrance", "ooo-entrance-fade-in") => AnimationPreset.Fade,
+                    ("entrance", "ooo-entrance-fly-in") => AnimationPreset.FlyIn,
                     ("exit", "ooo-exit-disappear") => AnimationPreset.Disappear,
                     ("exit", "ooo-exit-fade-out") => AnimationPreset.FadeOut,
+                    ("exit", "ooo-exit-fly-out") => AnimationPreset.FlyOut,
                     _ => null,
                 };
                 if (preset is null || target is null || !scope.IdsByName.TryGetValue(target, out var shapeId) || node.Descendants().Any(element => element.Attribute(AnimNs + "sub-item") is not null))
@@ -334,9 +336,12 @@ public static partial class OdpReader
                     continue;
                 }
 
-                var duration = OdpNames.Milliseconds((string?)node.Descendants(AnimNs + "transitionFilter").FirstOrDefault()?.Attribute(SmilNs + "dur"));
+                // A fade's length is its filter's, a fly's that of its movement.
+                var timed = node.Descendants(AnimNs + "transitionFilter").FirstOrDefault() ?? node.Descendants(AnimNs + "animate").FirstOrDefault();
+                var duration = OdpNames.Milliseconds((string?)timed?.Attribute(SmilNs + "dur"));
                 var delay = OdpNames.Milliseconds((string?)node.Attribute(SmilNs + "begin")) ?? 0;
-                effects.Add(AnimationPresets.Create(preset.Value, shapeId, trigger, preset is AnimationPreset.Appear or AnimationPreset.Disappear ? null : duration, delayMs: Math.Max(0, delay)));
+                var direction = OdpNames.FlyDirection((string?)node.Attribute(PresentationNs + "preset-sub-type"));
+                effects.Add(AnimationPresets.Create(preset.Value, shapeId, trigger, preset is AnimationPreset.Appear or AnimationPreset.Disappear ? null : duration, direction, Math.Max(0, delay)));
             }
 
             return effects.Count == 0 ? null : new SlideTiming(effects);

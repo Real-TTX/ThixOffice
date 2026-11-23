@@ -221,7 +221,7 @@ public static partial class OdpWriter
         private XElement WritePicture(ShapeScope scope, SlideElement shape, PictureFill picture, Outline? outline, Func<Transform2D, Transform2D> map)
         {
             var transform = map(shape.Placeholder is not null ? ShapeResolver.Resolve(scope.Context, shape).Transform : shape.Transform ?? new Transform2D(0, 0, 0, 0));
-            var graphic = Graphic(null, outline ?? Outline.None, (shape as PictureShape)?.Effects, null, scope.Context.Colors);
+            var graphic = Graphic(null, outline, (shape as PictureShape)?.Effects, null, scope.Context.Colors);
             graphic.Add(new XAttribute(DrawNs + "fill", "none"));
             if (picture.Image is { PixelWidth: > 0, PixelHeight: > 0 } image && !picture.Crop.IsZero)
             {

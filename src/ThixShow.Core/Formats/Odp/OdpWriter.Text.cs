@@ -223,9 +223,9 @@ public static partial class OdpWriter
             }
         }
 
-        /// <summary>The effects ODF takes: appear and fade, in and out, on whole shapes.</summary>
+        /// <summary>The effects ODF takes: appear, fade and fly, in and out, on whole shapes (LibreOffice's ooo-… presets).</summary>
         public static bool IsWritable(AnimationEffect effect) =>
-            effect.ParagraphStart is null && AnimationPresets.PresetOf(effect) is AnimationPreset.Appear or AnimationPreset.Fade or AnimationPreset.Disappear or AnimationPreset.FadeOut;
+            effect.ParagraphStart is null && AnimationPresets.PresetOf(effect) is AnimationPreset.Appear or AnimationPreset.Fade or AnimationPreset.FlyIn or AnimationPreset.Disappear or AnimationPreset.FadeOut or AnimationPreset.FlyOut;
 
         private static void AddAnimations(XElement timingRoot, Slide slide, ShapeScope scope)
         {
@@ -267,8 +267,12 @@ public static partial class OdpWriter
         private static XElement WriteEffect(AnimationEffect effect, string target)
         {
             var preset = AnimationPresets.PresetOf(effect)!.Value;
-            var duration = effect.Behaviors.OfType<FilterBehavior>().FirstOrDefault()?.DurationMs ?? AnimationPresets.DefaultDuration(preset);
-            var entrance = preset is AnimationPreset.Appear or AnimationPreset.Fade;
+            var isFly = preset is AnimationPreset.FlyIn or AnimationPreset.FlyOut;
+            var duration = (isFly
+                ? effect.Behaviors.OfType<PropertyBehavior>().FirstOrDefault()?.DurationMs
+                : effect.Behaviors.OfType<FilterBehavior>().FirstOrDefault()?.DurationMs) ?? AnimationPresets.DefaultDuration(preset);
+            var entrance = preset is AnimationPreset.Appear or AnimationPreset.Fade or AnimationPreset.FlyIn;
+            var direction = AnimationPresets.DirectionOf(effect.PresetSubtype);
             var element = new XElement(AnimNs + "par", new XAttribute(SmilNs + "begin", OdpNames.Seconds(effect.DelayMs)), new XAttribute(SmilNs + "fill", "hold"),
                 new XAttribute(PresentationNs + "node-type", effect.Trigger switch
                 {
@@ -281,16 +285,46 @@ public static partial class OdpWriter
                 {
                     AnimationPreset.Appear => "ooo-entrance-appear",
                     AnimationPreset.Fade => "ooo-entrance-fade-in",
+                    AnimationPreset.FlyIn => "ooo-entrance-fly-in",
                     AnimationPreset.Disappear => "ooo-exit-disappear",
+                    AnimationPreset.FlyOut => "ooo-exit-fly-out",
                     _ => "ooo-exit-fade-out",
                 }));
+            if (isFly)
+            {
+                element.Add(new XAttribute(PresentationNs + "preset-sub-type", OdpNames.FlySubtype(direction)));
+            }
+
             XElement Visibility(int begin, bool visible) => new(AnimNs + "set", new XAttribute(SmilNs + "begin", OdpNames.Seconds(begin)), new XAttribute(SmilNs + "dur", "0.001s"),
                 new XAttribute(SmilNs + "fill", "hold"), new XAttribute(SmilNs + "targetElement", target), new XAttribute(SmilNs + "attributeName", "visibility"),
                 new XAttribute(SmilNs + "to", visible ? "visible" : "hidden"));
             XElement Fade(bool into) => new(AnimNs + "transitionFilter", new XAttribute(SmilNs + "dur", OdpNames.Seconds(duration)), new XAttribute(SmilNs + "targetElement", target),
                 new XAttribute(SmilNs + "type", "fade"), new XAttribute(SmilNs + "subtype", "crossfade"), into ? null : new XAttribute(SmilNs + "mode", "out"));
+            // Fly: x and y move between the shape's place and just outside the slide (ODF's formulas: x, y, width, height in slide units).
+            XElement[] Fly(bool into)
+            {
+                var (outsideX, outsideY) = direction switch
+                {
+                    AnimationDirection.Left => ("0-width/2", "y"),
+                    AnimationDirection.Right => ("1+width/2", "y"),
+                    AnimationDirection.Top => ("x", "0-height/2"),
+                    _ => ("x", "1+height/2"),
+                };
+                XElement Move(string attribute, string outside) => new(AnimNs + "animate", new XAttribute(SmilNs + "dur", OdpNames.Seconds(duration)),
+                    new XAttribute(SmilNs + "fill", "hold"), new XAttribute(SmilNs + "targetElement", target), new XAttribute(SmilNs + "attributeName", attribute),
+                    new XAttribute(SmilNs + "values", into ? outside + ";" + attribute : attribute + ";" + outside), new XAttribute(SmilNs + "keyTimes", "0;1"),
+                    new XAttribute(PresentationNs + "additive", "base"));
+                return [Move("x", outsideX), Move("y", outsideY)];
+            }
+
             switch (preset)
             {
+                case AnimationPreset.FlyIn:
+                    element.Add(Visibility(0, true), Fly(true));
+                    break;
+                case AnimationPreset.FlyOut:
+                    element.Add(Fly(false), Visibility(Math.Max(0, duration - 1), false));
+                    break;
                 case AnimationPreset.Appear:
                     element.Add(Visibility(0, true));
                     break;

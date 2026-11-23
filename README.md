@@ -10,7 +10,7 @@ und die aussieht wie die übrigen Thix-Apps.
 | --- | --- | --- | --- |
 | **ThixWrite** | Word | docx, odt, txt | Meilenstein 1c; Dokumente in ThixDrive (Phase 2) |
 | **ThixCalc** | Excel | xlsx, xlsm, ods, csv | erstes Release (Phase 3), Arbeitsmappen in ThixDrive |
-| **ThixShow** | PowerPoint | pptx, pptm, später odp | erste Version (Phase 4), Präsentationen in ThixDrive |
+| **ThixShow** | PowerPoint | pptx, pptm, odp | erste Version (Phase 4), Präsentationen in ThixDrive |
 | **ThixContacts** | Outlook › Personen | vCard (Import/Export), CSV | erste Version (Phase 7a), Kontakte über die ThixCloud abgeglichen |
 | **ThixMail** | Outlook › E-Mail, Kalender, Personen | IMAP/SMTP, eml, iCalendar-Einladungen | erste Version (Phase 7b/7c), Kalender und Personen über die ThixCloud |
 
@@ -241,6 +241,11 @@ darunter die Notizen, unten die Statusleiste mit „Folie 3 von 12“, Notizen, 
 - **Dateien:** PowerPoint-Präsentationen (.pptx) sind Standard; .pptm wird mit seinen Makros gelesen und geschrieben (Makros laufen nie;
   vor dem Speichern als .pptx fragt ThixShow). Was ThixShow noch nicht bearbeitet (SmartArt, OLE-Objekte, Kommentare …), bleibt beim
   Speichern erhalten – ein Hinweis nennt es beim Öffnen. Präsentationen in ThixDrive wie bei den anderen Apps.
+- **OpenDocument-Präsentation (.odp)** aus LibreOffice und Co. wird gelesen und geschrieben: Masterfolien, Layouts, Formen (auch
+  eigene Geometrie), Text mit Listen, Füllungen und Linien, Bilder mit Zuschnitt, Tabellen, Gruppen, Verbinder, Notizen, Fußzeilen,
+  Übergänge und die Animationen Erscheinen, Verblassen und Hereinfliegen/Hinausfliegen. Was eine .odp nicht aufnehmen kann
+  (Diagramme, SmartArt, andere Animationen, Abschnitte, Makros …), nennt eine Frage vor dem Speichern – erneut, sobald etwas Neues
+  verloren ginge; was eine .odp hatte und ThixShow nicht übernimmt, nennt der Hinweis beim Öffnen.
 
 ![ThixShow hell](docs/images/thixshow-main-light.png)
 

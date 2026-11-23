@@ -18,7 +18,7 @@ namespace ThixShow;
 /// <summary>
 /// ThixShow's part of <c>--self-test</c> (the trimmed, published program): a new presentation from a design in a real window, slides
 /// added through the commands, text typed into a placeholder as text input, a shape, a picture, a table and a chart, a transition
-/// and an animation, saved as pptx, opened again and compared (Open XML SDK after trimming), a slide drawn with Skia, the show engine
+/// and an animation, saved as pptx, opened again and compared (Open XML SDK after trimming), the same through odp, a slide drawn with Skia, the show engine
 /// run through a slide with its build step, and the slides exported as PDF.
 /// </summary>
 internal static class ShowSelfTest
@@ -66,6 +66,18 @@ internal static class ShowSelfTest
         Ensure(readChart is not null && SharedChartRenderer.ChartOf(readChart, read) is { } back && back.AllSeries.Count() == 1, "the chart is lost in the pptx");
         Ensure(table > 0, "no table id");
 
+        // The same as OpenDocument Presentation: written, read back (System.IO.Compression and System.Xml after trimming); the chart
+        // has no place there, the rest stays.
+        var odp = DocumentService.SaveAs(reopened, Path.Combine(folder, "Selbsttest.odp"));
+        var fromOdp = DocumentService.Open(odp, app.CreateDocument) as ShowDocument ?? throw new InvalidOperationException("not a ShowDocument");
+        Ensure(fromOdp.LoadedFormat == ShowFileFormat.Odp, "the odp was not read as OpenDocument");
+        var odpRead = fromOdp.Presentation;
+        Ensure(odpRead.SlideCount == 2 && odpRead.Slides[1].Transition?.Kind == TransitionKind.Push, "the odp lost slides or the transition");
+        Ensure(SlideTitles.TitleOf(odpRead, odpRead.Slides[0]) == "Selbsttest Ä–ß", "the title is lost in the odp");
+        var odpShapes = ShapeTree.All(odpRead.Slides[1].Shapes).ToList();
+        Ensure(odpShapes.OfType<PictureShape>().Any() && odpShapes.OfType<GraphicFrame>().Any(frame => frame.Table is not null), "the picture or the table is lost in the odp");
+        Ensure(odpShapes.OfType<AutoShape>().Any(shape => shape.Geometry?.Preset == "roundRect"), "the rounded rectangle is lost in the odp");
+
         // A slide drawn as the editor and the show draw it: the picture, the chart's labels and the shapes leave ink.
         var page = SlideRenderer.Render(read, read.Slides[1], OfficeFonts.Skia);
         Ensure(page.Items.OfType<ThixOffice.Text.Drawing.VectorPathItem>().Any(item => item.Fill is ThixOffice.Text.Drawing.ImagePaint), "the picture is not drawn");
@@ -110,7 +122,7 @@ internal static class ShowSelfTest
 
         window.Close();
         await Settle();
-        return $"pptx {new FileInfo(path).Length} bytes, sample {new FileInfo(samplePath).Length} bytes, PDF {bytes.Length} bytes, slide {coloured} inked px, {OfficeFonts.Families.Count} font families";
+        return $"pptx {new FileInfo(path).Length} bytes, odp {new FileInfo(odp).Length} bytes, sample {new FileInfo(samplePath).Length} bytes, PDF {bytes.Length} bytes, slide {coloured} inked px, {OfficeFonts.Families.Count} font families";
     }
 
     private static void Type(ShowEditor editor, string text) =>

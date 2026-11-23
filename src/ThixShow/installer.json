@@ -3,6 +3,7 @@
   "automaticUpdates": { "default": true },
   "fileTypes": [
     { "extension": ".pptx", "name": "PowerPoint-Präsentation", "default": true },
-    { "extension": ".pptm", "name": "PowerPoint-Präsentation mit Makros", "default": false }
+    { "extension": ".pptm", "name": "PowerPoint-Präsentation mit Makros", "default": false },
+    { "extension": ".odp", "name": "OpenDocument-Präsentation", "default": false }
   ]
 }
