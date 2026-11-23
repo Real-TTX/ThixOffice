@@ -104,7 +104,8 @@ public sealed class EmbeddingUiTests
         Assert.Equal(MailArea.Mail, editor.ActiveView);
 
         await PressAsync(window, PhysicalKey.Digit2, CommandKey);
-        await PressAsync(window, PhysicalKey.C, CommandKey | RawInputModifiers.Shift); // Kontakt from the calendar
+        // Kontakt from the calendar: Strg+Umschalt+C, on the Mac ⌥⌘C (MailNewItems' MacShortcut)
+        await PressAsync(window, PhysicalKey.C, CommandKey | (OperatingSystem.IsMacOS() ? RawInputModifiers.Alt : RawInputModifiers.Shift));
         var contact = await OwnedAsync<ContactDialog>(window);
         contact.GivenName.Text = "Paul";
         contact.FamilyName.Text = "Neu";
