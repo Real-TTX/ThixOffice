@@ -23,7 +23,7 @@ public partial class CloudSignInPanel : UserControl
     {
         InitializeComponent();
         var app = AppInfo.IsInitialized ? AppInfo.ProductName : "Die App";
-        HeadingText.Text = $"Melden Sie sich an, um Ihre Dokumente in ThixDrive zu öffnen und zu speichern – auf jedem Computer und im Browser.";
+        HeadingText.Text = $"Melden Sie sich an, um {(AppInfo.IsInitialized ? AppInfo.Definition.CloudPurpose : "Ihre Dokumente in ThixDrive zu öffnen und zu speichern – auf jedem Computer und im Browser")}.";
         BrowserText.Text = $"Die Anmeldung öffnet sich im Browser: Melden Sie sich dort an – mit Ihrem Konto der ThixCloud oder über MatIdentity – und bestätigen Sie den Code, den {app} Ihnen zeigt.";
         BrowserCodeHint.Text = $"Melden Sie sich auf der Seite der ThixCloud an und prüfen Sie, dass dort derselbe Code steht. {app} verbindet sich, sobald Sie bestätigt haben.";
         Load();

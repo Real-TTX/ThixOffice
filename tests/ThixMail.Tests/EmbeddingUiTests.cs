@@ -20,7 +20,10 @@ using static ThixMail.Tests.TestData;
 
 namespace ThixMail.Tests;
 
-/// <summary>7c in the real ThixMail through keys and the mouse: Mail | Kalender | Personen, the sign-in without ThixCloud, appointments, contacts, invitations.</summary>
+/// <summary>
+/// 7c in the real ThixMail through keys and the mouse: Mail | Kalender | Personen with their own ribbons, the calendar and contacts of this computer without
+/// ThixCloud (and the offer to sign in), the keys of "Neue Elemente", appointments, contacts, invitations.
+/// </summary>
 public sealed class EmbeddingUiTests
 {
     private static async Task<SampleCloud> SignInAsync(OfficeWindowLike window)
@@ -36,33 +39,115 @@ public sealed class EmbeddingUiTests
     private sealed record OfficeWindowLike(MailEditor Editor);
 
     [AvaloniaFact]
-    public async Task Without_ThixCloud_Kalender_and_Personen_explain_and_offer_the_sign_in_and_Strg_1_brings_the_mail_back()
+    public async Task Without_ThixCloud_Kalender_and_Personen_work_on_this_computer_with_their_own_ribbon_and_offer_the_sign_in_once()
     {
         using var data = new TestData();
         var window = await data.WindowAsync();
         var editor = EditorOf(window);
         Assert.Equal(3, editor.NavigationButtons.Count(b => b.IsVisible));
+        Assert.Equal(["home", "sendreceive", "folder", "view"], window.RibbonDefinition.Tabs.Select(t => t.Id));
+        Assert.False(editor.CloudOffer.IsVisible); // not over the mail
 
         Assert.Equal("E-Mail", window.DocumentNameText);
         await PressAsync(window, PhysicalKey.Digit2, CommandKey);
         Assert.Equal(MailArea.Calendar, editor.ActiveView);
-        Assert.NotNull(editor.SignInPanel);
-        Assert.Null(editor.CalendarView);
-        Assert.Equal("Nicht bei der ThixCloud angemeldet", window.StatusBar.TextOf(MailEditor.CountItem));
+        var view = editor.CalendarView!;
+        Assert.Equal(["calendar.home", "calendar.view"], window.RibbonDefinition.Tabs.Select(t => t.Id)); // Outlook's calendar ribbon, not the mail tabs
+        Assert.Equal("calendar.home", window.Ribbon.SelectedTab!.Id);
+        Assert.Empty(window.RibbonDefinition.Problems());
+        Assert.True(editor.CloudOffer.IsEffectivelyVisible);
+        Assert.Equal("Nur auf diesem Computer", window.StatusBar.TextOf(MailEditor.SyncItem));
         await UntilAsync(() => window.DocumentNameText == "Kalender", "the title bar to name the calendar");
         Assert.Equal("Kalender – ThixMail", window.Title);
 
+        // an appointment without ThixCloud: "Kalender" is made on first use
+        await PressAsync(window, PhysicalKey.N, CommandKey);
+        var dialog = await OwnedAsync<AppointmentDialog>(window);
+        dialog.TitleBox.Focus();
+        await TypeAsync(dialog, "Friseur");
+        await ClickAsync(dialog, dialog.OkButton);
+        await UntilAsync(() => view.Shown.Any(a => a.Title == "Friseur"), "the appointment in the calendar of this computer");
+        Assert.Equal("Kalender", Assert.Single(editor.Document.Pim.Calendar!.WritableCalendars).Name);
+
+        // "Nicht mehr anzeigen" closes the offer for good
+        await ClickAsync(window, editor.CloudOfferClose!);
+        Assert.False(editor.CloudOffer.IsVisible);
+
         await ClickAsync(window, editor.NavigationButtons[2]);
         Assert.Equal(MailArea.People, editor.ActiveView);
-        Assert.NotNull(editor.SignInPanel);
+        Assert.Equal(["people.home", "people.folder", "people.view"], window.RibbonDefinition.Tabs.Select(t => t.Id));
+        Assert.Equal(["Start", "Ordner", "Ansicht"], window.RibbonDefinition.Tabs.Select(t => t.Label));
+        Assert.Empty(window.RibbonDefinition.Problems());
+        Assert.False(editor.CloudOffer.IsVisible);
         await UntilAsync(() => window.DocumentNameText == "Personen", "the title bar to name the people");
 
         await PressAsync(window, PhysicalKey.Digit1, CommandKey);
         Assert.Equal(MailArea.Mail, editor.ActiveView);
+        Assert.Equal("home", window.Ribbon.SelectedTab!.Id);
         await UntilAsync(() => window.DocumentNameText == "E-Mail", "the title bar to name the mail again");
         Assert.True(editor.List.IsEffectivelyVisible);
         await PressAsync(window, PhysicalKey.N, CommandKey);
         await OwnedAsync<Compose.ComposeWindow>(window); // Strg+N is a new mail again
+    }
+
+    [AvaloniaFact]
+    public async Task Outlooks_keys_for_new_items_work_from_every_module()
+    {
+        using var data = new TestData();
+        var window = await data.WindowAsync();
+        var editor = EditorOf(window);
+
+        await PressAsync(window, PhysicalKey.A, CommandKey | RawInputModifiers.Shift); // Termin from the mail
+        var appointment = await OwnedAsync<AppointmentDialog>(window);
+        appointment.Close();
+        await SettleAsync();
+        Assert.Equal(MailArea.Mail, editor.ActiveView);
+
+        await PressAsync(window, PhysicalKey.Digit2, CommandKey);
+        await PressAsync(window, PhysicalKey.C, CommandKey | RawInputModifiers.Shift); // Kontakt from the calendar
+        var contact = await OwnedAsync<ContactDialog>(window);
+        contact.GivenName.Text = "Paul";
+        contact.FamilyName.Text = "Neu";
+        await ClickAsync(contact, contact.OkButton);
+        await UntilAsync(() => editor.Document.Pim.People!.People.Any(p => p.Name == "Paul Neu"), "the new contact");
+
+        await PressAsync(window, PhysicalKey.Digit3, CommandKey);
+        if (!OperatingSystem.IsMacOS())
+        {
+            await PressAsync(window, PhysicalKey.M, CommandKey | RawInputModifiers.Shift); // E-Mail from the people
+            var compose = await OwnedAsync<Compose.ComposeWindow>(window);
+            compose.CloseDiscarding();
+        }
+
+        // the menu "Neue Elemente" is on every module's Start tab
+        Assert.NotNull(window.RibbonDefinition.Find(MailNewItems.Menu + ".people"));
+        await PressAsync(window, PhysicalKey.Digit1, CommandKey);
+        Assert.NotNull(window.RibbonDefinition.Find(MailNewItems.Menu));
+    }
+
+    [AvaloniaFact]
+    public async Task The_Start_tab_keeps_Outlooks_large_buttons_and_labelled_categories_at_1180_and_1600_pixels()
+    {
+        using var data = new TestData();
+        var window = await data.WindowAsync();
+        foreach (var width in new[] { 1600.0, 1180.0 })
+        {
+            window.Width = width;
+            await SettleAsync(10);
+            foreach (var group in new[] { "home.new", "home.delete", "home.respond" })
+            {
+                Assert.Equal(MatDesktop.MatRibbonGroupState.Large, window.Ribbon.GroupState(group));
+            }
+
+            Assert.NotEqual(MatDesktop.MatRibbonGroupState.Collapsed, window.Ribbon.GroupState("home.tags"));
+            Assert.True(window.Ribbon.ViewOf(MailCommandIds.Categorize) is { } categorize && categorize.GetVisualDescendants().OfType<TextBlock>().Any(t => t.IsEffectivelyVisible && t.Text == "Kategorisieren"),
+                $"Kategorisieren keeps its label at {width} px");
+        }
+
+        // every module's tabs together are free of doubled ids (aliases for second places)
+        var all = new MatDesktop.MatRibbonDefinition();
+        all.Add([.. window.RibbonBinding.AllTabs]);
+        Assert.Empty(all.Problems());
     }
 
     [AvaloniaFact]
@@ -75,8 +160,8 @@ public sealed class EmbeddingUiTests
 
         await PressAsync(window, PhysicalKey.Digit2, CommandKey);
         var view = editor.CalendarView!;
-        Assert.Contains(MailEditor.CalendarContext, window.RibbonDefinition.ActiveContexts);
-        Assert.DoesNotContain(MailEditor.PeopleContext, window.RibbonDefinition.ActiveContexts);
+        Assert.Contains(window.RibbonDefinition.Tabs, t => t.Id == "calendar.home");
+        Assert.DoesNotContain(window.RibbonDefinition.Tabs, t => t.Id == "people.home");
 
         await PressAsync(window, PhysicalKey.Digit3, CommandKey | RawInputModifiers.Alt); // Woche
         Assert.Equal(CalendarMode.Week, view.Mode);
@@ -150,7 +235,7 @@ public sealed class EmbeddingUiTests
         var cloud = await SignInAsync(new OfficeWindowLike(editor));
 
         await PressAsync(window, PhysicalKey.Digit3, CommandKey);
-        Assert.Contains(MailEditor.PeopleContext, window.RibbonDefinition.ActiveContexts);
+        Assert.Contains(window.RibbonDefinition.Tabs, t => t.Id == "people.home");
         await PressAsync(window, PhysicalKey.N, CommandKey);
         var dialog = await OwnedAsync<ContactDialog>(window);
         dialog.GivenName.Text = "Ida";
@@ -208,17 +293,38 @@ public sealed class EmbeddingUiTests
         var command = window.Commands[MailCommandIds.AddSenderToContacts];
         editor.Select(Header(editor, "Präsentation für Donnerstag").Id);
         await SettleAsync();
-        Assert.False(command.IsEnabled); // no ThixCloud: no contacts
-
-        await SignInAsync(new OfficeWindowLike(editor));
-        editor.Select(Header(editor, "Präsentation für Donnerstag").Id);
-        await SettleAsync();
-        Assert.True(command.IsEnabled);
+        Assert.True(command.IsEnabled); // without ThixCloud too: the contacts of this computer
         var running = ThixOffice.Desktop.Shell.OfficeWindow.RunCommandAsync(window, command);
         var dialog = await OwnedAsync<ContactDialog>(window);
         Assert.Equal(("Maria", "Schulz", "maria.schulz@kunde.example"), (dialog.GivenName.Text, dialog.FamilyName.Text, dialog.Emails.Rows[0].Box.Text));
         await ClickAsync(dialog, dialog.OkButton);
         await running;
         Assert.Contains(editor.Document.Pim.People!.People, p => p.Name == "Maria Schulz" && p.Email == "maria.schulz@kunde.example");
+    }
+
+    [AvaloniaFact]
+    public async Task Signing_in_takes_this_computers_contacts_along_and_Abmelden_with_a_copy_keeps_the_accounts_here()
+    {
+        using var data = new TestData();
+        var window = await data.WindowAsync();
+        var editor = EditorOf(window);
+        await PressAsync(window, PhysicalKey.Digit3, CommandKey);
+        Assert.True(editor.CloudOffer.IsEffectivelyVisible);
+        editor.Document.Pim.People!.Save(null, new ContactData { GivenName = "Nur", FamilyName = "Hier", Emails = [new ContactValue("work", "nur.hier@beispiel.de")] });
+
+        var cloud = await SignInAsync(new OfficeWindowLike(editor));
+        await UntilAsync(() => editor.Document.Pim.IsAccountData && !editor.CloudOffer.IsVisible, "the account's contacts and no offer any more");
+        await UntilAsync(() => editor.PeopleView!.Shown.Any(p => p.Name == "Nur Hier"), "the local contact in the account's list");
+        await UntilAsync(() => cloud.SyncItems(CloudApps.Contacts, ContactsContract.Contacts).Count == 1, "the local contact in ThixCloud");
+        editor.Document.Pim.People!.Save(null, new ContactData { GivenName = "Aus", FamilyName = "Konto" });
+
+        var signingOut = TestData.App.SignOutAsync(window);
+        var question = await OwnedAsync<QuestionDialog>(window);
+        Assert.Equal(3, question.Buttons.Count); // Kopie behalten · Abbrechen · gap · Ohne Kopie abmelden
+        question.Buttons[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.True(await signingOut);
+        await UntilAsync(() => !editor.Document.Pim.IsAccountData, "this computer's data again");
+        Assert.Equal(["Aus Konto", "Nur Hier"], editor.Document.Pim.People!.People.Select(p => p.Name).Order());
+        await UntilAsync(() => editor.CloudOffer.IsEffectivelyVisible, "the offer again");
     }
 }

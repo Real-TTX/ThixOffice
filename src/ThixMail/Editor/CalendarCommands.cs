@@ -33,6 +33,8 @@ public static class CalendarCommandIds
     public const string Week = "calendar.view.week";
     public const string Month = "calendar.view.month";
     public const string Sync = "calendar.sync";
+    public const string Import = "calendar.import";
+    public const string Export = "calendar.export";
 }
 
 /// <summary>
@@ -77,7 +79,6 @@ public static class CalendarCommands
         commands.Add(new OfficeCommand(CalendarCommandIds.NewMeeting, "Neue Besprechung", () => NewAsync(window, Editor()!, View()!.NewStart(), allDay: false, meeting: true))
         {
             Icon = "users",
-            Shortcut = "Ctrl+Shift+Q",
             Description = "Lädt zu einer Besprechung ein: der Termin kommt in Ihren Kalender, die Teilnehmer bekommen eine Einladung per E-Mail.",
             Keywords = ["besprechung", "einladung", "meeting", "teilnehmer"],
             CanExecute = () => InCalendar() && Editor()!.Document.Accounts.Accounts.Count > 0,
@@ -150,6 +151,21 @@ public static class CalendarCommands
             CanExecute = () => InCalendar() && Editor()!.Document.Pim.IsSyncing,
         });
 
+        commands.Add(new OfficeCommand(CalendarCommandIds.Import, "Importieren …", () => ImportAsync(window, Editor()!))
+        {
+            Icon = "download",
+            Description = "Übernimmt Termine aus einer iCalendar-Datei (.ics) – etwa aus ThixCalendar, Outlook oder Google – in Ihren Kalender.",
+            Keywords = ["importieren", "ics", "icalendar", "übernehmen", "termine"],
+            CanExecute = InCalendar,
+        });
+        commands.Add(new OfficeCommand(CalendarCommandIds.Export, "Exportieren …", () => ExportAsync(window, Editor()!))
+        {
+            Icon = "upload",
+            Description = "Speichert die Termine Ihrer eigenen Kalender als iCalendar-Datei (.ics) – für ThixCalendar, Outlook oder Google.",
+            Keywords = ["exportieren", "ics", "icalendar", "speichern", "sichern"],
+            CanExecute = () => InCalendar() && Editor()!.Document.Pim.Calendar!.WritableCalendars.Count > 0,
+        });
+
         PeopleCommands.Add(window, () => Editor() is { ActiveView: MailArea.People, PeopleView: { } view } editor && editor.Document.Pim.IsAvailable ? view : null, new PeopleCommandOptions
         {
             Email = addresses => MailCommands.ComposeToAddressesAsync(window, addresses),
@@ -158,31 +174,45 @@ public static class CalendarCommands
         });
     }
 
-    /// <summary>The contextual tabs of the calendar (context <see cref="MailEditor.CalendarContext"/>): Kalender | Kalenderansicht.</summary>
+    /// <summary>
+    /// The tabs of the module "Kalender" (shown instead of the mail tabs while it is active, like Outlook): Start (Neu, Gehe zu, Anordnen, Aktionen,
+    /// Kalender verwalten) | Ansicht (Anordnung, Navigation, Menüband).
+    /// </summary>
     public static IReadOnlyList<MatRibbonTab> Tabs() =>
     [
-        new MatRibbonTab($"{MailEditor.CalendarContext}.home", "Kalender") { Context = MailEditor.CalendarContext }.Add(
-            new MatRibbonGroup("new", "Neu") { Icon = "plus" }.Add(
+        new MatRibbonTab("calendar.home", "Start").Add(
+            new MatRibbonGroup("calendar.home.new", "Neu") { Icon = "plus", ShrinkOrder = 9 }.Add(
                 Button(CalendarCommandIds.New, MatRibbonSize.Large),
-                Button(CalendarCommandIds.NewMeeting, MatRibbonSize.Large)),
-            new MatRibbonGroup("goto", "Gehe zu") { Icon = "calendar", ShrinkOrder = 2 }.Add(
+                Button(CalendarCommandIds.NewMeeting, MatRibbonSize.Large),
+                MailNewItems.MenuOf("calendar")),
+            new MatRibbonGroup("calendar.home.goto", "Gehe zu") { Icon = "calendar", ShrinkOrder = 4 }.Add(
                 Button(CalendarCommandIds.Today, MatRibbonSize.Large),
                 Button(CalendarCommandIds.Previous),
                 Button(CalendarCommandIds.Next)),
-            new MatRibbonGroup("arrange", "Anordnen") { Icon = "columns", ShrinkOrder = 1 }.Add(
+            new MatRibbonGroup("calendar.home.arrange", "Anordnen") { Icon = "columns", ShrinkOrder = 3 }.Add(
                 Toggle(CalendarCommandIds.Day, "arrange", MatRibbonSize.Large),
                 Toggle(CalendarCommandIds.WorkWeek, "arrange", MatRibbonSize.Large),
                 Toggle(CalendarCommandIds.Week, "arrange", MatRibbonSize.Large),
                 Toggle(CalendarCommandIds.Month, "arrange", MatRibbonSize.Large)),
-            new MatRibbonGroup("actions", "Aktionen") { Icon = "edit", ShrinkOrder = 3 }.Add(
+            new MatRibbonGroup("calendar.home.actions", "Aktionen") { Icon = "edit", ShrinkOrder = 2 }.Add(
                 Button(CalendarCommandIds.Open, MatRibbonSize.Large),
                 Button(CalendarCommandIds.Delete, MatRibbonSize.Large)),
-            new MatRibbonGroup("sync", "ThixCloud") { Icon = "refresh", ShrinkOrder = 4 }.Add(
-                Button(CalendarCommandIds.Sync, MatRibbonSize.Large))),
+            new MatRibbonGroup("calendar.home.manage", "Kalender verwalten") { Icon = "calendar", ShrinkOrder = 1 }.Add(
+                Button(CalendarCommandIds.Import),
+                Button(CalendarCommandIds.Export),
+                Button(MailCommandIds.Print + ".calendar"))),
+        new MatRibbonTab("calendar.view", "Ansicht").Add(
+            new MatRibbonGroup("calendar.view.arrange", "Anordnung") { Icon = "columns" }.Add(
+                Toggle(CalendarCommandIds.Day + ".view", "arrange.view", MatRibbonSize.Large),
+                Toggle(CalendarCommandIds.WorkWeek + ".view", "arrange.view", MatRibbonSize.Large),
+                Toggle(CalendarCommandIds.Week + ".view", "arrange.view", MatRibbonSize.Large),
+                Toggle(CalendarCommandIds.Month + ".view", "arrange.view", MatRibbonSize.Large)),
+            MailRibbon.NavigationGroup("calendar"),
+            MailRibbon.RibbonGroup("calendar")),
     ];
 
     /// <summary>A new appointment (or meeting) at <paramref name="start"/>: the dialog, then the book – or the invitations through the outbox.</summary>
-    public static async Task NewAsync(OfficeWindow window, MailEditor editor, DateTime start, bool allDay, bool meeting)
+    public static async Task NewAsync(OfficeWindow window, MailEditor editor, DateTime start, bool allDay, bool meeting, IReadOnlyList<string>? attendees = null)
     {
         if (editor.Document.Pim.Calendar is not { } book)
         {
@@ -199,10 +229,75 @@ public static class CalendarCommands
             ReminderMinutes = allDay ? null : 15,
         };
         var dialog = Dialog(editor, book, appointment, meeting);
+        if (attendees is { Count: > 0 })
+        {
+            dialog.Attendees.Box.Text = string.Join("; ", attendees);
+        }
+
         if (await dialog.ShowAsync(window) && dialog.Saved is { } saved)
         {
             editor.CalendarView?.Refresh();
             editor.CalendarView?.Select(book.Find(saved.Key));
+        }
+    }
+
+    /// <summary>Kalender › Importieren: the appointments of an .ics file go into the first own calendar (made when there is none), as one undo step.</summary>
+    public static async Task ImportAsync(OfficeWindow window, MailEditor editor)
+    {
+        if (editor.Document.Pim.Calendar is not { } book
+            || await OfficeApplication.FileDialogs.PickFileAsync(window, "Termine importieren", SettingsService.SaveFolder, "iCalendar-Datei", [".ics", ".ical", ".ifb", ".icalendar"]) is not { } path)
+        {
+            return;
+        }
+
+        try
+        {
+            var text = await File.ReadAllTextAsync(path);
+            var target = book.DefaultCalendar();
+            var found = CalendarIcs.Import(text, target.Key);
+            if (found.Appointments.Count == 0)
+            {
+                await QuestionDialog.ShowMessageAsync(window, "Termine importieren", "Die Datei enthält keine Termine, die ThixMail übernehmen kann.");
+                return;
+            }
+
+            var saved = editor.Document.ImportAppointments(found.Appointments);
+            editor.CalendarView?.Refresh();
+            if (saved.Count > 0)
+            {
+                editor.CalendarView?.GoTo(saved.Min(a => a.StartLocal).Date);
+            }
+
+            var series = found.Series > 0 ? $" {found.Series} Serien kamen mit ihrem ersten Termin (Serien kennt ThixMail noch nicht)." : "";
+            window.ShowMessage((saved.Count == 1 ? "1 Termin wurde" : $"{saved.Count} Termine wurden") + $" in „{target.Name}“ übernommen.{series}", InfoSeverity.Success, isClosable: true,
+                "Rückgängig", () => window.Document.Undo());
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            await QuestionDialog.ShowMessageAsync(window, "Termine importieren", $"Die Datei konnte nicht gelesen werden: {exception.Message}");
+        }
+    }
+
+    /// <summary>Kalender › Exportieren: the appointments of the own calendars as one .ics file (written atomically).</summary>
+    public static async Task ExportAsync(OfficeWindow window, MailEditor editor)
+    {
+        if (editor.Document.Pim.Calendar is not { } book
+            || await OfficeApplication.FileDialogs.PickExportTargetAsync(window, "Kalender.ics", SettingsService.SaveFolder, "iCalendar-Datei", ".ics") is not { } path)
+        {
+            return;
+        }
+
+        var own = book.WritableCalendars.Select(c => c.Key).ToHashSet(StringComparer.Ordinal);
+        var appointments = book.Appointments.Where(a => own.Contains(a.CalendarKey)).ToList();
+        try
+        {
+            var text = new System.Text.UTF8Encoding(false).GetBytes(CalendarIcs.Export(appointments, book.WritableCalendars.FirstOrDefault()?.Name ?? "Kalender"));
+            DocumentFiles.SaveAtomic(path, stream => stream.Write(text));
+            window.ShowMessage((appointments.Count == 1 ? "1 Termin wurde" : $"{appointments.Count} Termine wurden") + $" als „{Path.GetFileName(path)}“ gespeichert.", InfoSeverity.Success, isClosable: true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            await QuestionDialog.ShowMessageAsync(window, "Kalender exportieren", $"Die Datei konnte nicht gespeichert werden: {exception.Message}");
         }
     }
 

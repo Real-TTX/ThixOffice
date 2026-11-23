@@ -109,6 +109,7 @@ public sealed class OfficeWindow : MatWindow
         }
 
         RibbonBinding = OfficeRibbonBinding.Bind(RibbonDefinition, Commands, Ribbon);
+        _editor.RibbonBound(this);
 
         TitleBar = new MatTitleBar
         {
@@ -560,6 +561,7 @@ public sealed class OfficeWindow : MatWindow
         _editor = _app.CreateEditor(this, document);
         _editor.Zoom = zoom;
         AttachDocument(document);
+        _editor.RibbonBound(this);
         FocusDocument();
     }
 

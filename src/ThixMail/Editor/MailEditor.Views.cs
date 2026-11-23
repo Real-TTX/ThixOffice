@@ -6,6 +6,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using MatDesktop;
 using ThixOffice.Core.Business;
+using ThixOffice.Core.Infrastructure;
 using ThixOffice.Desktop;
 using ThixOffice.Desktop.Controls;
 using ThixOffice.Desktop.Shell;
@@ -24,22 +25,26 @@ public enum MailArea
 }
 
 /// <summary>
-/// The views Kalender and Personen of ThixMail's window (7c): the navigation bar switches between E-Mail, Kalender and Personen; the two others show
-/// ThixOffice.Pim.Desktop's <see cref="CalendarView"/> and <see cref="PeopleView"/> on the account's data (<see cref="ThixMail.Core.MailPim"/>, through
-/// ThixCloud's sync) – or, without a sign-in, why they need ThixCloud and the sign-in itself. The ribbon shows their contextual tabs (contexts
-/// <see cref="CalendarContext"/> and <see cref="PeopleContext"/>) while they are active; the status bar speaks of them.
+/// The modules of ThixMail's window like Outlook's: the navigation bar switches between E-Mail, Kalender and Personen; the two others show
+/// ThixOffice.Pim.Desktop's <see cref="CalendarView"/> and <see cref="PeopleView"/> on the data of this computer or of the ThixCloud account
+/// (<see cref="ThixMail.Core.MailPim"/>) – they always work; without ThixCloud a slim bar offers the sign-in (it can be closed for good). The ribbon shows
+/// the tabs of the active module (<see cref="MailRibbon.ModuleOf"/>); the status bar speaks of it.
 /// </summary>
 public sealed partial class MailEditor
 {
-    public const string CalendarContext = "calendar";
-    public const string PeopleContext = "people";
     public const string ViewCountItem = "mail.view.count";
+
+    /// <summary>The app value that remembers that the person closed the offer to sign in to ThixCloud.</summary>
+    public const string CloudOfferDismissed = "mail.cloudOffer.dismissed";
 
     private static readonly CultureInfo GermanCulture = CultureInfo.GetCultureInfo("de-DE");
     private readonly Border _viewHost = new() { IsVisible = false };
+    private readonly DockPanel _viewDock = new();
+    private readonly Border _viewContent = new();
     private PeopleView? _people;
     private CalendarView? _calendar;
-    private bool _wasAvailable;
+    private Border? _cloudOffer;
+    private bool _wasAccountData;
 
     /// <summary>The view shown: E-Mail, Kalender or Personen.</summary>
     public MailArea ActiveView { get; private set; } = MailArea.Mail;
@@ -47,16 +52,30 @@ public sealed partial class MailEditor
     /// <summary>The reminders of the calendar while ThixMail runs (set by the app).</summary>
     public MailReminders? Reminders { get; internal set; }
 
-    /// <summary>The calendar view (made when Kalender is shown the first time with ThixCloud), or null.</summary>
+    /// <summary>The calendar view (made when Kalender is shown the first time), or null.</summary>
     public CalendarView? CalendarView => _calendar;
 
-    /// <summary>The people view (made when Personen is shown the first time with ThixCloud), or null.</summary>
+    /// <summary>The people view (made when Personen is shown the first time), or null.</summary>
     public PeopleView? PeopleView => _people;
 
-    /// <summary>The sign-in shown instead of a view while ThixMail has no ThixCloud account, or null.</summary>
-    public CloudSignInPanel? SignInPanel { get; private set; }
+    /// <summary>The bar that offers ThixCloud above Kalender and Personen (visible while ThixMail has no account and the person did not close it).</summary>
+    public Border CloudOffer => _cloudOffer ??= BuildCloudOffer();
 
-    /// <summary>Shows E-Mail, Kalender or Personen.</summary>
+    /// <summary>"Anmelden" of the offer (tests).</summary>
+    public Button? CloudOfferSignIn { get; private set; }
+
+    /// <summary>"Nicht mehr anzeigen" of the offer (tests).</summary>
+    public Button? CloudOfferClose { get; private set; }
+
+    /// <summary>True when the offer to sign in belongs above the view: the app has the cloud, no account, no policy against it, not closed by the person.</summary>
+    public bool OffersCloud => AppInfo.Definition.HasCloud && !AccessPolicy.IsCloudDisabled && !CloudService.HasAccount
+                               && SettingsService.AppValue(CloudOfferDismissed) != "true";
+
+    /// <summary>The window bound the ribbon: the tabs of the module shown.</summary>
+    public override void RibbonBound(OfficeWindow window) =>
+        window.RibbonBinding.ShowTabs(tab => MailRibbon.ModuleOf(tab.Id) == ActiveView, MailRibbon.HomeTabOf(ActiveView));
+
+    /// <summary>Shows E-Mail, Kalender or Personen – with its ribbon tabs, like Outlook.</summary>
     public void ShowView(MailArea view)
     {
         if (Gone)
@@ -64,52 +83,35 @@ public sealed partial class MailEditor
             return;
         }
 
+        var changed = ActiveView != view;
         ActiveView = view;
         Document.ViewName = ViewNameOf(view); // the title bar names the view (the window refreshes on the document's change)
         for (var i = 0; i < NavigationButtons.Count; i++)
         {
-            var button = NavigationButtons[i];
-            if ((MailArea)i == view)
-            {
-                button.Use(Button.BackgroundProperty, "Mat.AccentSoft");
-            }
-            else
-            {
-                button.ClearValue(Button.BackgroundProperty);
-            }
+            MarkNavButton(NavigationButtons[i], (MailArea)i == view);
         }
 
         var mail = view == MailArea.Mail;
         _folderPane.IsVisible = mail && ShowsFolderPane;
         _mainArea.IsVisible = mail;
         _viewHost.IsVisible = !mail;
-        var ribbon = _window.RibbonDefinition;
-        ribbon.HideContext(CalendarContext);
-        ribbon.HideContext(PeopleContext);
         if (!mail)
         {
-            var available = Document.Pim.IsAvailable;
-            _viewHost.Child = !available ? SignInFor(view) : view == MailArea.Calendar ? EnsureCalendar() : EnsurePeople();
-            if (available)
+            _viewContent.Child = !Document.Pim.IsAvailable ? Unavailable() : view == MailArea.Calendar ? EnsureCalendar() : EnsurePeople();
+            if (view == MailArea.Calendar)
             {
-                var context = view == MailArea.Calendar ? CalendarContext : PeopleContext;
-                ribbon.ShowContext(context);
-                _window.Ribbon.SelectTab($"{context}.home");
-                if (view == MailArea.Calendar)
-                {
-                    _calendar!.Refresh();
-                }
-                else
-                {
-                    _people!.Refresh();
-                }
+                _calendar?.Refresh();
+            }
+            else
+            {
+                _people?.Refresh();
             }
         }
-        else
-        {
-            _window.Ribbon.SelectTab("home");
-        }
 
+        UpdateCloudOffer();
+
+        // Outlook swaps the ribbon with the module; its Start tab comes up (staying in the same module keeps the chosen tab)
+        _window.RibbonBinding.ShowTabs(tab => MailRibbon.ModuleOf(tab.Id) == view, changed ? MailRibbon.HomeTabOf(view) : null);
         _window.Commands.Invalidate();
         UpdateStatus(_window.StatusBar);
         Ui.Post(FocusDocument);
@@ -123,18 +125,46 @@ public sealed partial class MailEditor
         _ => "E-Mail",
     };
 
+    /// <summary>A module of the navigation bar: its icon with its name under it (Outlook's modules at a glance), the key in the tooltip.</summary>
     private Button NavButton(string icon, string name, string shortcut, MailArea view, Thickness margin)
     {
-        var button = new Button { Content = new MatIcon { Icon = icon, Size = 20 }, Padding = new Thickness(10), Margin = margin }.Themed("MatButton.Ghost");
+        var label = new TextBlock { Text = name, FontSize = MatTokens.Type.FsXs, HorizontalAlignment = HorizontalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+        var content = new StackPanel { Spacing = 3, HorizontalAlignment = HorizontalAlignment.Center, Children = { new MatIcon { Icon = icon, Size = 20, HorizontalAlignment = HorizontalAlignment.Center }, label } };
+        var button = new Button
+        {
+            Content = content,
+            Padding = new Thickness(2, 8, 2, 6),
+            Margin = margin,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+        }.Themed("MatButton.Ghost");
         AutomationProperties.SetName(button, name);
         ToolTip.SetTip(button, Ui.Tooltip(name, shortcut));
         button.Click += (_, _) => ShowView(view);
-        if (view == MailArea.Mail)
+        MarkNavButton(button, view == MailArea.Mail);
+        return button;
+    }
+
+    /// <summary>The active module: the accent's soft tint behind it, its icon and name in the accent.</summary>
+    private static void MarkNavButton(Button button, bool active)
+    {
+        var content = (StackPanel)button.Content!;
+        var icon = (MatIcon)content.Children[0];
+        var label = (TextBlock)content.Children[1];
+        if (active)
         {
             button.Use(Button.BackgroundProperty, "Mat.AccentSoft");
+            icon.Use(MatIcon.ForegroundProperty, "Mat.Accent");
+            label.Use(TextBlock.ForegroundProperty, "Mat.Accent");
+            label.FontWeight = FontWeight.SemiBold;
         }
-
-        return button;
+        else
+        {
+            button.ClearValue(Button.BackgroundProperty);
+            icon.Use(MatIcon.ForegroundProperty, "Mat.TextMuted");
+            label.Use(TextBlock.ForegroundProperty, "Mat.TextMuted");
+            label.FontWeight = FontWeight.Normal;
+        }
     }
 
     private CalendarView EnsureCalendar()
@@ -174,34 +204,62 @@ public sealed partial class MailEditor
         return _people;
     }
 
-    /// <summary>Why the view needs ThixCloud, and the sign-in (the same panel as Einstellungen › Cloud).</summary>
-    private Control SignInFor(MailArea view)
+    /// <summary>
+    /// The offer above Kalender and Personen while ThixMail has no ThixCloud account: one slim line – what it brings, "Anmelden" (Einstellungen › Cloud)
+    /// and a close button that hides it for good (an app value; Einstellungen › Cloud stays).
+    /// </summary>
+    private Border BuildCloudOffer()
     {
-        var calendar = view == MailArea.Calendar;
-        SignInPanel = new CloudSignInPanel { IsCompact = true, MaxWidth = 460 };
-        var title = new TextBlock { Text = calendar ? "Der Kalender kommt aus der ThixCloud" : "Die Personen kommen aus der ThixCloud", HorizontalAlignment = HorizontalAlignment.Center }.Themed("MatText.SectionTitle");
         var text = new TextBlock
         {
-            Text = calendar
-                ? "ThixMail zeigt den Kalender Ihres ThixCloud-Kontos – dieselben Termine wie ThixCalendar auf allen Ihren Geräten. Melden Sie sich an, um ihn zu sehen und Einladungen zu beantworten. E-Mail funktioniert auch ohne."
-                : "ThixMail zeigt die Kontakte Ihres ThixCloud-Kontos – dieselben wie ThixContacts auf allen Ihren Geräten. Melden Sie sich an, um sie zu sehen und zu bearbeiten. E-Mail funktioniert auch ohne.",
+            Text = "Mit ThixCloud auf allen Geräten synchronisieren – Kalender und Kontakte sind jetzt nur auf diesem Computer.",
+            TextWrapping = TextWrapping.Wrap,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        CloudOfferSignIn = new Button { Content = new IconLabel { Icon = "login", Text = "Anmelden" }, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 4, 0) };
+        CloudOfferSignIn.Click += (_, _) => _window.ShowSettings(ThixOffice.Desktop.Pages.SettingsPage.CloudTab);
+        CloudOfferClose = new Button { Content = new MatIcon { Icon = "x", Size = 14 }, Padding = new Thickness(6), VerticalAlignment = VerticalAlignment.Center }.Themed("MatButton.Ghost");
+        AutomationProperties.SetName(CloudOfferClose, "Nicht mehr anzeigen");
+        ToolTip.SetTip(CloudOfferClose, "Nicht mehr anzeigen (Anmelden bleibt unter Datei › Einstellungen › Cloud)");
+        CloudOfferClose.Click += (_, _) =>
+        {
+            SettingsService.RememberAppValue(CloudOfferDismissed, "true");
+            UpdateCloudOffer();
+            FocusView();
+        };
+        var icon = new MatIcon { Icon = "cloud", Size = 18, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
+        icon.Use(MatIcon.ForegroundProperty, "Mat.Accent");
+        var row = new DockPanel();
+        DockPanel.SetDock(icon, Dock.Left);
+        DockPanel.SetDock(CloudOfferClose, Dock.Right);
+        DockPanel.SetDock(CloudOfferSignIn, Dock.Right);
+        row.Children.Add(icon);
+        row.Children.Add(CloudOfferClose);
+        row.Children.Add(CloudOfferSignIn);
+        row.Children.Add(text);
+        var bar = new Border { Child = row, Padding = new Thickness(14, 6, 8, 6), BorderThickness = new Thickness(0, 0, 0, 1), IsVisible = false };
+        bar.Use(Border.BackgroundProperty, "Mat.AccentSoft");
+        bar.Use(Border.BorderBrushProperty, "Mat.Border");
+        AutomationProperties.SetName(bar, "Mit ThixCloud synchronisieren");
+        return bar;
+    }
+
+    private void UpdateCloudOffer() => CloudOffer.IsVisible = OffersCloud && ActiveView != MailArea.Mail;
+
+    /// <summary>The disk refused the stores of the calendar and the people (never the case normally): say so instead of an empty view.</summary>
+    private static Control Unavailable()
+    {
+        var text = new TextBlock
+        {
+            Text = "Kalender und Kontakte konnten auf diesem Computer nicht geöffnet werden. Bitte starten Sie ThixMail neu.",
             TextWrapping = TextWrapping.Wrap,
             TextAlignment = TextAlignment.Center,
-            MaxWidth = 460,
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-        text.Use(TextBlock.ForegroundProperty, "Mat.TextMuted");
-        var panel = new StackPanel
-        {
-            Spacing = 12,
-            Margin = new Thickness(24),
+            MaxWidth = 420,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-            Children = { new MatIcon { Icon = calendar ? "calendar" : "users", Size = 40, HorizontalAlignment = HorizontalAlignment.Center }, title, text, SignInPanel },
         };
-        var host = new ScrollViewer { Content = panel };
-        host.Use(ScrollViewer.BackgroundProperty, "Mat.Bg");
-        return host;
+        text.Use(TextBlock.ForegroundProperty, "Mat.TextMuted");
+        return text;
     }
 
     private void FocusView()
@@ -210,7 +268,7 @@ public sealed partial class MailEditor
         {
             _calendar.Focus();
         }
-        else if (ActiveView == MailArea.People && _people is not null && Document.Pim.IsAvailable)
+        else if (ActiveView == MailArea.People && _people is not null)
         {
             _people.FocusList();
         }
@@ -241,7 +299,7 @@ public sealed partial class MailEditor
     {
         if (!Document.Pim.IsAvailable)
         {
-            statusBar.SetItem(CountItem, "Nicht bei der ThixCloud angemeldet");
+            statusBar.SetItem(CountItem, "");
             statusBar.SetItem(SyncItem, "", StatusBarSide.Right);
             return;
         }
@@ -256,7 +314,7 @@ public sealed partial class MailEditor
         if (_calendar is not null)
         {
             var count = _calendar.Shown.Count;
-            var text = count == 1 ? "1 Termin" : $"{count.ToString("N0", GermanCulture)} Termine";
+            var text = count == 0 ? "Keine Termine" : count == 1 ? "1 Termin" : $"{count.ToString("N0", GermanCulture)} Termine";
             if (_calendar.Selected is { } selected)
             {
                 text += $" · {selected.Title}";
@@ -270,7 +328,7 @@ public sealed partial class MailEditor
     /// <summary>The words of the status bar for the sync of the calendar or the people.</summary>
     public static string PimSyncText(SyncStatus status) => status.State switch
     {
-        SyncState.Off => CloudService.Status.State == CloudState.SignedOut ? "Abgemeldet – Änderungen warten" : "Nicht verbunden",
+        SyncState.Off => CloudService.Status.State == CloudState.SignedOut ? "Abgemeldet – Änderungen warten" : "Nur auf diesem Computer",
         SyncState.Syncing => "Wird synchronisiert …",
         SyncState.Idle when status.Pending > 0 => $"{status.Pending} Änderungen warten",
         SyncState.Idle => "Mit der ThixCloud synchronisiert",
@@ -282,7 +340,11 @@ public sealed partial class MailEditor
 
     private void AttachViews()
     {
-        _wasAvailable = Document.Pim.IsAvailable;
+        DockPanel.SetDock(CloudOffer, Dock.Top);
+        _viewDock.Children.Add(CloudOffer);
+        _viewDock.Children.Add(_viewContent);
+        _viewHost.Child = _viewDock;
+        _wasAccountData = Document.Pim.IsAccountData;
         Document.Pim.Changed += OnPimChanged;
         Document.Pim.SyncStatusChanged += OnPimSyncStatusChanged;
         CloudService.StatusChanged += OnCloudChanged;
@@ -295,7 +357,7 @@ public sealed partial class MailEditor
         CloudService.StatusChanged -= OnCloudChanged;
     }
 
-    /// <summary>The calendar or the people changed (here, by the sync, or another account came in).</summary>
+    /// <summary>The calendar or the people changed (here, by the sync, by ThixContacts, or another account came in).</summary>
     private void OnPimChanged(object? sender, EventArgs e) => Ui.Post(() =>
     {
         if (Gone)
@@ -303,10 +365,9 @@ public sealed partial class MailEditor
             return;
         }
 
-        var available = Document.Pim.IsAvailable;
-        if (available != _wasAvailable)
+        if (Document.Pim.IsAccountData != _wasAccountData)
         {
-            _wasAvailable = available;
+            _wasAccountData = Document.Pim.IsAccountData;
             if (ActiveView != MailArea.Mail)
             {
                 ShowView(ActiveView);
@@ -334,7 +395,7 @@ public sealed partial class MailEditor
         }
     }
 
-    /// <summary>Signed in or out: the account's calendar and people come in (or go).</summary>
+    /// <summary>Signed in or out: the account's calendar and people come in (or this computer's again).</summary>
     private void OnCloudChanged(object? sender, CloudStatus status) => Ui.Post(async () =>
     {
         if (Gone || status.State == CloudState.Connecting)
@@ -360,19 +421,23 @@ public sealed partial class MailEditor
             _window.ShowMessage(exception.Message, InfoSeverity.Error, isClosable: true);
         }
 
-        if (!Gone && Document.Pim.IsAvailable != _wasAvailable)
+        if (!Gone)
         {
-            _wasAvailable = Document.Pim.IsAvailable;
+            _wasAccountData = Document.Pim.IsAccountData;
             if (ActiveView != MailArea.Mail)
             {
                 ShowView(ActiveView);
+            }
+            else
+            {
+                UpdateCloudOffer();
             }
         }
     });
 
     // ===== invitations in the reading pane =====
 
-    /// <summary>The bar of an invitation for the message shown (its state in the calendar of the ThixCloud account).</summary>
+    /// <summary>The bar of an invitation for the message shown (its state in the calendar).</summary>
     private void ShowInvitationOf(ThixMail.Core.Mime.ReadMail mail, ThixMail.Core.Model.MessageHeader header) =>
         Reader.ShowInvitation(ThixMail.Core.MailInvitations.View(Document, mail, header.AccountId));
 

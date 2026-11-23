@@ -27,5 +27,9 @@ public static class ThixContactsApp
         Kind = OfficeAppKind.Workspace,
         UntitledBaseName = "Kontakte",
         CloudAppId = MatCloud.Contract.CloudApps.Contacts, // the contacts in the general sync of the account
+        CloudPurpose = "Ihre Kontakte auf allen Geräten abzugleichen – mit ThixMail und im Browser",
+        CloudIntro = "Mit ThixCloud gleicht ThixContacts Ihre Kontakte und Kontaktgruppen zwischen Ihren Computern ab – dieselben wie in ThixMail und im Browser. " +
+                     "Ohne Anmeldung sind die Kontakte nur auf diesem Computer (ThixMail zeigt dieselben).",
+        CloudSignedInText = "Angemeldet. Ihre Kontakte werden jetzt abgeglichen – die Kontakte dieses Computers kommen dazu.",
     };
 }

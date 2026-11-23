@@ -7,6 +7,7 @@ public static class MailCommandIds
     public const string CreateRule = "mail.rules.create";
     public const string ManageRules = "mail.rules.manage";
     public const string RunRules = "mail.rules.run";
+    public const string RulesMenu = "mail.rules.menu";
 
     // Start
     public const string NewMail = "mail.new";

@@ -29,23 +29,6 @@ public sealed class EmbeddingTests
     }
 
     [Fact]
-    public async Task Without_ThixCloud_there_is_no_calendar_and_no_people_and_mail_works()
-    {
-        using var data = new TestData();
-        var document = new MailDocument("E-Mail");
-        try
-        {
-            Assert.False(document.Pim.IsAvailable);
-            Assert.Null(document.Pim.Calendar);
-            await Assert.ThrowsAsync<BusinessException>(document.Pim.SyncNowAsync);
-        }
-        finally
-        {
-            await document.CloseAsync();
-        }
-    }
-
-    [Fact]
     public async Task A_contact_made_in_ThixMail_arrives_in_ThixContacts_model_on_another_computer_and_back()
     {
         using var data = new TestData();

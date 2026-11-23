@@ -44,13 +44,108 @@ public sealed class PimStore : SqliteDatabase
         """,
     ];
 
+    private Timer? _watch;
+    private long _seenVersion;
+    private int _checking;
+
     private PimStore(string path)
         : base(path, Migrations, "Die Kontakte auf diesem Computer stammen von einer neueren Version. Bitte aktualisieren Sie die App.")
     {
+        _seenVersion = DataVersion;
     }
 
-    /// <summary>Raised after the sync wrote items that came from the cloud (the collections it touched); any thread.</summary>
+    /// <summary>
+    /// Raised after items came from elsewhere: the sync wrote what came from the cloud (the collections it touched), or another process changed the file
+    /// (<see cref="CheckForOtherChanges"/>: every collection); any thread. The views read the store again.
+    /// </summary>
     public event EventHandler<IReadOnlyCollection<string>>? RemoteChanged;
+
+    /// <summary>Another process (or another store object on the same file) committed changes – a sync of this store takes up their dirty items. Any thread.</summary>
+    public event EventHandler? ExternalChanged;
+
+    /// <summary>
+    /// Looks for changes of another process on the same file every <paramref name="interval"/> (default 2 s) – ThixMail and ThixContacts share the
+    /// contacts of this computer. Once; ends with the store.
+    /// </summary>
+    public void WatchOtherProcesses(TimeSpan? interval = null)
+    {
+        var every = interval ?? TimeSpan.FromSeconds(2);
+        lock (Gate)
+        {
+            if (_watch is not null || IsDisposed || Path == ":memory:")
+            {
+                return;
+            }
+
+            _watch = new Timer(_ => CheckForOtherChanges(), null, every, every);
+        }
+    }
+
+    /// <summary>
+    /// True (and <see cref="RemoteChanged"/> + <see cref="ExternalChanged"/> raised) when another connection committed since the last look – the watch
+    /// calls it, an app may call it when its window comes to the front.
+    /// </summary>
+    public bool CheckForOtherChanges()
+    {
+        if (Interlocked.Exchange(ref _checking, 1) == 1)
+        {
+            return false;
+        }
+
+        try
+        {
+            IReadOnlyCollection<string> collections;
+            lock (Gate)
+            {
+                if (IsDisposed)
+                {
+                    return false;
+                }
+
+                var version = DataVersion;
+                if (version == _seenVersion)
+                {
+                    return false;
+                }
+
+                _seenVersion = version;
+                using var command = Command("SELECT DISTINCT Collection FROM Item");
+                using var reader = command.ExecuteReader();
+                var names = new List<string>();
+                while (reader.Read())
+                {
+                    names.Add(reader.GetString(0));
+                }
+
+                collections = names;
+            }
+
+            RemoteChanged?.Invoke(this, collections);
+            ExternalChanged?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+        catch (SqliteException exception)
+        {
+            ThixOffice.Core.Infrastructure.Log.Warning($"The store could not be checked for changes of another app: {exception.SqliteErrorCode}");
+            return false;
+        }
+        finally
+        {
+            Volatile.Write(ref _checking, 0);
+        }
+    }
+
+    protected override void OnDisposing()
+    {
+        Timer? watch;
+        lock (Gate)
+        {
+            watch = _watch;
+            _watch = null;
+        }
+
+        watch?.Dispose();
+    }
 
     /// <summary>The version a store has after every migration of this build.</summary>
     public static int CurrentVersion => Migrations.Count;
@@ -105,6 +200,101 @@ public sealed class PimStore : SqliteDatabase
             }
 
             transaction.Commit();
+        }
+    }
+
+    /// <summary>Every item of every collection (tombstones only when asked for).</summary>
+    public IReadOnlyList<StoredItem> AllItems(bool withDeleted = false)
+    {
+        lock (Gate)
+        {
+            using var command = Command("SELECT Collection, Key, Data, UpdatedAt, IsDeleted, IsDirty, Revision FROM Item" + (withDeleted ? "" : " WHERE IsDeleted = 0"));
+            return ReadItems(command);
+        }
+    }
+
+    /// <summary>
+    /// Items of another store taken over as changes of this computer that KEEP their time (<see cref="StoredItem.UpdatedAt"/>): what came from elsewhere is
+    /// not newer than it was – the cloud's last-writer rule still sees the real order. One transaction.
+    /// </summary>
+    public void Import(IEnumerable<StoredItem> items)
+    {
+        lock (Gate)
+        {
+            using var transaction = Connection.BeginTransaction();
+            foreach (var item in items)
+            {
+                InsertDirty(item, transaction);
+            }
+
+            transaction.Commit();
+        }
+    }
+
+    /// <summary>
+    /// Replaces every item and picture with <paramref name="items"/> and <paramref name="photos"/> (each item a change of this computer with its time), in
+    /// ONE transaction – the file stays (another process may have it open; it sees the new content as a change). The meta values stay.
+    /// </summary>
+    public void ReplaceContent(IEnumerable<StoredItem> items, IEnumerable<(string Id, byte[] Bytes)> photos)
+    {
+        lock (Gate)
+        {
+            using var transaction = Connection.BeginTransaction();
+            using (var clear = Command("DELETE FROM Item; DELETE FROM Photo;"))
+            {
+                clear.Transaction = transaction;
+                clear.ExecuteNonQuery();
+            }
+
+            foreach (var item in items)
+            {
+                InsertDirty(item, transaction);
+            }
+
+            foreach (var (id, bytes) in photos)
+            {
+                using var command = Command("INSERT OR IGNORE INTO Photo (Id, Bytes, IsUploaded) VALUES ($i, $b, 0)");
+                command.Transaction = transaction;
+                command.Parameters.AddWithValue("$i", id);
+                command.Parameters.AddWithValue("$b", bytes);
+                command.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+        }
+
+        RemoteChanged?.Invoke(this, [.. AllItems().Select(i => i.Collection).Distinct()]);
+    }
+
+    private void InsertDirty(StoredItem item, SqliteTransaction transaction)
+    {
+        using var command = Command("""
+            INSERT INTO Item (Collection, Key, Data, UpdatedAt, IsDeleted, IsDirty, Revision) VALUES ($c, $k, $d, $u, $x, 1, 0)
+            ON CONFLICT (Collection, Key) DO UPDATE SET Data = $d, UpdatedAt = $u, IsDeleted = $x, IsDirty = 1
+            """);
+        command.Transaction = transaction;
+        command.Parameters.AddWithValue("$c", item.Collection);
+        command.Parameters.AddWithValue("$k", item.Key);
+        command.Parameters.AddWithValue("$d", item.IsDeleted ? DBNull.Value : (object?)item.Data ?? DBNull.Value);
+        command.Parameters.AddWithValue("$u", item.UpdatedAt.ToUnixTimeMilliseconds());
+        command.Parameters.AddWithValue("$x", item.IsDeleted || item.Data is null ? 1 : 0);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Every picture (id and bytes).</summary>
+    public IReadOnlyList<(string Id, byte[] Bytes)> AllPhotos()
+    {
+        lock (Gate)
+        {
+            using var command = Command("SELECT Id, Bytes FROM Photo");
+            using var reader = command.ExecuteReader();
+            var photos = new List<(string, byte[])>();
+            while (reader.Read())
+            {
+                photos.Add((reader.GetString(0), (byte[])reader.GetValue(1)));
+            }
+
+            return photos;
         }
     }
 

@@ -33,5 +33,10 @@ public static class ThixMailApp
         ShowsNotifications = true,
         UntitledBaseName = "E-Mail",
         CloudAppId = MatCloud.Contract.CloudApps.Mail,
+        CloudPurpose = "Ihren Kalender, Ihre Kontakte und Ihre E-Mail-Einstellungen auf allen Geräten abzugleichen – mit ThixCalendar und ThixContacts",
+        CloudIntro = "Mit ThixCloud gleicht ThixMail Ihren Kalender, Ihre Kontakte und Ihre E-Mail-Einstellungen (Konten ohne Kennwörter, Signaturen, Regeln, " +
+                     "Vorlagen, Kategorien) zwischen Ihren Computern ab – dieselben Termine wie ThixCalendar, dieselben Kontakte wie ThixContacts. Ohne Anmeldung " +
+                     "arbeitet ThixMail nur auf diesem Computer; Ihre E-Mails liegen nie in der ThixCloud.",
+        CloudSignedInText = "Angemeldet. Kalender, Kontakte und Einstellungen werden jetzt abgeglichen – was bisher nur auf diesem Computer war, kommt dazu.",
     };
 }

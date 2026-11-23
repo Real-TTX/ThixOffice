@@ -88,6 +88,7 @@ public sealed partial class MailEditor : OfficeEditor
         var people = NavButton("users", "Personen", "Ctrl+3", MailArea.People, new Thickness(4, 2));
         NavigationButtons = [MailNavButton, calendar, people];
         _rail.Child = new StackPanel { Children = { MailNavButton, calendar, people } };
+        _rail.Width = 72; // room for the names under the icons
         _rail.Use(Border.BackgroundProperty, "Mat.NavBg");
         _rail.Use(Border.BorderBrushProperty, "Mat.Border");
         _rail.BorderThickness = new Thickness(0, 0, 1, 0);

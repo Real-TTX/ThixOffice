@@ -146,6 +146,42 @@ public sealed class CalendarBook : IDisposable
         return Find(saved.Key) ?? saved;
     }
 
+    /// <summary>
+    /// Saves many appointments of one own calendar at once (an .ics import): each checked like <see cref="Save"/> – one that fails the checks is left out –,
+    /// all written in one transaction. Answers the saved ones.
+    /// </summary>
+    public IReadOnlyList<CalendarAppointment> SaveAll(IEnumerable<CalendarAppointment> appointments)
+    {
+        var saved = new List<CalendarAppointment>();
+        foreach (var appointment in appointments)
+        {
+            if (Calendar(appointment.CalendarKey) is not { IsOwn: true } || (appointment.Key.Length > 0 && Find(appointment.Key) is { IsReadOnly: true }))
+            {
+                continue;
+            }
+
+            var normalized = Normalize(appointment);
+            try
+            {
+                Validate(normalized);
+            }
+            catch (BusinessException)
+            {
+                continue;
+            }
+
+            saved.Add(normalized with { Key = normalized.Key.Length > 0 ? normalized.Key : NewKey(), IsReadOnly = false });
+        }
+
+        if (saved.Count > 0)
+        {
+            Store.Write(saved.Select(appointment => (CalendarContract.Events, appointment.Key, (string?)CalendarItems.Serialize(appointment))));
+            Invalidate(local: true);
+        }
+
+        return saved;
+    }
+
     /// <summary>Deletes an appointment of an own calendar (a tombstone goes up). False when there is none with the key.</summary>
     public bool Delete(string key)
     {

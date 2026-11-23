@@ -271,7 +271,7 @@ public static class Invitations
     }
 
     /// <summary>An iCalendar duration ("PT1H30M", "P1D").</summary>
-    private static TimeSpan? Duration(string text)
+    internal static TimeSpan? Duration(string text)
     {
         var value = text.Trim().ToUpperInvariant();
         var negative = value.StartsWith('-');

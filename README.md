@@ -342,7 +342,10 @@ dem Mailserver und – zum Lesen ohne Verbindung – auf diesem Computer, **nie 
 - **Kalender und Personen** in demselben Fenster (Navigationsleiste links, Strg+1/2/3): der Kalender Ihres ThixCloud-Kontos – dieselben Termine wie
   ThixCalendar – als Tag, Arbeitswoche, Woche oder Monat, Termine anlegen, ändern und löschen, **Besprechungen** mit Einladungen per E-Mail; die
   Kontakte Ihres Kontos mit derselben Ansicht wie ThixContacts (Ordner, Liste mit Suche und Alphabet, Karte, Gruppen, Kategorien, Dubletten,
-  Import/Export). Ohne Anmeldung erklären beide Ansichten, dass sie die ThixCloud brauchen, und bieten die Anmeldung an – E-Mail geht auch ohne.
+  Import/Export). **Ohne Anmeldung arbeiten beide lokal wie in Outlook:** die Personen sind dasselbe Adressbuch wie in ThixContacts auf diesem
+  Computer, der Kalender liegt in ThixMail (Import und Export als .ics); eine schmale Leiste bietet die ThixCloud an. Nach der Anmeldung wandert
+  das Lokale ohne Doppeltes ins Konto. Jedes Modul hat sein eigenes Menüband (E-Mail, Kalender, Personen); Strg+Umschalt+M/A/Q/C legt aus jedem
+  Modul eine neue E-Mail, einen Termin, eine Besprechung oder einen Kontakt an.
 - **Einladungen** in E-Mails: eine Leiste mit Zeit, Ort, Organisator und den Überschneidungen in Ihrem Kalender; **Zusagen**, **Mit Vorbehalt** oder
   **Absagen** trägt den Termin ein (oder nimmt ihn heraus) und schickt dem Organisator die Antwort. Absender werden mit einem Klick zu Kontakten.
 - **Benachrichtigung** bei neuer E-Mail (solange ThixMail nicht vorn ist) als Windows-Benachrichtigung im Info-Center bzw. in der Mitteilungszentrale

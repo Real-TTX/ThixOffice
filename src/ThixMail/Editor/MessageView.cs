@@ -212,7 +212,7 @@ public sealed class MessageView : UserControl
 
         if (!view.HasCalendar)
         {
-            _invitationContent.Children.Add(Line("Der Kalender ist nicht verbunden: melden Sie sich bei der ThixCloud an, damit Antworten den Termin eintragen.", "Mat.TextMuted"));
+            _invitationContent.Children.Add(Line("Der Kalender konnte nicht geöffnet werden: eine Antwort geht an den Organisator, der Termin wird nicht eingetragen.", "Mat.WarningText"));
         }
         else if (view.Entered is { } entered)
         {

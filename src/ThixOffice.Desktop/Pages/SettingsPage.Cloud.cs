@@ -24,7 +24,7 @@ public partial class SettingsPage
     {
         CloudSignIn.SignedIn += (_, _) =>
         {
-            CloudMessage.Show($"Angemeldet. Ihre Dokumente in ThixDrive öffnen Sie unter Datei › Öffnen › ThixDrive.", InfoSeverity.Success);
+            CloudMessage.Show(AppInfo.Definition.CloudSignedInText ?? "Angemeldet. Ihre Dokumente in ThixDrive öffnen Sie unter Datei › Öffnen › ThixDrive.", InfoSeverity.Success);
             LoadCloud();
         };
         CloudService.StatusChanged += OnCloudStatusChanged;
@@ -42,7 +42,8 @@ public partial class SettingsPage
             return;
         }
 
-        CloudIntro.Text = $"Mit ThixCloud öffnen und speichern Sie Ihre Dokumente in ThixDrive – auf jedem Computer, in {definition.Name} und im Browser. " +
+        CloudIntro.Text = definition.CloudIntro ??
+                          $"Mit ThixCloud öffnen und speichern Sie Ihre Dokumente in ThixDrive – auf jedem Computer, in {definition.Name} und im Browser. " +
                           "Was Sie dort speichern, liegt zusätzlich als Arbeitskopie auf diesem Computer: Ohne Verbindung geht nichts verloren, es wird später hochgeladen.";
         var connected = CloudService.IsConnected;
         CloudSignIn.IsVisible = !connected;

@@ -33,6 +33,26 @@ public static class AppPaths
 
     public static string LogDirectory => Path.Combine(DataDirectory, "logs");
 
+    /// <summary>
+    /// The data folder of ANOTHER app of the suite whose data this app shares on this computer (ThixMail keeps its contacts in ThixContacts' folder: one
+    /// address book). A test folder, the other app's &lt;APP&gt;_DATA_DIR, or – when this app runs as an instance of its own (its own override) – this
+    /// app's folder, so a development or snapshot run never meets the installed apps' data.
+    /// </summary>
+    public static string DataDirectoryOf(Models.OfficeAppDefinition other)
+    {
+        if (_dataDirectoryForTests is not null)
+        {
+            return _dataDirectoryForTests;
+        }
+
+        if (Environment.GetEnvironmentVariable(other.DataDirectoryVariable) is { Length: > 0 } folder && !string.IsNullOrWhiteSpace(folder))
+        {
+            return folder;
+        }
+
+        return Override() ?? Path.Combine(UserFolder(), other.Name);
+    }
+
     /// <summary>True when a developer or a test pointed the app to its own folder: it is then its own instance.</summary>
     public static bool HasOverride => _dataDirectoryForTests is not null || Override() is not null;
 

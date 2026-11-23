@@ -7,12 +7,16 @@ namespace ThixOffice.Pim.Desktop.People;
 
 /// <summary>
 /// The ribbon of Outlook's "Personen": Start (Neu, Löschen, Kommunizieren, Kategorien, Suchen, Synchronisieren) | Ordner (Kontaktgruppen, Mitglieder,
-/// Aufräumen, Importieren/Exportieren) | Ansicht (Anzeigen, Sortieren, Layout). ThixContacts' whole ribbon (<see cref="Create"/>), and ThixMail's
-/// contextual tabs while its view "Personen" is active (<see cref="Tabs"/>). Every item's id is a command id (<see cref="ContactsCommandIds"/>); labels,
-/// icons, shortcuts and tooltips come from the commands; items whose command the window lacks (Drucken, Synchronisieren) are left out by the binding.
+/// Aufräumen, Importieren/Exportieren) | Ansicht (Anzeigen, Sortieren, Layout). ThixContacts' whole ribbon (<see cref="Create"/>), and the tabs of
+/// ThixMail's module "Personen" (<see cref="Tabs"/> with a prefix: the window shows them instead of the mail tabs while Personen is active, like Outlook).
+/// Every item's id is a command id (<see cref="ContactsCommandIds"/>); labels, icons, shortcuts and tooltips come from the commands; items whose command
+/// the window lacks (Drucken, Besprechung) are left out by the binding.
 /// </summary>
 public static class PeopleRibbon
 {
+    /// <summary>"Besprechung" with the selected people: a command only a host with a calendar registers (ThixMail).</summary>
+    public const string MeetingCommandId = "contacts.meeting";
+
     public static MatRibbonDefinition Create(OfficeWindow window)
     {
         var definition = new MatRibbonDefinition { FileLabel = "Datei" };
@@ -21,59 +25,63 @@ public static class PeopleRibbon
     }
 
     /// <summary>
-    /// The three tabs. <paramref name="context"/>: contextual tabs (ThixMail), their ids prefixed with it and labelled "Personen", "Kontaktgruppen",
-    /// "Personenansicht", without the items the host's own tabs have already (Rückgängig, Menüband).
+    /// The three tabs Start | Ordner | Ansicht. <paramref name="prefix"/>: hosted in another app's window (ThixMail) – tab and group ids prefixed with it,
+    /// without what the host has elsewhere (Rückgängig/Wiederholen in the quick access, Synchronisieren automatic and on F9, Menüband in the host's own
+    /// group).
     /// </summary>
-    public static IReadOnlyList<MatRibbonTab> Tabs(string? context = null)
+    public static IReadOnlyList<MatRibbonTab> Tabs(string? prefix = null)
     {
-        var hosted = context is not null;
-        var home = new MatRibbonTab(Id("home"), hosted ? "Personen" : "Start") { Context = context }.Add(
-            new MatRibbonGroup("new", "Neu") { Icon = "plus" }.Add(
+        var hosted = prefix is not null;
+        var home = new MatRibbonTab(Id("home"), "Start").Add(
+            new MatRibbonGroup(Id("new"), "Neu") { Icon = "plus", ShrinkOrder = 9 }.Add(
                 Button(ContactsCommandIds.New, MatRibbonSize.Large),
                 Button(ContactsCommandIds.NewGroup, MatRibbonSize.Large)),
             hosted
-                ? new MatRibbonGroup("delete", "Löschen") { Icon = "trash", ShrinkOrder = 3 }.Add(Button(ContactsCommandIds.Delete, MatRibbonSize.Large))
-                : new MatRibbonGroup("delete", "Löschen") { Icon = "trash", ShrinkOrder = 3 }.Add(
+                ? new MatRibbonGroup(Id("delete"), "Löschen") { Icon = "trash", ShrinkOrder = 3 }.Add(Button(ContactsCommandIds.Delete, MatRibbonSize.Large))
+                : new MatRibbonGroup(Id("delete"), "Löschen") { Icon = "trash", ShrinkOrder = 3 }.Add(
                     Button(ContactsCommandIds.Delete, MatRibbonSize.Large),
                     Button(CommonCommandIds.Undo, MatRibbonSize.Small),
                     Button(CommonCommandIds.Redo, MatRibbonSize.Small)),
-            new MatRibbonGroup("communicate", "Kommunizieren") { Icon = "mail", ShrinkOrder = 2 }.Add(
+            new MatRibbonGroup(Id("communicate"), "Kommunizieren") { Icon = "mail", ShrinkOrder = 2 }.Add(
                 Button(ContactsCommandIds.Email, MatRibbonSize.Large),
+                Button(MeetingCommandId, MatRibbonSize.Large),
                 Button(ContactsCommandIds.Edit),
                 Button(ContactsCommandIds.Merge)),
-            new MatRibbonGroup("tags", "Kategorien") { Icon = "tag", ShrinkOrder = 1 }.Add(
-                new MatRibbonMenuButton("contacts.categorizeMenu", "Kategorisieren", "tag",
+            new MatRibbonGroup(Id("tags"), "Kategorien") { Icon = "tag", ShrinkOrder = 1 }.Add(
+                new MatRibbonMenuButton(hosted ? $"{prefix}.categorizeMenu" : "contacts.categorizeMenu", "Kategorisieren", "tag",
                     Button(ContactsCommandIds.Categorize), Button(ContactsCommandIds.Uncategorize), Button(ContactsCommandIds.ClearCategories)) { Size = MatRibbonSize.Large },
                 Toggle(ContactsCommandIds.Favorite, size: MatRibbonSize.Large)),
-            new MatRibbonGroup("find", "Suchen") { Icon = "search", ShrinkOrder = 4 }.Add(
-                Button(ContactsCommandIds.Search, MatRibbonSize.Large)),
-            new MatRibbonGroup("sync", "ThixCloud") { Icon = "refresh", ShrinkOrder = 5 }.Add(
-                Button(ContactsCommandIds.Sync, MatRibbonSize.Large)));
+            new MatRibbonGroup(Id("find"), "Suchen") { Icon = "search", ShrinkOrder = 4 }.Add(
+                Button(ContactsCommandIds.Search, MatRibbonSize.Large)));
+        if (!hosted)
+        {
+            home.Add(new MatRibbonGroup("sync", "ThixCloud") { Icon = "refresh", ShrinkOrder = 5 }.Add(Button(ContactsCommandIds.Sync, MatRibbonSize.Large)));
+        }
 
-        var folder = new MatRibbonTab(Id("folder"), hosted ? "Kontaktgruppen" : "Ordner") { Context = context }.Add(
-            new MatRibbonGroup("groups", "Kontaktgruppen") { Icon = "users" }.Add(
+        var folder = new MatRibbonTab(Id("folder"), "Ordner").Add(
+            new MatRibbonGroup(Id("groups"), "Kontaktgruppen") { Icon = "users" }.Add(
                 Button(ContactsCommandIds.RenameGroup, MatRibbonSize.Large),
                 Button(ContactsCommandIds.DeleteGroup)),
-            new MatRibbonGroup("members", "Mitglieder") { Icon = "user-circle" }.Add(
+            new MatRibbonGroup(Id("members"), "Mitglieder") { Icon = "user-circle" }.Add(
                 Button(ContactsCommandIds.AddMembers, MatRibbonSize.Large),
                 Button(ContactsCommandIds.RemoveMembers),
                 Button(ContactsCommandIds.EmailGroup)),
-            new MatRibbonGroup("tidy", "Aufräumen") { Icon = "copy" }.Add(
+            new MatRibbonGroup(Id("tidy"), "Aufräumen") { Icon = "copy" }.Add(
                 Button(ContactsCommandIds.Duplicates, MatRibbonSize.Large)),
-            new MatRibbonGroup("transfer", "Importieren/Exportieren") { Icon = "upload" }.Add(
+            new MatRibbonGroup(Id("transfer"), "Importieren/Exportieren") { Icon = "upload" }.Add(
                 Button(ContactsCommandIds.Import, MatRibbonSize.Large),
                 Button(ContactsCommandIds.Export, MatRibbonSize.Large),
                 Button(ContactsCommandIds.Print)));
 
-        var layout = new MatRibbonGroup("layout", "Layout") { Icon = "sidebar" }.Add(
+        var layout = new MatRibbonGroup(Id("layout"), "Layout") { Icon = "sidebar" }.Add(
             Toggle(ContactsCommandIds.ShowFolders, size: MatRibbonSize.Large),
             Toggle(ContactsCommandIds.ShowCard, size: MatRibbonSize.Large),
             Toggle(ContactsCommandIds.ShowIndex, size: MatRibbonSize.Large));
-        var view = new MatRibbonTab(Id("view"), hosted ? "Personenansicht" : "Ansicht") { Context = context }.Add(
-            new MatRibbonGroup("show", "Anzeigen") { Icon = "users" }.Add(
+        var view = new MatRibbonTab(Id("view"), "Ansicht").Add(
+            new MatRibbonGroup(Id("show"), "Anzeigen") { Icon = "users" }.Add(
                 Toggle(ContactsCommandIds.ShowAll, "show", MatRibbonSize.Large),
                 Toggle(ContactsCommandIds.ShowFavorites, "show", MatRibbonSize.Large)),
-            new MatRibbonGroup("sort", "Sortieren nach") { Icon = "sort" }.Add(
+            new MatRibbonGroup(Id("sort"), "Sortieren nach") { Icon = "sort" }.Add(
                 Toggle(ContactsCommandIds.SortGiven, "sort"),
                 Toggle(ContactsCommandIds.SortFamily, "sort"),
                 Toggle(ContactsCommandIds.SortCompany, "sort")),
@@ -85,6 +93,6 @@ public static class PeopleRibbon
 
         return [home, folder, view];
 
-        string Id(string id) => context is null ? id : $"{context}.{id}";
+        string Id(string id) => prefix is null ? id : $"{prefix}.{id}";
     }
 }

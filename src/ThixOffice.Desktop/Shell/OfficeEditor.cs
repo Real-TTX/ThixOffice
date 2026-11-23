@@ -74,6 +74,14 @@ public abstract class OfficeEditor
     {
     }
 
+    /// <summary>
+    /// The window bound its ribbon (the editor is made before the ribbon): an editor whose app shows the tabs of one module at a time (ThixMail: E-Mail,
+    /// Kalender, Personen) chooses them here through <see cref="OfficeRibbonBinding.ShowTabs"/>.
+    /// </summary>
+    public virtual void RibbonBound(OfficeWindow window)
+    {
+    }
+
     /// <summary>The window lets go of this editor (another document came in its place): unsubscribe from the document.</summary>
     public virtual void Detach()
     {

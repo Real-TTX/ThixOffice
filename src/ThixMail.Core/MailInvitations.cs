@@ -48,7 +48,7 @@ public static class MailInvitations
 
     /// <summary>
     /// Answers an invitation: Zusagen / Mit Vorbehalt write the appointment into the first own calendar (made when there is none), Absagen removes it; the
-    /// REPLY goes to the organizer (through the outbox, also offline). Without ThixCloud only the answer is sent.
+    /// REPLY goes to the organizer (through the outbox, also offline). With or without ThixCloud: the calendar is this computer's or the account's.
     /// </summary>
     public static CalendarAppointment? Answer(MailDocument document, InvitationView view, InvitationAnswer answer)
     {
@@ -107,7 +107,7 @@ public static class MailInvitations
     /// </summary>
     public static CalendarAppointment SendMeeting(MailDocument document, CalendarAppointment appointment, IReadOnlyList<MailAddress> attendees, MailAccount account)
     {
-        var book = document.Pim.Calendar ?? throw new BusinessException("Der Kalender braucht eine Anmeldung bei der ThixCloud (Datei › Einstellungen › Cloud).");
+        var book = document.Pim.Calendar ?? throw new BusinessException("Der Kalender konnte auf diesem Computer nicht geöffnet werden.");
         if (attendees.Count == 0)
         {
             throw new BusinessException("Bitte geben Sie mindestens einen Teilnehmer an.", "Attendees");
@@ -155,7 +155,7 @@ public static class MailInvitations
     /// <summary>Deletes an appointment; a meeting this computer sent is called off first (CANCEL to its participants, from <paramref name="account"/>).</summary>
     public static void DeleteAppointment(MailDocument document, string key, MailAccount? account)
     {
-        var book = document.Pim.Calendar ?? throw new BusinessException("Der Kalender braucht eine Anmeldung bei der ThixCloud.");
+        var book = document.Pim.Calendar ?? throw new BusinessException("Der Kalender konnte auf diesem Computer nicht geöffnet werden.");
         if (book.MeetingOf(key) is { Attendees.Count: > 0 } meeting && account is not null)
         {
             var text = $"Abgesagt: {meeting.Summary}\n{When(meeting)}";

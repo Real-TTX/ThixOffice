@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using MatDesktop;
@@ -44,17 +45,66 @@ public partial class App : OfficeApplication
     public const string CalendarMonthScene = "main-calendar-month";
     public const string PeopleScene = "main-people";
     public const string InvitationScene = "main-invitation";
-    public const string CalendarSignInScene = "main-calendar-signin";
+    public const string PeopleEmptyScene = "main-people-empty";
+    public const string CalendarLocalScene = "main-calendar-local";
+    public const string PeopleLocalScene = "main-people-local";
+    public const string NewItemsScene = "main-new-items";
     public const string AppointmentScene = "dialog-appointment";
     public const string ReminderScene = "reminder";
     public const string CalendarPrintScene = "backstage-print-calendar";
+    public const string NarrowScene = "main-narrow";
+    public const string WideScene = "main-wide";
+    public const string CalendarWideScene = "main-calendar-wide";
+    public const string WelcomeScene = "main-welcome";
+    public const string SignOutScene = "dialog-sign-out";
 
     private MatTray? _tray;
     private bool _quitting;
 
     public override OfficeAppDefinition Definition => ThixMailApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [ConversationScene, NewsletterScene, ComposeScene, AccountScene, BrowserSignInScene, NoClientScene, AttachmentsScene, OfflineScene, SignaturesScene, CalendarSignInScene, CalendarScene, CalendarMonthScene, AppointmentScene, ReminderScene, CalendarPrintScene, PeopleScene, InvitationScene];
+    /// <summary>
+    /// The scenes in their order: the mail; Kalender and Personen of this computer first (empty, then with the sample – the offer of ThixCloud above them),
+    /// then signed in at the sample cloud (the local data went into the account), the window narrow and wide, and last the first start without an account.
+    /// </summary>
+    public override IReadOnlyList<string> SnapshotScenes =>
+    [
+        ConversationScene, NewsletterScene, ComposeScene, AccountScene, BrowserSignInScene, NoClientScene, AttachmentsScene, OfflineScene, SignaturesScene,
+        NewItemsScene, PeopleEmptyScene, CalendarLocalScene, PeopleLocalScene, CalendarScene, CalendarMonthScene, AppointmentScene, ReminderScene,
+        CalendarPrintScene, PeopleScene, InvitationScene, NarrowScene, WideScene, CalendarWideScene, SignOutScene, WelcomeScene,
+    ];
+
+    /// <summary>
+    /// "Abmelden" leaves the account's calendar and contacts (the mail stays – it is never in ThixCloud): asks whether a copy of them stays on this computer
+    /// (what only this computer had goes into the account first), like ThixContacts.
+    /// </summary>
+    public override async Task<bool> SignOutAsync(Window owner)
+    {
+        var choice = await AskSignOutAsync(owner);
+        if (choice is not (0 or 2) || DocumentWindows.FirstOrDefault()?.Document is not MailDocument document)
+        {
+            return false;
+        }
+
+        try
+        {
+            await document.Pim.SignOutAsync(keepLocalCopy: choice == 0);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            await QuestionDialog.ShowMessageAsync(owner, "Abmelden nicht möglich", $"Die Kopie von Kalender und Kontakten konnte nicht angelegt werden: {exception.Message}");
+            return false;
+        }
+
+        return true;
+    }
+
+    private static Task<int> AskSignOutAsync(Window owner) => QuestionDialog.AskAsync(owner, "Von der ThixCloud abmelden?",
+        $"ThixMail zeigt danach den Kalender und die Kontakte dieses Computers statt der des Kontos {CloudService.Settings.AccountText}; Ihre E-Mails bleiben, " +
+        "wie sie sind. Möchten Sie eine Kopie von Kalender und Kontakten des Kontos auf diesem Computer behalten?",
+        new DialogChoice("Kopie behalten", "save", "MatButton.Primary", IsDefault: true),
+        new DialogChoice("Abbrechen", "x", IsCancel: true),
+        new DialogChoice("Ohne Kopie abmelden", "logout", "MatButton.Danger", IsSeparated: true));
 
     public override MatRibbonDefinition CreateRibbon(OfficeWindow window) => MailRibbon.Create(window);
 
@@ -96,6 +146,8 @@ public partial class App : OfficeApplication
     {
         MailCommands.Add(window);
         CalendarCommands.Add(window);
+        MailNewItems.Add(window);
+        MailNewItems.AddAliases(window);
     }
 
     public override IEnumerable<BackstageItem> CreateBackstageItems(OfficeWindow window) =>
@@ -293,8 +345,59 @@ public partial class App : OfficeApplication
             case SignaturesScene:
                 window.ShowSettings(MailSettings.SignaturesTab);
                 return window;
-            case CalendarSignInScene:
-                editor.ShowView(MailArea.Calendar);
+            case NewItemsScene:
+                SelectSubject(editor, "Präsentation");
+                (window.Ribbon.ViewOf(MailNewItems.Menu) as Button)?.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                Settle();
+                return window;
+            case PeopleEmptyScene:
+                editor.ShowView(MailArea.People); // this computer's contacts, none yet: the empty state and the offer of ThixCloud
+                Settle();
+                return window;
+            case CalendarLocalScene or PeopleLocalScene:
+                SampleMailbox.FillPim(editor.Document); // into the calendar and the contacts of this computer (no ThixCloud)
+                editor.ShowView(name == PeopleLocalScene ? MailArea.People : MailArea.Calendar);
+                Settle();
+                if (name == CalendarLocalScene)
+                {
+                    editor.CalendarView!.SetMode(ThixOffice.Pim.Desktop.Calendar.CalendarMode.WorkWeek);
+                }
+                else
+                {
+                    editor.PeopleView!.Select(editor.Document.Pim.People!.People.FirstOrDefault(p => p.Name == "Jonas Weber")?.Id);
+                }
+
+                Settle();
+                return window;
+            case NarrowScene or WideScene or CalendarWideScene:
+                window.Width = name == NarrowScene ? 900 : 1920;
+                window.Height = name == NarrowScene ? 700 : 1040;
+                if (name == CalendarWideScene)
+                {
+                    SignInForSample(editor);
+                    editor.ShowView(MailArea.Calendar);
+                    Settle();
+                    editor.CalendarView!.SetMode(ThixOffice.Pim.Desktop.Calendar.CalendarMode.Month);
+                }
+                else
+                {
+                    SelectSubject(editor, "Einladung: Workshop");
+                }
+
+                Settle();
+                return window;
+            case SignOutScene:
+                SignInForSample(editor);
+                _ = AskSignOutAsync(window);
+                Settle();
+                return window.OwnedWindows.OfType<QuestionDialog>().LastOrDefault() ?? (TopLevel)window;
+            case WelcomeScene:
+                // the first start: no mail account yet (the last scene – the next theme fills the sample again)
+                foreach (var existing in editor.Document.Accounts.Accounts.ToList())
+                {
+                    Task.Run(() => editor.Document.RemoveAccountAsync(existing.Id)).GetAwaiter().GetResult();
+                }
+
                 Settle();
                 return window;
             case ReminderScene or CalendarPrintScene:
@@ -424,7 +527,17 @@ public partial class App : OfficeApplication
             case SignaturesScene:
                 window.Backstage.Close();
                 break;
-            case CalendarScene or CalendarMonthScene or PeopleScene or InvitationScene or AppointmentScene or CalendarSignInScene or ReminderScene or CalendarPrintScene:
+            case NewItemsScene:
+                window.MouseDown(new Avalonia.Point(600, 600), Avalonia.Input.MouseButton.Left); // a click elsewhere closes the menu
+                window.MouseUp(new Avalonia.Point(600, 600), Avalonia.Input.MouseButton.Left);
+                break;
+            case NarrowScene or WideScene or CalendarWideScene:
+                window.Width = 1180;
+                window.Height = 760;
+                editor.ShowView(MailArea.Mail);
+                break;
+            case CalendarScene or CalendarMonthScene or PeopleScene or InvitationScene or AppointmentScene or ReminderScene or CalendarPrintScene
+                or PeopleEmptyScene or CalendarLocalScene or PeopleLocalScene or SignOutScene:
                 window.Backstage.Close();
                 if (shown is Window dialog && shown != window)
                 {

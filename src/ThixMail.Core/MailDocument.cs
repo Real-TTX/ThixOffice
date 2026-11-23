@@ -526,6 +526,35 @@ public sealed class MailDocument : OfficeDocument
         return saved;
     }
 
+    /// <summary>
+    /// The appointments of an .ics import, saved as ONE step of the history: Rückgängig takes the new ones out and puts back those an import changed (the
+    /// same UID imported again).
+    /// </summary>
+    public IReadOnlyList<ThixOffice.Pim.Calendar.CalendarAppointment> ImportAppointments(IReadOnlyList<ThixOffice.Pim.Calendar.CalendarAppointment> appointments)
+    {
+        if (Pim.Calendar is not { } book)
+        {
+            throw new BusinessException("Der Kalender konnte auf diesem Computer nicht geöffnet werden.");
+        }
+
+        var before = appointments.Select(a => book.Find(a.Key)).OfType<ThixOffice.Pim.Calendar.CalendarAppointment>().ToList();
+        var saved = book.SaveAll(appointments);
+        var added = saved.Where(a => before.All(b => b.Key != a.Key)).Select(a => a.Key).ToList();
+        Session.RecordDone(saved.Count == 1 ? "Termin importieren" : "Termine importieren",
+            () =>
+            {
+                var current = Pim.Calendar ?? book;
+                foreach (var key in added)
+                {
+                    current.Delete(key);
+                }
+
+                current.SaveAll(before);
+            },
+            () => (Pim.Calendar ?? book).SaveAll(saved));
+        return saved;
+    }
+
     // ===== address suggestions =====
 
     /// <summary>Suggestions for an address field: recent recipients first, then contacts of the ThixCloud account (when signed in).</summary>

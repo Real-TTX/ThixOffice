@@ -118,7 +118,7 @@ public static class MailCommands
             Keywords = ["ungelesen", "neu", "markieren"],
             CanExecute = HasSome,
         });
-        commands.Add(new OfficeCommand(MailCommandIds.ToggleRead, "Gelesen/Ungelesen", () => Editor().Run(() =>
+        commands.Add(new OfficeCommand(MailCommandIds.ToggleRead, "Ungelesen/Gelesen", () => Editor().Run(() =>
         {
             var editor = Editor();
             var headers = editor.Document.Store.Headers(editor.SelectedIds);
@@ -440,7 +440,7 @@ public static class MailCommands
         return compose;
     }
 
-    private static Task NewMailAsync(OfficeWindow window)
+    internal static Task NewMailAsync(OfficeWindow window)
     {
         var editor = (MailEditor)window.Editor;
         var account = editor.CurrentFolder is { } folder ? editor.Document.Accounts.Account(folder.AccountId) : null;

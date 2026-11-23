@@ -71,6 +71,33 @@ public sealed class OfficeRibbonBinding
     /// <summary>The ids of the items that were left out because the window has no such command (yet).</summary>
     public IReadOnlyList<string> MissingCommandIds => _missing;
 
+    /// <summary>Every tab of the definition as bound (also those <see cref="ShowTabs"/> took out for now), in their order.</summary>
+    public IReadOnlyList<MatRibbonTab> AllTabs => _allTabs;
+
+    private List<MatRibbonTab> _allTabs = [];
+
+    /// <summary>
+    /// Shows only the tabs <paramref name="which"/> picks (in their order) – an app whose window has modules (ThixMail: E-Mail, Kalender, Personen) swaps the
+    /// tabs like Outlook does, all bound once: their items keep their commands, and their state is pushed again now. <paramref name="select"/> chooses a tab.
+    /// Contextual tabs among them still follow their context.
+    /// </summary>
+    public void ShowTabs(Func<MatRibbonTab, bool> which, string? select = null)
+    {
+        var tabs = _allTabs.Where(which).ToList();
+        if (!tabs.SequenceEqual(_definition.Tabs))
+        {
+            _definition.Tabs.Clear();
+            _definition.Tabs.AddRange(tabs);
+            _ribbon.Rebuild();
+            Sync();
+        }
+
+        if (select is not null && tabs.Any(tab => tab.Id == select))
+        {
+            _ribbon.SelectTab(select);
+        }
+    }
+
     /// <summary>
     /// Binds <paramref name="definition"/> (its tabs and its <see cref="MatRibbonDefinition.QuickAccess"/>) to
     /// <paramref name="commands"/>, leaves out what has no command, and sets it into <paramref name="ribbon"/>.
@@ -79,6 +106,7 @@ public sealed class OfficeRibbonBinding
     {
         var binding = new OfficeRibbonBinding(definition, commands, ribbon);
         binding.Prune();
+        binding._allTabs = [.. definition.Tabs];
         foreach (var item in definition.AllItems().Concat(definition.QuickAccess.SelectMany(Walk)))
         {
             binding.Attach(item);
@@ -136,6 +164,11 @@ public sealed class OfficeRibbonBinding
         foreach (var command in _commandsBound)
         {
             var items = _definition.FindAll(command.Id);
+            if (items.Count == 0)
+            {
+                continue; // its items are on tabs ShowTabs took out: they get the state when they come back
+            }
+
             _definition.SetEnabled(command.Id, command.IsEnabled);
             if (items.Any(item => item is MatRibbonToggle))
             {

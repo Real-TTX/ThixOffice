@@ -104,7 +104,7 @@ public sealed class ContactsDocument : OfficeDocument
         await StopSyncAsync();
         if (keepLocalCopy && CloudService.HasAccount)
         {
-            PimStores.ReplaceLocalWith(ThixContactsApp.StoreName, _store);
+            PimStores.KeepLocalCopy(ThixContactsApp.StoreName, _store);
         }
 
         await CloudService.DisconnectAsync();
@@ -147,6 +147,7 @@ public sealed class ContactsDocument : OfficeDocument
     private (PimStore Store, ContactsSession Session) OpenSession()
     {
         var store = PimStores.Open(ThixContactsApp.StoreName);
+        store.WatchOtherProcesses(); // ThixMail shows and changes the same contacts
         var session = new ContactsSession(store);
         session.LocalChanged += OnLocalChanged;
         session.Changed += OnSessionChanged;

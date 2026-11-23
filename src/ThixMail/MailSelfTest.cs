@@ -103,7 +103,7 @@ public static class MailSelfTest
             Ensure(item.StartsWith("{\"calendar\":\"a/b\",\"title\":\"x\",", StringComparison.Ordinal) && item.Contains("\"status\":\"Confirmed\"", StringComparison.Ordinal), "the calendar's items are not ThixCalendar's");
             editor.ShowView(Editor.MailArea.Calendar);
             await Settle();
-            Ensure(editor.SignInPanel is not null || editor.CalendarView is not null, "the view Kalender does not show");
+            Ensure(editor.CalendarView is not null, "the view Kalender does not show");
             editor.ShowView(Editor.MailArea.Mail);
 
             // 7d: the calendar on paper (Wochen- and Monatsformat through Skia into a PDF)

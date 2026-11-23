@@ -6,7 +6,9 @@ namespace ThixOffice.Pim.Store;
 /// <summary>
 /// The SQLite infrastructure of the PIM apps' local stores (ThixContacts' <see cref="PimStore"/>, ThixMail's message store): one connection to one file
 /// (no pooling, WAL, foreign keys), guarded by a lock so the UI thread and a sync loop on a worker thread can both use it, and a schema that grows by
-/// migrations (<c>PRAGMA user_version</c> = the number applied, each in one transaction). A store from a newer build is refused in German.
+/// migrations (<c>PRAGMA user_version</c> = the number applied, each in one transaction). A store from a newer build is refused in German. Another
+/// process may open the same file (ThixMail and ThixContacts share the contacts): WAL lets it read while one writes, a busy timeout lets a writer wait for
+/// the other's transaction instead of failing, and <see cref="DataVersion"/> tells whether another connection committed since the last look.
 /// </summary>
 public abstract class SqliteDatabase : IDisposable
 {
@@ -24,7 +26,7 @@ public abstract class SqliteDatabase : IDisposable
         Path = path;
         _connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = path, Pooling = false }.ToString());
         _connection.Open();
-        Execute("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON;");
+        Execute("PRAGMA busy_timeout = 15000; PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON;");
         Migrate(migrations, newerVersionMessage);
     }
 
@@ -41,6 +43,12 @@ public abstract class SqliteDatabase : IDisposable
     protected object Gate { get; } = new();
 
     protected SqliteConnection Connection => _connection;
+
+    /// <summary>
+    /// SQLite's <c>PRAGMA data_version</c>: it changes when ANOTHER connection (another process, or another store object on the same file) committed
+    /// since this connection last looked – never for this connection's own writes.
+    /// </summary>
+    public long DataVersion => Scalar<long>("PRAGMA data_version");
 
     private void Migrate(IReadOnlyList<string> migrations, string newerVersionMessage)
     {
@@ -146,6 +154,11 @@ public abstract class SqliteDatabase : IDisposable
         }
     }
 
+    /// <summary>Called once while the store closes, before the connection does.</summary>
+    protected virtual void OnDisposing()
+    {
+    }
+
     public void Dispose()
     {
         lock (Gate)
@@ -156,6 +169,11 @@ public abstract class SqliteDatabase : IDisposable
             }
 
             _disposed = true;
+        }
+
+        OnDisposing();
+        lock (Gate)
+        {
             _connection.Dispose();
         }
 

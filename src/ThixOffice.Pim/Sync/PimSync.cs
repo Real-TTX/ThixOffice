@@ -158,32 +158,99 @@ public sealed class PimSync(PimStore store, Func<MatCloudClient> client, string?
     private async Task LoopAsync(CancellationToken stop)
     {
         var retry = TimeSpan.Zero;
-        while (!stop.IsCancellationRequested)
+        store.ExternalChanged += OnExternalChanged;
+        try
         {
-            try
+            while (!stop.IsCancellationRequested)
             {
-                await SyncOnceAsync(stop);
-                retry = TimeSpan.Zero;
-                await WaitForChangeAsync(stop);
-            }
-            catch (OperationCanceledException) when (stop.IsCancellationRequested)
-            {
-                return;
-            }
-            catch (Exception exception)
-            {
-                var status = StatusOf(exception);
-                SetStatus(status);
-                if (status.State is SyncState.SignedOut or SyncState.Off)
+                if (!TakeLease())
                 {
-                    Log.Warning(status.State == SyncState.Off ? "Sync stopped: the app signed out" : "Sync stopped: the cloud ended the sign-in");
-                    return;
+                    // another app on this computer keeps this file in step (ThixContacts and ThixMail share the contacts): its round is this one's
+                    SetStatus(new SyncStatus(SyncState.Idle, "Wird von einer anderen App auf diesem Computer abgeglichen", store.LastSync, store.DirtyCount));
+                    await DelayOrTriggerAsync(LeaseRetry, stop, waitForTrigger: false);
+                    continue;
                 }
 
-                retry = status.State == SyncState.Forbidden ? LongestRetry : retry == TimeSpan.Zero ? FirstRetry : TimeSpan.FromTicks(Math.Min(retry.Ticks * 2, LongestRetry.Ticks));
-                Log.Info($"Sync failed ({exception.GetType().Name}); next try in {retry.TotalSeconds:0} s");
-                await DelayOrTriggerAsync(retry, stop);
+                try
+                {
+                    await SyncOnceAsync(stop);
+                    retry = TimeSpan.Zero;
+                    await WaitForChangeAsync(stop);
+                }
+                catch (OperationCanceledException) when (stop.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (Exception exception)
+                {
+                    var status = StatusOf(exception);
+                    SetStatus(status);
+                    if (status.State is SyncState.SignedOut or SyncState.Off)
+                    {
+                        Log.Warning(status.State == SyncState.Off ? "Sync stopped: the app signed out" : "Sync stopped: the cloud ended the sign-in");
+                        return;
+                    }
+
+                    retry = status.State == SyncState.Forbidden ? LongestRetry : retry == TimeSpan.Zero ? FirstRetry : TimeSpan.FromTicks(Math.Min(retry.Ticks * 2, LongestRetry.Ticks));
+                    Log.Info($"Sync failed ({exception.GetType().Name}); next try in {retry.TotalSeconds:0} s");
+                    ReleaseLease(); // while this one waits, the other app may try with its sign-in
+                    await DelayOrTriggerAsync(retry, stop);
+                }
             }
+        }
+        finally
+        {
+            store.ExternalChanged -= OnExternalChanged;
+            ReleaseLease();
+        }
+    }
+
+    /// <summary>How often a sync without the lease looks whether the other app let go of it.</summary>
+    public static TimeSpan LeaseRetry { get; set; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>True while this sync holds the file's lease (it is the one that talks to the cloud for this store on this computer).</summary>
+    public bool HoldsLease => _lease is not null;
+
+    private FileStream? _lease;
+
+    /// <summary>
+    /// The lease of the store's file (<c>&lt;store&gt;.sync</c>, opened exclusively – the system lets go of it when a process ends): only one sync per file
+    /// talks to the cloud, whichever app started first; the other takes over when it ends or stops.
+    /// </summary>
+    private bool TakeLease()
+    {
+        if (_lease is not null || store.Path == ":memory:")
+        {
+            return true;
+        }
+
+        try
+        {
+            _lease = new FileStream(store.Path + ".sync", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            return true;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private void ReleaseLease()
+    {
+        var lease = Interlocked.Exchange(ref _lease, null);
+        lease?.Dispose();
+    }
+
+    /// <summary>Another app changed the shared file: its waiting changes go up with this sync's next round.</summary>
+    private void OnExternalChanged(object? sender, EventArgs e)
+    {
+        if (HoldsLease && store.DirtyCount > 0)
+        {
+            Trigger();
         }
     }
 
@@ -221,12 +288,12 @@ public sealed class PimSync(PimStore store, Func<MatCloudClient> client, string?
         }
     }
 
-    private async Task DelayOrTriggerAsync(TimeSpan delay, CancellationToken stop)
+    private async Task DelayOrTriggerAsync(TimeSpan delay, CancellationToken stop, bool waitForTrigger = true)
     {
         using var wait = CancellationTokenSource.CreateLinkedTokenSource(stop);
         lock (_gate)
         {
-            _wait = wait;
+            _wait = waitForTrigger ? wait : null;
         }
 
         try

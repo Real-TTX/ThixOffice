@@ -693,7 +693,8 @@ gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMT
   keine Skripte, externe Bilder erst nach Klick „Bilder laden“. Verfassen mit ThixWrites Editor (HTML + Textalternative).
 - **Kalender in ThixMail:** Ansichten Tag | Arbeitswoche | Woche | Monat auf den Sammlungen des Kalender-Moduls
   (eigene Kalender über den allgemeinen Sync, Konten im Modus „Über MatCloud“ über `/api/v1/calendar/…`). Ohne
-  ThixCloud-Anmeldung zeigt der Bereich die Anmeldung statt eines leeren Kalenders. Einladungen (text/calendar) in Mails:
+  ThixCloud-Anmeldung arbeiten Kalender und Personen lokal wie in Outlook (geändert 2026-11-23, siehe dort; vorher stand hier: „zeigt der Bereich
+  die Anmeldung“). Einladungen (text/calendar) in Mails:
   Zusagen / Vorläufig / Absagen schreibt den Termin und antwortet per iMIP.
 - Akzente: ThixMail `#0F6CBD`, ThixContacts `#8764B8`. Logos in denselben Detailstufen wie die anderen Apps.
 
@@ -908,6 +909,43 @@ gespeist über den Sync von ThixCloud.** Mail-Konten zuerst über **IMAP und SMT
   speichern). **Lücken:** ganztägige Termine lassen sich in der Wochenansicht nicht ziehen (im Monat schon), kein Ziehen in einen anderen Kalender,
   keine Erinnerung als System-Toast (nur das Fenster), Erinnerungen nur für die nächsten 30 Tage und nur ohne laufendes ThixCalendar (dessen eigene
   Kalender ohne ThixCloud-Abgleich kennt ThixMail ohnehin nicht), Druck ohne Notizen/Aufgaben-Spalte und ohne eigene Stundenspanne.
+
+- **Stand (2026-11-23): Kalender und Personen ohne ThixCloud, Menüband je Modul (dev).** Rückmeldung von Matthias: „ThixMail sollte Kontakte und
+  Kalender INTEGRIERT haben so wie Outlook.“ Die Anmeldeseite statt der Ansichten ist ersetzt: **lokal zuerst**.
+  - **Personen = ein Adressbuch mit ThixContacts:** ThixMail öffnet dieselbe Datei wie ThixContacts (`contacts-local.db`, angemeldet
+    `contacts-<Konto>.db`, im Datenordner von ThixContacts – `AppPaths.DataDirectoryOf`; ein Entwicklungs-/Testlauf mit eigenem Ordner bleibt bei sich).
+    Zwei Prozesse auf einer SQLite-Datei: WAL, `busy_timeout` 15 s, Schreiben in `BEGIN IMMEDIATE`; jede App bemerkt die Änderungen der anderen über
+    `PRAGMA data_version` (alle 2 s und beim Aktivieren, `PimStore.CheckForOtherChanges` → Ansichten lesen neu). Beide Apps gleichen dasselbe Konto ab –
+    damit sie sich nicht in die Quere kommen, spricht je Datei nur EIN Sync mit der Cloud: wer die Sperrdatei `<Datei>.sync` exklusiv offen hat (das
+    System gibt sie frei, wenn der Prozess endet); der andere wartet („Wird von einer anderen App auf diesem Computer abgeglichen“) und übernimmt, sobald
+    sie frei wird; Änderungen des Wartenden sieht der Halter über die Datei und lädt sie hoch. Ein zweiter Lauf ohne Sperre wäre nicht falsch (letzter
+    Schreiber gewinnt, Cursor idempotent), nur doppelte Arbeit. Getestet mit zwei Verbindungen in einem Prozess (je eigene Verbindung wie zwei Prozesse;
+    die Sperre ist eine echte Dateisperre); zwei echte Prozesse nur von Hand. **Risiko:** ThixMail und ThixContacts erscheinen getrennt – eine neuere
+    Migration des PimStore sperrt die ältere App aus („stammen von einer neueren Version“); Migrationen deshalb nur additiv und beide Apps zusammen
+    veröffentlichen. ThixMails frühere eigene Kontaktdatei eines Kontos (`mailcontacts-<Konto>.db`) wird einmal übernommen (nur die noch nicht
+    hochgeladenen Änderungen, der Rest kommt aus der Cloud) und in `.taken-over` umbenannt.
+  - **Kalender = ThixMails eigener Bestand:** ThixCalendar hält seine lokalen Kalender in einer eigenen relationalen Datenbank (`calendar.db`: Account/
+    Calendar/Event mit Audit-Spalten, statische Verbindung, eigenes Schema) – sie mitzubenutzen hieße ThixCalendars Schema von außen zu schreiben; das
+    bleibt getrennt. Ohne Anmeldung `mailcalendar-local.db` mit „Eigene Kalender › Kalender“ beim ersten Termin; Daten wandern per .ics
+    (Kalender › Kalender verwalten › Importieren/Exportieren: `CalendarIcs`, Schlüssel aus der UID – zweimal importieren verdoppelt nichts, Serien nur
+    mit ihrem ersten Termin, Erinnerungen als VALARM). **Was ThixCalendar bräuchte, um denselben lokalen Kalender zu zeigen:** entweder einen
+    .ics-Import, oder – besser – seine eigenen Kalender ebenfalls als Elemente des allgemeinen Sync in einem PimStore (wie sie in der Cloud schon liegen).
+  - **Übergänge ohne Verlust und ohne Doppeltes:** Anmelden – die lokalen Kontakte gehen sofort in den Bestand des Kontos (`PimStores.MergeLocalInto`:
+    was das Konto nicht kennt oder älter hat, mit der lokalen Zeit; eine Marke `merged:<Konto>` merkt, was schon drin war; im Konto Gelöschtes kommt
+    nicht zurück), der lokale Kalender nach dem ersten Abgleich (`CalendarTransfer.MergeInto`: gleichnamige Kalender werden einer, „Eigene Kalender“ des
+    Kontos nimmt die lokalen auf). Abmelden fragt wie ThixContacts „Kopie behalten“ / „Ohne Kopie abmelden“: mit Kopie gibt der lokale Bestand zuerst
+    ab, was nur er hatte, und wird dann – in derselben Datei, auch wenn ThixContacts sie offen hat – eine Kopie des Kontos (eigene Kalender, Kontakte).
+    ThixContacts folgt denselben Regeln (auch dort ging bisher ein lokaler Kontakt verloren, der zwischen zwei Anmeldungen am selben Konto entstand).
+  - **Anmeldung als Angebot:** über Kalender und Personen eine schmale Leiste „Mit ThixCloud auf allen Geräten synchronisieren – … nur auf diesem
+    Computer“ mit „Anmelden“ und „Nicht mehr anzeigen“; die Texte der Anmeldung kommen von der App (`OfficeAppDefinition.CloudPurpose/CloudIntro/
+    CloudSignedInText`: ThixMail spricht von Kalender, Kontakten und Einstellungen, nicht von ThixDrive). Einladungen, Besprechungen, Erinnerungen,
+    Adressvorschläge und „Zu Kontakten hinzufügen“ arbeiten lokal.
+  - **Menüband je Modul wie Outlook:** die Hülle kann Registerkarten austauschen (`OfficeRibbonBinding.ShowTabs`, `OfficeEditor.RibbonBound`): E-Mail
+    Start | Senden/Empfangen | Ordner | Ansicht, Kalender Start | Ansicht, Personen Start | Ordner | Ansicht (ThixContacts' Karten). Start der E-Mail:
+    große „Neue E-Mail“ und „Neue Elemente“ (E-Mail, Termin, Besprechung, Kontakt, aus Vorlage), Löschen/Archivieren, Antworten/Allen antworten/
+    Weiterleiten, Verschieben und Regeln (Menü) groß, Kategorien mit Beschriftung (Ungelesen/Gelesen, Kategorisieren, Zur Nachverfolgung – schrumpfen
+    nie zu Symbolen), Suchen. Strg+Umschalt+M/A/Q/C (neue E-Mail/Termin/Besprechung/Kontakt) aus jedem Modul. Navigationsleiste mit Namen unter den
+    Symbolen, das aktive Modul in der Akzentfarbe.
 
 Offen: Umfang von 7d und ob ThixContacts später auch ohne ThixCloud per CardDAV synchronisiert.
 

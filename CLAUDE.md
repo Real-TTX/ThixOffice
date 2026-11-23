@@ -452,8 +452,14 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 
 - **Views:** `MailEditor.ShowView(MailArea)` (the navigation bar, Strg+1/2/3, Ansicht › Navigation). Kalender = `CalendarView`, Personen = `PeopleView`
   (the same as ThixContacts'), both on `MailDocument.Pim` (`MailPim`: stores `mailcontacts` and `mailcalendar` of the account, `PimSync` with
-  `?app=contacts` / `?app=calendar` – the grants of contract 1.5.0). Without a ThixCloud account the views show why and the `CloudSignInPanel`; mail
-  works without. Sign-in changes reach `MailPim.ReconnectAsync` through the editor (`CloudService.StatusChanged`); 401 stops BOTH syncs (the second meets
+  `?app=contacts` / `?app=calendar` – the grants of contract 1.5.0). **Local first** (2026-11-23, PLAN.md "Kalender und Personen ohne ThixCloud"):
+  the views always work; without a ThixCloud account a slim bar offers the sign-in (closable for good). Personen opens ThixContacts' own file
+  (`MailPim.ContactsDirectory` = `AppPaths.DataDirectoryOf(ThixContactsApp.Definition)`: `contacts-local.db` / `contacts-<account>.db`; two processes on
+  one SQLite file – WAL, busy_timeout, `BEGIN IMMEDIATE`, `PimStore.CheckForOtherChanges` via `PRAGMA data_version`; only the holder of `<file>.sync`
+  talks to the cloud). PimStore migrations stay additive and ThixMail + ThixContacts ship together. The calendar is ThixMail's own
+  `mailcalendar-local.db` (ThixCalendar's calendar.db stays separate; `CalendarIcs` import/export). Sign-in merges local into the account
+  (`PimStores.MergeLocalInto`, `CalendarTransfer.MergeInto`), sign-out asks "Kopie behalten" / "Ohne Kopie abmelden". Each module has its own ribbon
+  tabs (`OfficeRibbonBinding.ShowTabs`, `OfficeEditor.RibbonBound`; `MailNewItems` = "Neue Elemente"). Sign-in changes reach `MailPim.ReconnectAsync` through the editor (`CloudService.StatusChanged`); 401 stops BOTH syncs (the second meets
   "not signed in": `PimSync` stops on SignedOut/Off), data stays, changes wait; `ReconnectAsync` after a new sign-in starts new syncs on the same stores
   (`IsSyncing` = a loop runs). A 403 for one granted app (ThixCalendar or ThixContacts switched off in MatCloud) is that sync's own state ("ThixCalendar
   ist in der ThixCloud abgeschaltet", `PimSync` with `app`: no app-wide Forbidden; `CloudService.RefreshAccountAsync` decides whether ThixMail itself

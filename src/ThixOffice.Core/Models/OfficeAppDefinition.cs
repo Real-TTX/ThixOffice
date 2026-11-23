@@ -144,6 +144,18 @@ public sealed record OfficeAppDefinition
     /// <summary>True when the app can connect to ThixCloud (it has a <see cref="CloudAppId"/>).</summary>
     public bool HasCloud => CloudAppId is not null;
 
+    /// <summary>
+    /// What the sign-in at ThixCloud is for, the end of "Melden Sie sich an, um …" in the sign-in panel. A document app opens and saves in ThixDrive (the
+    /// default); a workspace app talks about its data ("Ihre Kontakte auf allen Geräten abzugleichen").
+    /// </summary>
+    public string CloudPurpose { get; init; } = "Ihre Dokumente in ThixDrive zu öffnen und zu speichern – auf jedem Computer und im Browser";
+
+    /// <summary>The introduction of Einstellungen › Cloud; null: the one of a document app (ThixDrive and its working copies).</summary>
+    public string? CloudIntro { get; init; }
+
+    /// <summary>The message after a sign-in in Einstellungen › Cloud; null: the one of a document app (where the ThixDrive documents are).</summary>
+    public string? CloudSignedInText { get; init; }
+
     /// <summary>The part of the name after "Thix", drawn in the accent of the word mark: <c>Write</c>.</summary>
     public string Suffix => Name[SuiteMarkPrefix.Length..];
 

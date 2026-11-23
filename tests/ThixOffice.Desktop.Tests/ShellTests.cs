@@ -210,6 +210,31 @@ public sealed class ShellTests
     }
 
     [AvaloniaFact]
+    public void A_window_with_modules_shows_only_their_tabs_and_their_items_keep_their_commands_and_state()
+    {
+        using var data = new TestData();
+        var window = TestData.App.NewDocumentWindow();
+        TestData.Settle();
+        Assert.Equal(["home", "view"], window.RibbonBinding.AllTabs.Select(tab => tab.Id));
+
+        window.RibbonBinding.ShowTabs(tab => tab.Id == "view", select: "view");
+        TestData.Settle();
+        Assert.Equal(["view"], window.RibbonDefinition.Tabs.Select(tab => tab.Id));
+        Assert.Equal(["view"], window.Ribbon.TabButtons.Keys);
+        Assert.Equal("view", window.Ribbon.SelectedTab!.Id);
+        Assert.Null(window.Ribbon.ViewOf(CommonCommandIds.Save));
+        window.Commands.Invalidate(); // a state change while Speichern is not shown: nothing fails
+        TestData.Settle();
+
+        window.RibbonBinding.ShowTabs(_ => true, select: "home");
+        TestData.Settle();
+        Assert.Equal(["home", "view"], window.RibbonDefinition.Tabs.Select(tab => tab.Id));
+        Assert.NotNull(window.Ribbon.ViewOf(CommonCommandIds.Save));
+        Assert.Equal("Speichern", window.RibbonDefinition.Get<MatRibbonButton>(CommonCommandIds.Save).Label);
+        Assert.Empty(window.RibbonDefinition.Problems());
+    }
+
+    [AvaloniaFact]
     public void The_state_of_the_commands_shows_in_the_ribbon_and_a_ribbon_button_runs_its_command()
     {
         using var data = new TestData();
