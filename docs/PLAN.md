@@ -657,6 +657,21 @@ Präsentations- und Referentenansicht, pptx, danach odp.
   Laserpointer/Stift, keine Notizenseiten-Ansicht, Lineal/Gitternetzlinien nicht sichtbar (nur Am Raster ausrichten), Bilder als
   PNG exportieren fehlt, Größen in verschachtelten gedrehten Gruppen nur angenähert, Einfügen aus ThixWrite/ThixCalc nur als Text.
 
+### Kennwortgeschützte Dokumente (alle Dokument-Apps)
+
+- **Stand (2026-11-24): erledigt (dev).** ThixWrite, ThixCalc und ThixShow öffnen mit „Mit Kennwort verschlüsseln“ geschützte .docx/.xlsx/.xlsm/
+  .pptx/.pptm (Agile- und Standard-Verschlüsselung, [MS-OFFCRYPTO]) nach Eingabe des Kennworts wie Word (Dialog „Kennwort“, falsches Kennwort am Feld,
+  erneuter Versuch; Abbrechen öffnet nichts) – lokal, aus ThixDrive, aus „Zuletzt verwendet“ und übergebene Dateien. Speichern, Speichern unter,
+  ThixDrive und Wiederherstellungsdateien bleiben verschlüsselt (Agile wie aktuelles Office); Speichern als Typ ohne Kennwort (.odt/.ods/.odp/.txt/
+  .csv) fragt „Ohne Kennwort speichern?“. Kennwort setzen/entfernen: „Mit Kennwort verschlüsseln“ (Überprüfen › Schützen in allen drei Apps,
+  Speichern unter › Dieser PC, Suche), Schloss in der Titelleiste. Eine geschützte Wiederherstellungsdatei wird beim Start nach dem Kennwort gefragt
+  (Abbrechen behält sie, „Verwerfen“ löscht sie). Ältere Verschlüsselung, IRM, Binärformate (.doc/.xls/.ppt) und verschlüsselte ODF-Dateien werden
+  mit einer deutschen Meldung abgelehnt statt als Text/CSV gelesen. Eine Umsetzung im Kern (`OfficeDocument`, `DocumentService`, `DriveService`)
+  und in der Shell (`OfficeApplication`, `OfficeWindow`), keine pro App.
+- **Lücken:** ODF-Verschlüsselung (Lesen und Schreiben verschlüsselter .odt/.ods/.odp) fehlt noch; Schreibschutz-Kennwort („Kennwort zum Ändern“) und
+  „Als abgeschlossen kennzeichnen“ fehlen; keine echten von Office verschlüsselten Dateien als Testfälle – die Kompatibilität mit echtem Word/Excel/
+  PowerPoint ist nur gegen eine unabhängige Referenzimplementierung geprüft, nicht gegen Office selbst.
+
 ### Phase 5 – ODF-Nachzug und Feinschliff
 Rundreise-Tests gegen LibreOffice-Dateien, Druckqualität, Barrierefreiheit, Englisch als zweite Sprache.
 

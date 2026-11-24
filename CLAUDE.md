@@ -27,7 +27,7 @@ IMAP/SMTP accounts with auto-configuration, offline store and sync, reading pane
 ThixMail's Mail | Kalender | Personen (done, first version):** the calendar and the people of the ThixCloud account inside ThixMail, invitations (section
 "ThixMail", "Calendar and people in ThixMail"). **Phase 4, first version of ThixShow (done):** the
 slide editor, thumbnails, sorter, show and presenter view, the German PowerPoint ribbon, printing/PDF (section "ThixShow's editor";
-gaps in docs/PLAN.md). **ThixWrite 1c (done):** footnotes/endnotes, table of contents, comments, spelling (shared seam), Referenzen/Überprüfen, odt. **ODF for ThixCalc (done):** .ods read and write (section "OpenDocument Spreadsheet"). Next the
+gaps in docs/PLAN.md). **ThixWrite 1c (done):** footnotes/endnotes, table of contents, comments, spelling (shared seam), Referenzen/Überprüfen, odt. **ODF for ThixCalc (done):** .ods read and write (section "OpenDocument Spreadsheet"). **Password-protected documents (done):** Office's "Mit Kennwort verschlüsseln" in every document app (section "Password-protected documents"). Next the
 launcher entry and ThixWrite 1d (gaps in docs/PLAN.md). Do not build ribbon controls of
 your own (a picture gallery is a `RibbonFlyoutButton` through `CreateRibbonContent`).
 
@@ -58,12 +58,13 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
                            ways), OdfPackage (reader: HasMimeType, Read(stream, German message, …) turns every ZIP/XML failure into
                            InvalidDataException, Xml/Bytes of parts), OdfPackageWriter (mimetype first and stored, parts, AddPicture once
                            per content, the manifest of every part last, Meta)
-  Formats/OfficeCrypto/    "Mit Kennwort verschlüsseln" (BCL only, not wired in yet): OfficeEncryption.Detect (EncryptedFileKind) / Decrypt(stream,
+  Formats/OfficeCrypto/    "Mit Kennwort verschlüsseln" (BCL only; CanEncrypt, CheckNewPassword, PasswordRequiredException): OfficeEncryption.Detect (EncryptedFileKind) / Decrypt(stream,
                            password) – Agile + Standard, WrongPasswordException : BusinessException, never guesses – / Encrypt (Agile like current
                            Office: SHA-512, AES-256, HMAC, \u0006DataSpaces); CompoundFile + CompoundFileWriter = MS-CFB v3/v4 read, write
   Documents/               OfficeDocument: the UI-free base of every document model (FilePath, FileType, Title (virtual), IsDirty, IsPristine,
                            IsRecovered, Undo/Redo, protected Read/Write(Stream), Changed; Drive + DriveState + LocationText for a ThixDrive
-                           document whose FilePath is its local working copy)
+                           document whose FilePath is its local working copy; HasPassword + SetPassword, the password in memory only – internal
+                           ReadContent/WriteContent(As) decrypt/encrypt, see "Password-protected documents")
   Commands/                OfficeCommand (Id, Label, Icon, Shortcut "Ctrl+S", MacShortcut, CurrentShortcut, Description, Keywords,
                            CanExecute, IsChecked, IsSearchable, ExecuteAsync), OfficeValueCommand : OfficeCommand (Kind Text|Number|
                            Color|Choice, Value, Options, ApplyAsync(value): font, size, colour, style), OfficeCommandRegistry (Add,
@@ -121,7 +122,9 @@ src/ThixOffice.Desktop     shared Avalonia UI
   Pages/                   OfficePrintPage (Datei › Drucken: IPrintSource gives pages, scopes, Seite einrichten) + OfficeExportPage (PDF),
   Pages/                   NewPage, OpenPage + SaveAsPage (places: Zuletzt verwendet, ThixDrive, Dieser PC), DriveBrowser (the place
                            ThixDrive, open and save mode), SettingsPage (Allgemein | Speichern | Cloud | Updates | Erweitert), AboutPage
-  Dialogs/                 OfficeDialog (heading, body, OK · Abbrechen; every app's dialogs), QuestionDialog (+ SaveChangesDialog: Speichern, Abbrechen, gap, Nicht speichern), DriveDialogs (conflict,
+  Dialogs/                 PasswordDialogs (DocumentPasswordDialog: the password before a protected file opens / comes back from recovery, retries
+                           through its attempt callback; EncryptDocumentDialog: Dokument verschlüsseln),
+                           OfficeDialog (heading, body, OK · Abbrechen, AddAction, CloseConfirmed; every app's dialogs), QuestionDialog (+ SaveChangesDialog: Speichern, Abbrechen, gap, Nicht speichern), DriveDialogs (conflict,
                            replace, pending upload), TextInputDialog, ProblemReportDialog
   Controls/                ActionBar, IconLabel, InfoBar, FormErrors (from the reference apps), CloudSignInPanel, FindBarBase
                            (the Suchen/Ersetzen bar of every app), ITextField (a text field that is no TextBox keeps undo/copy keys),
@@ -522,6 +525,34 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   other version stops being current, it stays a version). Name taken = Anderen Namen wählen · gap · Ersetzen. Closing with a waiting upload
   = Erneut versuchen · Abbrechen · gap · Trotzdem schließen (uploaded at the next open). No backstage entry "Konto": like the reference
   apps the account lives in Einstellungen › Cloud (the title bar state opens it).
+
+## Password-protected documents (every document app)
+
+- **One implementation in the shell, none per app.** `OfficeDocument.ReadContent(stream, fileName, password)` runs `OfficeEncryption.Detect` before
+  the app's `Read`: `None` reads as always; Agile/Standard need the password (`PasswordRequiredException` with the file name without one,
+  `WrongPasswordException` at the field "Password" for a wrong one), decrypt and hand the ZIP to `Read`; every other kind (older encryption, IRM,
+  a binary .doc/.xls/.ppt, an encrypted ODF file) is a German `BusinessException` – never the CSV/plain-text path. The password lives on the document
+  in memory only (`HasPassword`, internal `Password`), never in settings, logs, the recent list or a sidecar.
+- **Writing:** `WriteContent`/`WriteContentAs` encrypt (the app writes into a buffer, then `OfficeEncryption.Encrypt`) while the document has a
+  password AND the type can carry one (`DocumentType.CanEncrypt`: the OOXML extensions of `OfficeEncryption.CanEncrypt`; a test type may set it).
+  So Speichern, Speichern unter, ThixDrive saves/uploads/Speichern unter and recovery files follow by themselves. `MarkSaved` into a type that
+  cannot carry a password drops it; the window asks first (`DocumentService.LosesPassword` / `PasswordLossQuestion`: "Ohne Kennwort speichern" ·
+  Abbrechen) in `SaveAsync`, `SaveToAsync` and `SaveIntoDriveAsync`. PDF is an export copy and never encrypted.
+- **Opening:** `DocumentService.Open/Load/Recover` and `DriveService.OpenAsync/OpenRecentAsync` take `password`; `Load`/`Recover` turn
+  `InvalidDataException` (damaged CFB, failed integrity check) into "beschädigt" and let the password exceptions through.
+  `OfficeApplication.OpenProtectedAsync` (behind `OpenFileAsync`, `OpenFromDriveAsync`, `OpenRecentAsync`, so also handed-over files) catches
+  `PasswordRequiredException` and shows `DocumentPasswordDialog.ForOpening`, whose OK runs the open again with the typed password (a wrong one at the
+  field, the dialog stays; Abbrechen = nothing, no message). Files handed over at the start end in an empty document when none opened.
+- **Recovery:** `RecoverDocuments` keeps protected recovery files in `ProtectedRecoveries` (never discarded for that) and `Start` posts
+  `RecoverProtectedDocumentsAsync`: `DocumentPasswordDialog.ForRecovery` (Abbrechen keeps the file for the next start, "Verwerfen" – gap, danger – deletes it).
+- **Setting it:** `CommonCommandIds.Encrypt` (`file.encrypt`, "Mit Kennwort verschlüsseln", icon lock, checked = `HasPassword`), registered by
+  `OfficeWindow` for document apps only and enabled only when the document's type (or the save type of a new one) `CanEncrypt` → `EncryptDocumentDialog`
+  (`DocumentService.SetPassword(document, password, confirmation)` = `OfficeEncryption.CheckNewPassword`: empty refused unless the document has a password
+  – then both empty remove it –, mismatch at "PasswordConfirmation", ≤ 255). It is a change that needs a save (dirty, a message says so). Places:
+  Überprüfen › Schützen in ThixWrite, ThixCalc and ThixShow (ThixShow's Überprüfen holds only that group), the tile on Speichern unter › Dieser PC, the
+  search. The title bar shows a lock beside the name (`OfficeWindow.ShowsProtectedMarker`).
+- Tests: Core `PasswordDocumentTests`, Desktop `PasswordUiTests`, one `PasswordTests` per app (a real encrypted .docx/.xlsx/.pptx), the self test
+  check "password protection", snapshots `dialog-password` and `dialog-encrypt`.
 
 ## ThixWrite's editor
 

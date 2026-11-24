@@ -433,6 +433,19 @@ Wie im deutschen Word, wo sie nicht kollidieren (unter macOS ⌘ statt Strg, ⌥
 | Esc (in Kopf-/Fußzeile) | zurück zum Text |
 | Strg+Z / Strg+Y (⇧⌘Z), Strg+S, F12, Strg+F1 | Rückgängig / Wiederholen, Speichern, Speichern unter, Menüband |
 
+## Kennwortschutz
+
+ThixWrite, ThixCalc und ThixShow öffnen Dokumente, die in Word, Excel oder PowerPoint mit **„Mit Kennwort verschlüsseln“** geschützt wurden
+(.docx, .xlsx, .xlsm, .pptx, .pptm): Sie geben das Kennwort ein, wie in Office – auch für Dateien aus ThixDrive. Unter **Überprüfen › Schützen ›
+Mit Kennwort verschlüsseln** (oder Datei › Speichern unter › Dieser PC) schützen Sie ein Dokument selbst mit einem Kennwort oder entfernen es wieder;
+gespeichert wird verschlüsselt wie in aktuellem Office, auch die Wiederherstellungsdatei nach einem Absturz. Ein Schloss in der Titelleiste zeigt
+geschützte Dokumente. OpenDocument-Dateien (.odt, .ods, .odp) können noch nicht verschlüsselt werden – vor dem Speichern in diesem Format fragt die
+App nach.
+
+| | |
+| --- | --- |
+| ![Kennwort](docs/images/thixwrite-dialog-password-light.png) | ![Dokument verschlüsseln](docs/images/thixwrite-dialog-encrypt-dark.png) |
+
 ## Installieren
 
 - **Windows:** `ThixWriteSetup.exe`, `ThixCalcSetup.exe`, `ThixShowSetup.exe`, `ThixContactsSetup.exe` bzw. `ThixMailSetup.exe` aus dem Release-Kanal herunterladen und starten. Das Programm installiert sich selbst für
