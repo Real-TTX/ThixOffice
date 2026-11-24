@@ -49,8 +49,8 @@ public sealed record DocumentType(
     public bool IsExport => Support == DocumentTypeSupport.Export;
 
     /// <summary>
-    /// True when a file of this type can carry a password ("Mit Kennwort verschlüsseln"): by default the Office Open XML types
-    /// (.docx, .xlsx, .pptx …, <see cref="Formats.OfficeCrypto.OfficeEncryption.CanEncrypt"/>); a test type may say so itself.
+    /// True when a file of this type can carry a password ("Mit Kennwort verschlüsseln"): by default the Office Open XML and OpenDocument types
+    /// (.docx, .xlsx, .pptx, .odt, .ods, .odp …, <see cref="Formats.OfficeCrypto.OfficeEncryption.CanEncrypt"/>); a test type may say so itself.
     /// </summary>
     public bool CanEncrypt { get; init; } = Formats.OfficeCrypto.OfficeEncryption.CanEncrypt(Extension);
 

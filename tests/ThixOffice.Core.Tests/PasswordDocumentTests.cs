@@ -1,5 +1,6 @@
 using System.Text;
 using ThixOffice.Core.Business;
+using ThixOffice.Core.Documents;
 using ThixOffice.Core.Formats.OfficeCrypto;
 using ThixOffice.Core.Infrastructure;
 using ThixOffice.Core.Models;
@@ -32,13 +33,30 @@ public sealed class PasswordDocumentTests
         CloudAppId = MatCloud.Contract.CloudApps.Write,
     };
 
+    /// <summary>ThixTest writing OpenDocument packages (.tod, like .odt): its saves are encrypted the way LibreOffice does it.</summary>
+    private static readonly OfficeAppDefinition OdfApp = new(
+        "thixtest",
+        "ThixTest",
+        "#185ABD",
+        "Ein Testprogramm.",
+        [
+            new DocumentType(".tod", "ThixTest.Odf", "Test-OpenDocument", IsDefault: true) { CanEncrypt = true },
+            new DocumentType(".tst", "ThixTest.Text", "Testtext", MimeType: "text/plain"),
+        ])
+    {
+        UntitledBaseName = "Test",
+    };
+
     [Fact]
-    public void Only_the_Office_Open_XML_types_can_carry_a_password()
+    public void The_Office_Open_XML_and_OpenDocument_types_can_carry_a_password()
     {
         Assert.True(new DocumentType(".docx", "x", "Word").CanEncrypt);
         Assert.True(new DocumentType(".XLSM", "x", "Excel").CanEncrypt);
         Assert.True(new DocumentType(".pptx", "x", "PowerPoint").CanEncrypt);
-        Assert.False(new DocumentType(".odt", "x", "ODF").CanEncrypt);
+        Assert.True(new DocumentType(".odt", "x", "ODF").CanEncrypt);
+        Assert.True(new DocumentType(".ods", "x", "ODF").CanEncrypt);
+        Assert.True(new DocumentType(".odp", "x", "ODF").CanEncrypt);
+        Assert.False(new DocumentType(".txt", "x", "Text").CanEncrypt);
         Assert.False(new DocumentType(".csv", "x", "CSV").CanEncrypt);
         Assert.False(DocumentType.Pdf.CanEncrypt);
     }
@@ -237,6 +255,43 @@ public sealed class PasswordDocumentTests
         Assert.False(document.HasPassword);
     }
 
+    [Fact]
+    public void An_OpenDocument_package_is_saved_opened_and_recovered_with_its_password()
+    {
+        using var data = new TestData();
+        AppInfo.Initialize(OdfApp, typeof(TestData).Assembly);
+        var document = new OdfTestDocument("Test1");
+        document.Type("Vertraulich");
+        DocumentService.SetPassword(document, Password, Password);
+
+        var path = DocumentService.SaveAs(document, Path.Combine(data.DocumentsFolder, "Bericht.tod"));
+
+        Assert.Equal(EncryptedFileKind.OdfEncrypted, Kind(path));
+        Assert.DoesNotContain("Vertraulich", Encoding.UTF8.GetString(File.ReadAllBytes(path)), StringComparison.Ordinal);
+        Assert.Equal("Bericht.tod", Assert.Throws<PasswordRequiredException>(() => DocumentService.Open(path, name => new OdfTestDocument(name))).FileName);
+        Assert.Throws<WrongPasswordException>(() => DocumentService.Open(path, name => new OdfTestDocument(name), "falsch"));
+        var opened = DocumentService.Open(path, name => new OdfTestDocument(name), Password);
+        Assert.Equal("Vertraulich", opened.Content);
+        Assert.True(opened.HasPassword);
+
+        opened.Type("Geändert");
+        DocumentService.Save(opened);
+        Assert.Equal(EncryptedFileKind.OdfEncrypted, Kind(path));
+        Assert.Equal("Geändert", DocumentService.Open(path, name => new OdfTestDocument(name), Password).Content);
+
+        opened.Type("ungespeichert");
+        DocumentService.WriteRecovery(opened);
+        var info = Assert.Single(DocumentService.RecoveredDocuments());
+        Assert.Equal(EncryptedFileKind.OdfEncrypted, Kind(Directory.EnumerateFiles(AppPaths.RecoveryDirectory, "*.data").Single()));
+        Assert.Throws<PasswordRequiredException>(() => DocumentService.Recover(info, name => new OdfTestDocument(name)));
+        var recovered = DocumentService.Recover(info, name => new OdfTestDocument(name), Password);
+        Assert.Equal("ungespeichert", recovered.Content);
+        Assert.True(recovered.HasPassword);
+
+        Assert.False(DocumentService.LosesPassword(recovered, Path.Combine(data.DocumentsFolder, "Kopie.tod")));
+        Assert.True(DocumentService.LosesPassword(recovered, Path.Combine(data.DocumentsFolder, "Kopie.tst")));
+    }
+
     private static TestData Protecting()
     {
         var data = new TestData();
@@ -278,5 +333,43 @@ public sealed class PasswordDocumentTests
         using var output = new MemoryStream();
         writer.Save(output);
         return output.ToArray();
+    }
+}
+
+/// <summary>A document whose content is one string, written as a small OpenDocument text package (content.xml, styles.xml, meta.xml).</summary>
+internal sealed class OdfTestDocument(string untitledName) : OfficeDocument(untitledName)
+{
+    private static readonly System.Xml.Linq.XNamespace Text = ThixOffice.Core.Formats.Odf.OdfXml.TextNs;
+
+    public string Content { get; private set; } = "";
+
+    public override bool CanUndo => false;
+
+    public override bool CanRedo => false;
+
+    public void Type(string text)
+    {
+        Content = text;
+        OnContentChanged();
+    }
+
+    public override void Undo()
+    {
+    }
+
+    public override void Redo()
+    {
+    }
+
+    protected override void Read(Stream stream) =>
+        Content = ThixOffice.Core.Formats.Odf.OdfPackage.Read(stream, "kaputt", package => package.Xml("content.xml")!.Descendants(Text + "p").Single().Value);
+
+    protected override void Write(Stream stream)
+    {
+        var writer = new ThixOffice.Core.Formats.Odf.OdfPackageWriter("application/vnd.oasis.opendocument.text");
+        writer.AddXml("content.xml", new System.Xml.Linq.XDocument(new System.Xml.Linq.XElement(Text + "p", Content)));
+        writer.AddXml("styles.xml", new System.Xml.Linq.XDocument(new System.Xml.Linq.XElement(Text + "styles")));
+        writer.AddXml("meta.xml", ThixOffice.Core.Formats.Odf.OdfPackageWriter.Meta("ThixTest"));
+        writer.WriteTo(stream);
     }
 }

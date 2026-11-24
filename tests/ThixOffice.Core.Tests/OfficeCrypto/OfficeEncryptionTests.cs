@@ -289,7 +289,6 @@ public sealed class OfficeEncryptionTests
 
     [Theory]
     [InlineData("docx", OfficeEncryption.NotEncryptedText)]
-    [InlineData("odt encrypted", OfficeEncryption.OdfText)]
     [InlineData("doc", OfficeEncryption.BinaryText)]
     [InlineData("irm", OfficeEncryption.RightsText)]
     [InlineData("rc4 cryptoapi", OfficeEncryption.UnsupportedText)]

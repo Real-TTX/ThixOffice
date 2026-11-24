@@ -1,7 +1,4 @@
 using System.Buffers.Binary;
-using System.IO.Compression;
-using System.Xml;
-using ThixOffice.Core.Formats.Odf;
 using ThixOffice.Core.Models;
 
 namespace ThixOffice.Core.Formats.OfficeCrypto;
@@ -10,7 +7,8 @@ namespace ThixOffice.Core.Formats.OfficeCrypto;
 /// Documents protected with "Mit Kennwort verschlüsseln" ([MS-OFFCRYPTO], ECMA-376 Part 2): an OLE compound file holding
 /// EncryptionInfo and EncryptedPackage (the encrypted docx/xlsx/pptx). <see cref="Detect"/> tells such files apart from ordinary
 /// ones, <see cref="Decrypt"/> opens one with the password the user typed – a wrong password is refused, nothing is guessed –,
-/// <see cref="Encrypt"/> writes one the way current Office does (Agile, SHA-512, AES-256). Synchronous and UI-free; the stream
+/// <see cref="Encrypt"/> writes one the way current Office does (Agile, SHA-512, AES-256). OpenDocument packages encrypted with a
+/// password go through <see cref="OdfEncryption"/> behind the same three calls. Synchronous and UI-free; the stream
 /// is always the whole file and must be seekable.
 /// </summary>
 public static class OfficeEncryption
@@ -36,9 +34,6 @@ public static class OfficeEncryption
     internal const string BinaryText = "Diese Datei ist kein Office Open XML-Dokument, sondern in einem älteren Binärformat (etwa .doc, .xls oder .ppt) "
         + "gespeichert. Dieses Format wird nicht unterstützt.";
 
-    internal const string OdfText = "Verschlüsselte OpenDocument-Dateien werden noch nicht unterstützt. "
-        + "Entfernen Sie das Kennwort in dem Programm, mit dem die Datei erstellt wurde.";
-
     internal const string NotEncryptedText = "Die Datei ist nicht mit einem Kennwort verschlüsselt.";
 
     internal const string TooLongText = "Das Kennwort darf höchstens 255 Zeichen lang sein.";
@@ -50,10 +45,14 @@ public static class OfficeEncryption
 
     internal const string MismatchText = "Die Kennwörter stimmen nicht überein.";
 
-    /// <summary>The types an encrypted file can be: the Office Open XML packages (an ODF file has an encryption of its own, not supported yet).</summary>
+    /// <summary>
+    /// The types an encrypted file can be: the Office Open XML packages (Agile encryption) and the OpenDocument packages (their own
+    /// encryption, <see cref="OdfEncryption"/>).
+    /// </summary>
     private static readonly HashSet<string> EncryptableExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".docx", ".docm", ".dotx", ".dotm", ".xlsx", ".xlsm", ".xltx", ".xltm", ".pptx", ".pptm", ".potx", ".potm",
+        ".odt", ".ott", ".ods", ".ots", ".odp", ".otp",
     };
 
     /// <summary>True when a file of <paramref name="extension"/> (".docx") can be saved with a password.</summary>
@@ -81,14 +80,13 @@ public static class OfficeEncryption
         return password;
     }
 
-    /// <summary>The refusal of a kind that cannot be opened (null for <see cref="EncryptedFileKind.None"/> and the two kinds Decrypt opens).</summary>
+    /// <summary>The refusal of a kind that cannot be opened (null for <see cref="EncryptedFileKind.None"/> and the kinds Decrypt opens).</summary>
     internal static BusinessException? Refusal(EncryptedFileKind kind) => kind switch
     {
         EncryptedFileKind.OfficeOther => new BusinessException(UnsupportedText),
         EncryptedFileKind.Rights => new BusinessException(RightsText),
         EncryptedFileKind.CompoundNotEncrypted => new BusinessException(BinaryText),
-        EncryptedFileKind.OdfEncrypted => new BusinessException(OdfText),
-        _ => null,
+        _ => OdfEncryption.Refusal(kind),
     };
 
     /// <summary>
@@ -106,7 +104,7 @@ public static class OfficeEncryption
                 return KindOf(CompoundFile.Open(file));
             }
 
-            return IsEncryptedOdf(file) ? EncryptedFileKind.OdfEncrypted : EncryptedFileKind.None;
+            return OdfEncryption.KindOf(file);
         }
         finally
         {
@@ -115,10 +113,10 @@ public static class OfficeEncryption
     }
 
     /// <summary>
-    /// The package (the ZIP of a docx/xlsx/pptx) inside the encrypted <paramref name="file"/>. A wrong password is a
-    /// <see cref="WrongPasswordException"/>; a kind that cannot be opened (older encryption, IRM, binary format, encrypted
-    /// OpenDocument, no encryption at all) is a <see cref="BusinessException"/> saying so; a damaged file – including a failed
-    /// integrity check – is an <see cref="InvalidDataException"/>.
+    /// The package (the ZIP of a docx/xlsx/pptx, or the plain package of an encrypted odt/ods/odp) inside the encrypted
+    /// <paramref name="file"/>. A wrong password is a <see cref="WrongPasswordException"/>; a kind that cannot be opened (older
+    /// encryption, IRM, binary format, Blowfish or LibreOffice's newer OpenDocument encryption, no encryption at all) is a
+    /// <see cref="BusinessException"/> saying so; a damaged file – including a failed integrity check – is an <see cref="InvalidDataException"/>.
     /// </summary>
     public static byte[] Decrypt(Stream file, string password)
     {
@@ -129,7 +127,9 @@ public static class OfficeEncryption
         {
             if (!CompoundFile.HasSignature(file))
             {
-                throw new BusinessException(IsEncryptedOdf(file) ? OdfText : NotEncryptedText);
+                return OdfEncryption.KindOf(file) == EncryptedFileKind.None
+                    ? throw new BusinessException(NotEncryptedText)
+                    : OdfEncryption.Decrypt(file, password);
             }
 
             var compound = CompoundFile.Open(file);
@@ -149,15 +149,22 @@ public static class OfficeEncryption
     }
 
     /// <summary>
-    /// Writes <paramref name="package"/> (the ZIP of a docx/xlsx/pptx) encrypted with <paramref name="password"/> into
-    /// <paramref name="output"/> as Word, Excel and PowerPoint write it: Agile encryption with SHA-512, AES-256-CBC, 100,000 spins,
-    /// random salts and keys, the integrity HMAC, and the data spaces.
+    /// Writes <paramref name="package"/> encrypted with <paramref name="password"/> into <paramref name="output"/>. The package's own
+    /// kind decides how: an OpenDocument package (odt/ods/odp) is encrypted as LibreOffice does it (<see cref="OdfEncryption.Encrypt"/>),
+    /// anything else (the ZIP of a docx/xlsx/pptx) as Word, Excel and PowerPoint write it: Agile encryption with SHA-512, AES-256-CBC,
+    /// 100,000 spins, random salts and keys, the integrity HMAC, and the data spaces.
     /// </summary>
     public static void Encrypt(ReadOnlySpan<byte> package, string password, Stream output)
     {
         ArgumentNullException.ThrowIfNull(output);
         ArgumentException.ThrowIfNullOrEmpty(password);
         CheckPassword(password);
+        if (OdfEncryption.IsOdfPackage(package))
+        {
+            OdfEncryption.Encrypt(package, password, output);
+            return;
+        }
+
         var (info, encryptedPackage) = AgileEncryption.Encrypt(package, password);
         var writer = new CompoundFileWriter();
         DataSpaces.AddTo(writer);
@@ -204,44 +211,6 @@ public static class OfficeEncryption
         }
 
         return compound.ReadStream(EncryptionInfoPath);
-    }
-
-    /// <summary>A ZIP whose META-INF/manifest.xml describes encrypted parts (manifest:encryption-data).</summary>
-    private static bool IsEncryptedOdf(Stream file)
-    {
-        file.Position = 0;
-        Span<byte> head = stackalloc byte[4];
-        if (file.ReadAtLeast(head, 4, throwOnEndOfStream: false) < 4 || head[0] != (byte)'P' || head[1] != (byte)'K')
-        {
-            return false;
-        }
-
-        file.Position = 0;
-        try
-        {
-            using var zip = new ZipArchive(file, ZipArchiveMode.Read, leaveOpen: true);
-            if (zip.GetEntry("META-INF/manifest.xml") is not { } manifest || manifest.Length > 16 * 1024 * 1024)
-            {
-                return false;
-            }
-
-            using var input = manifest.Open();
-            using var reader = XmlReader.Create(input, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
-            var manifestNs = OdfXml.ManifestNs.NamespaceName;
-            while (reader.Read())
-            {
-                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "encryption-data" && reader.NamespaceURI == manifestNs)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-        catch (Exception exception) when (exception is InvalidDataException or XmlException or IOException or NotSupportedException)
-        {
-            return false;
-        }
     }
 
     private static void CheckStream(Stream file)

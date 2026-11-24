@@ -21,6 +21,18 @@ public enum EncryptedFileKind
     /// <summary>A compound file without encryption: an old binary document (.doc, .xls, .ppt), perhaps renamed.</summary>
     CompoundNotEncrypted,
 
-    /// <summary>An OpenDocument package whose parts are encrypted (manifest:encryption-data); detected only.</summary>
+    /// <summary>
+    /// An OpenDocument package whose parts are encrypted with AES-CBC and PBKDF2 (ODF 1.2, LibreOffice's "Mit Kennwort speichern"):
+    /// <see cref="OfficeEncryption.Decrypt"/> opens it (<see cref="OdfEncryption"/>).
+    /// </summary>
     OdfEncrypted,
+
+    /// <summary>An OpenDocument package encrypted with Blowfish (OpenOffice.org, LibreOffice before 3.4): refused in words.</summary>
+    OdfBlowfish,
+
+    /// <summary>LibreOffice's newer encryption (AES-GCM, Argon2id, the whole package encrypted, since 24.2): refused in words.</summary>
+    OdfModern,
+
+    /// <summary>An OpenDocument package encrypted with an algorithm none of the above names: refused in words.</summary>
+    OdfOther,
 }

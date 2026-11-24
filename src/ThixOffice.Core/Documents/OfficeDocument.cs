@@ -115,8 +115,8 @@ public abstract class OfficeDocument
     /// The business layer reads a file into the model through this (the model only sees a stream; <paramref name="stream"/> is the whole
     /// file and seekable). A file protected with "Mit Kennwort verschlüsseln" is decrypted first: without <paramref name="password"/> it is
     /// a <see cref="PasswordRequiredException"/> naming <paramref name="fileName"/>, a wrong one a <see cref="WrongPasswordException"/>; the
-    /// password is kept for the next save. Other protected or foreign kinds (older encryption, IRM, a binary .doc, an encrypted
-    /// OpenDocument file) are refused in words – never read as something else.
+    /// password is kept for the next save (an encrypted odt/ods/odp the same way). Other protected or foreign kinds (older encryption, IRM,
+    /// a binary .doc, Blowfish or LibreOffice 24.2 OpenDocument encryption) are refused in words – never read as something else.
     /// </summary>
     internal void ReadContent(Stream stream, string fileName, string? password = null)
     {

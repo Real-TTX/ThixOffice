@@ -116,13 +116,13 @@ public static class DocumentService
 
     /// <summary>
     /// True when saving <paramref name="document"/> as <paramref name="path"/> drops its password: it has one and the type cannot carry
-    /// it (.odt, .txt, .csv …). The window asks first (<see cref="PasswordLossQuestion"/>); the save then leaves the document unprotected.
+    /// it (.txt, .csv …). The window asks first (<see cref="PasswordLossQuestion"/>); the save then leaves the document unprotected.
     /// </summary>
     public static bool LosesPassword(OfficeDocument document, string path) =>
         document.HasPassword && !string.IsNullOrWhiteSpace(path) && ExportTypeOf(path) is null
         && AppInfo.Definition.SupportedTypeOf(path.Trim()) is { CanEncrypt: false };
 
-    /// <summary>"„Bericht.odt“ kann nicht mit einem Kennwort geschützt werden. Ohne Kennwort speichern?"</summary>
+    /// <summary>"„Bericht.txt“ kann nicht mit einem Kennwort geschützt werden. Ohne Kennwort speichern?"</summary>
     public static string PasswordLossQuestion(string path) =>
         $"„{Path.GetFileName(path.Trim())}“ kann nicht mit einem Kennwort geschützt werden. Ohne Kennwort speichern?";
 
