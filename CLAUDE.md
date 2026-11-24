@@ -58,6 +58,9 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
                            ways), OdfPackage (reader: HasMimeType, Read(stream, German message, …) turns every ZIP/XML failure into
                            InvalidDataException, Xml/Bytes of parts), OdfPackageWriter (mimetype first and stored, parts, AddPicture once
                            per content, the manifest of every part last, Meta)
+  Formats/OfficeCrypto/    "Mit Kennwort verschlüsseln" (BCL only, not wired in yet): OfficeEncryption.Detect (EncryptedFileKind) / Decrypt(stream,
+                           password) – Agile + Standard, WrongPasswordException : BusinessException, never guesses – / Encrypt (Agile like current
+                           Office: SHA-512, AES-256, HMAC, \u0006DataSpaces); CompoundFile + CompoundFileWriter = MS-CFB v3/v4 read, write
   Documents/               OfficeDocument: the UI-free base of every document model (FilePath, FileType, Title (virtual), IsDirty, IsPristine,
                            IsRecovered, Undo/Redo, protected Read/Write(Stream), Changed; Drive + DriveState + LocationText for a ThixDrive
                            document whose FilePath is its local working copy)
