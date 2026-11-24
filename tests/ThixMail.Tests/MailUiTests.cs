@@ -290,6 +290,49 @@ public sealed class MailUiTests
     }
 
     [AvaloniaFact]
+    public async Task The_list_toolbar_works_like_Outlooks_one_search_field_the_views_and_the_order_with_its_direction()
+    {
+        using var data = new TestData();
+        var window = await data.WindowAsync();
+        var editor = EditorOf(window);
+        var all = editor.Rows.Count(r => r.IsMessage);
+
+        // one search field: the scope sits in it, ✕ only while searching and it ends the search
+        Assert.Equal("Suchen", editor.SearchBox.Watermark);
+        Assert.Equal("Aktueller Ordner", editor.ScopeChoice.SelectedItem);
+        Assert.False(editor.ClearSearchButton.IsVisible);
+        editor.SearchBox.Text = "sommerfest";
+        await UntilAsync(() => editor.Rows.Count(r => r.IsMessage) == 1, "the search result");
+        Assert.True(editor.ClearSearchButton.IsVisible);
+        await ClickAsync(window, editor.ClearSearchButton);
+        await UntilAsync(() => editor.Rows.Count(r => r.IsMessage) == all, "the whole list again");
+        Assert.False(editor.ClearSearchButton.IsVisible);
+
+        // "Ungelesen" over the list, "Alle" back
+        await ClickAsync(window, editor.UnreadViewButton);
+        await UntilAsync(() => editor.Rows.Count(r => r.IsMessage) < all, "only the unread");
+        Assert.Equal(1, editor.FilterChoice.SelectedIndex);
+        await ClickAsync(window, editor.AllViewButton);
+        await UntilAsync(() => editor.Rows.Count(r => r.IsMessage) == all, "every message again");
+
+        // "Nach Datum" newest first; the arrow turns it round
+        Assert.Equal("Nach Datum", editor.SortChoice.SelectedItem);
+        Assert.True(editor.SortDescending);
+        DateTimeOffset First() => editor.HeaderOf(editor.Rows.First(r => r.Kind == RowKind.Message).Id)!.Date;
+        DateTimeOffset Last() => editor.HeaderOf(editor.Rows.Last(r => r.Kind == RowKind.Message).Id)!.Date;
+        Assert.True(First() >= Last());
+        await ClickAsync(window, editor.SortDirectionButton);
+        Assert.False(editor.SortDescending);
+        await UntilAsync(() => First() < Last(), "the oldest first");
+
+        // another order starts with its own direction: A to Z for the sender
+        editor.SortChoice.SelectedIndex = 1;
+        Assert.False(editor.SortDescending);
+        editor.SortChoice.SelectedIndex = 0;
+        Assert.True(editor.SortDescending);
+    }
+
+    [AvaloniaFact]
     public async Task A_conversation_opens_with_the_right_arrow_and_shows_its_messages()
     {
         using var data = new TestData();

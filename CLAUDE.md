@@ -202,7 +202,10 @@ src/ThixMail.Core          (no UI) ThixMailApp.Definition (Kind Workspace, .eml,
                            contacts – ThixContacts' ContactsSession – and calendar – CalendarBook – in stores of this app, PimSync with ?app=contacts and
                            ?app=calendar while signed in, ReconnectAsync), MailInvitations (View of a text/calendar part with conflicts, Answer: calendar +
                            REPLY through the outbox, RemoveCancelled, SendMeeting/DeleteAppointment: REQUEST/CANCEL); Draft.Calendar → text/calendar part
-src/ThixMail               App (workspace), Editor/ (MailEditor: navigation rail | folder pane | list | MessageView, MailEditor.Views: MailArea Mail/Calendar/
+src/ThixMail               App (workspace), Editor/ (MailEditor: navigation rail | folder pane | list | MessageView; the list's toolbar
+                           like Outlook's: ONE search field (MatSearchBox, scope ComboBox + ✕ ClearSearchButton inside it), under it the views
+                           AllViewButton/UnreadViewButton, FilterButton (menu of every filter; FilterChoice keeps the state, not shown) and the plain
+                           SortChoice "Nach Datum" with SortDirectionButton (each order starts with its own direction); MailEditor.Views: MailArea Mail/Calendar/
                            People, ShowView, the shared CalendarView/PeopleView or the sign-in, contextual ribbon contexts "calendar"/"people", the invitation
                            bar's answers; MailRows: FolderRow, MessageRow, CategoryTokens; MessageView: header, "Bilder laden", the invitation bar,
                            attachments, body = read-only DocumentSurface; MessageWindow; MailCommands + MailCommandIds (Outlook's keys; act only in the view

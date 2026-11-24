@@ -46,6 +46,9 @@ public sealed partial class MailEditor : OfficeEditor
 
     private static readonly CultureInfo German = CultureInfo.GetCultureInfo("de-DE");
 
+    /// <summary>The filters in the order of <see cref="ListFilter"/>.</summary>
+    private static readonly string[] FilterNames = ["Alle", "Ungelesen", "Gekennzeichnet", "Mit Anlagen"];
+
     private readonly OfficeWindow _window;
     private readonly Grid _root = new();
     private readonly Border _rail = new();
@@ -75,6 +78,7 @@ public sealed partial class MailEditor : OfficeEditor
     private List<long>? _dragIds;
     private ReadingPanePosition _pane;
     private bool _detached;
+    private bool _sortDescending = true;
 
     public MailEditor(OfficeWindow window, MailDocument document)
     {
@@ -103,12 +107,14 @@ public sealed partial class MailEditor : OfficeEditor
         _folderPane.Use(Border.BorderBrushProperty, "Mat.Border");
         _folderPane.BorderThickness = new Thickness(0, 0, 1, 0);
 
-        // the list with its toolbar: search (scope), filter, sort
-        SearchBox = new TextBox { Watermark = "Suchen", InnerLeftContent = new MatIcon { Icon = "search", Margin = new Thickness(8, 0, 0, 0) } };
+        // the list with its toolbar like Outlook's: ONE search field (the scope "Aktueller Ordner ˅" at its right end, ✕ ends the search),
+        // under it the views "Alle | Ungelesen", the filter menu and the order "Nach Datum ˅" with its direction
+        SearchBox = new TextBox { Watermark = "Suchen" }.Themed("MatSearchBox");
         AutomationProperties.SetName(SearchBox, "E-Mail durchsuchen");
         ToolTip.SetTip(SearchBox, Ui.Tooltip("Suchen", OperatingSystem.IsMacOS() ? "Ctrl+Alt+F" : "Ctrl+E"));
         SearchBox.TextChanged += (_, _) =>
         {
+            ClearSearchButton.IsVisible = !string.IsNullOrEmpty(SearchBox.Text);
             _searchDelay.Stop();
             _searchDelay.Start();
         };
@@ -132,21 +138,60 @@ public sealed partial class MailEditor : OfficeEditor
             _searchDelay.Stop();
             QueueRefresh();
         };
-        ScopeChoice = new ComboBox { ItemsSource = new[] { "Aktueller Ordner", "Alle Ordner" }, SelectedIndex = 0, MinWidth = 130 };
-        AutomationProperties.SetName(ScopeChoice, "Suchbereich");
+        ScopeChoice = PlainChoice(["Aktueller Ordner", "Alle Ordner"], "Suchbereich");
         ScopeChoice.SelectionChanged += (_, _) => QueueRefresh();
-        FilterChoice = new ComboBox { ItemsSource = new[] { "Alle", "Ungelesen", "Gekennzeichnet", "Mit Anlagen" }, SelectedIndex = 0, MinWidth = 110 };
+        ClearSearchButton = new Button { Content = new MatIcon { Icon = "x", Size = 14 }, Padding = new Thickness(6), IsVisible = false, VerticalAlignment = VerticalAlignment.Center }.Themed("MatButton.Ghost");
+        AutomationProperties.SetName(ClearSearchButton, "Suche schließen");
+        ToolTip.SetTip(ClearSearchButton, "Suche schließen");
+        ClearSearchButton.Click += (_, _) =>
+        {
+            SearchBox.Text = "";
+            FocusDocument();
+        };
+        var scopeLine = new Border { Width = 1, Margin = new Thickness(4, 7, 2, 7) };
+        scopeLine.Use(Border.BackgroundProperty, "Mat.Border");
+        SearchBox.InnerRightContent = new StackPanel { Orientation = Orientation.Horizontal, Children = { ClearSearchButton, scopeLine, ScopeChoice } };
+
+        // the filter: "Alle" and "Ungelesen" as Outlook's views over the list, every filter in the menu of the funnel
+        FilterChoice = new ComboBox { ItemsSource = FilterNames, SelectedIndex = 0 };
         AutomationProperties.SetName(FilterChoice, "Filter");
-        FilterChoice.SelectionChanged += (_, _) => QueueRefresh();
-        SortChoice = new ComboBox { ItemsSource = new[] { "Datum", "Von", "Betreff", "Größe" }, SelectedIndex = 0, MinWidth = 100 };
-        AutomationProperties.SetName(SortChoice, "Sortieren nach");
-        SortChoice.SelectionChanged += (_, _) => QueueRefresh();
-        var toolbarTop = new DockPanel { Margin = new Thickness(10, 10, 10, 4) };
-        DockPanel.SetDock(ScopeChoice, Dock.Right);
-        ScopeChoice.Margin = new Thickness(6, 0, 0, 0);
-        toolbarTop.Children.Add(ScopeChoice);
-        toolbarTop.Children.Add(SearchBox);
-        var toolbarBottom = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(10, 2, 10, 6), Children = { FilterChoice, SortChoice } };
+        FilterChoice.SelectionChanged += (_, _) =>
+        {
+            ShowFilter();
+            QueueRefresh();
+        };
+        AllViewButton = ViewButton("Alle", ListFilter.All);
+        UnreadViewButton = ViewButton("Ungelesen", ListFilter.Unread);
+        FilterButton = new Button { Content = new MatIcon { Icon = "filter", Size = 16 }, Padding = new Thickness(6), VerticalAlignment = VerticalAlignment.Center }.Themed("MatButton.Ghost");
+        AutomationProperties.SetName(FilterButton, "Filter");
+        ToolTip.SetTip(FilterButton, "Filter: Alle, Ungelesen, Gekennzeichnet, Mit Anlagen");
+        FilterButton.Click += (_, _) => FilterMenu().ShowAt(FilterButton);
+
+        SortChoice = PlainChoice(["Nach Datum", "Nach Absender", "Nach Betreff", "Nach Größe"], "Sortieren nach");
+        SortChoice.SelectionChanged += (_, _) =>
+        {
+            _sortDescending = (ListSort)Math.Max(0, SortChoice.SelectedIndex) is ListSort.Date or ListSort.Size;
+            ShowSortDirection();
+            QueueRefresh();
+        };
+        SortDirectionButton = new Button { Padding = new Thickness(6), VerticalAlignment = VerticalAlignment.Center }.Themed("MatButton.Ghost");
+        SortDirectionButton.Click += (_, _) =>
+        {
+            _sortDescending = !_sortDescending;
+            ShowSortDirection();
+            QueueRefresh();
+        };
+        ShowSortDirection();
+        ShowFilter();
+
+        var toolbarTop = new DockPanel { Margin = new Thickness(10, 10, 10, 2), Children = { SearchBox } };
+        var sortPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 0, Children = { SortChoice, SortDirectionButton } };
+        DockPanel.SetDock(sortPanel, Dock.Right);
+        var toolbarBottom = new DockPanel { Margin = new Thickness(6, 0, 6, 2) };
+        toolbarBottom.Children.Add(sortPanel);
+        toolbarBottom.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Children = { AllViewButton, UnreadViewButton, FilterButton } });
+        var toolbarLine = new Border { Height = 1 };
+        toolbarLine.Use(Border.BackgroundProperty, "Mat.Border");
 
         List = new ListBox { SelectionMode = SelectionMode.Multiple, ItemTemplate = new FuncDataTemplate<ListRow>((_, _) => new MessageRow(this)) };
         AutomationProperties.SetName(List, "Nachrichten");
@@ -173,8 +218,10 @@ public sealed partial class MailEditor : OfficeEditor
         var listDock = new DockPanel();
         DockPanel.SetDock(toolbarTop, Dock.Top);
         DockPanel.SetDock(toolbarBottom, Dock.Top);
+        DockPanel.SetDock(toolbarLine, Dock.Top);
         listDock.Children.Add(toolbarTop);
         listDock.Children.Add(toolbarBottom);
+        listDock.Children.Add(toolbarLine);
         listDock.Children.Add(listArea);
         _listPane.Child = listDock;
         _listPane.Use(Border.BackgroundProperty, "Mat.Surface");
@@ -238,6 +285,23 @@ public sealed partial class MailEditor : OfficeEditor
     public ComboBox FilterChoice { get; }
 
     public ComboBox SortChoice { get; }
+
+    /// <summary>✕ in the search field: ends the search (shown while there is a search).</summary>
+    public Button ClearSearchButton { get; }
+
+    /// <summary>The views over the list above it: "Alle" and "Ungelesen" (Outlook's).</summary>
+    public Button AllViewButton { get; }
+
+    public Button UnreadViewButton { get; }
+
+    /// <summary>The funnel: every filter in a menu (Alle, Ungelesen, Gekennzeichnet, Mit Anlagen).</summary>
+    public Button FilterButton { get; }
+
+    /// <summary>The arrow beside "Nach Datum": newest or oldest first.</summary>
+    public Button SortDirectionButton { get; }
+
+    /// <summary>Newest (largest, Z…A) first.</summary>
+    public bool SortDescending => _sortDescending;
 
     public MessageView Reader { get; }
 
@@ -633,7 +697,7 @@ public sealed partial class MailEditor : OfficeEditor
             var selected = List.SelectedItems?.OfType<ListRow>().Where(r => r.IsMessage).Select(r => r.Id).ToHashSet() ?? [];
             _headers.Clear();
             var sort = (ListSort)Math.Max(0, SortChoice.SelectedIndex);
-            var query = new MessageQuery(ListedFolders(), ListedFilter, (SearchBox.Text ?? "").Trim(), sort, sort is ListSort.Date or ListSort.Size);
+            var query = new MessageQuery(ListedFolders(), ListedFilter, (SearchBox.Text ?? "").Trim(), sort, _sortDescending);
             _entries = Document.Store.List(query);
             KeepReadInUnreadView(query);
             var rows = MessageList.Build(_entries, ShowsConversations, sort == ListSort.Date, _expanded, DateTimeOffset.Now);
@@ -1078,6 +1142,93 @@ public sealed partial class MailEditor : OfficeEditor
 
     private Task<bool> RunAsync(string commandId) =>
         _window.Commands.Find(commandId) is { } command ? OfficeWindow.RunCommandAsync(_window, command) : Task.FromResult(false);
+
+    /// <summary>A borderless choice like Outlook's "Nach Datum ˅" and the scope in the search field: only its words and the arrow.</summary>
+    private static ComboBox PlainChoice(string[] items, string name)
+    {
+        var choice = new ComboBox
+        {
+            ItemsSource = items,
+            SelectedIndex = 0,
+            BorderThickness = new Thickness(0),
+            MinHeight = 0,
+            Padding = new Thickness(6, 2, 2, 2),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        choice.Use(ComboBox.FontSizeProperty, "Mat.FontSizeSm");
+        choice.Use(ComboBox.ForegroundProperty, "Mat.TextMuted");
+        AutomationProperties.SetName(choice, name);
+        ToolTip.SetTip(choice, name);
+        return choice;
+    }
+
+    /// <summary>"Alle" or "Ungelesen" above the list: the chosen one in the accent, underlined.</summary>
+    private Button ViewButton(string text, ListFilter filter)
+    {
+        var label = new TextBlock { Text = text };
+        var line = new Border { Height = 2, Margin = new Thickness(0, 3, 0, 0), CornerRadius = new CornerRadius(1) };
+        var button = new Button
+        {
+            Content = new StackPanel { Children = { label, line } },
+            Padding = new Thickness(8, 5, 8, 2),
+            Tag = filter,
+            VerticalAlignment = VerticalAlignment.Center,
+        }.Themed("MatButton.Ghost");
+        AutomationProperties.SetName(button, text);
+        button.Click += (_, _) => FilterChoice.SelectedIndex = (int)filter;
+        return button;
+    }
+
+    /// <summary>The view buttons and the funnel follow the filter (the funnel in the accent while a filter of its menu only is on).</summary>
+    private void ShowFilter()
+    {
+        var filter = (ListFilter)Math.Max(0, FilterChoice.SelectedIndex);
+        foreach (var button in new[] { AllViewButton, UnreadViewButton })
+        {
+            var on = (ListFilter)button.Tag! == filter;
+            var parts = (StackPanel)button.Content!;
+            var label = (TextBlock)parts.Children[0];
+            var line = (Border)parts.Children[1];
+            label.FontWeight = on ? FontWeight.SemiBold : FontWeight.Normal;
+            label.Use(TextBlock.ForegroundProperty, on ? "Mat.AccentText" : "Mat.TextMuted");
+            line.Use(Border.BackgroundProperty, "Mat.Accent");
+            line.Opacity = on ? 1 : 0;
+        }
+
+        var other = filter is ListFilter.Flagged or ListFilter.Attachments;
+        ((MatIcon)FilterButton.Content!).Use(MatIcon.ForegroundProperty, other ? "Mat.AccentText" : "Mat.TextMuted");
+        ToolTip.SetTip(FilterButton, other ? $"Filter: {FilterNames[(int)filter]}" : "Filter: Alle, Ungelesen, Gekennzeichnet, Mit Anlagen");
+    }
+
+    /// <summary>The menu of the funnel: every filter, the one on checked.</summary>
+    private MenuFlyout FilterMenu()
+    {
+        var menu = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedLeft };
+        for (var index = 0; index < FilterNames.Length; index++)
+        {
+            var chosen = index;
+            var item = new MenuItem { Header = FilterNames[index], ToggleType = MenuItemToggleType.Radio, IsChecked = FilterChoice.SelectedIndex == index };
+            item.Click += (_, _) => FilterChoice.SelectedIndex = chosen;
+            menu.Items.Add(item);
+        }
+
+        return menu;
+    }
+
+    /// <summary>The arrow beside the order: ↓ newest (largest, Z…A) first, ↑ oldest first.</summary>
+    private void ShowSortDirection()
+    {
+        SortDirectionButton.Content = new MatIcon { Icon = _sortDescending ? "arrow-down" : "arrow-up", Size = 14 };
+        var sort = (ListSort)Math.Max(0, SortChoice.SelectedIndex);
+        var text = sort switch
+        {
+            ListSort.Date => _sortDescending ? "Neueste oben" : "Älteste oben",
+            ListSort.Size => _sortDescending ? "Größte oben" : "Kleinste oben",
+            _ => _sortDescending ? "Z bis A" : "A bis Z",
+        };
+        ToolTip.SetTip(SortDirectionButton, text);
+        AutomationProperties.SetName(SortDirectionButton, $"Reihenfolge: {text}");
+    }
 
     public void FocusSearch()
     {
