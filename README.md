@@ -330,9 +330,10 @@ dem Mailserver und – zum Lesen ohne Verbindung – auf diesem Computer, **nie 
   ein, ThixMail bewahrt nur die Anmeldung auf und erneuert sie selbst; endet sie, bittet das Konto um eine neue Anmeldung, ohne Mails zu verlieren.
   Solange ThixMail bei einem Anbieter noch nicht registriert ist, sagt die Kontoseite das ehrlich (Gmail geht bis dahin mit App-Passwort).
 - **Hauptfenster** wie im deutschen Outlook: Ordnerbereich (Favoriten mit „Alle Posteingänge“, je Konto Posteingang, Entwürfe, Gesendete Elemente,
-  Gelöschte Elemente, Junk-E-Mail, Archiv und eigene Ordner mit ungelesenen Zahlen), Nachrichtenliste mit Outlooks Leiste: ein Suchfeld mit
-  dem Bereich darin („Aktueller Ordner“ oder „Alle Ordner“, ✕ beendet die Suche), darunter „Alle | Ungelesen“, der Filter (Gekennzeichnet,
-  Mit Anlagen) und „Nach Datum“ (Absender, Betreff, Größe) mit Pfeil für die Richtung; Datumsgruppen (Heute, Gestern, Letzte Woche …), Unterhaltungen (aufklappbar),
+  Gelöschte Elemente, Junk-E-Mail, Archiv und eigene Ordner mit ungelesenen Zahlen), die Suche wie im
+  Microsoft-365-Outlook oben in der Titelleiste („Suchen“, Strg+E, der Bereich „Aktueller Ordner“ oder „Alle Ordner“ darin, ✕ beendet die Suche;
+  passende Befehle stehen darunter als „Aktionen“ – „Was möchten Sie tun?“ ist darin aufgegangen), über der Nachrichtenliste „Alle | Ungelesen“,
+  der Filter (Gekennzeichnet, Mit Anlagen) und „Nach Datum“ (Absender, Betreff, Größe) mit Pfeil für die Richtung; Datumsgruppen (Heute, Gestern, Letzte Woche …), Unterhaltungen (aufklappbar),
   Kategorien, Schnellaktionen beim Darüberfahren – flüssig auch mit 200.000 Nachrichten –, Lesebereich rechts, unten oder aus.
 - **Lesen ohne WebView:** HTML-Mails werden mit ThixWrites Layout gezeigt – mit ihren Stilvorlagen, Spalten nebeneinander, Breiten, Abständen und
   Farben wie gestaltet; Skripte, Formulare, Frames und Ähnliches kommen gar nicht erst an.

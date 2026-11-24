@@ -11,20 +11,49 @@ using ThixOffice.Core.Commands;
 namespace ThixOffice.Desktop.Shell;
 
 /// <summary>
+/// What the box in the title bar searches besides the commands, like the search of Microsoft 365 Outlook (ThixMail: the mail of the folder):
+/// the placeholder, what the text does while it is typed, Enter without a chosen command, and a control inside the box at its right (the scope).
+/// </summary>
+public sealed class ContentSearch
+{
+    /// <summary>The placeholder of the box ("Suchen").</summary>
+    public required string Placeholder { get; init; }
+
+    /// <summary>The text changed (also to "" when the search ends).</summary>
+    public required Action<string> Search { get; init; }
+
+    /// <summary>Enter (or ↓ with no command offered) without a chosen command: to the results.</summary>
+    public Action? Submit { get; init; }
+
+    /// <summary>Inside the box at its right (the scope, ✕).</summary>
+    public Control? Accessory { get; init; }
+
+    /// <summary>The tooltip of the box.</summary>
+    public string? Tip { get; init; }
+}
+
+/// <summary>
 /// "Was möchten Sie tun?" in the middle of the title bar (Alt+Q): typing lists the matching commands of the window's
 /// registry (<see cref="OfficeCommandRegistry.Search"/>) below the box – icon, label, shortcut; a disabled one is shown
-/// but cannot run. ↑↓ choose, Enter runs, Escape closes and gives the focus back to the document. Later it searches the
-/// document too (plan, section 4); the ribbon runs the same commands.
+/// but cannot run. ↑↓ choose, Enter runs, Escape closes and gives the focus back to the document. With a
+/// <see cref="ContentSearch"/> (ThixMail's mail) it is Outlook's "Suchen": the text searches the content at once, the matching commands
+/// come below as "Aktionen" (none chosen until ↓), Enter goes to the results; the ribbon runs the same commands.
 /// </summary>
 public sealed class CommandSearchBox : Grid
 {
     public const string Placeholder = "Was möchten Sie tun?";
+
+    /// <summary>At most this many commands below a content search.</summary>
+    private const int ContentCommandCount = 6;
 
     private readonly OfficeCommandRegistry _commands;
     private readonly TextBox _box;
     private readonly ListBox _list;
     private readonly Popup _popup;
     private readonly TextBlock _empty;
+    private readonly TextBlock _actionsTitle;
+    private readonly string _commandTip;
+    private ContentSearch? _content;
 
     public CommandSearchBox(OfficeCommandRegistry commands)
     {
@@ -38,7 +67,10 @@ public sealed class CommandSearchBox : Grid
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
         AutomationProperties.SetName(_box, Placeholder);
-        ToolTip.SetTip(_box, $"Befehle suchen ({(OperatingSystem.IsMacOS() ? "⌥Q" : "Alt+Q")})");
+        _commandTip = $"Befehle suchen ({(OperatingSystem.IsMacOS() ? "⌥Q" : "Alt+Q")})";
+        ToolTip.SetTip(_box, _commandTip);
+        _actionsTitle = new TextBlock { Text = "Aktionen", FontSize = MatTokens.Type.FsSm, Margin = new Thickness(10, 4, 10, 4), IsVisible = false }
+            .Use(TextBlock.ForegroundProperty, "Mat.TextMuted");
 
         _list = new ListBox { Theme = Ui.Theme("MatList"), MaxHeight = 380, ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<OfficeCommand?>((command, _) => command is null ? new TextBlock() : Row(command)) };
         _list.DoubleTapped += async (_, _) => await RunSelectedAsync();
@@ -49,7 +81,7 @@ public sealed class CommandSearchBox : Grid
             Padding = new Thickness(6),
             CornerRadius = new CornerRadius(MatTokens.Size.RadiusLg),
             BorderThickness = new Thickness(1),
-            Child = new StackPanel { Children = { _list, _empty } },
+            Child = new StackPanel { Children = { _actionsTitle, _list, _empty } },
         }.Use(Border.BackgroundProperty, "Mat.Surface").Use(Border.BorderBrushProperty, "Mat.Border");
         _popup = new Popup
         {
@@ -82,15 +114,52 @@ public sealed class CommandSearchBox : Grid
 
     public bool IsOpen => _popup.IsOpen;
 
+    /// <summary>What the box searches besides the commands (null: only the commands, "Was möchten Sie tun?").</summary>
+    public ContentSearch? Content => _content;
+
+    /// <summary>
+    /// Makes the box search <paramref name="content"/> too (null: only the commands again). A text typed for the earlier content
+    /// is cleared first, so that it does not stay as a search of the new one.
+    /// </summary>
+    public void SetContentSearch(ContentSearch? content)
+    {
+        if (ReferenceEquals(content, _content))
+        {
+            return;
+        }
+
+        if ((_box.Text ?? "").Length > 0)
+        {
+            Reset();
+        }
+
+        _content = content;
+        _box.Watermark = content?.Placeholder ?? Placeholder;
+        AutomationProperties.SetName(_box, content?.Placeholder ?? Placeholder);
+        ToolTip.SetTip(_box, content?.Tip ?? _commandTip);
+        _box.InnerRightContent = content?.Accessory;
+        _box.MinWidth = content is null ? 220 : 300;
+    }
+
     public void FocusSearch()
     {
         _box.Focus();
         _box.SelectAll();
     }
 
-    /// <summary>Runs the chosen command (the first one when none is chosen); false when there is none or it is disabled.</summary>
+    /// <summary>
+    /// Runs the chosen command (without a content search the first one when none is chosen); false when there is none or it is
+    /// disabled. With a content search and no command chosen it goes to the results.
+    /// </summary>
     public async Task<bool> RunSelectedAsync()
     {
+        if (_content is not null && _list.SelectedItem is not OfficeCommand)
+        {
+            _popup.IsOpen = false;
+            _content.Submit?.Invoke();
+            return false;
+        }
+
         var command = _list.SelectedItem as OfficeCommand ?? Results.FirstOrDefault();
         if (command is null || !command.IsEnabled)
         {
@@ -110,10 +179,25 @@ public sealed class CommandSearchBox : Grid
     private void Search()
     {
         var text = _box.Text ?? "";
+        if (_content is { } content)
+        {
+            // Outlook's search: the content follows the text at once, the commands are offered below – none chosen until ↓
+            content.Search(text);
+            Results = text.Trim().Length > 0 ? [.. _commands.Search(text).Take(ContentCommandCount)] : [];
+            _list.ItemsSource = Results;
+            _list.SelectedIndex = -1;
+            _list.IsVisible = Results.Count > 0;
+            _actionsTitle.IsVisible = true;
+            _empty.IsVisible = false;
+            _popup.IsOpen = Results.Count > 0 && _box.IsFocused;
+            return;
+        }
+
         Results = _commands.Search(text);
         _list.ItemsSource = Results;
         _list.SelectedIndex = Results.Count > 0 ? 0 : -1;
         _list.IsVisible = Results.Count > 0;
+        _actionsTitle.IsVisible = false;
         _empty.IsVisible = Results.Count == 0;
         _popup.IsOpen = text.Trim().Length > 0;
     }
@@ -129,8 +213,16 @@ public sealed class CommandSearchBox : Grid
     {
         switch (e.Key)
         {
-            case Key.Down when Results.Count > 0:
+            case Key.Down when Results.Count > 0 && (_content is null || _popup.IsOpen):
                 _list.SelectedIndex = Math.Min(Results.Count - 1, _list.SelectedIndex + 1);
+                e.Handled = true;
+                break;
+            case Key.Down when _content is not null:
+                e.Handled = true;
+                await RunSelectedAsync();
+                break;
+            case Key.Up when Results.Count > 0 && _content is not null && _list.SelectedIndex <= 0:
+                _list.SelectedIndex = -1; // back in the search: Enter searches
                 e.Handled = true;
                 break;
             case Key.Up when Results.Count > 0:

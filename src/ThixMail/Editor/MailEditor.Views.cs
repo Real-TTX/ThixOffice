@@ -109,6 +109,7 @@ public sealed partial class MailEditor
         }
 
         UpdateCloudOffer();
+        ShowSearch();
 
         // Outlook swaps the ribbon with the module; its Start tab comes up (staying in the same module keeps the chosen tab)
         _window.RibbonBinding.ShowTabs(tab => MailRibbon.ModuleOf(tab.Id) == view, changed ? MailRibbon.HomeTabOf(view) : null);

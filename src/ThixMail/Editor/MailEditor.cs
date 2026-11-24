@@ -79,6 +79,8 @@ public sealed partial class MailEditor : OfficeEditor
     private ReadingPanePosition _pane;
     private bool _detached;
     private bool _sortDescending = true;
+    private string _searchText = "";
+    private readonly ContentSearch _mailSearch;
 
     public MailEditor(OfficeWindow window, MailDocument document)
     {
@@ -107,32 +109,10 @@ public sealed partial class MailEditor : OfficeEditor
         _folderPane.Use(Border.BorderBrushProperty, "Mat.Border");
         _folderPane.BorderThickness = new Thickness(0, 0, 1, 0);
 
-        // the list with its toolbar like Outlook's: ONE search field (the scope "Aktueller Ordner ˅" at its right end, ✕ ends the search),
-        // under it the views "Alle | Ungelesen", the filter menu and the order "Nach Datum ˅" with its direction
-        SearchBox = new TextBox { Watermark = "Suchen" }.Themed("MatSearchBox");
-        AutomationProperties.SetName(SearchBox, "E-Mail durchsuchen");
-        ToolTip.SetTip(SearchBox, Ui.Tooltip("Suchen", OperatingSystem.IsMacOS() ? "Ctrl+Alt+F" : "Ctrl+E"));
-        SearchBox.TextChanged += (_, _) =>
-        {
-            ClearSearchButton.IsVisible = !string.IsNullOrEmpty(SearchBox.Text);
-            _searchDelay.Stop();
-            _searchDelay.Start();
-        };
-        SearchBox.KeyDown += (_, e) =>
-        {
-            if (e.Key == Key.Escape)
-            {
-                SearchBox.Text = "";
-                FocusDocument();
-                e.Handled = true;
-            }
-            else if (e.Key is Key.Enter or Key.Down)
-            {
-                QueueRefresh();
-                FocusDocument();
-                e.Handled = true;
-            }
-        };
+        // the search like Microsoft 365 Outlook's: the box in the title bar is "Suchen" while the mail is shown (the scope "Aktueller Ordner ˅" at
+        // its right end, ✕ ends the search; the commands come below it as "Aktionen"); over the list the views "Alle | Ungelesen", the filter
+        // menu and the order "Nach Datum ˅" with its direction
+        SearchBox = window.Search.Box;
         _searchDelay.Tick += (_, _) =>
         {
             _searchDelay.Stop();
@@ -150,7 +130,37 @@ public sealed partial class MailEditor : OfficeEditor
         };
         var scopeLine = new Border { Width = 1, Margin = new Thickness(4, 7, 2, 7) };
         scopeLine.Use(Border.BackgroundProperty, "Mat.Border");
-        SearchBox.InnerRightContent = new StackPanel { Orientation = Orientation.Horizontal, Children = { ClearSearchButton, scopeLine, ScopeChoice } };
+        _mailSearch = new ContentSearch
+        {
+            Placeholder = "Suchen",
+            Tip = Ui.Tooltip("E-Mail durchsuchen, auch Befehle", OperatingSystem.IsMacOS() ? "Ctrl+Alt+F" : "Ctrl+E"),
+            Accessory = new StackPanel { Orientation = Orientation.Horizontal, Children = { ClearSearchButton, scopeLine, ScopeChoice } },
+            Search = text =>
+            {
+                ClearSearchButton.IsVisible = text.Length > 0;
+                if (_searchText == text.Trim())
+                {
+                    return;
+                }
+
+                _searchText = text.Trim();
+                _searchDelay.Stop();
+                if (_searchText.Length == 0)
+                {
+                    QueueRefresh(); // the whole list at once
+                }
+                else
+                {
+                    _searchDelay.Start();
+                }
+            },
+            Submit = () =>
+            {
+                _searchDelay.Stop();
+                QueueRefresh();
+                FocusDocument();
+            },
+        };
 
         // the filter: "Alle" and "Ungelesen" as Outlook's views over the list, every filter in the menu of the funnel
         FilterChoice = new ComboBox { ItemsSource = FilterNames, SelectedIndex = 0 };
@@ -184,10 +194,9 @@ public sealed partial class MailEditor : OfficeEditor
         ShowSortDirection();
         ShowFilter();
 
-        var toolbarTop = new DockPanel { Margin = new Thickness(10, 10, 10, 2), Children = { SearchBox } };
         var sortPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 0, Children = { SortChoice, SortDirectionButton } };
         DockPanel.SetDock(sortPanel, Dock.Right);
-        var toolbarBottom = new DockPanel { Margin = new Thickness(6, 0, 6, 2) };
+        var toolbarBottom = new DockPanel { Margin = new Thickness(6, 6, 6, 2) };
         toolbarBottom.Children.Add(sortPanel);
         toolbarBottom.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Children = { AllViewButton, UnreadViewButton, FilterButton } });
         var toolbarLine = new Border { Height = 1 };
@@ -216,10 +225,8 @@ public sealed partial class MailEditor : OfficeEditor
 
         var listArea = new Panel { Children = { List, _emptyList } };
         var listDock = new DockPanel();
-        DockPanel.SetDock(toolbarTop, Dock.Top);
         DockPanel.SetDock(toolbarBottom, Dock.Top);
         DockPanel.SetDock(toolbarLine, Dock.Top);
-        listDock.Children.Add(toolbarTop);
         listDock.Children.Add(toolbarBottom);
         listDock.Children.Add(toolbarLine);
         listDock.Children.Add(listArea);
@@ -266,6 +273,7 @@ public sealed partial class MailEditor : OfficeEditor
         SelectFirstInbox();
         Refresh();
         AttachViews();
+        ShowSearch();
     }
 
     public MailDocument Document { get; }
@@ -622,7 +630,7 @@ public sealed partial class MailEditor : OfficeEditor
     private IReadOnlyList<long> ListedFolders()
     {
         var store = Document.Store;
-        if (ScopeChoice.SelectedIndex == 1 && (SearchBox.Text ?? "").Trim().Length > 0)
+        if (ScopeChoice.SelectedIndex == 1 && _searchText.Length > 0)
         {
             return [.. store.Folders().Where(f => f.IsSelectable && f.Role != FolderRole.Junk && f.Role != FolderRole.Trash).Select(f => f.Id)];
         }
@@ -697,7 +705,7 @@ public sealed partial class MailEditor : OfficeEditor
             var selected = List.SelectedItems?.OfType<ListRow>().Where(r => r.IsMessage).Select(r => r.Id).ToHashSet() ?? [];
             _headers.Clear();
             var sort = (ListSort)Math.Max(0, SortChoice.SelectedIndex);
-            var query = new MessageQuery(ListedFolders(), ListedFilter, (SearchBox.Text ?? "").Trim(), sort, _sortDescending);
+            var query = new MessageQuery(ListedFolders(), ListedFilter, _searchText, sort, _sortDescending);
             _entries = Document.Store.List(query);
             KeepReadInUnreadView(query);
             var rows = MessageList.Build(_entries, ShowsConversations, sort == ListSort.Date, _expanded, DateTimeOffset.Now);
@@ -739,7 +747,7 @@ public sealed partial class MailEditor : OfficeEditor
     private void UpdateEmpty()
     {
         var noAccounts = Document.Accounts.Accounts.Count == 0;
-        var searching = (SearchBox.Text ?? "").Trim().Length > 0;
+        var searching = _searchText.Length > 0;
         _emptyList.IsVisible = _rows.Count == 0;
         _emptyAction.IsVisible = noAccounts;
         _emptyTitle.Text = noAccounts ? "Noch kein E-Mail-Konto" : searching ? "Keine Treffer" : "Hier ist nichts";
@@ -1230,11 +1238,17 @@ public sealed partial class MailEditor : OfficeEditor
         AutomationProperties.SetName(SortDirectionButton, $"Reihenfolge: {text}");
     }
 
-    public void FocusSearch()
+    /// <summary>The box in the title bar searches the mail while the mail is shown ("Suchen"), else only the commands.</summary>
+    private void ShowSearch()
     {
-        SearchBox.Focus();
-        SearchBox.SelectAll();
+        if (!Gone)
+        {
+            _window.Search.SetContentSearch(ActiveView == MailArea.Mail ? _mailSearch : null);
+        }
     }
+
+    /// <summary>Strg+E: the search in the title bar.</summary>
+    public void FocusSearch() => _window.Search.FocusSearch();
 
     public override void FocusDocument()
     {
@@ -1431,5 +1445,9 @@ public sealed partial class MailEditor : OfficeEditor
         _markRead.Stop();
         _searchDelay.Stop();
         DetachViews();
+        if (_window.Search.Content == _mailSearch)
+        {
+            _window.Search.SetContentSearch(null);
+        }
     }
 }

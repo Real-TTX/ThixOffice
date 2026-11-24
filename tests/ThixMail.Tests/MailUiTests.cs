@@ -13,6 +13,7 @@ using ThixMail.Pages;
 using ThixOffice.Core.Commands;
 using ThixOffice.Desktop.Dialogs;
 using ThixOffice.Desktop.Pages;
+using ThixOffice.Desktop.Shell;
 using static ThixMail.Tests.TestData;
 
 namespace ThixMail.Tests;
@@ -290,14 +291,15 @@ public sealed class MailUiTests
     }
 
     [AvaloniaFact]
-    public async Task The_list_toolbar_works_like_Outlooks_one_search_field_the_views_and_the_order_with_its_direction()
+    public async Task The_search_sits_in_the_title_bar_like_Outlooks_and_the_list_has_the_views_and_the_order_with_its_direction()
     {
         using var data = new TestData();
         var window = await data.WindowAsync();
         var editor = EditorOf(window);
         var all = editor.Rows.Count(r => r.IsMessage);
 
-        // one search field: the scope sits in it, ✕ only while searching and it ends the search
+        // the box in the title bar is "Suchen" while the mail is shown: the scope sits in it, ✕ only while searching and it ends the search
+        Assert.Same(window.Search.Box, editor.SearchBox);
         Assert.Equal("Suchen", editor.SearchBox.Watermark);
         Assert.Equal("Aktueller Ordner", editor.ScopeChoice.SelectedItem);
         Assert.False(editor.ClearSearchButton.IsVisible);
@@ -307,6 +309,23 @@ public sealed class MailUiTests
         await ClickAsync(window, editor.ClearSearchButton);
         await UntilAsync(() => editor.Rows.Count(r => r.IsMessage) == all, "the whole list again");
         Assert.False(editor.ClearSearchButton.IsVisible);
+
+        // the commands come below as "Aktionen", none chosen: Enter searches the mail, it does not run "Antworten"
+        editor.SearchBox.Text = "antworten";
+        await SettleAsync();
+        Assert.Contains(window.Search.Results, command => command.Id == MailCommandIds.Reply);
+        Assert.False(await window.Search.RunSelectedAsync());
+        Assert.Equal("antworten", editor.SearchBox.Text);
+        Assert.Empty(window.OwnedWindows);
+        editor.SearchBox.Text = "";
+        await UntilAsync(() => editor.Rows.Count(r => r.IsMessage) == all, "the whole list again");
+
+        // Kalender: the box is "Was möchten Sie tun?" again, back in the mail "Suchen"
+        editor.ShowView(MailArea.Calendar);
+        Assert.Equal(CommandSearchBox.Placeholder, window.Search.Box.Watermark);
+        Assert.Null(window.Search.Content);
+        editor.ShowView(MailArea.Mail);
+        Assert.Equal("Suchen", window.Search.Box.Watermark);
 
         // "Ungelesen" over the list, "Alle" back
         await ClickAsync(window, editor.UnreadViewButton);

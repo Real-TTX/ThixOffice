@@ -119,7 +119,9 @@ src/ThixOffice.Desktop     shared Avalonia UI
                            unsaved dot, CommandSearchBox; MatRibbon; message bar; editor; status bar; backstage over it all;
                            keyboard; unsaved prompt; recovery timer), OfficeRibbonBinding + OfficeRibbonItems (see below),
                            OfficeBackstage (MatBackstage with the pages by id; BackstageItem/BackstageContent), OfficeStatusBar
-                           (MatStatusBar: texts by id + zoom), OfficeEditor (the app's part; Zoom 10–500 %, OpeningWarning, RequestZoomLevel), CommandSearchBox,
+                           (MatStatusBar: texts by id + zoom), OfficeEditor (the app's part; Zoom 10–500 %, OpeningWarning, RequestZoomLevel), CommandSearchBox
+                           ("Was möchten Sie tun?"; SetContentSearch(ContentSearch) makes it Outlook's "Suchen": the text searches the content
+                           at once, Accessory inside the box, the commands below as "Aktionen" with none chosen, Enter/↓ = ContentSearch.Submit),
                            IFileDialogs + SystemFileDialogs
                            OfficeCommandMenu (context menus made of commands), OfficeEditor.ConfirmSaveAsync (the editor may warn before a
                            save: CSV, macros)
@@ -202,8 +204,9 @@ src/ThixMail.Core          (no UI) ThixMailApp.Definition (Kind Workspace, .eml,
                            contacts – ThixContacts' ContactsSession – and calendar – CalendarBook – in stores of this app, PimSync with ?app=contacts and
                            ?app=calendar while signed in, ReconnectAsync), MailInvitations (View of a text/calendar part with conflicts, Answer: calendar +
                            REPLY through the outbox, RemoveCancelled, SendMeeting/DeleteAppointment: REQUEST/CANCEL); Draft.Calendar → text/calendar part
-src/ThixMail               App (workspace), Editor/ (MailEditor: navigation rail | folder pane | list | MessageView; the list's toolbar
-                           like Outlook's: ONE search field (MatSearchBox, scope ComboBox + ✕ ClearSearchButton inside it), under it the views
+src/ThixMail               App (workspace), Editor/ (MailEditor: navigation rail | folder pane | list | MessageView; the search like
+                           Microsoft 365 Outlook's in the title bar: while the mail is shown the window's CommandSearchBox gets a ContentSearch
+                           ("Suchen", scope ComboBox + ✕ ClearSearchButton inside it; SearchBox = window.Search.Box), the list's toolbar the views
                            AllViewButton/UnreadViewButton, FilterButton (menu of every filter; FilterChoice keeps the state, not shown) and the plain
                            SortChoice "Nach Datum" with SortDirectionButton (each order starts with its own direction); MailEditor.Views: MailArea Mail/Calendar/
                            People, ShowView, the shared CalendarView/PeopleView or the sign-in, contextual ribbon contexts "calendar"/"people", the invitation
