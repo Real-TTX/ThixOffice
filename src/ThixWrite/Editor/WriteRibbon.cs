@@ -596,7 +596,7 @@ public static class WriteRibbon
                     new MatRibbonMenuButton(WriteCommandIds.NextFootnote, "", null,
                         [.. ReferenceCommands.NoteSteps.Select(step => Button($"{WriteCommandIds.NextFootnote}.{step.Id}"))]))));
 
-    /// <summary>Überprüfen, like Word's: Kommentare (Dokumentprüfung and Sprache join with the spelling check).</summary>
+    /// <summary>Überprüfen, like Word's: Dokumentprüfung, Sprache, Kommentare, Nachverfolgung, Änderungen, Schützen (Mit Kennwort verschlüsseln).</summary>
     private static MatRibbonTab ReviewTab() =>
         new MatRibbonTab("review", "Überprüfen").Add(
             new MatRibbonGroup("proofing", "Dokumentprüfung") { Icon = "spell-check" }.Add(
@@ -623,7 +623,9 @@ public static class WriteRibbon
                 new MatRibbonSplitButton(WriteCommandIds.RejectRevision, "", menu: [Button(WriteCommandIds.RejectAllRevisions)]) { Size = MatRibbonSize.Large },
                 new MatRibbonStack("revision-steps",
                     Button(WriteCommandIds.PreviousRevision),
-                    Button(WriteCommandIds.NextRevision))));
+                    Button(WriteCommandIds.NextRevision))),
+            new MatRibbonGroup("protect", "Schützen") { Icon = "lock" }.Add(
+                Toggle(CommonCommandIds.Encrypt, size: MatRibbonSize.Large)));
 
     private static MatRibbonTab ViewTab() =>
         new MatRibbonTab("view", "Ansicht").Add(

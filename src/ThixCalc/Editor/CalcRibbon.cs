@@ -369,7 +369,8 @@ public static class CalcRibbon
                 Button(CalcCommandIds.DeleteCommentReview)),
             new MatRibbonGroup("protect", "Schützen") { Icon = "lock" }.Add(
                 Toggle(CalcCommandIds.ProtectSheet, size: MatRibbonSize.Large),
-                Toggle(CalcCommandIds.ProtectWorkbook, size: MatRibbonSize.Large)));
+                Toggle(CalcCommandIds.ProtectWorkbook, size: MatRibbonSize.Large),
+                Toggle(CommonCommandIds.Encrypt, size: MatRibbonSize.Large)));
 
     private static MatRibbonTab ViewTab() =>
         new MatRibbonTab("view", "Ansicht").Add(

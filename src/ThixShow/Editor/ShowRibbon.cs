@@ -8,10 +8,10 @@ using static ThixOffice.Desktop.Shell.OfficeRibbonItems;
 namespace ThixShow.Editor;
 
 /// <summary>
-/// ThixShow's ribbon – Datei | Start | Einfügen | Entwurf | Übergänge | Animationen | Bildschirmpräsentation | Ansicht, like the German
+/// ThixShow's ribbon – Datei | Start | Einfügen | Entwurf | Übergänge | Animationen | Bildschirmpräsentation | Überprüfen | Ansicht, like the German
 /// PowerPoint, plus the contextual tabs Formformat, Bildformat, Tabellenentwurf and Layout – as a MatDesktop definition. Every item's
 /// id is a command id (<see cref="ShowCommandIds"/>); galleries with pictures are controls of their own (<see cref="ShowGalleries"/>).
-/// Überprüfen is left out: ThixShow has no spelling yet (no dead buttons).
+/// Überprüfen holds only Schützen (Mit Kennwort verschlüsseln) until ThixShow has spelling and comments (no dead buttons).
 /// </summary>
 public static class ShowRibbon
 {
@@ -20,7 +20,7 @@ public static class ShowRibbon
         var presentation = (window.Document as ShowDocument)?.Presentation ?? MasterFactory.CreatePresentation();
         var palette = ShowPalette.Colors(presentation);
         var definition = new MatRibbonDefinition { FileLabel = "Datei" };
-        definition.Add(HomeTab(palette), InsertTab(), DesignTab(palette), TransitionsTab(), AnimationsTab(), SlideShowTab(), ViewTab(),
+        definition.Add(HomeTab(palette), InsertTab(), DesignTab(palette), TransitionsTab(), AnimationsTab(), SlideShowTab(), ReviewTab(), ViewTab(),
             ShapeFormatTab(palette), PictureFormatTab(), TableDesignTab(palette), TableLayoutTab(), ChartDesignTab());
         return definition;
     }
@@ -186,6 +186,11 @@ public static class ShowRibbon
                 new MatRibbonStack("monitor-rows",
                     ComboBox(ShowCommandIds.ChooseScreen, width: 170),
                     Toggle(ShowCommandIds.PresenterView))));
+
+    private static MatRibbonTab ReviewTab() =>
+        new MatRibbonTab("review", "Überprüfen").Add(
+            new MatRibbonGroup("protect", "Schützen") { Icon = "lock" }.Add(
+                Toggle(CommonCommandIds.Encrypt, size: MatRibbonSize.Large)));
 
     private static MatRibbonTab ViewTab() =>
         new MatRibbonTab("view", "Ansicht").Add(

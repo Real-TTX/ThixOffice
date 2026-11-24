@@ -263,7 +263,7 @@ public sealed class FlowTests
         Assert.Equal(["Dokumentformatierung", "Seitenhintergrund"], window.RibbonDefinition.Tabs[2].Groups.Select(group => group.Label));
         Assert.Equal(["Seite einrichten", "Absatz"], window.RibbonDefinition.Tabs[3].Groups.Select(group => group.Label));
         Assert.Equal(["Inhaltsverzeichnis", "Fußnoten"], window.RibbonDefinition.Tabs[4].Groups.Select(group => group.Label));
-        Assert.Equal(["Dokumentprüfung", "Sprache", "Kommentare", "Nachverfolgung", "Änderungen"], window.RibbonDefinition.Tabs[5].Groups.Select(group => group.Label));
+        Assert.Equal(["Dokumentprüfung", "Sprache", "Kommentare", "Nachverfolgung", "Änderungen", "Schützen"], window.RibbonDefinition.Tabs[5].Groups.Select(group => group.Label));
         Assert.Equal(["Anzeigen", "Zoom", "Menüband"], window.RibbonDefinition.Tabs[6].Groups.Select(group => group.Label));
         Assert.Empty(window.RibbonDefinition.Problems());
         Assert.All(window.RibbonDefinition.AllItems().Where(item => item is not (MatDesktop.MatRibbonStack or MatDesktop.MatRibbonRow or MatDesktop.MatRibbonSeparator or MatDesktop.MatRibbonCustom)),
