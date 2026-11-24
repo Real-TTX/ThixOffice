@@ -226,7 +226,7 @@ public class RandomEditTests
         var macro = PptxTestSupport.Write(TestDecks.Deck(1) with { IsMacroEnabled = true });
         using var stream = new MemoryStream(macro);
         var reader = typeof(ThixOffice.Core.Documents.OfficeDocument).GetMethod("ReadContent", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        reader.Invoke(document, [stream]);
+        reader.Invoke(document, [stream, "Präsentation1.pptm", null]);
         Assert.Equal(ShowFileFormat.Pptm, document.LoadedFormat);
         Assert.True(document.HasMacros);
 

@@ -207,7 +207,7 @@ public class OdtTests
     public void A_WordDocument_opens_and_saves_odt_by_its_content()
     {
         var word = new WordDocument("Test");
-        typeof(ThixOffice.Core.Documents.OfficeDocument).GetMethod("ReadContent", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(word, [new MemoryStream(OdtFixtures.LibreOffice())]);
+        typeof(ThixOffice.Core.Documents.OfficeDocument).GetMethod("ReadContent", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(word, [new MemoryStream(OdtFixtures.LibreOffice()), "LibreOffice.odt", null]);
         Assert.Equal(WordFileFormat.Odt, word.LoadedFormat);
         Assert.Equal(WordFileFormat.Odt, word.SaveFormat);
         Assert.Equal(WordFileFormat.Odt, WordDocument.FormatOf(".ODT"));

@@ -17,7 +17,7 @@ namespace ThixWrite.Core.Tests.Documents;
 public class WordDocumentTests
 {
     private static void ReadInto(OfficeDocument document, byte[] bytes) =>
-        typeof(OfficeDocument).GetMethod("ReadContent", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(document, [new MemoryStream(bytes)]);
+        typeof(OfficeDocument).GetMethod("ReadContent", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(document, [new MemoryStream(bytes), "Dokument1.docx", null]);
 
     private static byte[] WriteOf(OfficeDocument document)
     {
