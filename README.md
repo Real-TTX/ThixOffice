@@ -439,8 +439,10 @@ ThixWrite, ThixCalc und ThixShow öffnen Dokumente, die in Word, Excel oder Powe
 (.docx, .xlsx, .xlsm, .pptx, .pptm): Sie geben das Kennwort ein, wie in Office – auch für Dateien aus ThixDrive. Unter **Überprüfen › Schützen ›
 Mit Kennwort verschlüsseln** (oder Datei › Speichern unter › Dieser PC) schützen Sie ein Dokument selbst mit einem Kennwort oder entfernen es wieder;
 gespeichert wird verschlüsselt wie in aktuellem Office, auch die Wiederherstellungsdatei nach einem Absturz. Ein Schloss in der Titelleiste zeigt
-geschützte Dokumente. OpenDocument-Dateien (.odt, .ods, .odp) können noch nicht verschlüsselt werden – vor dem Speichern in diesem Format fragt die
-App nach.
+geschützte Dokumente. Auch OpenDocument-Dateien (.odt, .ods, .odp), die in LibreOffice mit **„Mit Kennwort speichern“** geschützt wurden, öffnen mit
+dem Kennwort, und geschützte Dokumente bleiben beim Speichern in diesen Formaten verschlüsselt (wie LibreOffice: AES-256). Dateien mit der neueren
+Verschlüsselung von LibreOffice 24.2 werden noch nicht geöffnet – die App sagt dann, wie Sie sie in LibreOffice anders speichern. Nur beim Speichern als
+Text (.txt) oder CSV fragt die App, ob ohne Kennwort gespeichert werden soll.
 
 | | |
 | --- | --- |

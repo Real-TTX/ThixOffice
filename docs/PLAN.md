@@ -662,13 +662,21 @@ Präsentations- und Referentenansicht, pptx, danach odp.
 - **Stand (2026-11-24): erledigt (dev).** ThixWrite, ThixCalc und ThixShow öffnen mit „Mit Kennwort verschlüsseln“ geschützte .docx/.xlsx/.xlsm/
   .pptx/.pptm (Agile- und Standard-Verschlüsselung, [MS-OFFCRYPTO]) nach Eingabe des Kennworts wie Word (Dialog „Kennwort“, falsches Kennwort am Feld,
   erneuter Versuch; Abbrechen öffnet nichts) – lokal, aus ThixDrive, aus „Zuletzt verwendet“ und übergebene Dateien. Speichern, Speichern unter,
-  ThixDrive und Wiederherstellungsdateien bleiben verschlüsselt (Agile wie aktuelles Office); Speichern als Typ ohne Kennwort (.odt/.ods/.odp/.txt/
-  .csv) fragt „Ohne Kennwort speichern?“. Kennwort setzen/entfernen: „Mit Kennwort verschlüsseln“ (Überprüfen › Schützen in allen drei Apps,
+  ThixDrive und Wiederherstellungsdateien bleiben verschlüsselt (Agile wie aktuelles Office); Speichern als Typ ohne Kennwort (.txt/.csv) fragt
+  „Ohne Kennwort speichern?“. Kennwort setzen/entfernen: „Mit Kennwort verschlüsseln“ (Überprüfen › Schützen in allen drei Apps,
   Speichern unter › Dieser PC, Suche), Schloss in der Titelleiste. Eine geschützte Wiederherstellungsdatei wird beim Start nach dem Kennwort gefragt
-  (Abbrechen behält sie, „Verwerfen“ löscht sie). Ältere Verschlüsselung, IRM, Binärformate (.doc/.xls/.ppt) und verschlüsselte ODF-Dateien werden
-  mit einer deutschen Meldung abgelehnt statt als Text/CSV gelesen. Eine Umsetzung im Kern (`OfficeDocument`, `DocumentService`, `DriveService`)
+  (Abbrechen behält sie, „Verwerfen“ löscht sie). Ältere Verschlüsselung, IRM und Binärformate (.doc/.xls/.ppt) werden
+  mit einer deutschen Meldung abgelehnt statt als Text/CSV gelesen.
+- **ODF-Verschlüsselung erledigt (2026-11-24, dev):** mit LibreOffices „Mit Kennwort speichern“ verschlüsselte .odt/.ods/.odp (ODF 1.2: AES-CBC mit
+  PBKDF2, Startschlüssel SHA-256 oder SHA-1, Prüfsumme sha256-1k oder SHA1/1K) öffnen mit dem Kennwort, ein falsches wird abgelehnt; gespeichert wird
+  wie LibreOffice (AES-256-CBC, PBKDF2-HMAC-SHA1 mit 100 000 Durchläufen, Salt und IV je Teil, mimetype und Manifest unverschlüsselt, ohne
+  Vorschaubild). `ThixOffice.Core/Formats/OfficeCrypto/OdfEncryption` wandelt nur das fertige Paket um – die ODF-Leser und -Schreiber der Apps bleiben
+  unverändert. Blowfish (OpenOffice.org) und die neuere Verschlüsselung von LibreOffice 24.2 (AES-GCM, Argon2id, ganzes Paket verschlüsselt) werden
+  erkannt und mit einer deutschen Meldung abgelehnt. Eine Umsetzung im Kern (`OfficeDocument`, `DocumentService`, `DriveService`)
   und in der Shell (`OfficeApplication`, `OfficeWindow`), keine pro App.
-- **Lücken:** ODF-Verschlüsselung (Lesen und Schreiben verschlüsselter .odt/.ods/.odp) fehlt noch; Schreibschutz-Kennwort („Kennwort zum Ändern“) und
+- **Lücken:** Lesen der neueren LibreOffice-Verschlüsselung (24.2+: AES-GCM mit Argon2id, ganzes Paket verschlüsselt – Aufbau nicht sicher genug
+  bekannt, um ihn ohne echte Dateien umzusetzen) und von Blowfish; keine echten von LibreOffice verschlüsselten Dateien als Testfälle – der Austausch
+  ist nur gegen eine unabhängige Referenzimplementierung geprüft, nicht gegen LibreOffice selbst; Schreibschutz-Kennwort („Kennwort zum Ändern“) und
   „Als abgeschlossen kennzeichnen“ fehlen; keine echten von Office verschlüsselten Dateien als Testfälle – die Kompatibilität mit echtem Word/Excel/
   PowerPoint ist nur gegen eine unabhängige Referenzimplementierung geprüft, nicht gegen Office selbst.
 

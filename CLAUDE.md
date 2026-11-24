@@ -27,7 +27,7 @@ IMAP/SMTP accounts with auto-configuration, offline store and sync, reading pane
 ThixMail's Mail | Kalender | Personen (done, first version):** the calendar and the people of the ThixCloud account inside ThixMail, invitations (section
 "ThixMail", "Calendar and people in ThixMail"). **Phase 4, first version of ThixShow (done):** the
 slide editor, thumbnails, sorter, show and presenter view, the German PowerPoint ribbon, printing/PDF (section "ThixShow's editor";
-gaps in docs/PLAN.md). **ThixWrite 1c (done):** footnotes/endnotes, table of contents, comments, spelling (shared seam), Referenzen/Überprüfen, odt. **ODF for ThixCalc (done):** .ods read and write (section "OpenDocument Spreadsheet"). **Password-protected documents (done):** Office's "Mit Kennwort verschlüsseln" in every document app (section "Password-protected documents"). Next the
+gaps in docs/PLAN.md). **ThixWrite 1c (done):** footnotes/endnotes, table of contents, comments, spelling (shared seam), Referenzen/Überprüfen, odt. **ODF for ThixCalc (done):** .ods read and write (section "OpenDocument Spreadsheet"). **Password-protected documents (done):** Office's "Mit Kennwort verschlüsseln" and LibreOffice's ODF encryption in every document app (section "Password-protected documents"). Next the
 launcher entry and ThixWrite 1d (gaps in docs/PLAN.md). Do not build ribbon controls of
 your own (a picture gallery is a `RibbonFlyoutButton` through `CreateRibbonContent`).
 
@@ -60,7 +60,11 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
                            per content, the manifest of every part last, Meta)
   Formats/OfficeCrypto/    "Mit Kennwort verschlüsseln" (BCL only; CanEncrypt, CheckNewPassword, PasswordRequiredException): OfficeEncryption.Detect (EncryptedFileKind) / Decrypt(stream,
                            password) – Agile + Standard, WrongPasswordException : BusinessException, never guesses – / Encrypt (Agile like current
-                           Office: SHA-512, AES-256, HMAC, \u0006DataSpaces); CompoundFile + CompoundFileWriter = MS-CFB v3/v4 read, write
+                           Office: SHA-512, AES-256, HMAC, \u0006DataSpaces); CompoundFile + CompoundFileWriter = MS-CFB v3/v4 read, write;
+                           OdfEncryption = ODF 1.2 package encryption behind the same three calls (a transform plain package ⇄ encrypted
+                           package: AES-CBC + PBKDF2-HMAC-SHA1, SHA-256/SHA-1 start key, sha256-1k/SHA1/1K checksum read; written like
+                           LibreOffice – AES-256, 100,000 iterations, salt + IV per part, no thumbnail; Blowfish, AES-GCM/Argon2id and
+                           24.2's "encrypted-package" detected as OdfBlowfish/OdfModern/OdfOther and refused in words)
   Documents/               OfficeDocument: the UI-free base of every document model (FilePath, FileType, Title (virtual), IsDirty, IsPristine,
                            IsRecovered, Undo/Redo, protected Read/Write(Stream), Changed; Drive + DriveState + LocationText for a ThixDrive
                            document whose FilePath is its local working copy; HasPassword + SetPassword, the password in memory only – internal
@@ -529,14 +533,18 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 ## Password-protected documents (every document app)
 
 - **One implementation in the shell, none per app.** `OfficeDocument.ReadContent(stream, fileName, password)` runs `OfficeEncryption.Detect` before
-  the app's `Read`: `None` reads as always; Agile/Standard need the password (`PasswordRequiredException` with the file name without one,
-  `WrongPasswordException` at the field "Password" for a wrong one), decrypt and hand the ZIP to `Read`; every other kind (older encryption, IRM,
-  a binary .doc/.xls/.ppt, an encrypted ODF file) is a German `BusinessException` – never the CSV/plain-text path. The password lives on the document
+  the app's `Read`: `None` reads as always; Agile/Standard/OdfEncrypted need the password (`PasswordRequiredException` with the file name without
+  one, `WrongPasswordException` at the field "Password" for a wrong one), decrypt and hand the ZIP to `Read` (an encrypted ODF file becomes a plain
+  ODF package first – its "mimetype" is not encrypted, so the app's sniffing would see ODF, but `Read` only ever gets the decrypted package); every
+  other kind (older encryption, IRM, a binary .doc/.xls/.ppt, Blowfish, LibreOffice 24.2's AES-GCM/Argon2id) is a German `BusinessException` –
+  never the CSV/plain-text path. The password lives on the document
   in memory only (`HasPassword`, internal `Password`), never in settings, logs, the recent list or a sidecar.
 - **Writing:** `WriteContent`/`WriteContentAs` encrypt (the app writes into a buffer, then `OfficeEncryption.Encrypt`) while the document has a
-  password AND the type can carry one (`DocumentType.CanEncrypt`: the OOXML extensions of `OfficeEncryption.CanEncrypt`; a test type may set it).
+  password AND the type can carry one (`DocumentType.CanEncrypt`: the OOXML and ODF extensions of `OfficeEncryption.CanEncrypt`; a test type may set
+  it). `OfficeEncryption.Encrypt` picks the scheme by the package: an ODF package (`OdfEncryption.IsOdfPackage`) gets ODF encryption, anything
+  else Agile.
   So Speichern, Speichern unter, ThixDrive saves/uploads/Speichern unter and recovery files follow by themselves. `MarkSaved` into a type that
-  cannot carry a password drops it; the window asks first (`DocumentService.LosesPassword` / `PasswordLossQuestion`: "Ohne Kennwort speichern" ·
+  cannot carry a password (.txt, .csv) drops it; the window asks first (`DocumentService.LosesPassword` / `PasswordLossQuestion`: "Ohne Kennwort speichern" ·
   Abbrechen) in `SaveAsync`, `SaveToAsync` and `SaveIntoDriveAsync`. PDF is an export copy and never encrypted.
 - **Opening:** `DocumentService.Open/Load/Recover` and `DriveService.OpenAsync/OpenRecentAsync` take `password`; `Load`/`Recover` turn
   `InvalidDataException` (damaged CFB, failed integrity check) into "beschädigt" and let the password exceptions through.
@@ -551,7 +559,8 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   – then both empty remove it –, mismatch at "PasswordConfirmation", ≤ 255). It is a change that needs a save (dirty, a message says so). Places:
   Überprüfen › Schützen in ThixWrite, ThixCalc and ThixShow (ThixShow's Überprüfen holds only that group), the tile on Speichern unter › Dieser PC, the
   search. The title bar shows a lock beside the name (`OfficeWindow.ShowsProtectedMarker`).
-- Tests: Core `PasswordDocumentTests`, Desktop `PasswordUiTests`, one `PasswordTests` per app (a real encrypted .docx/.xlsx/.pptx), the self test
+- Tests: Core `PasswordDocumentTests`, `OfficeCrypto/OdfEncryptionTests` (against `ReferenceOdfCrypto`; no LibreOffice-made fixtures yet), Desktop
+  `PasswordUiTests`, one `PasswordTests` per app (a real encrypted .docx/.xlsx/.pptx and .odt/.ods/.odp), the self test
   check "password protection", snapshots `dialog-password` and `dialog-encrypt`.
 
 ## ThixWrite's editor
