@@ -745,7 +745,7 @@ public sealed class OfficeWindow : MatWindow
         Commands.Add(new OfficeCommand(CommonCommandIds.Encrypt, "Mit Kennwort verschlüsseln", EncryptAsync)
         {
             Icon = "lock",
-            Description = "Schützt das Dokument mit einem Kennwort – ohne das Kennwort lässt es sich nicht öffnen. Möglich in den Office-Formaten (.docx, .xlsx, .pptx).",
+            Description = "Schützt das Dokument mit einem Kennwort – ohne das Kennwort lässt es sich nicht öffnen. Möglich in den Office- und OpenDocument-Formaten (.docx, .xlsx, .pptx, .odt, .ods, .odp).",
             Keywords = ["kennwort", "passwort", "verschlüsseln", "schützen", "dokument schützen", "entschlüsseln", "kennwort entfernen"],
             CanExecute = () => CanProtectDocument,
             IsChecked = () => Document.HasPassword,

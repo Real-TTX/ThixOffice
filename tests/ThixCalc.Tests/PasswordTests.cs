@@ -57,4 +57,67 @@ public sealed class PasswordTests
         var again = DocumentService.Open(path, name => new CalcDocument(name), Password);
         Assert.Equal("Vertraulich", again.Workbook.Sheets.Single(sheet => sheet.Name == sheetName).GetValue(cell).Text);
     }
+
+    [AvaloniaFact]
+    public async Task A_protected_ods_opens_with_its_password_and_stays_protected()
+    {
+        using var data = new TestData();
+        var plain = Path.Combine(data.DocumentsFolder, "Muster.ods");
+        DocumentService.SaveAs(TestData.App.CreateSampleDocument(plain), plain);
+        var path = Path.Combine(data.DocumentsFolder, "Geschützt.ods");
+        using (var output = File.Create(path))
+        {
+            OfficeEncryption.Encrypt(File.ReadAllBytes(plain), Password, output);
+        }
+
+        var expected = DocumentService.Open(plain, name => new CalcDocument(name)).Workbook;
+        var window = await NewWindowAsync();
+        var opening = TestData.App.OpenFileAsync(path, window);
+        await SettleAsync();
+        var dialog = Assert.Single(window.OwnedWindows.OfType<DocumentPasswordDialog>());
+        dialog.PasswordBox.Text = "falsch";
+        dialog.Confirm();
+        await SettleAsync();
+        Assert.False(opening.IsCompleted); // the dialog stays for another try
+        dialog.PasswordBox.Text = Password;
+        dialog.Confirm();
+        for (var round = 0; round < 200 && !opening.IsCompleted; round++)
+        {
+            await SettleAsync();
+        }
+
+        var opened = Assert.IsType<OfficeWindow>(await opening);
+        var workbook = ((CalcDocument)opened.Document).Workbook;
+        Assert.Equal(expected.Sheets.Select(sheet => sheet.Name), workbook.Sheets.Select(sheet => sheet.Name));
+        Assert.Equal(expected.Sheets[0].GetValue(0, 0).Text, workbook.Sheets[0].GetValue(0, 0).Text);
+        Assert.True(opened.Document.HasPassword);
+
+        var cell = EditorOf(opened).Session.ActiveCell;
+        var sheetName = EditorOf(opened).Session.ActiveSheet.Name;
+        await EnterAsync(opened, "Vertraulich");
+        await PressAsync(opened, PhysicalKey.S, CommandKey);
+        await AnswerUntilSavedAsync(opened);
+        Assert.False(opened.Document.IsDirty);
+        using (var file = File.OpenRead(path))
+        {
+            Assert.Equal(EncryptedFileKind.OdfEncrypted, OfficeEncryption.Detect(file));
+        }
+
+        var again = DocumentService.Open(path, name => new CalcDocument(name), Password);
+        Assert.Equal("Vertraulich", again.Workbook.Sheets.Single(sheet => sheet.Name == sheetName).GetValue(cell).Text);
+    }
+
+    /// <summary>Answers every question of <paramref name="window"/> with its first choice until the document is saved.</summary>
+    private static async Task AnswerUntilSavedAsync(OfficeWindow window)
+    {
+        for (var round = 0; round < 400 && window.Document.IsDirty; round++)
+        {
+            if (window.OwnedWindows.OfType<ThixOffice.Desktop.Dialogs.QuestionDialog>().LastOrDefault() is { } question)
+            {
+                question.Buttons[0].RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+            }
+
+            await SettleAsync();
+        }
+    }
 }
