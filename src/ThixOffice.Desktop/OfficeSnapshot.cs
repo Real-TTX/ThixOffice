@@ -5,6 +5,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using MatDesktop;
 using ThixOffice.Core.Business;
+using ThixOffice.Core.Formats.OfficeCrypto;
 using ThixOffice.Core.Infrastructure;
 using ThixOffice.Core.Models;
 using ThixOffice.Core.Platform;
@@ -39,7 +40,7 @@ public static class OfficeSnapshot
     private static readonly string[] WindowPictures =
     [
         "main", "main-ribbon-collapsed", "backstage-new", "backstage-open", "backstage-saveas", "backstage-settings",
-        "backstage-settings-save", "backstage-settings-updates", "backstage-about", "dialog-save-changes",
+        "backstage-settings-save", "backstage-settings-updates", "backstage-about", "dialog-save-changes", "dialog-password", "dialog-encrypt",
     ];
 
     /// <summary>The window pictures of a workspace app (no document flows: no Neu/Öffnen/Speichern unter, no tab Speichern, no unsaved question).</summary>
@@ -202,6 +203,26 @@ public static class OfficeSnapshot
             Settle(dialog);
             Save(dialog, target, $"{id}-dialog-save-changes-{theme}.png", written);
             dialog.Close();
+            Settle(window);
+
+            // the password of a protected file, after a wrong one
+            var password = DocumentPasswordDialog.ForOpening(DocumentService.SuggestedFileName(window.Document), _ => throw new WrongPasswordException());
+            _ = password.ShowAsync(window);
+            Settle(password);
+            password.PasswordBox.Text = "kennwort";
+            Wait(password.TryAsync());
+            Settle(password);
+            Save(password, target, $"{id}-dialog-password-{theme}.png", written);
+            password.Close();
+            Settle(window);
+
+            var encrypt = new EncryptDocumentDialog(window.Document);
+            _ = encrypt.ShowAsync(window);
+            Settle(encrypt);
+            encrypt.PasswordBox.Text = "Geheim-2026";
+            Settle(encrypt);
+            Save(encrypt, target, $"{id}-dialog-encrypt-{theme}.png", written);
+            encrypt.Close();
             Settle(window);
 
             window.CloseKeepingRecovery();

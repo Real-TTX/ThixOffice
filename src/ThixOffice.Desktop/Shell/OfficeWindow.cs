@@ -50,6 +50,7 @@ public sealed class OfficeWindow : MatWindow
     private readonly InfoBar _messageBar = new() { Margin = new Thickness(16, 10, 16, 0) };
     private readonly TextBlock _documentName = new() { FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 260 };
     private readonly Ellipse _unsavedMarker = new() { Width = 8, Height = 8, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 1, 0, 0) };
+    private readonly MatIcon _protectedMarker = new() { Icon = "lock", Size = 13, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0), IsVisible = false };
     private readonly DispatcherTimer _recoveryTimer = new();
     private readonly DispatcherTimer _uploadRetryTimer = new() { Interval = TimeSpan.FromSeconds(30) };
     private readonly CloudIndicator _cloudIndicator = new();
@@ -122,6 +123,9 @@ public sealed class OfficeWindow : MatWindow
 
         _unsavedMarker.Use(Shape.FillProperty, "Mat.Accent");
         ToolTip.SetTip(_unsavedMarker, "Ungespeicherte Änderungen");
+        _protectedMarker.Use(MatIcon.ForegroundProperty, "Mat.TextMuted");
+        ToolTip.SetTip(_protectedMarker, "Mit Kennwort geschützt");
+        AutomationProperties.SetName(_protectedMarker, "Mit Kennwort geschützt");
 
         var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*,Auto") };
         var editorArea = new Border { Child = _editorHost, ClipToBounds = true }.Use(Border.BackgroundProperty, "Mat.Bg");
@@ -203,6 +207,9 @@ public sealed class OfficeWindow : MatWindow
     /// <summary>True while the dot of unsaved changes shows.</summary>
     public bool ShowsUnsavedMarker => _unsavedMarker.IsVisible;
 
+    /// <summary>True while the title bar shows the lock of a document protected with a password.</summary>
+    public bool ShowsProtectedMarker => _protectedMarker.IsVisible;
+
     /// <summary>The message under the ribbon (a recovered document, a problem), for tests.</summary>
     public InfoBar MessageBar => _messageBar;
 
@@ -241,7 +248,7 @@ public sealed class OfficeWindow : MatWindow
     /// <summary>"Speichern": into the document's file, or "Speichern unter" when it has none. True when it is saved.</summary>
     public async Task<bool> SaveAsync()
     {
-        if (Document.FilePath is { } current && !await _editor.ConfirmSaveAsync(current))
+        if (Document.FilePath is { } current && (!await ConfirmPasswordLossAsync(current) || !await _editor.ConfirmSaveAsync(current)))
         {
             return false;
         }
@@ -271,7 +278,7 @@ public sealed class OfficeWindow : MatWindow
             return await ExportIntoDriveAsync(folderId, fileName);
         }
 
-        if (!await _editor.ConfirmSaveAsync(fileName))
+        if (!await ConfirmPasswordLossAsync(DriveService.TargetName(fileName)) || !await _editor.ConfirmSaveAsync(fileName))
         {
             return false;
         }
@@ -475,7 +482,48 @@ public sealed class OfficeWindow : MatWindow
             return await ExportToAsync(path);
         }
 
-        return await _editor.ConfirmSaveAsync(path) && await GuardAsync("Speichern unter", () => DocumentService.SaveAs(Document, path));
+        return await ConfirmPasswordLossAsync(path) && await _editor.ConfirmSaveAsync(path) && await GuardAsync("Speichern unter", () => DocumentService.SaveAs(Document, path));
+    }
+
+    /// <summary>
+    /// A document protected with a password saved as a type that cannot carry one (.odt, .txt, .csv …) asks first: "Ohne Kennwort
+    /// speichern" (the save leaves the document unprotected) or Abbrechen. True when the save may go on.
+    /// </summary>
+    private async Task<bool> ConfirmPasswordLossAsync(string path)
+    {
+        if (!DocumentService.LosesPassword(Document, path))
+        {
+            return true;
+        }
+
+        return await QuestionDialog.AskAsync(this, "Kennwortschutz", DocumentService.PasswordLossQuestion(path),
+            new DialogChoice("Ohne Kennwort speichern", "save", "MatButton.Primary", IsDefault: true),
+            new DialogChoice("Abbrechen", "x", IsCancel: true)) == 0;
+    }
+
+    /// <summary>True when the document's type can carry a password (a new document is saved in the app's own type).</summary>
+    public bool CanProtectDocument => !IsWorkspace && (Document.FileType ?? AppInfo.Definition.SaveType).CanEncrypt;
+
+    /// <summary>
+    /// "Mit Kennwort verschlüsseln": the dialog sets, changes or removes the document's password; it applies from the next save on
+    /// (the document shows unsaved changes, like Word). True when it was changed.
+    /// </summary>
+    public async Task<bool> EncryptAsync()
+    {
+        if (!CanProtectDocument)
+        {
+            return false;
+        }
+
+        if (!await new EncryptDocumentDialog(Document).ShowAsync(this))
+        {
+            return false;
+        }
+
+        ShowMessage(Document.HasPassword
+            ? $"„{Document.Title}“ wird beim nächsten Speichern mit dem Kennwort verschlüsselt."
+            : $"Der Kennwortschutz von „{Document.Title}“ wird beim nächsten Speichern entfernt.", InfoSeverity.Info, isClosable: true);
+        return true;
     }
 
     /// <summary>"Als PDF speichern": the system's dialog for a PDF, then the copy (the document stays as it is). True when written.</summary>
@@ -626,7 +674,7 @@ public sealed class OfficeWindow : MatWindow
             Orientation = Orientation.Horizontal,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(14, 0, 16, 0),
-            Children = { _documentName, _unsavedMarker },
+            Children = { _documentName, _protectedMarker, _unsavedMarker },
         };
         var search = Search;
         search.VerticalAlignment = VerticalAlignment.Center;
@@ -693,6 +741,14 @@ public sealed class OfficeWindow : MatWindow
             Description = "Speichert eine Kopie als PDF – das Dokument selbst bleibt, wie es ist.",
             Keywords = ["pdf", "exportieren", "kopie", "drucken", "versenden", "adobe"],
             CanExecute = () => _editor.Pdf is not null && AppInfo.Definition.ExportTypes.Contains(DocumentType.Pdf),
+        });
+        Commands.Add(new OfficeCommand(CommonCommandIds.Encrypt, "Mit Kennwort verschlüsseln", EncryptAsync)
+        {
+            Icon = "lock",
+            Description = "Schützt das Dokument mit einem Kennwort – ohne das Kennwort lässt es sich nicht öffnen. Möglich in den Office-Formaten (.docx, .xlsx, .pptx).",
+            Keywords = ["kennwort", "passwort", "verschlüsseln", "schützen", "dokument schützen", "entschlüsseln", "kennwort entfernen"],
+            CanExecute = () => CanProtectDocument,
+            IsChecked = () => Document.HasPassword,
         });
         Commands.Add(new OfficeCommand(CommonCommandIds.Close, "Schließen", CloseDocumentAsync)
         {
@@ -859,6 +915,7 @@ public sealed class OfficeWindow : MatWindow
     {
         _documentName.Text = Document.Title;
         _unsavedMarker.IsVisible = Document.IsDirty;
+        _protectedMarker.IsVisible = Document.HasPassword;
         ToolTip.SetTip(_documentName, Document.LocationText);
         Title = $"{(Document.IsDirty ? "● " : "")}{Document.Title} – {AppInfo.ProductName}";
         _cloudIndicator.Refresh(Document, CloudService.Status, AppInfo.Definition.HasCloud && !AccessPolicy.IsCloudDisabled);

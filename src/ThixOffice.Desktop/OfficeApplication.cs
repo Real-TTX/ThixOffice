@@ -10,6 +10,7 @@ using MatDesktop;
 using ThixOffice.Core.Business;
 using ThixOffice.Core.Commands;
 using ThixOffice.Core.Documents;
+using ThixOffice.Core.Formats.OfficeCrypto;
 using ThixOffice.Core.Infrastructure;
 using ThixOffice.Core.Models;
 using ThixOffice.Desktop.Dialogs;
@@ -34,6 +35,7 @@ namespace ThixOffice.Desktop;
 public abstract class OfficeApplication : Application
 {
     private readonly List<OfficeWindow> _windows = [];
+    private readonly List<RecoveryInfo> _protectedRecoveries = [];
     private IClassicDesktopStyleApplicationLifetime? _desktop;
     private MatSingleInstance? _instance;
     private Bitmap? _logo;
@@ -316,15 +318,7 @@ public abstract class OfficeApplication : Application
             return open;
         }
 
-        try
-        {
-            return Place(DocumentService.Open(path, CreateDocument), into);
-        }
-        catch (BusinessException exception)
-        {
-            await ShowOpenProblemAsync(into, exception);
-            return null;
-        }
+        return await OpenProtectedAsync(password => Task.FromResult(DocumentService.Open(path, CreateDocument, password)), into);
     }
 
     /// <summary>
@@ -339,15 +333,7 @@ public abstract class OfficeApplication : Application
             return open;
         }
 
-        try
-        {
-            return Place(await DriveService.OpenAsync(itemId, CreateDocument), into);
-        }
-        catch (BusinessException exception)
-        {
-            await ShowOpenProblemAsync(into, exception);
-            return null;
-        }
+        return await OpenProtectedAsync(password => DriveService.OpenAsync(itemId, CreateDocument, password: password), into);
     }
 
     /// <summary>
@@ -367,9 +353,34 @@ public abstract class OfficeApplication : Application
             return open;
         }
 
+        return await OpenProtectedAsync(password => DriveService.OpenRecentAsync(entry, CreateDocument, password: password), into);
+    }
+
+    /// <summary>
+    /// Runs an open; a file protected with a password asks for it (<see cref="DocumentPasswordDialog"/>: a wrong password is said at
+    /// the field, the open is tried again with each password typed; Abbrechen opens nothing and says nothing). Other refusals are shown.
+    /// </summary>
+    private async Task<OfficeWindow?> OpenProtectedAsync(Func<string?, Task<OfficeDocument>> open, OfficeWindow? into)
+    {
         try
         {
-            return Place(await DriveService.OpenRecentAsync(entry, CreateDocument), into);
+            return Place(await open(null), into);
+        }
+        catch (PasswordRequiredException required)
+        {
+            OfficeDocument? opened = null;
+            var dialog = DocumentPasswordDialog.ForOpening(required.FileName, async password => opened = await open(password));
+            if (await dialog.ShowAsync(into ?? _windows.LastOrDefault()) && opened is not null)
+            {
+                return Place(opened, into);
+            }
+
+            if (dialog.Failure is { } failure)
+            {
+                await ShowOpenProblemAsync(into, failure);
+            }
+
+            return null;
         }
         catch (BusinessException exception)
         {
@@ -583,11 +594,16 @@ public abstract class OfficeApplication : Application
             var recovered = RecoverDocuments();
             if (files.Count > 0)
             {
-                _ = OpenFilesAsync(files);
+                _ = OpenFilesAtStartAsync(files);
             }
             else if (recovered == 0)
             {
                 NewDocumentWindow();
+            }
+
+            if (_protectedRecoveries.Count > 0)
+            {
+                Dispatcher.UIThread.Post(() => _ = RecoverProtectedDocumentsAsync(), DispatcherPriority.Background);
             }
         }
 
@@ -637,10 +653,24 @@ public abstract class OfficeApplication : Application
         }
     }
 
-    /// <summary>What a crash left behind comes back as unsaved documents, each in its window; returns how many.</summary>
+    /// <summary>The files handed over at the start; when none of them opened (refused, a password not given) an empty document shows.</summary>
+    private async Task OpenFilesAtStartAsync(IReadOnlyList<string> files)
+    {
+        await OpenFilesAsync(files);
+        if (_windows.Count == 0 && !_isExiting)
+        {
+            NewDocumentWindow();
+        }
+    }
+
+    /// <summary>
+    /// What a crash left behind comes back as unsaved documents, each in its window; returns how many. The recovery file of a document
+    /// protected with a password waits for <see cref="RecoverProtectedDocumentsAsync"/> (it is never discarded for that).
+    /// </summary>
     internal int RecoverDocuments()
     {
         var count = 0;
+        _protectedRecoveries.Clear();
         foreach (var info in DocumentService.RecoveredDocuments())
         {
             try
@@ -648,11 +678,58 @@ public abstract class OfficeApplication : Application
                 ShowWindow(DocumentService.Recover(info, CreateDocument));
                 count++;
             }
+            catch (PasswordRequiredException)
+            {
+                _protectedRecoveries.Add(info);
+            }
             catch (Exception exception) when (exception is BusinessException or IOException or InvalidDataException or FormatException)
             {
                 Log.Warning($"A recovery file could not be opened: {exception.Message}");
                 DocumentService.DiscardRecovery(info);
             }
+        }
+
+        return count;
+    }
+
+    /// <summary>The recovery files that wait for their document's password (tests).</summary>
+    internal IReadOnlyList<RecoveryInfo> ProtectedRecoveries => _protectedRecoveries;
+
+    /// <summary>
+    /// Asks for the password of each protected recovery file (<see cref="DocumentPasswordDialog.ForRecovery"/>): the document comes back
+    /// with its password; Abbrechen keeps the file for the next start; "Verwerfen" deletes it. Returns how many came back.
+    /// </summary>
+    internal async Task<int> RecoverProtectedDocumentsAsync()
+    {
+        var count = 0;
+        foreach (var info in _protectedRecoveries.ToList())
+        {
+            _protectedRecoveries.Remove(info);
+            OfficeDocument? recovered = null;
+            var dialog = DocumentPasswordDialog.ForRecovery(info.Title, password =>
+            {
+                recovered = DocumentService.Recover(info, CreateDocument, password);
+                return Task.CompletedTask;
+            });
+            if (await dialog.ShowAsync(_windows.LastOrDefault()) && recovered is not null)
+            {
+                Place(recovered, null);
+                count++;
+            }
+            else if (dialog.IsDiscarded)
+            {
+                DocumentService.DiscardRecovery(info);
+            }
+            else if (dialog.Failure is { } failure)
+            {
+                Log.Warning($"A recovery file could not be opened: {failure.Message}");
+                DocumentService.DiscardRecovery(info);
+            }
+        }
+
+        if (_windows.Count == 0 && !_isExiting && !Definition.IsWorkspace)
+        {
+            NewDocumentWindow();
         }
 
         return count;

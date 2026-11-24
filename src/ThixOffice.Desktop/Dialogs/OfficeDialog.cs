@@ -14,6 +14,7 @@ namespace ThixOffice.Desktop.Dialogs;
 /// </summary>
 public abstract class OfficeDialog : MatWindow
 {
+    private readonly ActionBar _actions = new() { Margin = new Thickness(0, 22, 0, 0) };
     private bool _confirmed;
 
     protected OfficeDialog(string title, double width)
@@ -47,8 +48,16 @@ public abstract class OfficeDialog : MatWindow
     protected void SetBody(Control body)
     {
         var heading = new TextBlock { Text = Title, FontSize = MatTokens.Type.FsLg, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 14) };
-        var actions = new ActionBar { Margin = new Thickness(0, 22, 0, 0), Children = { OkButton, CancelButton } };
-        Content = new StackPanel { Margin = new Thickness(24, 22), Children = { heading, body, actions } };
+        _actions.Children.Add(OkButton);
+        _actions.Children.Add(CancelButton);
+        Content = new StackPanel { Margin = new Thickness(24, 22), Children = { heading, body, _actions } };
+    }
+
+    /// <summary>A further button after OK and Abbrechen (a destructive one <paramref name="separated"/> by a gap, like "Verwerfen").</summary>
+    protected void AddAction(Button button, bool separated = false)
+    {
+        ActionBar.SetSeparated(button, separated);
+        _actions.Children.Add(button);
     }
 
     /// <summary>OK: the dialog checks and applies its values (false keeps it open).</summary>
@@ -62,14 +71,20 @@ public abstract class OfficeDialog : MatWindow
             return;
         }
 
+        CloseConfirmed();
+    }
+
+    /// <summary>Closes the dialog as confirmed (a dialog whose OK works asynchronously calls it once its work succeeded).</summary>
+    protected void CloseConfirmed()
+    {
         _confirmed = true;
         Close();
     }
 
-    /// <summary>Shows the dialog over <paramref name="owner"/>; true when it was confirmed.</summary>
-    public async Task<bool> ShowAsync(Window owner)
+    /// <summary>Shows the dialog over <paramref name="owner"/> (null or hidden: on its own); true when it was confirmed.</summary>
+    public async Task<bool> ShowAsync(Window? owner)
     {
-        if (owner.IsVisible)
+        if (owner is { IsVisible: true })
         {
             await ShowDialog(owner);
         }

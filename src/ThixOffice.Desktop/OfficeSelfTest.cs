@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text;
 using Avalonia.Threading;
 using ThixOffice.Core.Business;
+using ThixOffice.Core.Formats.OfficeCrypto;
 using ThixOffice.Core.Infrastructure;
 using ThixOffice.Core.Models;
 using ThixOffice.Desktop.Shell;
@@ -59,6 +60,45 @@ public static class OfficeSelfTest
         {
             await CheckDocumentsAsync();
         }
+
+        if (!definition.IsWorkspace && definition.SaveType.CanEncrypt)
+        {
+            await CheckPasswordAsync();
+        }
+
+        async Task CheckPasswordAsync() => await Check("password protection (encrypt, refuse, open with the password)", () =>
+        {
+            const string password = "Selbsttest-Kennwort 2026";
+            var document = app.CreateDocument(DocumentService.NextUntitledName());
+            document.SetPassword(password);
+            var path = DocumentService.SaveAs(document, Path.Combine(folder, "Geschützt"));
+            using (var file = File.OpenRead(path))
+            {
+                Ensure(OfficeEncryption.Detect(file) == EncryptedFileKind.OfficeAgile, "the file was not written encrypted");
+                var package = OfficeEncryption.Decrypt(file, password);
+                Ensure(package.Length > 4 && package[0] == (byte)'P' && package[1] == (byte)'K', "the encrypted package is no ZIP");
+            }
+
+            Ensure(Refuses<PasswordRequiredException>(() => DocumentService.Open(path, app.CreateDocument)), "opened without the password");
+            Ensure(Refuses<WrongPasswordException>(() => DocumentService.Open(path, app.CreateDocument, "falsch")), "opened with a wrong password");
+            var reopened = DocumentService.Open(path, app.CreateDocument, password);
+            Ensure(reopened.HasPassword && reopened.FilePath == path && !reopened.IsDirty, "the protected document did not open with its password");
+            return Task.FromResult(Path.GetExtension(path));
+
+            static bool Refuses<TException>(Action open)
+                where TException : Exception
+            {
+                try
+                {
+                    open();
+                    return false;
+                }
+                catch (TException)
+                {
+                    return true;
+                }
+            }
+        });
 
         async Task CheckDocumentsAsync() => await Check("documents (atomic save, open, recent list, recovery)", () =>
         {

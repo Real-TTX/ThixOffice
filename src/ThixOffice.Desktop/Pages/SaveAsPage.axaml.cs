@@ -42,6 +42,10 @@ public partial class SaveAsPage : UserControl
         Folders.ItemsSource = folders.Select(folder => FolderButton(folder, $"Speichern in {folder}", () => SaveInAsync(folder))).ToList();
 
         PdfButton.IsVisible = window.Commands.Find(ThixOffice.Core.Commands.CommonCommandIds.SaveAsPdf)?.IsEnabled == true;
+        PasswordButton.IsVisible = window.Commands.Find(ThixOffice.Core.Commands.CommonCommandIds.Encrypt)?.IsEnabled == true;
+        PasswordText.Text = document.HasPassword
+            ? "Das Dokument ist mit einem Kennwort geschützt – Kennwort ändern oder entfernen"
+            : "Das Dokument mit einem Kennwort schützen – ohne Kennwort lässt es sich nicht öffnen";
         DrivePlaceItem.IsVisible = CloudService.IsAvailable;
         Places.SelectionChanged += (_, _) => ShowPlace(ReferenceEquals(Places.SelectedItem, DrivePlaceItem) ? DocumentPlace.Drive
             : ReferenceEquals(Places.SelectedItem, ComputerPlaceItem) ? DocumentPlace.Computer : DocumentPlace.Recent);
@@ -107,6 +111,14 @@ public partial class SaveAsPage : UserControl
     private async void OnBrowseClick(object? sender, RoutedEventArgs e)
     {
         if (_window is not null && await _window.SaveAsAsync())
+        {
+            _window.Backstage.Close();
+        }
+    }
+
+    private async void OnPasswordClick(object? sender, RoutedEventArgs e)
+    {
+        if (_window is not null && await _window.EncryptAsync())
         {
             _window.Backstage.Close();
         }

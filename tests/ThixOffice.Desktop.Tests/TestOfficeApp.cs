@@ -36,7 +36,7 @@ public sealed class TestOfficeApp : OfficeApplication
         "Ein Testprogramm.",
         [
             new DocumentType(".tsx", "ThixTest.Document", "Testdokument", DocumentTypeSupport.Planned, IsDefault: true),
-            new DocumentType(".tst", "ThixTest.Text", "Testtext"),
+            new DocumentType(".tst", "ThixTest.Text", "Testtext") { CanEncrypt = true }, // like .docx: "Mit Kennwort verschlüsseln"
         ])
     {
         UntitledBaseName = "Test",
