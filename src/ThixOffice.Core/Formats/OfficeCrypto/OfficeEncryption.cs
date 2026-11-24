@@ -43,6 +43,54 @@ public static class OfficeEncryption
 
     internal const string TooLongText = "Das Kennwort darf höchstens 255 Zeichen lang sein.";
 
+    /// <summary>The field of the repeated password ("Kennwort bestätigen").</summary>
+    public const string ConfirmationField = "PasswordConfirmation";
+
+    internal const string EmptyText = "Bitte geben Sie ein Kennwort ein.";
+
+    internal const string MismatchText = "Die Kennwörter stimmen nicht überein.";
+
+    /// <summary>The types an encrypted file can be: the Office Open XML packages (an ODF file has an encryption of its own, not supported yet).</summary>
+    private static readonly HashSet<string> EncryptableExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".docx", ".docm", ".dotx", ".dotm", ".xlsx", ".xlsm", ".xltx", ".xltm", ".pptx", ".pptm", ".potx", ".potm",
+    };
+
+    /// <summary>True when a file of <paramref name="extension"/> (".docx") can be saved with a password.</summary>
+    public static bool CanEncrypt(string extension) => EncryptableExtensions.Contains(extension);
+
+    /// <summary>
+    /// Checks a new password of "Dokument verschlüsseln": <paramref name="password"/> typed twice; empty removes the protection of a
+    /// document that has one (<paramref name="hasPassword"/>), else it is refused. Returns the password to set, null = none.
+    /// </summary>
+    public static string? CheckNewPassword(string? password, string? confirmation, bool hasPassword)
+    {
+        password ??= "";
+        confirmation ??= "";
+        if (password.Length == 0 && confirmation.Length == 0)
+        {
+            return hasPassword ? null : throw new BusinessException(EmptyText, PasswordField);
+        }
+
+        CheckPassword(password);
+        if (!string.Equals(password, confirmation, StringComparison.Ordinal))
+        {
+            throw new BusinessException(MismatchText, ConfirmationField);
+        }
+
+        return password;
+    }
+
+    /// <summary>The refusal of a kind that cannot be opened (null for <see cref="EncryptedFileKind.None"/> and the two kinds Decrypt opens).</summary>
+    internal static BusinessException? Refusal(EncryptedFileKind kind) => kind switch
+    {
+        EncryptedFileKind.OfficeOther => new BusinessException(UnsupportedText),
+        EncryptedFileKind.Rights => new BusinessException(RightsText),
+        EncryptedFileKind.CompoundNotEncrypted => new BusinessException(BinaryText),
+        EncryptedFileKind.OdfEncrypted => new BusinessException(OdfText),
+        _ => null,
+    };
+
     /// <summary>
     /// What kind of file <paramref name="file"/> is, from its first bytes and – for a compound file – its directory and
     /// EncryptionInfo version (the position is kept). A compound file whose structure is broken is an <see cref="InvalidDataException"/>.

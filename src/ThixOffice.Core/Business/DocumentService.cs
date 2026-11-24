@@ -1,4 +1,5 @@
 using ThixOffice.Core.Documents;
+using ThixOffice.Core.Formats.OfficeCrypto;
 using ThixOffice.Core.Infrastructure;
 using ThixOffice.Core.Models;
 
@@ -16,20 +17,24 @@ public static class DocumentService
     /// <summary>"Dokument1", "Dokument2" … – the names of new documents in this process.</summary>
     public static string NextUntitledName() => $"{AppInfo.Definition.UntitledBaseName}{Interlocked.Increment(ref _untitledCount)}";
 
-    /// <summary>Opens <paramref name="path"/> into a document made by <paramref name="create"/> (it gets the untitled name).</summary>
-    public static T Open<T>(string path, Func<string, T> create)
+    /// <summary>
+    /// Opens <paramref name="path"/> into a document made by <paramref name="create"/> (it gets the untitled name). A file protected with
+    /// a password needs <paramref name="password"/>: without it a <see cref="PasswordRequiredException"/>, a wrong one a
+    /// <see cref="WrongPasswordException"/> (the UI asks and opens again).
+    /// </summary>
+    public static T Open<T>(string path, Func<string, T> create, string? password = null)
         where T : OfficeDocument
     {
         var fullPath = FullPath(path);
         var type = AppInfo.Definition.SupportedTypeOf(fullPath)
                    ?? throw new BusinessException($"{AppInfo.ProductName} kann „{Path.GetFileName(fullPath)}“ (noch) nicht öffnen. Unterstützt: {SupportedList()}.");
-        var document = Load(fullPath, type, create);
+        var document = Load(fullPath, type, create, password);
         RecentDocuments.Add(fullPath);
         return document;
     }
 
     /// <summary>Reads a file into a new document of <paramref name="type"/> (also a ThixDrive working copy); not added to the recent list.</summary>
-    internal static T Load<T>(string fullPath, DocumentType type, Func<string, T> create)
+    internal static T Load<T>(string fullPath, DocumentType type, Func<string, T> create, string? password = null)
         where T : OfficeDocument
     {
         var document = create(NextUntitledName());
@@ -37,7 +42,7 @@ public static class DocumentService
         {
             try
             {
-                document.ReadContent(content);
+                document.ReadContent(content, Path.GetFileName(fullPath), password);
             }
             catch (Exception exception) when (exception is IOException or FormatException or InvalidDataException or System.Text.DecoderFallbackException)
             {
@@ -109,6 +114,29 @@ public static class DocumentService
     /// </summary>
     public static DocumentType? ExportTypeOf(string path) => string.IsNullOrWhiteSpace(path) ? null : AppInfo.Definition.ExportTypeOf(path.Trim());
 
+    /// <summary>
+    /// True when saving <paramref name="document"/> as <paramref name="path"/> drops its password: it has one and the type cannot carry
+    /// it (.odt, .txt, .csv …). The window asks first (<see cref="PasswordLossQuestion"/>); the save then leaves the document unprotected.
+    /// </summary>
+    public static bool LosesPassword(OfficeDocument document, string path) =>
+        document.HasPassword && !string.IsNullOrWhiteSpace(path) && ExportTypeOf(path) is null
+        && AppInfo.Definition.SupportedTypeOf(path.Trim()) is { CanEncrypt: false };
+
+    /// <summary>"„Bericht.odt“ kann nicht mit einem Kennwort geschützt werden. Ohne Kennwort speichern?"</summary>
+    public static string PasswordLossQuestion(string path) =>
+        $"„{Path.GetFileName(path.Trim())}“ kann nicht mit einem Kennwort geschützt werden. Ohne Kennwort speichern?";
+
+    /// <summary>
+    /// "Mit Kennwort verschlüsseln": the password typed twice protects the document from its next save on; both empty remove the
+    /// protection of a document that has one. Refusals name their field (<see cref="OfficeEncryption.PasswordField"/>,
+    /// <see cref="OfficeEncryption.ConfirmationField"/>).
+    /// </summary>
+    public static void SetPassword(OfficeDocument document, string? password, string? confirmation)
+    {
+        document.SetPassword(OfficeEncryption.CheckNewPassword(password, confirmation, document.HasPassword));
+        Log.Info(document.HasPassword ? "A document was protected with a password" : "The password of a document was removed");
+    }
+
     /// <summary>The full path a "Speichern unter" writes to: with the save type's extension when the name has none; checked.</summary>
     public static string TargetPath(string path)
     {
@@ -156,15 +184,23 @@ public static class DocumentService
 
     /// <summary>
     /// Brings a document back from its recovery file: an unsaved document named "&lt;title&gt; (wiederhergestellt)"; the recovery
-    /// file goes (the window writes a new one while it has unsaved changes).
+    /// file goes (the window writes a new one while it has unsaved changes). The recovery file of a protected document is encrypted
+    /// like its file: it needs <paramref name="password"/> (<see cref="PasswordRequiredException"/>), and the document keeps it.
     /// </summary>
-    public static T Recover<T>(RecoveryInfo info, Func<string, T> create)
+    public static T Recover<T>(RecoveryInfo info, Func<string, T> create, string? password = null)
         where T : OfficeDocument
     {
         var document = create($"{Path.GetFileNameWithoutExtension(info.Title)} (wiederhergestellt)");
         using (var content = DocumentFiles.ReadRecovery(info.Id))
         {
-            document.ReadContent(content);
+            try
+            {
+                document.ReadContent(content, info.Title, password);
+            }
+            catch (Exception exception) when (exception is IOException or FormatException or InvalidDataException or System.Text.DecoderFallbackException)
+            {
+                throw new BusinessException($"Die Wiederherstellungsdatei von „{info.Title}“ ist beschädigt ({exception.Message}).");
+            }
         }
 
         document.IsRecovered = true;

@@ -48,6 +48,12 @@ public sealed record DocumentType(
     /// <summary>True for a type that is only written as a copy (<see cref="DocumentTypeSupport.Export"/>).</summary>
     public bool IsExport => Support == DocumentTypeSupport.Export;
 
+    /// <summary>
+    /// True when a file of this type can carry a password ("Mit Kennwort verschlüsseln"): by default the Office Open XML types
+    /// (.docx, .xlsx, .pptx …, <see cref="Formats.OfficeCrypto.OfficeEncryption.CanEncrypt"/>); a test type may say so itself.
+    /// </summary>
+    public bool CanEncrypt { get; init; } = Formats.OfficeCrypto.OfficeEncryption.CanEncrypt(Extension);
+
     /// <summary>PDF, the export type of every app: the pages exactly as laid out.</summary>
     public static DocumentType Pdf { get; } = new(".pdf", "", "PDF", DocumentTypeSupport.Export, MimeType: "application/pdf", MacTypeIdentifier: "com.adobe.pdf");
 }

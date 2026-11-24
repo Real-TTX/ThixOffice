@@ -216,7 +216,7 @@ public static class DriveService
     /// A working copy with changes that were never uploaded is opened as it is (never replaced by the download): the document shows
     /// "Nicht hochgeladen" and is uploaded with its next save.
     /// </summary>
-    public static async Task<T> OpenAsync<T>(long itemId, Func<string, T> create, IProgress<long>? progress = null, CancellationToken cancellationToken = default)
+    public static async Task<T> OpenAsync<T>(long itemId, Func<string, T> create, IProgress<long>? progress = null, CancellationToken cancellationToken = default, string? password = null)
         where T : OfficeDocument
     {
         var item = await GetItemAsync(itemId, cancellationToken);
@@ -227,7 +227,7 @@ public static class DriveService
         if (ReadSidecar(folder) is { IsUploadPending: true } pending && File.Exists(Path.Combine(folder, pending.Name)))
         {
             Log.Info("A ThixDrive document with changes not uploaded was opened from its working copy");
-            return OpenFrom(Path.Combine(folder, pending.Name), pending, DriveSyncState.NotUploaded, create);
+            return OpenFrom(Path.Combine(folder, pending.Name), pending, DriveSyncState.NotUploaded, create, password);
         }
 
         Directory.CreateDirectory(folder);
@@ -260,14 +260,14 @@ public static class DriveService
             ETag = eTag.Length > 0 ? eTag : item.ETag ?? "",
         };
         WriteSidecar(folder, origin);
-        return OpenFrom(target, origin, DriveSyncState.Uploaded, create);
+        return OpenFrom(target, origin, DriveSyncState.Uploaded, create, password);
     }
 
     /// <summary>
     /// "Zuletzt verwendet" of a ThixDrive document: from the Drive when it can be reached, otherwise its working copy (the document
     /// is then marked "Nicht hochgeladen" when it holds changes, else it opens as it was last seen; saving uploads when the cloud is back).
     /// </summary>
-    public static async Task<T> OpenRecentAsync<T>(RecentDocument entry, Func<string, T> create, CancellationToken cancellationToken = default)
+    public static async Task<T> OpenRecentAsync<T>(RecentDocument entry, Func<string, T> create, CancellationToken cancellationToken = default, string? password = null)
         where T : OfficeDocument
     {
         var drive = entry.Drive ?? throw new BusinessException("Dieses Dokument liegt nicht in ThixDrive.");
@@ -275,7 +275,7 @@ public static class DriveService
         {
             try
             {
-                return await OpenAsync(drive.ItemId, create, null, cancellationToken);
+                return await OpenAsync(drive.ItemId, create, null, cancellationToken, password);
             }
             catch (BusinessException) when (CloudService.Status.State == CloudState.Offline && File.Exists(entry.Path))
             {
@@ -291,7 +291,7 @@ public static class DriveService
         }
 
         Log.Info("A ThixDrive document was opened from its working copy (the cloud could not be reached)");
-        return OpenFrom(entry.Path, origin, origin.IsUploadPending ? DriveSyncState.NotUploaded : DriveSyncState.Uploaded, create);
+        return OpenFrom(entry.Path, origin, origin.IsUploadPending ? DriveSyncState.NotUploaded : DriveSyncState.Uploaded, create, password);
     }
 
     // ===== Saving =====
@@ -527,11 +527,11 @@ public static class DriveService
         Log.Info("A document was saved into ThixDrive");
     }
 
-    private static T OpenFrom<T>(string workingCopy, DriveOrigin origin, DriveSyncState state, Func<string, T> create)
+    private static T OpenFrom<T>(string workingCopy, DriveOrigin origin, DriveSyncState state, Func<string, T> create, string? password)
         where T : OfficeDocument
     {
         var type = AppInfo.Definition.SupportedTypeOf(workingCopy) ?? throw new BusinessException($"{AppInfo.ProductName} kann „{origin.Name}“ (noch) nicht öffnen.");
-        var document = DocumentService.Load(workingCopy, type, create);
+        var document = DocumentService.Load(workingCopy, type, create, password);
         document.SetDrive(origin, state);
         RecentDocuments.AddDrive(workingCopy, origin);
         return document;

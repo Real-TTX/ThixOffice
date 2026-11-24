@@ -1,3 +1,5 @@
+using ThixOffice.Core.Formats.OfficeCrypto;
+using ThixOffice.Core.Infrastructure;
 using ThixOffice.Core.Models;
 
 namespace ThixOffice.Core.Documents;
@@ -54,6 +56,36 @@ public abstract class OfficeDocument
     /// <summary>Where the document lives, for people: the file path, "ThixDrive: /Projekte/Bericht.docx" or "Noch nicht gespeichert".</summary>
     public string LocationText => Drive is { } drive ? $"ThixDrive: {drive.DisplayPath}" : FilePath ?? "Noch nicht gespeichert";
 
+    /// <summary>
+    /// True for a document protected with "Mit Kennwort verschlüsseln": its saves (and recovery files) are encrypted. The password
+    /// lives in memory only – never in settings, logs or the recent list.
+    /// </summary>
+    public bool HasPassword => Password is not null;
+
+    /// <summary>The password of the document (null: none); only the business layer reads it.</summary>
+    internal string? Password { get; private set; }
+
+    /// <summary>
+    /// Protects the document with <paramref name="password"/> (null or empty removes the protection). A change of the protection is a
+    /// change that needs a save, like Word's; longer than 255 characters is refused at the field "Password".
+    /// </summary>
+    public void SetPassword(string? password)
+    {
+        password = string.IsNullOrEmpty(password) ? null : password;
+        if (password is { Length: > OfficeEncryption.MaxPasswordLength })
+        {
+            throw new BusinessException(OfficeEncryption.TooLongText, OfficeEncryption.PasswordField);
+        }
+
+        if (password == Password)
+        {
+            return;
+        }
+
+        Password = password;
+        MarkUnsaved();
+    }
+
     public abstract bool CanUndo { get; }
 
     public abstract bool CanRedo { get; }
@@ -79,14 +111,62 @@ public abstract class OfficeDocument
     {
     }
 
-    /// <summary>The business layer reads a file into the model through this (the model only sees a stream).</summary>
-    internal void ReadContent(Stream stream) => Read(stream);
+    /// <summary>
+    /// The business layer reads a file into the model through this (the model only sees a stream; <paramref name="stream"/> is the whole
+    /// file and seekable). A file protected with "Mit Kennwort verschlüsseln" is decrypted first: without <paramref name="password"/> it is
+    /// a <see cref="PasswordRequiredException"/> naming <paramref name="fileName"/>, a wrong one a <see cref="WrongPasswordException"/>; the
+    /// password is kept for the next save. Other protected or foreign kinds (older encryption, IRM, a binary .doc, an encrypted
+    /// OpenDocument file) are refused in words – never read as something else.
+    /// </summary>
+    internal void ReadContent(Stream stream, string fileName, string? password = null)
+    {
+        var kind = OfficeEncryption.Detect(stream);
+        if (OfficeEncryption.Refusal(kind) is { } refusal)
+        {
+            throw refusal;
+        }
 
-    /// <summary>The business layer writes the model into a file through this.</summary>
-    internal void WriteContent(Stream stream) => Write(stream);
+        if (kind == EncryptedFileKind.None)
+        {
+            Read(stream);
+            Password = null;
+            return;
+        }
 
-    /// <summary>The business layer writes the model into a file of <paramref name="type"/> through this.</summary>
-    internal void WriteContentAs(Stream stream, DocumentType type) => Write(stream, type);
+        if (string.IsNullOrEmpty(password))
+        {
+            throw new PasswordRequiredException(fileName);
+        }
+
+        using (var package = new MemoryStream(OfficeEncryption.Decrypt(stream, password), writable: false))
+        {
+            Read(package);
+        }
+
+        Password = password;
+    }
+
+    /// <summary>The business layer writes the model in its own format (the recovery file) through this.</summary>
+    internal void WriteContent(Stream stream) => WriteProtected(stream, FileType ?? AppInfo.Definition.SaveType, Write);
+
+    /// <summary>
+    /// The business layer writes the model into a file of <paramref name="type"/> through this: encrypted with the document's password
+    /// when it has one and the type can carry it (<see cref="DocumentType.CanEncrypt"/>), else as the model writes it.
+    /// </summary>
+    internal void WriteContentAs(Stream stream, DocumentType type) => WriteProtected(stream, type, target => Write(target, type));
+
+    private void WriteProtected(Stream stream, DocumentType type, Action<Stream> write)
+    {
+        if (Password is not { } password || !type.CanEncrypt)
+        {
+            write(stream);
+            return;
+        }
+
+        using var package = new MemoryStream();
+        write(package);
+        OfficeEncryption.Encrypt(package.GetBuffer().AsSpan(0, (int)package.Length), password, stream);
+    }
 
     /// <summary>The model calls this after every change of its content.</summary>
     protected void OnContentChanged()
@@ -104,6 +184,11 @@ public abstract class OfficeDocument
         FileType = type;
         IsDirty = false;
         IsRecovered = false;
+        if (!type.CanEncrypt)
+        {
+            Password = null; // saved where a password cannot go (the window asked first): unprotected from now on
+        }
+
         OnSaved(type);
         RaiseChanged();
     }

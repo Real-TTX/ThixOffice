@@ -150,6 +150,7 @@ public static class CommonCommandIds
     public const string Save = "file.save";
     public const string SaveAs = "file.saveAs";
     public const string SaveAsPdf = "file.saveAsPdf";
+    public const string Encrypt = "file.encrypt";
     public const string Close = "file.close";
     public const string Backstage = "file.backstage";
     public const string Undo = "edit.undo";
