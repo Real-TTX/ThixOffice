@@ -8,6 +8,8 @@ using MatDesktop;
 using ThixCalc.Core.Formulas;
 using ThixCalc.Core.Model;
 using ThixOffice.Desktop;
+using HAlign = Avalonia.Layout.HorizontalAlignment;
+using VAlign = Avalonia.Layout.VerticalAlignment;
 
 namespace ThixCalc.Editor;
 
@@ -19,7 +21,10 @@ namespace ThixCalc.Editor;
 /// </summary>
 internal sealed class FormulaBar : Border
 {
-    private const double LineHeight = 22;
+    /// <summary>The height of the bar's line: the Namenfeld, the content field (collapsed) and the buttons share it.</summary>
+    public const double RowHeight = 24;
+
+    private const int ExpandedLines = 4;
     private readonly CalcEditor _editor;
     private readonly Button _cancel;
     private readonly Button _enter;
@@ -36,21 +41,40 @@ internal sealed class FormulaBar : Border
         BorderThickness = new Thickness(0, 0, 0, 1);
         Padding = new Thickness(6, 4);
 
+        // The Namenfeld: one framed field with its list's chevron inside the frame (Excel's name box).
+        NamesButton = new Button
+        {
+            Content = new MatIcon { Icon = "chevron-down", Size = 12 },
+            Width = 20,
+            Height = RowHeight - 4,
+            MinHeight = 0,
+            Padding = new Thickness(0),
+            Margin = new Thickness(0, 0, 1, 0),
+            VerticalAlignment = VAlign.Center,
+            HorizontalContentAlignment = HAlign.Center,
+            VerticalContentAlignment = VAlign.Center,
+            Focusable = false,
+            Theme = Ui.Theme("MatButton.Ghost"),
+        };
+        AutomationProperties.SetName(NamesButton, "Namen");
+        ToolTip.SetTip(NamesButton, "Namen");
+        NamesButton.Click += (_, _) => ShowNames(NameBox!);
         NameBox = new TextBox
         {
-            Width = 110,
-            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
-            MinHeight = 26,
-            Padding = new Thickness(6, 3),
+            Width = 130,
+            Height = RowHeight,
+            MinHeight = 0,
+            VerticalAlignment = VAlign.Top,
+            VerticalContentAlignment = VAlign.Center,
+            Padding = new Thickness(6, 0, 2, 0),
+            CornerRadius = new CornerRadius(4),
             FontSize = 13,
+            InnerRightContent = NamesButton,
         };
         AutomationProperties.SetName(NameBox, "Namenfeld");
         ToolTip.SetTip(NameBox, "Namenfeld – Zelle, Bereich oder Name eingeben und Eingabe drücken");
         NameBox.KeyDown += OnNameBoxKey;
         NameBox.LostFocus += (_, _) => Refresh();
-
-        var names = IconButton("chevron-down", "Namen", 20);
-        names.Click += (_, _) => ShowNames(names);
 
         _cancel = IconButton("x", "Abbrechen (Esc)", 28);
         _cancel.Click += (_, _) => _editor.Editing.Cancel();
@@ -60,50 +84,60 @@ internal sealed class FormulaBar : Border
         {
             Content = new TextBlock { Text = "fx", FontStyle = FontStyle.Italic, FontWeight = FontWeight.SemiBold, FontSize = 14 },
             Width = 30,
-            Height = 26,
+            Height = RowHeight,
+            MinHeight = 0,
             Padding = new Thickness(0),
-            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
-            HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            VerticalAlignment = VAlign.Top,
+            HorizontalContentAlignment = HAlign.Center,
+            VerticalContentAlignment = VAlign.Center,
             Theme = Ui.Theme("MatButton.Ghost"),
         };
         AutomationProperties.SetName(function, "Funktion einfügen");
         ToolTip.SetTip(function, Ui.Tooltip("Funktion einfügen", OperatingSystem.IsMacOS() ? null : "Shift+F3"));
         function.Click += (_, _) => _ = _editor.InsertFunctionAsync();
 
+        // The content field: framed like the Namenfeld and as high; one line sits in its middle, more lines follow below it.
         field.Wrap = true;
-        field.Padding = new Thickness(6, 3);
-        field.Height = LineHeight + 4;
-        field.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+        field.VerticalAlignment = VAlign.Top;
         field.Use(FormulaTextBox.ForegroundBrushProperty, "Mat.Text");
         AutomationProperties.SetName(field, "Bearbeitungsleiste");
-        var fieldFrame = new Border { Child = field, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(4) };
-        fieldFrame.Use(Border.BorderBrushProperty, "Mat.Border");
-        fieldFrame.Use(Border.BackgroundProperty, "Mat.Surface");
+        FieldFrame = new Border { Child = field, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(4), VerticalAlignment = VAlign.Top };
+        FieldFrame.Use(Border.BorderBrushProperty, "Mat.BorderStrong");
+        field.GotFocus += (_, _) => FieldFrame.Use(Border.BorderBrushProperty, "Mat.Accent");
+        field.LostFocus += (_, _) => FieldFrame.Use(Border.BorderBrushProperty, "Mat.BorderStrong");
+        FieldFrame.Use(Border.BackgroundProperty, "Mat.Surface");
 
         _expand = IconButton("chevron-down", "Bearbeitungsleiste erweitern", 26);
         _expand.Content = _expandIcon;
         _expand.Click += (_, _) => Expanded = !Expanded;
 
-        var separator = new Border { Width = 1, Margin = new Thickness(6, 3), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch };
+        var separator = new Border { Width = 1, Height = RowHeight - 8, Margin = new Thickness(6, 4), VerticalAlignment = VAlign.Top };
         separator.Use(Border.BackgroundProperty, "Mat.Border");
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto,Auto,Auto,Auto,Auto,*,Auto") };
-        var items = new Control[] { NameBox, names, separator, _cancel, _enter, function, fieldFrame, _expand };
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto,Auto,Auto,Auto,*,Auto") };
+        var items = new Control[] { NameBox, separator, _cancel, _enter, function, FieldFrame, _expand };
         for (var index = 0; index < items.Length; index++)
         {
             Grid.SetColumn(items[index], index);
             grid.Children.Add(items[index]);
         }
 
-        fieldFrame.Margin = new Thickness(4, 0, 4, 0);
+        FieldFrame.Margin = new Thickness(4, 0, 4, 0);
         Child = grid;
+        Expanded = false;
         Refresh();
     }
 
     /// <summary>The Namenfeld.</summary>
     public TextBox NameBox { get; }
 
+    /// <summary>The chevron inside the Namenfeld (the list of the defined names).</summary>
+    public Button NamesButton { get; }
+
     /// <summary>The content field.</summary>
     public FormulaTextBox Field { get; }
+
+    /// <summary>The content field's frame (as high as the Namenfeld while collapsed).</summary>
+    public Border FieldFrame { get; }
 
     /// <summary>The field shows several lines (the chevron), like Excel's expanded formula bar.</summary>
     public bool Expanded
@@ -112,7 +146,12 @@ internal sealed class FormulaBar : Border
         set
         {
             _expanded = value;
-            Field.Height = (value ? 4 * LineHeight : LineHeight) + 4;
+            // The first line is centred in the collapsed height; expanded, the next lines follow it.
+            var inner = RowHeight - 2;
+            var line = Field.LineHeight;
+            var top = Math.Max(0, (inner - line) / 2);
+            Field.Padding = new Thickness(6, top, 6, top);
+            Field.Height = value ? ExpandedLines * line + 2 * top : inner;
             _expandIcon.Icon = value ? "chevron-up" : "chevron-down";
             ToolTip.SetTip(_expand, value ? "Bearbeitungsleiste reduzieren" : "Bearbeitungsleiste erweitern");
         }
@@ -124,10 +163,12 @@ internal sealed class FormulaBar : Border
         {
             Content = new MatIcon { Icon = icon, Size = 14 },
             Width = width,
-            Height = 26,
+            Height = RowHeight,
+            MinHeight = 0,
             Padding = new Thickness(0),
-            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
-            HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            VerticalAlignment = VAlign.Top,
+            HorizontalContentAlignment = HAlign.Center,
+            VerticalContentAlignment = VAlign.Center,
             Theme = Ui.Theme("MatButton.Ghost"),
         };
         AutomationProperties.SetName(button, label);
