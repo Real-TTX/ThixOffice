@@ -184,8 +184,9 @@ public static class ShowRibbon
                     Toggle(ShowCommandIds.LoopShow))),
             new MatRibbonGroup("monitors", "Bildschirme") { Icon = "monitor" }.Add(
                 new MatRibbonStack("monitor-rows",
-                    ComboBox(ShowCommandIds.ChooseScreen, width: 170),
-                    Toggle(ShowCommandIds.PresenterView))));
+                    new MatRibbonCustom(ShowGalleries.ScreenChoice, "Bildschirm"),
+                    Toggle(ShowCommandIds.PresenterView),
+                    Button(ShowCommandIds.TestPresenterView, MatRibbonSize.Medium))));
 
     private static MatRibbonTab ReviewTab() =>
         new MatRibbonTab("review", "Überprüfen").Add(

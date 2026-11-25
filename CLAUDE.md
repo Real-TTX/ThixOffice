@@ -274,7 +274,8 @@ src/ThixShow               App, Program, ShowSelfTest, Editor/ (ShowEditor: norm
                            ShowContextCommands (contextual tabs, context menus, table/size commands) + ShowChartCommands (+ ChartDataDialog),
                            ShowCommandIds, ShowRibbon, ShowGalleries (layouts, designs strip, shapes, table picker), ShowClipboard,
                            ShowFindBar, ShowPalette, SampleDeck), Show/ (ShowController: SlideShow on a clock, 60 fps timer only while
-                           animating; ShowSurface; ShowNavigation: PowerPoint's keys; SlideShowWindow; PresenterWindow), Pages/ (ShowPages:
+                           animating; ShowSurface; ShowNavigation: PowerPoint's keys; SlideShowWindow + control bar; PresenterWindow; ShowScreens;
+                           ShowChrome: SlidePreview, SlideNavigator), Pages/ (ShowPages:
                            print layouts, ShowPrintPage, ShowExportPage), Dialogs/ (Zoom, Link, Abschnitt)
 src/ThixWrite              App (OfficeApplication: WordDocument, WriteEditor, commands, ribbon, backstage page, self test, snapshot
                            scenes), Program, WriteSelfTest, Editor/ (WriteEditor, DocumentSurface + CaretLayer + WriteInputClient,
@@ -1064,14 +1065,28 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   `ShowGalleries.Create` (`App.CreateRibbonContent`); plain galleries (Übergänge, Animationen, Schnellformatvorlagen) are `MatRibbonGallery`
   bound to value commands. German PowerPoint shortcuts are listed in `ShowCommands`' summary and the README.
 - **Show:** `ShowController` runs the core's `SlideShow` on a `Stopwatch`; its `DispatcherTimer` (60 fps) runs only while
-  `IsAnimating` (`IsTicking` for tests). `SlideShowWindow` (borderless, full screen on the audience's screen: `ShowSettings.AudienceScreen`
-  or the non-primary one) + `PresenterWindow` (on the other screen when there are two and `UsePresenterView`); `ShowNavigation` holds the
-  keys, wheel and menu. Esc/end closes both and selects the slide the show was on in the editor.
+  `IsAnimating` (`IsTicking` for tests). `SlideShowWindow` (borderless, full screen, black around the slide; `ShowSurface`): PowerPoint's
+  control bar at the bottom left (◀ "2 / 6" ▶, Alle Folien, Bildschirm schwarz, "…" = the show's menu) in a `ThemeVariantScope` Dark (Mat
+  tokens), it fades in on a real mouse move and out after `SlideShowWindow.IdleDelay` (3 s) with the cursor; its buttons are not focusable (the
+  keys stay the show's). `PresenterWindow` = the Referentenansicht in the app's theme: header (Verstrichen + anhalten/fortsetzen/zurücksetzen,
+  "Folie X von Y" + title + a Bildschirm-schwarz/weiß badge, Uhrzeit), a 3 px `MatProgress` line, the slide as a card (`ShowSurface.IsFramed`:
+  own aspect, rounded, shadow from `Mat.Overlay`), `MatCard`s for Nächste Folie / Nächster Schritt / Ende der Präsentation and the notes
+  (A↓/A↑, `ShowSettings.NotesSize` remembered), a toolbar (Zurück, Weiter | Alle Folien, schwarz, weiß, Anzeige tauschen · gap · beenden).
+  `ShowChrome.cs`: `SlidePreview` (aspect-sized), `SlideNavigator` ("Alle Folien": a grid of tiles over either window; arrows, Eingabe,
+  Esc closes it before Esc can end the show), `ShowButtons`. `ShowNavigation` holds the keys, wheel and menu (`ShowMenuActions`).
+  **Screens** (`ShowScreens`, read each time, `ShowScreens.ForTests` for tests/snapshots): automatic = with two screens the non-primary one for
+  the show and the presenter view on the other (the editor's, `ShowArrangement`), with one screen the editor's; `ShowSettings.AudienceScreen`
+  (index) wins while connected, a gone one counts as automatic but stays remembered. Bildschirmpräsentation › Bildschirme: the
+  `RibbonFlyoutButton` "Bildschirm: …" (`ShowGalleries.ScreenChoice`, the list built on opening: "Automatisch" + "Bildschirm 1 – 2560 ×
+  1440 (Hauptbildschirm)"; the value command `show.chooseScreen` takes a label or an index), Referentenansicht verwenden, Referentenansicht
+  testen (Alt+F5, ⌥⌘↩: `IsTestMode` – the presenter view in a window, the show window hidden; closing it ends the show). Anzeige tauschen
+  (`SwapDisplays`: two screens trade, the test mode trades the two windows; presenter toolbar and menu). With one screen the presenter view
+  opens only through Alt+F5 or the menu (then in a window). Esc/end closes both and selects the slide the show was on in the editor.
 - **Colours:** chrome Mat tokens only; document colours (paper, the show's black/white, palettes of the theme, the sample picture) only in
   `Editor/ShowPalette.cs` – the file the colour rules test exempts.
 - **Files:** `ShowEditor.ConfirmSaveAsync` asks before .pptx drops macros; `OpeningWarning` lists `UnsupportedContent` and macros.
 - **Snapshots** (`-- --snapshot <folder>`, `THIXSHOW_SCREENSHOTS` for the tests): the shell's scenes plus `main-content` (chart selected),
-  `main-design`, `main-shapes` (gallery open), `main-transitions`, `main-animations` (pane open), `main-sorter`, `presenter`,
+  `main-design`, `main-shapes` (gallery open), `main-transitions`, `main-animations` (pane open), `main-sorter`, `presenter`, `presenter-slides`, `show-controls`, `main-screens` (two sample screens),
   `backstage-print` on `SampleDeck` ("Nordlicht Reisen – Jahresrückblick 2026"). Self test: design, typed title, slide, shape, picture,
   table, chart, transition, animation, pptx round trip, Skia slide, show engine, PDF, the sample through pptx.
 

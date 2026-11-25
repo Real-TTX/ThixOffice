@@ -25,15 +25,6 @@ public static class ShowPalette
     /// <summary>The slide show's "W" screen.</summary>
     public static readonly SKColor ShowWhite = new(0xFF, 0xFF, 0xFF);
 
-    /// <summary>The background of the presenter view (PowerPoint's is dark in every theme).</summary>
-    public static readonly Color PresenterBackground = Color.FromRgb(0x1F, 0x1F, 0x1F);
-
-    /// <summary>The text of the presenter view.</summary>
-    public static readonly Color PresenterText = Color.FromRgb(0xF2, 0xF2, 0xF2);
-
-    /// <summary>The muted text of the presenter view.</summary>
-    public static readonly Color PresenterMuted = Color.FromRgb(0xA6, 0xA6, 0xA6);
-
     /// <summary>The default of Schriftfarbe's button (PowerPoint: red), Fülleffekt's (accent 1 is the theme's, so: orange) and Formkontur's.</summary>
     public const string DefaultFontColor = "#FF0000";
 

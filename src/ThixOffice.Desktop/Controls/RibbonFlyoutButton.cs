@@ -19,12 +19,14 @@ public sealed class RibbonFlyoutButton : Button
     private readonly string _commandId;
     private readonly Func<RibbonFlyoutButton, Control> _content;
     private readonly Flyout _flyout;
+    private readonly TextBlock _label;
 
     public RibbonFlyoutButton(OfficeWindow window, string commandId, string label, string icon, Func<RibbonFlyoutButton, Control> content, bool large = true, string? tooltip = null)
     {
         _window = window;
         _commandId = commandId;
         _content = content;
+        _label = new TextBlock { Text = label, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         this.Themed("MatRibbon.Item");
         if (large)
         {
@@ -39,7 +41,7 @@ public sealed class RibbonFlyoutButton : Button
                 Children =
                 {
                     new MatIcon { Icon = icon, Size = 26, Margin = new Thickness(0, 6, 0, 2), HorizontalAlignment = HorizontalAlignment.Center },
-                    new TextBlock { Text = label, HorizontalAlignment = HorizontalAlignment.Center },
+                    _label,
                     new MatIcon { Icon = "chevron-down", Size = 12, HorizontalAlignment = HorizontalAlignment.Center },
                 },
             };
@@ -54,7 +56,7 @@ public sealed class RibbonFlyoutButton : Button
                 Children =
                 {
                     new MatIcon { Icon = icon, Size = 16 },
-                    new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center },
+                    _label,
                     new MatIcon { Icon = "chevron-down", Size = 10, VerticalAlignment = VerticalAlignment.Center },
                 },
             };
@@ -66,6 +68,13 @@ public sealed class RibbonFlyoutButton : Button
         Click += (_, _) => Open();
         window.Commands.StateChanged += (_, _) => Ui.Post(SyncEnabled);
         SyncEnabled();
+    }
+
+    /// <summary>The text on the button (an app may show the current choice there: "Bildschirm: Automatisch").</summary>
+    public string Label
+    {
+        get => _label.Text ?? "";
+        set => _label.Text = value;
     }
 
     /// <summary>True while the flyout is open.</summary>

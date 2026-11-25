@@ -17,8 +17,8 @@ namespace ThixShow.Editor;
 /// Shortcuts of the German PowerPoint: Strg+C/X/V, Strg+D duplizieren, Strg+M neue Folie, Strg+Umschalt+F / K / U fett / kursiv /
 /// unterstrichen (also Strg+B, Strg+I, Strg+U), Strg+L / E / R / J ausrichten, Strg+Umschalt+&gt; / &lt; Schrift größer / kleiner,
 /// Strg+Leertaste Zeichenformat löschen, Strg+G gruppieren, Strg+Umschalt+G Gruppierung aufheben, Strg+A alles markieren,
-/// Strg+F Suchen, Strg+H Ersetzen, Strg+K Link, F5 / Umschalt+F5 Bildschirmpräsentation, Alt+Umschalt+→/← Ebene, Entf löschen.
-/// The Mac keeps ⌘ for Strg and uses ⇧⌘F5 / ⌘↩ for the show.
+/// Strg+F Suchen, Strg+H Ersetzen, Strg+K Link, F5 / Umschalt+F5 Bildschirmpräsentation, Alt+F5 Referentenansicht testen, Alt+Umschalt+→/← Ebene, Entf löschen.
+/// The Mac keeps ⌘ for Strg and uses ⇧⌘↩ / ⌘↩ / ⌥⌘↩ for the show.
 /// </para>
 /// </summary>
 public static class ShowCommands
@@ -373,11 +373,18 @@ public static class ShowCommands
         {
             Icon = "refresh", IsChecked = () => ShowSettings.Loop, Description = "Beginnt nach der letzten Folie wieder mit der ersten.",
         });
-        commands.Add(new OfficeValueCommand(ShowCommandIds.ChooseScreen, "Bildschirm", OfficeValueKind.Text,
-            () => ShowSettings.AudienceScreen is { } screen ? ScreenLabel(screen) : "Automatisch",
-            value => ShowSettings.AudienceScreen = ScreenIndex(value))
+        commands.Add(new OfficeCommand(ShowCommandIds.TestPresenterView, "Referentenansicht testen", () => Editor() is { } editor ? SlideShowWindow.StartAsync(window, editor, fromCurrent: false, testPresenter: true) : Task.CompletedTask)
         {
-            Icon = "tv", Options = ["Automatisch", .. Enumerable.Range(0, 4).Select(ScreenLabel)], Description = "Wählt den Bildschirm, auf dem die Präsentation läuft (Automatisch: der zweite, wenn vorhanden).",
+            Icon = "presentation", Shortcut = "Alt+F5", MacShortcut = "Ctrl+Alt+Enter", CanExecute = () => Editor()?.Session.Presentation.SlideCount > 0,
+            Description = "Startet die Bildschirmpräsentation mit der Referentenansicht in einem Fenster – zum Ausprobieren ohne zweiten Bildschirm. „Anzeige tauschen“ zeigt die Präsentation selbst.",
+            Keywords = ["Referent", "Probe", "üben", "Beamer"],
+        });
+        commands.Add(new OfficeValueCommand(ShowCommandIds.ChooseScreen, "Bildschirm", OfficeValueKind.Text,
+            () => ShowScreens.ChoiceOf(ShowScreens.All(window)),
+            value => ShowSettings.AudienceScreen = ShowScreens.IndexOf(value))
+        {
+            Icon = "tv", Keywords = ["Monitor", "Beamer", "Projektor"],
+            Description = "Wählt den Bildschirm, auf dem die Präsentation läuft. " + ShowScreens.AutomaticRule,
         });
 
         // ===== Ansicht =====
@@ -530,21 +537,6 @@ public static class ShowCommands
             Icon = command.Icon, CanExecute = () => command.IsEnabled, IsChecked = command.IsChecked, Description = command.Description, IsSearchable = false,
         },
     };
-
-    /// <summary>"Bildschirm 2" for the screen with index 1.</summary>
-    public static string ScreenLabel(int index) => $"Bildschirm {(index + 1).ToString(CultureInfo.CurrentCulture)}";
-
-    /// <summary>The screen index of a choice ("Bildschirm 2" or an index); null for Automatisch.</summary>
-    public static int? ScreenIndex(string? value)
-    {
-        var text = value?.Trim() ?? "";
-        if (text.StartsWith("Bildschirm ", StringComparison.Ordinal) && int.TryParse(text["Bildschirm ".Length..], CultureInfo.InvariantCulture, out var number) && number > 0)
-        {
-            return number - 1;
-        }
-
-        return int.TryParse(text, CultureInfo.InvariantCulture, out var index) && index >= 0 ? index : null;
-    }
 
     /// <summary>Runs a session command and returns its task (for commands whose execution is awaited).</summary>
     internal static Task RunTask(ShowEditor? editor, string label, Action<ShowEditor> action) =>

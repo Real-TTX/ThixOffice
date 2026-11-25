@@ -231,9 +231,14 @@ darunter die Notizen, unten die Statusleiste mit „Folie 3 von 12“, Notizen, 
   **Tabellenentwurf** und **Layout** sowie **Diagrammentwurf** erscheinen mit der Auswahl.
 - **Bildschirmpräsentation** (F5 von Beginn an, Umschalt+F5 ab der aktuellen Folie) im Vollbild mit Übergängen und Animationen; sie
   zeichnet nur, solange sich etwas bewegt. Weiter mit Leertaste, Pfeiltasten, Bild ab, Klick oder Mausrad; Nummer + Eingabe springt zur
-  Folie, B/W schwarzer/weißer Bildschirm, Esc beendet; Rechtsklick für das Menü (Gehe zu Folie …). Mit zwei Bildschirmen erscheint die
-  **Referentenansicht**: aktuelle Folie, nächste Folie bzw. „Nächster Schritt“, Notizen (Schrift größer/kleiner), Zeitgeber und Uhrzeit,
-  „Alle Folien“, Bildschirm schwarz, Präsentation beenden. Den Bildschirm wählen Sie unter *Bildschirmpräsentation › Bildschirm*.
+  Folie, B/W schwarzer/weißer Bildschirm, Esc beendet; Rechtsklick für das Menü (Gehe zu Folie …). Bewegen Sie die Maus, erscheint unten
+  links eine dezente Steuerleiste (Zurück, Weiter, Alle Folien, Bildschirm schwarz, weitere Optionen); nach drei Sekunden Ruhe verschwinden
+  sie und der Mauszeiger wieder. Mit zwei Bildschirmen erscheint die **Referentenansicht** im Design der App: aktuelle Folie, nächste Folie
+  bzw. „Nächster Schritt“ oder das Ende, Notizen (Schriftgröße bleibt gespeichert), Zeitgeber (anhalten, zurücksetzen), Uhrzeit und
+  Fortschritt, „Alle Folien“ als Übersicht, Bildschirm schwarz/weiß, **Anzeige tauschen**, Präsentation beenden.
+  Unter *Bildschirmpräsentation › Bildschirme* wählen Sie den **Bildschirm** aus den angeschlossenen (etwa „Bildschirm 2 – 1920 × 1080“)
+  oder „Automatisch“: mit zwei Bildschirmen der, der nicht der Hauptbildschirm ist, sonst der des Fensters. **Referentenansicht testen**
+  (Alt+F5) zeigt die Referentenansicht ohne zweiten Bildschirm in einem Fenster.
   Die **Leseansicht** spielt die Präsentation im Fenster.
 - **Drucken und PDF:** *Datei › Drucken* (Strg+P) mit Ganzseitige Folien, Notizenseiten und Handzettel (1, 2, 3 mit Linien, 4, 6, 9
   Folien pro Seite), Farbe oder Graustufen, Vorschau; *Datei › Exportieren* als PDF oder als Bilder (PNG oder JPEG, alle Folien oder die
@@ -269,6 +274,7 @@ Wie im deutschen PowerPoint (unter macOS ⌘ statt Strg):
 | --- | --- |
 | Strg+M, Strg+D | Neue Folie, Duplizieren (Formen oder Folien) |
 | F5 / Umschalt+F5 (⇧⌘↩ / ⌘↩) | Bildschirmpräsentation von Beginn an / ab aktueller Folie |
+| Alt+F5 (⌥⌘↩) | Referentenansicht testen (in einem Fenster) |
 | Strg+Umschalt+F / K / U (auch Strg+B / I / U) | Fett / Kursiv / Unterstrichen |
 | Strg+L / E / R / J | Linksbündig / Zentriert / Rechtsbündig / Blocksatz |
 | Strg+Umschalt+. / , | Schriftgrad vergrößern / verkleinern |

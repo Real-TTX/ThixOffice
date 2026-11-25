@@ -518,11 +518,22 @@ public sealed class SlideShow
 
     private ShowFrame EndFrame()
     {
-        const string text = "Ende der Bildschirmpräsentation. Zum Beenden klicken.";
-        var font = new FontSpec("Arial", 18);
-        var shaped = _measurer.Shape(text, font);
+        // PowerPoint's words, set quietly in the middle: the line in light grey, the hint under it dimmer.
+        const string title = "Ende der Bildschirmpräsentation";
+        const string hint = "Zum Beenden klicken oder Esc drücken.";
+        var titleFont = new FontSpec("Segoe UI", Math.Max(14, Height / 22));
+        var hintFont = new FontSpec("Segoe UI", Math.Max(10, Height / 36));
+        var shapedTitle = _measurer.Shape(title, titleFont);
+        var shapedHint = _measurer.Shape(hint, hintFont);
+        var titleMetrics = _measurer.GetMetrics(titleFont);
+        var hintMetrics = _measurer.GetMetrics(hintFont);
+        var gap = hintFont.Size * 0.8;
+        var total = titleMetrics.Ascent + titleMetrics.Descent + gap + hintMetrics.Ascent + hintMetrics.Descent;
+        var top = (Height - total) / 2;
         var items = new List<DisplayItem>();
-        TextBodyLayouter.AddText(items, (Width - shaped.Width) / 2, 40, shaped, 0, text.Length, font, RgbColor.White, 0);
+        TextBodyLayouter.AddText(items, (Width - shapedTitle.Width) / 2, top + titleMetrics.Ascent, shapedTitle, 0, title.Length, titleFont, new RgbColor(0xE6, 0xE6, 0xE6), 0);
+        var hintBaseline = top + titleMetrics.Ascent + titleMetrics.Descent + gap + hintMetrics.Ascent;
+        TextBodyLayouter.AddText(items, (Width - shapedHint.Width) / 2, hintBaseline, shapedHint, 0, hint.Length, hintFont, new RgbColor(0x8C, 0x8C, 0x8C), 0);
         return new ShowFrame(Width, Height, [ShowLayer.Static(items)], SlideIndex, false, true);
     }
 
