@@ -876,6 +876,17 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
   parentheses. A `BusinessException` (bad formula, validation) is explained and the cell stays open. Commands that change cells call
   `Editing.Commit()` first. The grid and the fields implement `ITextField` so the window's undo/copy keys reach the field while editing.
   A formula that fails in German punctuation is read with "," and "." (`CalcLocale.AlternatePunctuation`, `EditingSession.ParseInput`).
+- **The cell's field looks like Excel's:** `CellBoxGeometry` (in CellEditing.cs) puts the field exactly over the pixels of the active cell's
+  border (`SelectionRenderer.ActiveFrame`, `ActiveBorderWidth` 2 device pixels) and the field draws that border itself (`FormulaTextBox.Frame`/
+  `FrameBrush` = Mat.Accent), so it stays as in Bereit and grows with the field (right with the text, down with Alt+Eingabe; a cell with
+  Zeilenumbruch keeps its width and grows down). Its text sits on the grid's own text origin (`GridRenderer.TextOrigin`: x after padding and
+  indent, the baseline by the vertical alignment – `FormulaTextBox.Baseline`; several lines start at the top – `TopBaseline`), in the family the
+  grid draws with (a missing font's substitute): F2, a double click or typing moves nothing. Everything is computed in device pixels and divided by
+  `RenderScaling` (sizes snapped up), so it stays sharp at 125 %/150 %. `CellEditorLookTests` check it on rendered frames.
+- **Formula bar:** one line of `FormulaBar.RowHeight` (24): the Namenfeld (a TextBox with the names chevron inside its frame as
+  `InnerRightContent`), the separator, X, check, fx and the content field's frame share top and bottom; the content field centres its first line,
+  expanded (the chevron at the right) it adds lines below while everything else stays on the top line. Both frames use Mat.BorderStrong
+  (Mat.Accent while typing in them).
 - **Functions for the user:** fx / Umschalt+F3 → `InsertFunctionDialog` (search by German/English name and description) →
   `FunctionArgumentsDialog` (a field per argument, live values through `EditingSession.PreviewExpression/PreviewFormula`, the result;
   `FunctionCallText` splits/joins the call); fx on a cell holding one call opens Funktionsargumente on it. Every function is a command
@@ -1077,7 +1088,7 @@ scripts/package-macos.sh   <Name>.app per app (Info.plist with CFBundleGetInfoSt
 
 - `dotnet build ThixOffice.slnx` – expected: 0 warnings, 0 errors. `dotnet test ThixOffice.slnx` – all green.
 - ThixCalc the same way: `dotnet run --project src/ThixCalc` (`THIXCALC_DATA_DIR`), snapshots `-- --snapshot <folder>` (scenes
-  `-main-formula`, `-main-view`, `-main-find`, `-dialog-format-cells`, `-dialog-function`, `-dialog-page-setup`, `-backstage-print`,
+  `-main-formula`, `-main-edit` (F2 on a text cell), `-main-view`, `-main-find`, `-dialog-format-cells`, `-dialog-function`, `-dialog-page-setup`, `-backstage-print`,
   `-main-chart`, `-main-chart-design`, `-main-table`, `-main-pivot`, `-main-pivot-design`, `-dialog-function-arguments` on the budget sample `SampleWorkbook`), `THIXCALC_SCREENSHOTS=<folder> dotnet test
   tests/ThixCalc.Tests` (also every chart type into `<folder>/charts`: `ChartPictureTests`); its trimmed publish (~46 MB) runs
   `--self-test` (typed values and German formulas incl. SVERWEIS/SUMMEWENN/XVERWEIS/GRUPPIERENNACH, format, sort, a chart through the ribbon command, xlsx round
