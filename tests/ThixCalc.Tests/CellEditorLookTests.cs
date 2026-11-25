@@ -197,7 +197,9 @@ public sealed class CellEditorLookTests
         bar.Expanded = true;
         await SettleAsync();
         var expanded = RectIn(bar.FieldFrame, bar);
-        Assert.True(expanded.Height > 3 * name.Height, $"{expanded.Height}");
+        // Four lines of the field's font (their height differs per platform: macOS' fallback is lower than Calibri).
+        Assert.True(expanded.Height >= 4 * bar.Field.LineHeight, $"{expanded.Height} for lines of {bar.Field.LineHeight}");
+        Assert.True(expanded.Height > 2 * name.Height, $"{expanded.Height}");
         Assert.Equal(name.Top, RectIn(bar.NameBox, bar).Top, 3);
         Assert.Equal(name.Top, expanded.Top, 3);
         Assert.Equal(text.Y, bar.Field.TranslatePoint(bar.Field.TextOrigin, bar)!.Value.Y, 3);
