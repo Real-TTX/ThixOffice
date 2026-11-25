@@ -91,6 +91,33 @@ public static class GridRenderer
     private const double PaddingPixels = 2;
     private const int OverflowScan = 30;
 
+    /// <summary>The space between a cell's edges and its text, in pixels of the viewport (2 at 100 %).</summary>
+    public static double TextPadding(GridViewport viewport) => PaddingPixels * viewport.Zoom;
+
+    /// <summary>
+    /// Where the grid draws a cell's left-aligned text (viewport pixels): x after the padding and the indent, the baseline of a
+    /// single line by the cell's vertical alignment, and the baseline of the first line of text that starts at the top (several
+    /// lines) – what the in-cell editor puts its text on, so that nothing moves when editing starts.
+    /// </summary>
+    public static (double X, double Baseline, double TopBaseline) TextOrigin(GridViewport viewport, GridMetrics metrics, CellAddress address)
+    {
+        var style = viewport.Layout.Sheet.GetStyle(address.Row, address.Column);
+        var cell = viewport.CellRect(address);
+        var padding = TextPadding(viewport);
+        var indent = style.Alignment.Indent * metrics.MaxDigitWidthPixels * 3 * viewport.Zoom;
+        var fontMetrics = metrics.Measurer.GetMetrics(PixelFont(style.Font, viewport.Zoom));
+        var top = TextTop(cell, style.Alignment.Vertical, padding, fontMetrics.LineHeight);
+        return (cell.X + padding + indent, top + fontMetrics.Ascent, cell.Y + padding + fontMetrics.Ascent);
+    }
+
+    /// <summary>The top of a block of text lines in a cell by its vertical alignment (bottom by default, like Excel).</summary>
+    private static double TextTop(PixelRect cell, VerticalAlignment vertical, double padding, double blockHeight) => vertical switch
+    {
+        VerticalAlignment.Top => cell.Y + padding,
+        VerticalAlignment.Center or VerticalAlignment.Justify or VerticalAlignment.Distributed => cell.Y + (cell.Height - blockHeight) / 2,
+        _ => cell.Bottom - padding - blockHeight,
+    };
+
     public static CellDisplay Present(Worksheet sheet, int row, int column, GridMetrics metrics, ConditionalFormatEvaluator? conditional = null, RgbColor? text = null)
     {
         var workbook = sheet.Workbook;
@@ -623,12 +650,7 @@ public static class GridRenderer
         var lines = display.Wrap ? Wrap(text, measurer, font, available) : [text.Replace('\n', ' ')];
         var lineHeight = fontMetrics.LineHeight;
         var blockHeight = lineHeight * lines.Count;
-        var top = display.Vertical switch
-        {
-            VerticalAlignment.Top => cell.Y + padding,
-            VerticalAlignment.Center or VerticalAlignment.Justify or VerticalAlignment.Distributed => cell.Y + (cell.Height - blockHeight) / 2,
-            _ => cell.Bottom - padding - blockHeight,
-        };
+        var top = TextTop(cell, display.Vertical, padding, blockHeight);
 
         // The clip: the cell, widened over empty neighbours for overflowing text (not for numbers or wrapped text).
         var clip = cell;

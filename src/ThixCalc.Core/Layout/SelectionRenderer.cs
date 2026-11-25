@@ -42,6 +42,24 @@ public sealed record SelectionLook
 /// </summary>
 public static class SelectionRenderer
 {
+    /// <summary>The thickness of the active cell's border in viewport pixels (the in-cell editor draws the same).</summary>
+    public const double ActiveBorderWidth = 2;
+
+    /// <summary>
+    /// The pixels the active cell's border covers: from one pixel left of and above <paramref name="range"/> (the neighbours'
+    /// grid lines) to its right and bottom edge, cut at the pane the range starts in (as the border is clipped there).
+    /// </summary>
+    public static PixelRect ActiveFrame(GridViewport viewport, CellRange range)
+    {
+        var view = viewport.Layout.Sheet.View;
+        var rect = viewport.RangeRect(range);
+        var paneLeft = range.FirstColumn < view.FrozenColumns ? viewport.HeaderWidth : viewport.ScrollLeft;
+        var paneTop = range.FirstRow < view.FrozenRows ? viewport.HeaderHeight : viewport.ScrollTop;
+        var left = Math.Max(rect.X - 1, paneLeft);
+        var top = Math.Max(rect.Y - 1, paneTop);
+        return new PixelRect(left, top, rect.Right - left, rect.Bottom - top);
+    }
+
     public static IReadOnlyList<DisplayItem> Render(GridViewport viewport, SelectionLook look)
     {
         var items = new List<DisplayItem>();
@@ -82,10 +100,10 @@ public static class SelectionRenderer
             if (look.ShowBorder)
             {
                 var border = look.Ranges.Count == 1 ? look.Ranges[0] : active;
-                Frame(items, viewport, border, paneRange, look.Border, look.Ranges.Count > 1 ? 1 : 2);
+                Frame(items, viewport, border, paneRange, look.Border, look.Ranges.Count > 1 ? 1 : ActiveBorderWidth);
                 if (look.Ranges.Count > 1)
                 {
-                    Frame(items, viewport, active, paneRange, look.Border, 2);
+                    Frame(items, viewport, active, paneRange, look.Border, ActiveBorderWidth);
                 }
             }
 
@@ -166,12 +184,12 @@ public static class SelectionRenderer
         var bottom = rect.Bottom - 0.5 - inset;
         if (part.FirstRow == range.FirstRow)
         {
-            items.Add(new LineItem(left - inset, top, right + inset, top, color, thickness, style));
+            items.Add(new LineItem(left - thickness / 2, top, right + thickness / 2, top, color, thickness, style));
         }
 
         if (part.LastRow == range.LastRow)
         {
-            items.Add(new LineItem(left - inset, bottom, right + inset, bottom, color, thickness, style));
+            items.Add(new LineItem(left - thickness / 2, bottom, right + thickness / 2, bottom, color, thickness, style));
         }
 
         if (part.FirstColumn == range.FirstColumn)
