@@ -77,8 +77,11 @@ internal static class ShowNavigation
         e.Handled = true;
     }
 
-    /// <summary>The show's menu on the right button: Weiter, Zurück, Gehe zu Folie, Bildschirm, Referentenansicht, Präsentation beenden.</summary>
-    public static ContextMenu Menu(ShowController controller, Action? togglePresenter, bool presenterShown)
+    /// <summary>
+    /// The show's menu (the right button, the control bar's "…"): Weiter, Zurück, Gehe zu Folie, Alle Folien, Bildschirm, Referentenansicht,
+    /// Anzeige tauschen, Präsentation beenden – the entries whose action is given.
+    /// </summary>
+    public static ContextMenu Menu(ShowController controller, ShowMenuActions actions)
     {
         var menu = new ContextMenu();
         MenuItem Item(string header, Action action)
@@ -100,13 +103,23 @@ internal static class ShowNavigation
         }
 
         menu.Items.Add(goTo);
+        if (actions.AllSlides is { } allSlides)
+        {
+            menu.Items.Add(Item("Alle Folien", allSlides));
+        }
+
         var screen = new MenuItem { Header = "Bildschirm" };
         screen.Items.Add(Item("Schwarzer Bildschirm", () => controller.ToggleBlank(BlankScreen.Black)));
         screen.Items.Add(Item("Weißer Bildschirm", () => controller.ToggleBlank(BlankScreen.White)));
         menu.Items.Add(screen);
-        if (togglePresenter is not null)
+        if (actions.TogglePresenter is { } togglePresenter)
         {
-            menu.Items.Add(Item(presenterShown ? "Referentenansicht ausblenden" : "Referentenansicht anzeigen", togglePresenter));
+            menu.Items.Add(Item(actions.PresenterShown ? "Referentenansicht ausblenden" : "Referentenansicht anzeigen", togglePresenter));
+        }
+
+        if (actions.SwapDisplays is { } swap)
+        {
+            menu.Items.Add(Item("Anzeige tauschen", swap));
         }
 
         menu.Items.Add(new Separator());
@@ -114,3 +127,6 @@ internal static class ShowNavigation
         return menu;
     }
 }
+
+/// <summary>What the show's menu offers besides navigation (null: the entry is left out).</summary>
+internal sealed record ShowMenuActions(Action? TogglePresenter = null, bool PresenterShown = false, Action? SwapDisplays = null, Action? AllSlides = null);

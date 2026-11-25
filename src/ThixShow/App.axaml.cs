@@ -27,13 +27,16 @@ public partial class App : OfficeApplication
     public const string AnimationsScene = "main-animations";
     public const string SorterScene = "main-sorter";
     public const string PresenterScene = "presenter";
+    public const string PresenterSlidesScene = "presenter-slides";
+    public const string ShowControlsScene = "show-controls";
+    public const string ScreensScene = "main-screens";
     public const string PrintScene = "backstage-print";
     public const string ContentScene = "main-content";
     public const string ExportScene = "backstage-export";
 
     public override OfficeAppDefinition Definition => ThixShowApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [ContentScene, DesignScene, ShapesScene, TransitionsScene, AnimationsScene, SorterScene, PresenterScene, PrintScene, ExportScene];
+    public override IReadOnlyList<string> SnapshotScenes => [ContentScene, DesignScene, ShapesScene, TransitionsScene, AnimationsScene, SorterScene, PresenterScene, PresenterSlidesScene, ShowControlsScene, ScreensScene, PrintScene, ExportScene];
 
     public override string SampleDocumentName => "Jahresrückblick 2026";
 
@@ -110,14 +113,40 @@ public partial class App : OfficeApplication
             case SorterScene:
                 editor.SetView(ShowView.Sorter);
                 break;
-            case PresenterScene:
+            case PresenterScene or PresenterSlidesScene:
                 var controller = new ShowController(session.Presentation, new Core.Show.SlideShowOptions(StartSlide: 1));
                 controller.Start();
                 controller.GoTo(1);
                 var presenter = new PresenterWindow(controller, () => new DateTime(2026, 11, 19, 14, 32, 0));
+                presenter.SwapDisplays = () => { };
                 presenter.Show();
+                if (name == PresenterSlidesScene)
+                {
+                    presenter.ShowNavigator();
+                }
+
                 Dispatcher.UIThread.RunJobs();
                 return presenter;
+            case ShowControlsScene:
+                // The show window with its control bar (the mouse just moved), on the slide with the picture.
+                var running = new ShowController(session.Presentation, new Core.Show.SlideShowOptions(StartSlide: 0, UseTimings: false));
+                running.Start();
+                running.GoTo(Math.Min(3, session.Presentation.SlideCount - 1));
+                var showWindow = SlideShowWindow.ForSnapshot(running);
+                showWindow.Show();
+                Dispatcher.UIThread.RunJobs();
+                return showWindow;
+            case ScreensScene:
+                // Bildschirmpräsentation › Bildschirme with a notebook and a projector: the list of Bildschirm opened.
+                ShowScreens.ForTests = () =>
+                [
+                    new ShowScreen(0, new Avalonia.PixelRect(0, 0, 2560, 1440), IsPrimary: true),
+                    new ShowScreen(1, new Avalonia.PixelRect(2560, 0, 1920, 1080), IsPrimary: false),
+                ];
+                window.Ribbon.SelectTab("slideShow");
+                Dispatcher.UIThread.RunJobs();
+                window.GetVisualDescendantsOf<ThixOffice.Desktop.Controls.RibbonFlyoutButton>().FirstOrDefault(button => button.Label.StartsWith("Bildschirm", StringComparison.Ordinal))?.Open();
+                break;
             case PrintScene:
                 window.ShowBackstage(ShowPrintPage.PageId);
                 break;
@@ -135,8 +164,11 @@ public partial class App : OfficeApplication
         var editor = (ShowEditor)window.Editor;
         switch (name)
         {
-            case PresenterScene when shown is Window presenter:
+            case PresenterScene or PresenterSlidesScene or ShowControlsScene when shown is Window presenter:
                 presenter.Close();
+                break;
+            case ScreensScene:
+                ShowScreens.ForTests = null;
                 break;
             case PrintScene or ExportScene:
                 window.Backstage.Close();

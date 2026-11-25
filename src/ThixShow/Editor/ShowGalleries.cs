@@ -31,6 +31,7 @@ internal static class ShowGalleries
     public const string ShapesGallery = "show.gallery.shapes";
     public const string DesignGallery = "show.gallery.designs";
     public const string TablePicker = "show.gallery.table";
+    public const string ScreenChoice = "show.gallery.screen";
 
     /// <summary>The ribbon's own controls of ThixShow by item id, or null.</summary>
     public static Control? Create(OfficeWindow window, string id) => id switch
@@ -41,6 +42,7 @@ internal static class ShowGalleries
         LayoutGallery => new RibbonFlyoutButton(window, ShowCommandIds.Layout, "Layout", "template", button => Layouts(window, button, newSlide: false), large: false),
         ShapesGallery => new RibbonFlyoutButton(window, ShowCommandIds.Shapes, "Formen", "shapes", button => Shapes(window, button, ShowCommandIds.Shapes), tooltip: "Formen – wählen Sie eine Form und ziehen Sie sie auf der Folie auf"),
         DesignGallery => new DesignStrip(window),
+        ScreenChoice => ScreenButton(window),
         TablePicker => new TablePicker(window, ShowCommandIds.InsertTable, (rows, columns) => Apply(window, ShowCommandIds.InsertTable, $"{rows.ToString(CultureInfo.InvariantCulture)}x{columns.ToString(CultureInfo.InvariantCulture)}")),
         _ => null,
     };
@@ -52,6 +54,79 @@ internal static class ShowGalleries
         {
             _ = command.ApplyAsync(value);
         }
+    }
+
+    /// <summary>
+    /// Bildschirmpräsentation › Bildschirme › Bildschirm: a button naming the choice; its list is made of the screens connected when it
+    /// opens ("Automatisch" with its rule, then "Bildschirm 1 – 2560 × 1440 (Hauptbildschirm)" …).
+    /// </summary>
+    private static RibbonFlyoutButton ScreenButton(OfficeWindow window)
+    {
+        var button = new RibbonFlyoutButton(window, ShowCommandIds.ChooseScreen, ScreenButtonLabel(window), "tv", flyout => Screens(window, flyout), large: false,
+            tooltip: "Bildschirm – wählt, wo die Präsentation läuft. " + Show.ShowScreens.AutomaticRule);
+        window.Commands.StateChanged += (_, _) => Ui.Post(() => button.Label = ScreenButtonLabel(window));
+        return button;
+    }
+
+    private static string ScreenButtonLabel(OfficeWindow window) =>
+        Show.ShowScreens.Chosen(Show.ShowScreens.All(window)) is { } screen ? $"Bildschirm: {(screen.Index + 1).ToString(CultureInfo.CurrentCulture)}" : "Bildschirm: Automatisch";
+
+    /// <summary>The list of the screen choice, read now.</summary>
+    internal static Control Screens(OfficeWindow window, RibbonFlyoutButton? button)
+    {
+        var screens = Show.ShowScreens.All(window);
+        var chosen = Show.ShowScreens.Chosen(screens);
+        var heading = new TextBlock { Text = "Präsentation zeigen auf", FontWeight = FontWeight.SemiBold, Margin = new Thickness(8, 4, 8, 6) };
+        var list = new StackPanel { Spacing = 2, Width = 360, Children = { heading } };
+        list.Children.Add(ScreenEntry(window, button, Show.ShowScreens.Automatic,
+            "Mit zwei Bildschirmen der, der nicht der Hauptbildschirm ist (die Referentenansicht auf dem anderen), sonst der Bildschirm des Fensters.",
+            chosen is null, Show.ShowScreens.Automatic));
+        foreach (var screen in screens)
+        {
+            list.Children.Add(ScreenEntry(window, button, screen.Label, null, chosen == screen, screen.Index.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        if (screens.Count < 2)
+        {
+            var hint = new TextBlock
+            {
+                Text = "Nur ein Bildschirm ist angeschlossen: Die Präsentation füllt ihn. Die Referentenansicht können Sie mit „Referentenansicht testen“ (Alt+F5) in einem Fenster ausprobieren.",
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(8, 8, 8, 4),
+            }.Themed("MatText.Muted");
+            list.Children.Add(hint);
+        }
+
+        return list;
+    }
+
+    private static Button ScreenEntry(OfficeWindow window, RibbonFlyoutButton? button, string title, string? detail, bool isChosen, string value)
+    {
+        var check = new MatIcon { Icon = "check", Size = 16, IsVisible = isChosen, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 2, 0, 0) };
+        check.Use(MatIcon.ForegroundProperty, "Mat.AccentText");
+        var texts = new StackPanel { Spacing = 2, Children = { new TextBlock { Text = title, TextWrapping = TextWrapping.Wrap } } };
+        if (detail is not null)
+        {
+            texts.Children.Add(new TextBlock { Text = detail, TextWrapping = TextWrapping.Wrap, FontSize = 12 }.Themed("MatText.Muted"));
+        }
+
+        var content = new Grid { ColumnDefinitions = new ColumnDefinitions("24,*"), Children = { check, texts } };
+        Grid.SetColumn(texts, 1);
+        var entry = new Button
+        {
+            Content = content,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Padding = new Thickness(8, 6),
+        }.Themed("MatButton.Ghost");
+        AutomationProperties.SetName(entry, title);
+        entry.Click += (_, _) =>
+        {
+            Apply(window, ShowCommandIds.ChooseScreen, value);
+            window.Commands.Invalidate();
+            button?.Close();
+        };
+        return entry;
     }
 
     /// <summary>The layouts of the current slide's master as pictures with their names.</summary>

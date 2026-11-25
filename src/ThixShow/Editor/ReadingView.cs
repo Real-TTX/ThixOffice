@@ -30,7 +30,7 @@ internal sealed class ReadingView : Panel
 
             if (point.Properties.IsRightButtonPressed)
             {
-                Surface.ContextMenu = ShowNavigation.Menu(_controller, null, false);
+                Surface.ContextMenu = ShowNavigation.Menu(_controller, new ShowMenuActions());
                 return;
             }
 

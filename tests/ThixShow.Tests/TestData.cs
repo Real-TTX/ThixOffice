@@ -80,6 +80,10 @@ public sealed class TestData : IDisposable
 
     public void Dispose()
     {
+        // A show a failed test left running, the screens and the idle time it gave.
+        Show.SlideShowWindow.Current?.Controller.End();
+        Show.ShowScreens.ForTests = null;
+        Show.SlideShowWindow.IdleDelay = TimeSpan.FromSeconds(3);
         foreach (var window in (Application.Current as App)?.DocumentWindows.ToList() ?? [])
         {
             window.CloseKeepingRecovery();

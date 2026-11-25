@@ -130,7 +130,8 @@ public static class ShowCommandIds
     public const string StartShow = "show.start";
     public const string StartFromCurrent = "show.startFromCurrent";
     public const string PresenterView = "show.presenterView";
-    public const string ChooseScreen = "show.chooseScreen";
+    public const string ChooseScreen = "show.chooseScreen"; // value: "Automatisch", a screen's label ("Bildschirm 2 – …") or its index
+    public const string TestPresenterView = "show.testPresenterView";
     public const string LoopShow = "show.loop";
 
     // Ansicht
