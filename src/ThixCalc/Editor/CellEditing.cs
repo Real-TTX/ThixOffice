@@ -173,7 +173,8 @@ internal sealed class CellEditing
             CellBox.Measure(Size.Infinity);
             CellBox.Arrange(new Rect(CellBox.DesiredSize));
             var local = point - new Point(Canvas.GetLeft(CellBox), Canvas.GetTop(CellBox));
-            CellBox.Select(PositionAt(CellBox, local), PositionAt(CellBox, local));
+            var position = CellBox.TextPositionAt(local);
+            CellBox.Select(position, position);
         }
 
         if (IsInFormulaBar)
@@ -182,12 +183,6 @@ internal sealed class CellEditing
         }
 
         Refresh();
-    }
-
-    private static int PositionAt(FormulaTextBox box, Point point)
-    {
-        var layout = new TextLayout(box.Text.Length == 0 ? " " : box.Text, box.Typeface, box.FontSize, box.Foreground);
-        return Math.Clamp(layout.HitTestPoint(new Point(point.X - box.Padding.Left, point.Y - box.Padding.Top)).TextPosition, 0, box.Text.Length);
     }
 
     /// <summary>Ends the input (Eingabe and friends): true when the cell took it (or nothing changed), false when it stays open.</summary>
@@ -625,9 +620,12 @@ internal sealed class CellEditing
     {
         var style = sheet.GetStyle(Cell.Row, Cell.Column);
         var zoom = _editor.Zoom / 100;
-        CellBox.Typeface = new Typeface(style.Font.Name, style.Font.Italic ? FontStyle.Italic : FontStyle.Normal, style.Font.Bold ? FontWeight.Bold : FontWeight.Normal);
+        // The family the grid draws with (a missing font's substitute), so the field's text looks and sits as the cell's.
+        var family = CalcFonts.Skia.GetTypeface(new ThixOffice.Text.FontFace(style.Font.Name, style.Font.Bold, style.Font.Italic)).FamilyName;
+        CellBox.Typeface = new Typeface(family, style.Font.Italic ? FontStyle.Italic : FontStyle.Normal, style.Font.Bold ? FontWeight.Bold : FontWeight.Normal);
         CellBox.FontSize = Math.Max(4, style.Font.Size * 96 / 72 * zoom);
         CellBox.Wrap = style.Alignment.WrapText;
+        CellBox.FrameBrush = ThixOffice.Desktop.Ui.Brush("Mat.Accent");
     }
 
     /// <summary>Puts the cell's field over the edited cell (it grows to the right with its text, like Excel's).</summary>
@@ -642,15 +640,49 @@ internal sealed class CellEditing
         CellBox.IsVisible = true;
         var surface = _editor.Surface;
         var viewport = surface.Viewport();
-        var rect = viewport.CellRect(Cell);
         var scaling = surface.Scale / Math.Max(0.01, _editor.Zoom / 100);
-        var left = rect.X / scaling;
-        var top = rect.Y / scaling;
-        Canvas.SetLeft(CellBox, left);
-        Canvas.SetTop(CellBox, top);
-        CellBox.MinimumWidth = Math.Max(8, rect.Width / scaling);
-        CellBox.MinHeight = Math.Max(8, rect.Height / scaling);
-        CellBox.MaximumWidth = Math.Max(CellBox.MinimumWidth, surface.Bounds.Width - left - 2);
+        var geometry = CellBoxGeometry.Of(viewport, _editor.Metrics, Cell, scaling);
+        Canvas.SetLeft(CellBox, geometry.Left);
+        Canvas.SetTop(CellBox, geometry.Top);
+        CellBox.Frame = geometry.Frame;
+        CellBox.Padding = geometry.Padding;
+        CellBox.Baseline = geometry.Baseline;
+        CellBox.TopBaseline = geometry.TopBaseline;
+        CellBox.MinimumWidth = geometry.Width;
+        CellBox.MinHeight = geometry.Height;
+        CellBox.MaximumWidth = Math.Max(CellBox.MinimumWidth, Math.Floor((surface.Bounds.Width - geometry.Left) * scaling) / scaling);
         CellBox.InvalidateMeasure();
+        CellBox.InvalidateVisual();
+    }
+}
+
+/// <summary>
+/// Where the cell's field goes, in DIPs of the overlay: its edges are the active cell's border (the pixels
+/// <see cref="SelectionRenderer.ActiveFrame"/> covers, so the border stays as it was in Bereit and grows with the field),
+/// and its text lies where the grid draws the cell's text (<see cref="GridRenderer.TextOrigin"/>) – nothing moves when editing
+/// starts. Everything is computed in device pixels first, so edges and frame stay whole pixels at 125 % and 150 %.
+/// </summary>
+internal readonly record struct CellBoxGeometry(double Left, double Top, double Width, double Height, Thickness Frame, Thickness Padding, double Baseline, double TopBaseline)
+{
+    public static CellBoxGeometry Of(GridViewport viewport, GridMetrics metrics, CellAddress cell, double scaling)
+    {
+        var range = viewport.Layout.Sheet.Merges.Find(cell.Row, cell.Column) ?? CellRange.Cell(cell);
+        var rect = viewport.RangeRect(range);
+        var outer = SelectionRenderer.ActiveFrame(viewport, range);
+        var border = SelectionRenderer.ActiveBorderWidth;
+        var origin = GridRenderer.TextOrigin(viewport, metrics, range.First);
+        var padding = Math.Max(GridRenderer.TextPadding(viewport), border);
+
+        // The border's bands: 2 pixels, the left/top one 1 pixel where a pane boundary cuts it (as the grid clips it there).
+        var frame = new Thickness(Math.Max(0, rect.X + border / 2 - outer.X) / scaling, Math.Max(0, rect.Y + border / 2 - outer.Y) / scaling, border / scaling, border / scaling);
+        return new CellBoxGeometry(
+            outer.X / scaling,
+            outer.Y / scaling,
+            outer.Width / scaling,
+            outer.Height / scaling,
+            frame,
+            new Thickness((origin.X - outer.X) / scaling, (rect.Y + padding - outer.Y) / scaling, padding / scaling, padding / scaling),
+            (origin.Baseline - outer.Y) / scaling,
+            (origin.TopBaseline - outer.Y) / scaling);
     }
 }

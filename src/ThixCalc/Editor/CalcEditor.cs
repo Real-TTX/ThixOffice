@@ -66,7 +66,7 @@ public sealed class CalcEditor : OfficeEditor
         Surface = new GridSurface(this);
         Avalonia.Automation.AutomationProperties.SetName(Surface, "Tabelle");
 
-        var cellBox = new FormulaTextBox { GrowsWithText = true, Padding = new Thickness(2, 0, 2, 0) };
+        var cellBox = new FormulaTextBox { GrowsWithText = true };
         cellBox.FieldBackground = new Avalonia.Media.SolidColorBrush(GridPalette.SheetColor);
         Avalonia.Automation.AutomationProperties.SetName(cellBox, "Zelle bearbeiten");
         var barBox = new FormulaTextBox();

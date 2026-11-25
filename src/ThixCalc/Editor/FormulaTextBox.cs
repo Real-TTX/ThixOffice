@@ -90,6 +90,23 @@ internal sealed class FormulaTextBox : Control, ITextField
 
     public Thickness Padding { get; set; } = new(3, 1);
 
+    /// <summary>
+    /// Where the baseline of a single line goes, from the field's top (the cell's field: where the grid draws the cell's text,
+    /// by its vertical alignment); null: the text starts at <see cref="Padding"/>'s top.
+    /// </summary>
+    public double? Baseline { get; set; }
+
+    /// <summary>The baseline of the first line when the text has several (it starts at the top, as in Excel); null: <see cref="Baseline"/>.</summary>
+    public double? TopBaseline { get; set; }
+
+    /// <summary>A frame drawn inside the field's edges (the cell's field: the active cell's border around the edit area).</summary>
+    public Thickness Frame { get; set; }
+
+    public IBrush? FrameBrush { get; set; }
+
+    /// <summary>The height of one line of text in the field's font.</summary>
+    public double LineHeight => new TextLayout(" ", Typeface, FontSize, Foreground).Height;
+
     /// <summary>Wrap at the field's width (the formula bar, a cell with Zeilenumbruch); otherwise one line that scrolls.</summary>
     public bool Wrap { get; set; }
 
@@ -200,7 +217,42 @@ internal sealed class FormulaTextBox : Control, ITextField
     {
         var layout = Layout();
         var rect = layout.HitTestTextPosition(Math.Min(_caret + (_preedit?.Length ?? 0), DisplayText.Length));
-        return new Rect(rect.X + Padding.Left - _offsetX, rect.Y + Padding.Top - _offsetY, 1, Math.Max(rect.Height, FontSize * 1.2));
+        return new Rect(rect.X + Padding.Left - _offsetX, rect.Y + TextTop(layout) - _offsetY, 1, Math.Max(rect.Height, FontSize * 1.2));
+    }
+
+    /// <summary>Where the text layout's top goes in the field: on <see cref="Baseline"/> / <see cref="TopBaseline"/>, else the padding.</summary>
+    private double TextTop(TextLayout layout)
+    {
+        if (Baseline is not { } single || layout.TextLines.Count == 0)
+        {
+            return Padding.Top;
+        }
+
+        var baseline = layout.TextLines.Count > 1 ? TopBaseline ?? single : single;
+        return baseline - layout.TextLines[0].Baseline;
+    }
+
+    /// <summary>The position in the text under a point of the field.</summary>
+    public int TextPositionAt(Point point) => PositionAt(point);
+
+    /// <summary>The origin of the text (its layout's top left) in the field, for tests and placement.</summary>
+    public Point TextOrigin
+    {
+        get
+        {
+            var layout = Layout();
+            return new Point(Padding.Left - _offsetX, TextTop(layout) - _offsetY);
+        }
+    }
+
+    /// <summary>The baseline of the first line, from the field's top.</summary>
+    public double FirstBaseline
+    {
+        get
+        {
+            var layout = Layout();
+            return TextTop(layout) - _offsetY + (layout.TextLines.Count > 0 ? layout.TextLines[0].Baseline : 0);
+        }
     }
 
     // ===== Keys =====
@@ -504,7 +556,8 @@ internal sealed class FormulaTextBox : Control, ITextField
 
     private int PositionAt(Point point)
     {
-        var hit = Layout().HitTestPoint(new Point(point.X - Padding.Left + _offsetX, point.Y - Padding.Top + _offsetY));
+        var layout = Layout();
+        var hit = layout.HitTestPoint(new Point(point.X - Padding.Left + _offsetX, point.Y - TextTop(layout) + _offsetY));
         return Math.Clamp(hit.TextPosition, 0, _text.Length);
     }
 
@@ -563,6 +616,12 @@ internal sealed class FormulaTextBox : Control, ITextField
     {
         if (GrowsWithText)
         {
+            if (Wrap)
+            {
+                // A cell with Zeilenumbruch: the text wraps at the cell's width and the field grows down (Excel).
+                return Math.Max(10, MinimumWidth - Padding.Left - Padding.Right);
+            }
+
             var natural = NaturalWidth();
             return natural + Padding.Left + Padding.Right <= MaximumWidth ? double.PositiveInfinity : Math.Max(10, MaximumWidth - Padding.Left - Padding.Right);
         }
@@ -585,8 +644,24 @@ internal sealed class FormulaTextBox : Control, ITextField
 
         _layout = null;
         var layout = Layout();
-        var width = Math.Clamp(layout.WidthIncludingTrailingWhitespace + Padding.Left + Padding.Right + 2, MinimumWidth, Math.Max(MinimumWidth, MaximumWidth));
-        return new Size(width, Math.Max(MinHeight, layout.Height + Padding.Top + Padding.Bottom));
+        // A wrapping field keeps the cell's width (wrapped lines end in their spaces, which must not widen it); a growing one
+        // keeps room for the caret after the last character (the text area ends at the frame).
+        const double caretRoom = 2;
+        var width = Wrap ? MinimumWidth : Math.Clamp(layout.WidthIncludingTrailingWhitespace + Padding.Left + Padding.Right + caretRoom, MinimumWidth, Math.Max(MinimumWidth, MaximumWidth));
+        // One line sits on the cell's baseline inside the cell; several lines start at the top and the field grows down.
+        var bottom = Baseline is not null && layout.TextLines.Count <= 1 ? 0 : Padding.Bottom;
+        var height = Math.Max(MinHeight, TextTop(layout) + layout.Height + bottom);
+        return new Size(SnapUp(width), SnapUp(height));
+    }
+
+    /// <summary>The screen's device pixels per DIP (1 before the field is shown).</summary>
+    private double Scaling => TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+
+    /// <summary>A length rounded up to whole device pixels (the field's edges and frame stay sharp at 125 % and 150 %).</summary>
+    private double SnapUp(double length)
+    {
+        var scaling = Scaling;
+        return Math.Ceiling(length * scaling - 0.01) / scaling;
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -615,8 +690,18 @@ internal sealed class FormulaTextBox : Control, ITextField
         }
 
         var layout = Layout();
-        var origin = new Point(Padding.Left - _offsetX, Padding.Top - _offsetY);
-        using (context.PushClip(bounds))
+        var origin = new Point(Padding.Left - _offsetX, TextTop(layout) - _offsetY);
+        var inner = bounds.Deflate(Frame);
+        if (FrameBrush is { } frame && Frame != default)
+        {
+            // Four bands inside the edges: exactly the active cell's border (whole device pixels, given by the cell editing).
+            context.FillRectangle(frame, new Rect(0, 0, bounds.Width, Frame.Top));
+            context.FillRectangle(frame, new Rect(0, bounds.Height - Frame.Bottom, bounds.Width, Frame.Bottom));
+            context.FillRectangle(frame, new Rect(0, 0, Frame.Left, bounds.Height));
+            context.FillRectangle(frame, new Rect(bounds.Width - Frame.Right, 0, Frame.Right, bounds.Height));
+        }
+
+        using (context.PushClip(inner))
         {
             if (SelectionStart != SelectionEnd && (IsActive || IsFocused))
             {
@@ -630,7 +715,9 @@ internal sealed class FormulaTextBox : Control, ITextField
             if ((IsActive || IsFocused) && _caretOn && SelectionStart == SelectionEnd)
             {
                 var caret = CaretRect();
-                context.FillRectangle(CaretBrush ?? Foreground, new Rect(Math.Round(caret.X), caret.Y, 1, caret.Height));
+                var scaling = Scaling;
+                var caretWidth = Math.Max(1, Math.Round(scaling)) / scaling;
+                context.FillRectangle(CaretBrush ?? Foreground, new Rect(Math.Round(caret.X * scaling) / scaling, caret.Y, caretWidth, caret.Height));
             }
         }
     }
@@ -671,7 +758,13 @@ internal sealed class FormulaTextBox : Control, ITextField
         var layout = Layout();
         var caret = layout.HitTestTextPosition(Math.Min(_caret, DisplayText.Length));
         var width = Bounds.Width - Padding.Left - Padding.Right;
-        var height = Bounds.Height - Padding.Top - Padding.Bottom;
+        var height = Bounds.Height - TextTop(layout) - Padding.Bottom;
+        if (Baseline is not null)
+        {
+            // The cell's field grows with its lines: its text never scrolls up and down.
+            height = double.PositiveInfinity;
+        }
+
         if (double.IsInfinity(WrapWidth()) && !GrowsWithText)
         {
             if (caret.X - _offsetX > width - 2)

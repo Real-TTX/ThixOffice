@@ -24,6 +24,7 @@ namespace ThixCalc;
 public partial class App : OfficeApplication
 {
     public const string FormulaScene = "main-formula";
+    public const string EditScene = "main-edit";
     public const string FindScene = "main-find";
     public const string FormatCellsScene = "dialog-format-cells";
     public const string FunctionScene = "dialog-function";
@@ -40,7 +41,7 @@ public partial class App : OfficeApplication
 
     public override OfficeAppDefinition Definition => ThixCalcApp.Definition;
 
-    public override IReadOnlyList<string> SnapshotScenes => [FormulaScene, ViewScene, FindScene, FormatCellsScene, FunctionScene, FunctionArgumentsScene, PageSetupScene, PrintScene, ChartScene, ChartDesignScene, TableScene, FilterScene, PivotScene, PivotDesignScene];
+    public override IReadOnlyList<string> SnapshotScenes => [FormulaScene, EditScene, ViewScene, FindScene, FormatCellsScene, FunctionScene, FunctionArgumentsScene, PageSetupScene, PrintScene, ChartScene, ChartDesignScene, TableScene, FilterScene, PivotScene, PivotDesignScene];
 
     public override string SampleDocumentName => "Haushaltsbudget 2026";
 
@@ -90,6 +91,13 @@ public partial class App : OfficeApplication
                 Dispatcher.UIThread.RunJobs();
                 editor.Editing.Begin(EditStart.Typing);
                 editor.Editing.CellBox.InsertText("=SUMME(H7:H13)/H4+SUMMEW");
+                Dispatcher.UIThread.RunJobs();
+                return window;
+            case EditScene:
+                // F2 on a text cell: the text stays where the grid drew it, the active cell's border around the field.
+                editor.Session.Select(new CellAddress(8, 0));
+                Dispatcher.UIThread.RunJobs();
+                editor.Editing.Begin(EditStart.Edit);
                 Dispatcher.UIThread.RunJobs();
                 return window;
             case ViewScene:
@@ -178,7 +186,7 @@ public partial class App : OfficeApplication
         var editor = (CalcEditor)window.Editor;
         switch (name)
         {
-            case FormulaScene:
+            case FormulaScene or EditScene:
                 editor.Editing.Cancel();
                 editor.Session.Select(SampleWorkbook.StartCell);
                 break;
