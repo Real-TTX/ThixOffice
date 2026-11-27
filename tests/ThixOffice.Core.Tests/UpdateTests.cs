@@ -97,6 +97,23 @@ public sealed class UpdateTests
     }
 
     [Fact]
+    public void After_Jetzt_installieren_the_documents_that_were_open_come_back_once()
+    {
+        using var data = new TestData();
+        Assert.Empty(UpdateService.TakeReopenAfterUpdate()); // an update at closing time: nothing to open
+
+        var report = data.File("Bericht.tst");
+        UpdateService.ReopenAfterUpdate([report, Path.Combine(data.DocumentsFolder, "Weg.tst")]);
+        Assert.Equal([report], UpdateService.TakeReopenAfterUpdate()); // a file that went meanwhile is left out
+        Assert.Empty(UpdateService.TakeReopenAfterUpdate()); // once: the next start opens nothing of it
+
+        // A marker left from long ago (an update that never ran) opens nothing.
+        UpdateService.ReopenAfterUpdate([report]);
+        File.SetLastWriteTimeUtc(Path.Combine(Infrastructure.AppPaths.UpdateDirectory, "reopen-after-update"), DateTime.UtcNow.AddHours(-1));
+        Assert.Empty(UpdateService.TakeReopenAfterUpdate());
+    }
+
+    [Fact]
     public void The_Mac_bundle_is_found_from_the_program_inside_it()
     {
         var bundle = Path.Combine(Path.GetTempPath(), "ThixTest.app");

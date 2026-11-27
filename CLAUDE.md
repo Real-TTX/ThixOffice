@@ -85,7 +85,9 @@ src/ThixOffice.Core        (no UI) shared by every app; every service is paramet
                            --update [--restart] / --configure [--desktop-shortcut=yes|no --automatic-updates=yes|no --file-types=.a,.b|none|default],
                            a wrong option or value = exit code 2, nothing installed; Defaults/Current/Apply; Models/InstallerConfig;
                            Platform/MacOS/MacFileAssociations: Launch Services for the chosen types), AutostartService (off by default), UpdateService + MacAppBundle (channel manifest, SHA-256, 6 h,
-                           install on exit)
+                           install on exit, no restart; "Jetzt installieren": every window closes - the last one does not end the app
+                           then - and the update starts it again with "--restart" and the open documents, carried over by the marker
+                           "reopen-after-update" in the update folder)
   Infrastructure/          AppInfo (Initialize(definition, appAssembly), Version/Channel/BuildNumber from the app's assembly, Pin for
                            snapshots), AppPaths, JsonFileStore, UserRegistry (IUserRegistry: WindowsUserRegistry | MemoryUserRegistry),
                            TokenStore (DPAPI / Keychain), Log, ProblemReports, FileSystemProbe (snapshots show C:\Users\Anna\…),

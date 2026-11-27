@@ -43,6 +43,7 @@ public abstract class OfficeApplication : Application
     private bool _isExiting;
     private bool _hasExited;
     private bool _updateStarted;
+    private bool _installingUpdate;
 
     public static OfficeApplication Instance => (OfficeApplication)Current!;
 
@@ -525,29 +526,71 @@ public abstract class OfficeApplication : Application
         Log.Info($"{Definition.Name} ended");
     }
 
-    /// <summary>"Jetzt installieren": every window is closed (each asks about its changes), then the update starts and opens the app again.</summary>
+    /// <summary>
+    /// "Jetzt installieren": every window is closed (each asks about its changes), then the update starts and opens the app again with
+    /// the documents that were open (local files; a new one when there were none). Closing the last window does not end the app meanwhile
+    /// (on Windows it did, and the update then ran without a restart, or not at all). Abbrechen at a document keeps the app; the documents
+    /// closed before it open again.
+    /// </summary>
     public async Task<bool> InstallUpdateNowAsync(DownloadedUpdate update)
     {
-        foreach (var window in _windows.ToList())
+        var reopen = new List<string>();
+        _installingUpdate = true;
+        try
         {
-            window.Close();
-            await Task.Delay(50);
-            while (window.IsVisible && window.OwnedWindows.Count > 0)
+            foreach (var window in _windows.ToList())
             {
-                await Task.Delay(100);
+                window.Close();
+                await Task.Delay(50);
+                while (window.IsVisible && window.OwnedWindows.Count > 0)
+                {
+                    await Task.Delay(100);
+                }
+
+                if (_windows.Contains(window))
+                {
+                    _installingUpdate = false;
+                    await ReopenAsync(reopen);
+                    return false; // the user kept a document open (Abbrechen)
+                }
+
+                if (!Definition.IsWorkspace && window.Document is { IsInDrive: false, FilePath: { } path })
+                {
+                    reopen.Add(path); // saved while closing, too
+                }
             }
 
-            if (_windows.Contains(window))
+            // Before the installer starts: on Windows it signals this instance to end at once, and OnExit must not start it again.
+            _updateStarted = true;
+            await UpdateService.StartInstallerAsync(update, restart: true, reopen);
+        }
+        catch (Exception exception) when (exception is IOException or BusinessException or System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            Log.Warning($"The update could not be started: {exception.Message}");
+            _updateStarted = false;
+            _installingUpdate = false;
+            await ReopenAsync(reopen);
+            if (_windows.LastOrDefault() is { } owner)
             {
-                return false; // the user kept a document open (Abbrechen)
+                await QuestionDialog.ShowMessageAsync(owner, "Update nicht möglich", exception.Message);
             }
+
+            return false;
         }
 
-        await UpdateService.StartInstallerAsync(update, restart: true);
-        _updateStarted = true;
         _isExiting = false;
         ExitApplication();
         return true;
+    }
+
+    /// <summary>The update did not go ahead: the documents closed for it open again (a workspace app its main window).</summary>
+    private async Task ReopenAsync(IReadOnlyList<string> documents)
+    {
+        await OpenFilesAsync(documents);
+        if (_windows.Count == 0 && !_isExiting)
+        {
+            NewDocumentWindow();
+        }
     }
 
     // ===== Start =====
@@ -575,6 +618,8 @@ public abstract class OfficeApplication : Application
             ThixOffice.Core.Platform.Windows.WindowsToasts.UseAppUserModelId(Definition.AppUserModelId);
         }
 
+        // After "Jetzt installieren": the documents that were open (the marker lives in the update folder, which goes next).
+        var reopen = UpdateService.TakeReopenAfterUpdate();
         UpdateService.RemoveOldPackages();
 
         ApplyTheme(SettingsService.Get().Theme);
@@ -592,9 +637,10 @@ public abstract class OfficeApplication : Application
         else
         {
             var recovered = RecoverDocuments();
-            if (files.Count > 0)
+            var documents = files.Concat(reopen).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (documents.Count > 0)
             {
-                _ = OpenFilesAtStartAsync(files);
+                _ = OpenFilesAtStartAsync(documents);
             }
             else if (recovered == 0)
             {
@@ -743,7 +789,7 @@ public abstract class OfficeApplication : Application
             _desktop.MainWindow = _windows.FirstOrDefault();
         }
 
-        if (_windows.Count == 0 && _desktop is not null && !KeepsRunningWithoutWindows && LastWindowEndsApp(OperatingSystem.IsMacOS()))
+        if (_windows.Count == 0 && _desktop is not null && !KeepsRunningWithoutWindows && !_installingUpdate && LastWindowEndsApp(OperatingSystem.IsMacOS()))
         {
             ExitApplication();
         }

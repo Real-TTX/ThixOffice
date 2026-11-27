@@ -188,9 +188,10 @@ public static class UpdateService
 
     /// <summary>
     /// Starts the installation of a downloaded update. The caller ends the app right afterwards: the setup waits for it
-    /// (Windows) or the bundle is replaced once it has ended (macOS). <paramref name="restart"/>: the app opens again.
+    /// (Windows) or the bundle is replaced once it has ended (macOS). <paramref name="restart"/>: the app opens again, with
+    /// <paramref name="reopen"/> (the documents that were open; <see cref="TakeReopenAfterUpdate"/>).
     /// </summary>
-    public static async Task StartInstallerAsync(DownloadedUpdate update, bool restart)
+    public static async Task StartInstallerAsync(DownloadedUpdate update, bool restart, IReadOnlyList<string>? reopen = null)
     {
         AccessPolicy.EnsureUpdatesAllowed();
         if (!File.Exists(update.PackagePath))
@@ -200,6 +201,12 @@ public static class UpdateService
         }
 
         Log.Info($"Starting update to {update.Manifest.Version} (restart: {restart})");
+        // Before the new program starts: on Windows it ends this one at once.
+        if (restart)
+        {
+            ReopenAfterUpdate(reopen ?? []);
+        }
+
         if (OperatingSystem.IsMacOS())
         {
             await Task.Run(() =>
@@ -225,6 +232,45 @@ public static class UpdateService
             Log.Info($"Starting the update took {started.Elapsed.TotalSeconds:0} s (virus scan of the new program)");
         }
     }
+
+    /// <summary>
+    /// "Jetzt installieren": the app that the update starts again opens <paramref name="documents"/> (the files that were open). A marker in
+    /// the update folder carries them over the restart; read it with <see cref="TakeReopenAfterUpdate"/> before <see cref="RemoveOldPackages"/>.
+    /// </summary>
+    public static void ReopenAfterUpdate(IEnumerable<string> documents)
+    {
+        Directory.CreateDirectory(AppPaths.UpdateDirectory);
+        File.WriteAllLines(ReopenMarker, documents);
+    }
+
+    /// <summary>
+    /// Once after "Jetzt installieren": the documents to open again (those that still exist; empty: none were open), else an empty list. A
+    /// marker older than 15 minutes (an update that never ran) is stale. The marker goes.
+    /// </summary>
+    public static IReadOnlyList<string> TakeReopenAfterUpdate()
+    {
+        if (!File.Exists(ReopenMarker))
+        {
+            return [];
+        }
+
+        try
+        {
+            var written = File.GetLastWriteTimeUtc(ReopenMarker);
+            var documents = File.ReadAllLines(ReopenMarker);
+            File.Delete(ReopenMarker);
+            return DateTime.UtcNow - written < TimeSpan.FromMinutes(15)
+                ? documents.Where(path => path.Length > 0 && File.Exists(path)).ToList()
+                : [];
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Log.Warning($"The documents to open after the update could not be read: {exception.Message}");
+            return [];
+        }
+    }
+
+    private static string ReopenMarker => Path.Combine(AppPaths.UpdateDirectory, "reopen-after-update");
 
     /// <summary>Removes packages of earlier updates (at start: the new version runs, its setup is no longer needed).</summary>
     public static void RemoveOldPackages()

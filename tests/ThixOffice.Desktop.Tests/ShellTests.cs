@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 using MatDesktop;
 using ThixOffice.Core.Business;
 using ThixOffice.Core.Commands;
+using ThixOffice.Core.Models;
 using ThixOffice.Desktop.Dialogs;
 using ThixOffice.Desktop.Pages;
 using ThixOffice.Desktop.Shell;
@@ -390,6 +391,62 @@ public sealed class ShellTests
     {
         Assert.True(OfficeApplication.LastWindowEndsApp(isMacOS: false));
         Assert.False(OfficeApplication.LastWindowEndsApp(isMacOS: true));
+    }
+
+    [AvaloniaFact]
+    public async Task Jetzt_installieren_closes_every_window_and_what_stops_it_brings_the_documents_back()
+    {
+        using var data = new TestData();
+        var first = data.File("Erstes.tst", "eins");
+        await TestData.App.OpenFilesAsync([first]);
+        var second = TestData.App.NewDocumentWindow();
+        ((TestEditor)second.Editor).Box.Text = "Ungespeichert";
+        TestData.Settle();
+        var manifest = new UpdateManifest("nightly-58-20261127", "nightly", 58, "ThixTestSetup.exe", "AA11", DateTimeOffset.UtcNow);
+        var update = new DownloadedUpdate(manifest, Path.Combine(data.Folder, "ThixTestSetup.exe")); // not there: the start fails
+
+        // Abbrechen at the unsaved document: the app stays, the document closed before it opens again.
+        var install = TestData.App.InstallUpdateNowAsync(update);
+        await SettleUntil(() => second.OwnedWindows.OfType<QuestionDialog>().Any());
+        Assert.Null(TestData.App.WindowOf(first));
+        second.OwnedWindows.OfType<QuestionDialog>().Single().Buttons[1].RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); // Abbrechen
+        await SettleUntil(() => install.IsCompleted);
+        Assert.False(await install);
+        Assert.Contains(second, TestData.App.DocumentWindows);
+        Assert.NotNull(TestData.App.WindowOf(first));
+
+        // Every window closed (Nicht speichern), but the update cannot start: the saved document comes back and the reason shows.
+        install = TestData.App.InstallUpdateNowAsync(update);
+        await SettleUntil(() => second.OwnedWindows.OfType<QuestionDialog>().Any());
+        second.OwnedWindows.OfType<QuestionDialog>().Single().Buttons[2].RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); // Nicht speichern
+        await SettleUntil(() => TestData.App.DocumentWindows.Any(window => window.OwnedWindows.OfType<QuestionDialog>().Any()));
+        var owner = Assert.Single(TestData.App.DocumentWindows);
+        Assert.Same(owner, TestData.App.WindowOf(first));
+        var message = owner.OwnedWindows.OfType<QuestionDialog>().Single();
+        Assert.Equal("Update nicht möglich", message.Title);
+        message.Buttons[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await SettleUntil(() => install.IsCompleted);
+        Assert.False(await install);
+        Assert.DoesNotContain(second, TestData.App.DocumentWindows);
+
+        foreach (var window in TestData.App.DocumentWindows.ToList())
+        {
+            window.Close();
+        }
+
+        TestData.Settle();
+    }
+
+    private static async Task SettleUntil(Func<bool> condition)
+    {
+        for (var round = 0; round < 100 && !condition(); round++)
+        {
+            TestData.Settle();
+            await Task.Delay(20);
+        }
+
+        TestData.Settle();
+        Assert.True(condition());
     }
 
     [AvaloniaFact]

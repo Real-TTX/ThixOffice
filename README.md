@@ -466,7 +466,8 @@ Text (.txt) oder CSV fragt die App, ob ohne Kennwort gespeichert werden soll.
   mit“ / „Standard-Apps“ getroffen haben, bleibt. Entfernen über „Installierte Apps“.
 - **macOS:** `ThixWrite-macOS-arm64.dmg` (Apple Silicon) bzw. `-x64.dmg` (Intel) öffnen und ThixWrite in „Programme“ ziehen.
 - Updates kommen automatisch aus dem eigenen Kanal (`release-channel` für main, `nightly-channel` für dev) und werden
-  installiert, wenn ThixWrite geschlossen wird – nie mitten in der Arbeit.
+  installiert, wenn ThixWrite geschlossen wird – nie mitten in der Arbeit. „Jetzt installieren“ (Einstellungen › Updates)
+  schließt alle Fenster und startet die App danach mit den geöffneten Dokumenten wieder.
 - ThixLauncher kann die Apps installieren (je App eigenes Manifest `<app>-update.json`, siehe Plan Abschnitt 6).
 
 **Ohne Fenster** (ThixLauncher, ThixInstall, Administratoren) – die Optionen des Setups als Argumente (MatDesign SETUP-05/08;
